@@ -25,6 +25,8 @@ type Household struct {
 type NewHousehold struct {
 	Name     string
 	Timezone string // IANA name
+	// StarterAreas are created with the household (already translated by the caller).
+	StarterAreas []string
 }
 
 // Member is a household membership with display details.
@@ -51,9 +53,21 @@ func (s *Store) CreateHousehold(ctx context.Context, a Actor, in NewHousehold) (
 			h.ID, h.Name, h.Timezone, now); err != nil {
 			return err
 		}
-		_, err := t.exec(ctx, "INSERT INTO memberships (household_id, user_id, role, joined_at) VALUES (?, ?, ?, ?)",
-			h.ID, a.UserID, RoleOwner, now)
-		return notFoundFK(err)
+		if _, err := t.exec(ctx, "INSERT INTO memberships (household_id, user_id, role, joined_at) VALUES (?, ?, ?, ?)",
+			h.ID, a.UserID, RoleOwner, now); err != nil {
+			return notFoundFK(err)
+		}
+		for _, name := range in.StarterAreas {
+			name, lower, ok := cleanName(name)
+			if !ok {
+				return ErrInvalid
+			}
+			if _, err := t.exec(ctx, "INSERT INTO areas (id, household_id, name, name_lower, created_at) VALUES (?, ?, ?, ?, ?)",
+				ids.New(), h.ID, name, lower, now); err != nil {
+				return conflict(err)
+			}
+		}
+		return nil
 	})
 	if err != nil {
 		return Household{}, err

@@ -161,6 +161,9 @@ func (t *tx) revertCompletion(ctx context.Context, householdID, completionID str
 	if err := t.execOne(ctx, "UPDATE completions SET reverted_at = ? WHERE id = ?", now, completionID); err != nil {
 		return err
 	}
+	if _, err := t.exec(ctx, "DELETE FROM mark_done_tokens WHERE chore_id = ?", choreID); err != nil {
+		return err
+	}
 	if latest != completionID {
 		return nil
 	}

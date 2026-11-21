@@ -613,8 +613,8 @@ type hhFixture struct {
 	inviteID   string
 }
 
-func newHH(t *testing.T) *hhFixture {
-	e := newEnv(t)
+func newHH(t *testing.T, mutate ...func(*Options)) *hhFixture {
+	e := newEnv(t, mutate...)
 	f := &hhFixture{e: e}
 	ctx := context.Background()
 	for _, n := range []string{"a", "m", "g", "b", "x"} {
@@ -645,7 +645,8 @@ func newHH(t *testing.T) *hhFixture {
 
 func (f *hhFixture) path(pattern, hh string) (string, string) {
 	method, p, _ := strings.Cut(pattern, " ")
-	p = strings.NewReplacer("{hh}", hh, "{user}", f.mID, "{invite}", f.inviteID).Replace(p)
+	p = strings.NewReplacer("{hh}", hh, "{user}", f.mID, "{invite}", f.inviteID,
+		"{area}", "nope", "{chore}", "nope", "{completion}", "nope").Replace(p)
 	return method, p
 }
 
@@ -693,7 +694,7 @@ func TestHouseholdIsolation(t *testing.T) {
 			}
 		}
 	}
-	if n < 8 {
+	if n < 30 {
 		t.Fatalf("only %d household routes", n)
 	}
 	// A is intact.

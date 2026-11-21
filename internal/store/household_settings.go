@@ -12,6 +12,9 @@ type HouseholdUpdate struct {
 	Name       *string
 	Timezone   *string
 	QuietHours **QuietHours
+	// DefaultReminderPreset is the household default ("" = none); the caller
+	// validates the name against the scheduler's presets.
+	DefaultReminderPreset *string
 }
 
 // QuietHours are minutes after local midnight; End may be before Start
@@ -37,6 +40,9 @@ func (s *Store) UpdateHousehold(ctx context.Context, a Actor, householdID string
 			return Household{}, ErrInvalid
 		}
 	}
+	if u.DefaultReminderPreset != nil && len(*u.DefaultReminderPreset) > 32 {
+		return Household{}, ErrInvalid
+	}
 	var h Household
 	err := s.manage(ctx, a, householdID, RoleOwner, func(t *tx, _ Role) error {
 		if u.Name != nil {
@@ -46,6 +52,11 @@ func (s *Store) UpdateHousehold(ctx context.Context, a Actor, householdID string
 		}
 		if u.Timezone != nil {
 			if err := t.execOne(ctx, "UPDATE households SET timezone = ? WHERE id = ?", *u.Timezone, householdID); err != nil {
+				return err
+			}
+		}
+		if u.DefaultReminderPreset != nil {
+			if err := t.execOne(ctx, "UPDATE households SET default_reminder_preset = ? WHERE id = ?", *u.DefaultReminderPreset, householdID); err != nil {
 				return err
 			}
 		}

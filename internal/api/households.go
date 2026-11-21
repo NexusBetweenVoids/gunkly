@@ -20,12 +20,15 @@ type householdView struct {
 	Name       string     `json:"name"`
 	Timezone   string     `json:"timezone"`
 	QuietHours *quietView `json:"quietHours"`
-	Role       store.Role `json:"role"`
-	CreatedAt  time.Time  `json:"createdAt"`
+	// DefaultReminderPreset applies to chores without their own ("" = none).
+	DefaultReminderPreset string     `json:"defaultReminderPreset"`
+	Role                  store.Role `json:"role"`
+	CreatedAt             time.Time  `json:"createdAt"`
 }
 
 func viewHousehold(h store.Household) householdView {
-	v := householdView{ID: h.ID, Name: h.Name, Timezone: h.Timezone, Role: h.Role, CreatedAt: h.CreatedAt}
+	v := householdView{ID: h.ID, Name: h.Name, Timezone: h.Timezone, Role: h.Role, CreatedAt: h.CreatedAt,
+		DefaultReminderPreset: h.DefaultReminderPreset}
 	if h.QuietStartMin != nil && h.QuietEndMin != nil {
 		v.QuietHours = &quietView{Start: *h.QuietStartMin, End: *h.QuietEndMin}
 	}
@@ -46,8 +49,9 @@ func (s *Server) listHouseholds(w http.ResponseWriter, r *http.Request, c *call)
 
 func (s *Server) createHousehold(w http.ResponseWriter, r *http.Request, c *call) error {
 	var in struct {
-		Name     string `json:"name"`
-		Timezone string `json:"timezone"`
+		Name         string `json:"name"`
+		Timezone     string `json:"timezone"`
+		StarterAreas bool   `json:"starterAreas"` // also create the starter areas, named in the user's language
 	}
 	if err := decode(r, &in); err != nil {
 		return err
@@ -63,7 +67,11 @@ func (s *Server) createHousehold(w http.ResponseWriter, r *http.Request, c *call
 	if err := s.limits.Check(ctx, limits.HouseholdsPerUser, "", len(hs)); err != nil {
 		return err
 	}
-	h, err := s.st.CreateHousehold(ctx, c.actor(), store.NewHousehold{Name: in.Name, Timezone: in.Timezone})
+	nh := store.NewHousehold{Name: in.Name, Timezone: in.Timezone}
+	if in.StarterAreas {
+		nh.StarterAreas = starterAreas(c.user.Locale)
+	}
+	h, err := s.st.CreateHousehold(ctx, c.actor(), nh)
 	if err != nil {
 		return err
 	}
@@ -85,6 +93,8 @@ func (s *Server) patchHousehold(w http.ResponseWriter, r *http.Request, c *call)
 		Name       *string             `json:"name"`
 		Timezone   *string             `json:"timezone"`
 		QuietHours optional[quietView] `json:"quietHours"`
+		// DefaultReminderPreset is "" (none), "gentle", "nag" or "none".
+		DefaultReminderPreset *string `json:"defaultReminderPreset"`
 	}
 	if err := decode(r, &in); err != nil {
 		return err
@@ -92,7 +102,10 @@ func (s *Server) patchHousehold(w http.ResponseWriter, r *http.Request, c *call)
 	if in.Name != nil && !validName(*in.Name) {
 		return errInvalid
 	}
-	u := store.HouseholdUpdate{Name: in.Name, Timezone: in.Timezone}
+	if in.DefaultReminderPreset != nil && !validPreset(*in.DefaultReminderPreset) {
+		return errInvalid
+	}
+	u := store.HouseholdUpdate{Name: in.Name, Timezone: in.Timezone, DefaultReminderPreset: in.DefaultReminderPreset}
 	if in.QuietHours.set {
 		var q *store.QuietHours
 		if v := in.QuietHours.Value; v != nil {

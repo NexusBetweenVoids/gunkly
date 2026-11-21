@@ -9,7 +9,7 @@ import (
 // registerRoutes is the complete route table. Every route declares its
 // policy; see router.go and the route-policy fitness test.
 func (s *Server) registerRoutes() {
-	owner, guest := household(store.RoleOwner), household(store.RoleGuest)
+	owner, member, guest := household(store.RoleOwner), household(store.RoleMember), household(store.RoleGuest)
 
 	// Probes and static files.
 	s.handle("GET /healthz", public, s.healthz)
@@ -51,6 +51,33 @@ func (s *Server) registerRoutes() {
 	s.handle("DELETE /api/v1/households/{hh}/invites/{invite}", owner, s.revokeInvite)
 	s.handle("POST /api/v1/invites/{token}/accept", session.withRate(rateInvite), s.acceptInvite)
 	s.handle("POST /api/v1/invites/{token}/register", publicRateLimited(rateInvite), s.registerWithInvite)
+
+	// Areas, chores and everything that happens to a chore.
+	s.handle("GET /api/v1/templates", session, s.listTemplates)
+	s.handle("GET /api/v1/households/{hh}/areas", guest, s.listAreas)
+	s.handle("POST /api/v1/households/{hh}/areas", member, s.createArea)
+	s.handle("PATCH /api/v1/households/{hh}/areas/{area}", member, s.renameArea)
+	s.handle("DELETE /api/v1/households/{hh}/areas/{area}", member, s.deleteArea)
+	s.handle("GET /api/v1/households/{hh}/chores", guest, s.listChores)
+	s.handle("POST /api/v1/households/{hh}/chores", member, s.createChore)
+	s.handle("GET /api/v1/households/{hh}/chores/{chore}", guest, s.getChore)
+	s.handle("PUT /api/v1/households/{hh}/chores/{chore}", member, s.updateChore)
+	s.handle("DELETE /api/v1/households/{hh}/chores/{chore}", member, s.deleteChore)
+	s.handle("POST /api/v1/households/{hh}/chores/{chore}/archive", member, s.archiveChore)
+	s.handle("POST /api/v1/households/{hh}/chores/{chore}/unarchive", member, s.unarchiveChore)
+	s.handle("POST /api/v1/households/{hh}/chores/{chore}/complete", member, s.completeChore)
+	s.handle("GET /api/v1/households/{hh}/chores/{chore}/completions", guest, s.listCompletions)
+	s.handle("POST /api/v1/households/{hh}/chores/{chore}/completions/{completion}/revert", member, s.revertCompletion)
+	s.handle("POST /api/v1/households/{hh}/chores/{chore}/snooze", member, s.snoozeChore)
+	s.handle("POST /api/v1/households/{hh}/chores/{chore}/skip", member, s.skipChore)
+	s.handle("POST /api/v1/households/{hh}/chores/{chore}/pause", member, s.pauseChore)
+	s.handle("POST /api/v1/households/{hh}/chores/{chore}/resume", member, s.resumeChore)
+	s.handle("GET /api/v1/households/{hh}/chores/{chore}/reminders", guest, s.getReminders)
+	s.handle("PUT /api/v1/households/{hh}/chores/{chore}/reminders", member, s.putReminders)
+	s.handle("PUT /api/v1/households/{hh}/chores/{chore}/mute", member, s.muteChore)
+	s.handle("DELETE /api/v1/households/{hh}/chores/{chore}/mute", member, s.unmuteChore)
+	s.handle("GET /api/v1/households/{hh}/reminder-presets", guest, s.listReminderPresets)
+	s.handle("GET /api/v1/households/{hh}/calendar", guest, s.calendar)
 
 	// Instance administration: accounts and settings only, never household content.
 	s.handle("GET /api/v1/admin/users", admin, s.adminListUsers)

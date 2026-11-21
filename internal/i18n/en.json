@@ -4,5 +4,11 @@
   "notify.on": "{chore} is due today.",
   "notify.overdue": "{chore} is overdue (was due on {date}).",
   "notify.mark_done": "Mark as done: {url}",
-  "ical.calendar_name": "Gunkly: {household}"
+  "ical.calendar_name": "Gunkly: {household}",
+  "area.kitchen": "Kitchen",
+  "area.bathroom": "Bathroom",
+  "area.garden": "Garden",
+  "area.exterior": "Exterior",
+  "area.appliances": "Appliances",
+  "area.general": "General"
 }

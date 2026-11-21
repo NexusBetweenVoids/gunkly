@@ -53,6 +53,8 @@ type op struct {
 
 func ignore[T any](_ T, err error) error { return err }
 
+func ignore3[T, U any](_ T, _ U, err error) error { return err }
+
 // ops covers every household-scoped store method. IDs always refer to
 // household A's data; hh is the household the caller claims.
 var ops = []op{
@@ -108,6 +110,30 @@ var ops = []op{
 	}},
 	{name: "RevertCompletion", write: true, run: func(ctx context.Context, s *store.Store, a store.Actor, hh string, f *fixture) error {
 		return s.RevertCompletion(ctx, a, hh, f.completionA)
+	}},
+	{name: "CompletionsPage", run: func(ctx context.Context, s *store.Store, a store.Actor, hh string, f *fixture) error {
+		return ignore3(s.CompletionsPage(ctx, a, hh, f.choreA, 10, ""))
+	}},
+	{name: "ChoreReminders", run: func(ctx context.Context, s *store.Store, a store.Actor, hh string, f *fixture) error {
+		return ignore3(s.ChoreReminders(ctx, a, hh, f.choreA))
+	}},
+	{name: "SetChoreReminders", write: true, run: func(ctx context.Context, s *store.Store, a store.Actor, hh string, f *fixture) error {
+		return s.SetChoreReminders(ctx, a, hh, f.choreA, "nag", nil, 10)
+	}},
+	{name: "MoveChoreOccurrence", write: true, run: func(ctx context.Context, s *store.Store, a store.Actor, hh string, f *fixture) error {
+		return ignore(s.MoveChoreOccurrence(ctx, a, hh, f.choreA, "2027-01-01", time.Now()))
+	}},
+	{name: "SetChorePause", write: true, run: func(ctx context.Context, s *store.Store, a store.Actor, hh string, f *fixture) error {
+		return ignore(s.SetChorePause(ctx, a, hh, f.choreA, time.Time{}, true))
+	}},
+	{name: "UnarchiveChore", write: true, run: func(ctx context.Context, s *store.Store, a store.Actor, hh string, f *fixture) error {
+		return ignore(s.UnarchiveChore(ctx, a, hh, f.choreA))
+	}},
+	{name: "CompleteChoreAuto", write: true, run: func(ctx context.Context, s *store.Store, a store.Actor, hh string, f *fixture) error {
+		return ignore3(s.CompleteChoreAuto(ctx, a, hh, f.choreA, "x"))
+	}},
+	{name: "RevertChoreCompletion", write: true, run: func(ctx context.Context, s *store.Store, a store.Actor, hh string, f *fixture) error {
+		return ignore(s.RevertChoreCompletion(ctx, a, hh, f.choreA, f.completionA))
 	}},
 	{name: "AddMember", write: true, owner: true, run: func(ctx context.Context, s *store.Store, a store.Actor, hh string, f *fixture) error {
 		return s.AddMember(ctx, a, hh, f.x.UserID, store.RoleOwner)

@@ -7,8 +7,10 @@ import (
 	"net/url"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/NexusBetweenVoids/gunkly/internal/ids"
+	"github.com/NexusBetweenVoids/gunkly/internal/schedule"
 )
 
 // Chore kinds, schedule types, anchors and interval units.
@@ -69,11 +71,16 @@ type ChoreInput struct {
 	PausedIndefinitely bool
 	ReminderPreset     string
 	Assignees          []string
+	// MaxChores is the household's ChoresPerHousehold limit, resolved by the
+	// caller from internal/limits; CreateChore returns ErrLimit when the
+	// household already has that many (archived ones included). 0 = no cap.
+	MaxChores int
 }
 
 func (in *ChoreInput) validate() bool {
 	in.Name = strings.TrimSpace(in.Name)
-	if in.Name == "" || len(in.Name) > 200 || len(in.Notes) > 10000 || len(in.Link) > 2000 {
+	if in.Name == "" || !utf8.ValidString(in.Name+in.Notes) || utf8.RuneCountInString(in.Name) > 200 ||
+		utf8.RuneCountInString(in.Notes) > 10000 || len(in.Link) > 2000 {
 		return false
 	}
 	if in.Link != "" {
@@ -87,12 +94,14 @@ func (in *ChoreInput) validate() bool {
 	}
 	switch in.ScheduleType {
 	case ScheduleInterval:
-		if in.Kind == KindRecurring && (in.IntervalN < 1 || (in.IntervalUnit != "day" && in.IntervalUnit != "week" && in.IntervalUnit != "month")) {
+		if in.Kind == KindRecurring && (in.IntervalN < 1 || in.IntervalN > schedule.MaxInterval || (in.IntervalUnit != "day" && in.IntervalUnit != "week" && in.IntervalUnit != "month")) {
 			return false
 		}
 	case ScheduleRRule:
-		if in.Kind == KindRecurring && in.RRule == "" {
-			return false
+		if in.Kind == KindRecurring {
+			if _, err := schedule.ParseRRule(in.RRule); err != nil {
+				return false
+			}
 		}
 	default:
 		return false
@@ -161,6 +170,15 @@ func (s *Store) CreateChore(ctx context.Context, a Actor, householdID string, in
 	err := s.write(ctx, a, householdID, RoleMember, func(t *tx, _ Role) error {
 		if err := t.checkRefs(ctx, householdID, &in); err != nil {
 			return err
+		}
+		if in.MaxChores > 0 {
+			var n int
+			if err := t.queryRow(ctx, "SELECT count(*) FROM chores WHERE household_id = ?", householdID).Scan(&n); err != nil {
+				return err
+			}
+			if n >= in.MaxChores {
+				return ErrLimit
+			}
 		}
 		now := s.nowMS()
 		if _, err := t.exec(ctx, `INSERT INTO chores (id, household_id, area_id, name, notes, link, kind, schedule_type,

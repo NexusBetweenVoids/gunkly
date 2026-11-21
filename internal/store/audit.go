@@ -30,6 +30,9 @@ const (
 	AuditAdminSettings     = "admin_settings"
 	AuditRegisterByInvite  = "register_invite"
 	AuditHouseholdSettings = "household_settings"
+	AuditChoreDelete       = "chore_delete"
+	AuditChoreSkip         = "chore_skip"
+	AuditCompletionRevert  = "completion_revert"
 )
 
 // AuditEvent is one audit-log entry. Meta must never contain secrets.
