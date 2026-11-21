@@ -1,18 +1,12 @@
 <script lang="ts">
   import Toast from './components/Toast.svelte';
+  import Lazy from './components/Lazy.svelte';
   import StepUp from './components/StepUp.svelte';
   import { t } from './lib/i18n';
   import { navigate, route } from './lib/router';
   import { app, bootstrap, currentHousehold, selectHousehold, signOut } from './lib/session.svelte';
-  import Account from './screens/Account.svelte';
-  import Admin from './screens/Admin.svelte';
-  import Calendar from './screens/Calendar.svelte';
-  import ChoreDetail from './screens/ChoreDetail.svelte';
-  import ChoreEditor from './screens/ChoreEditor.svelte';
   import Home from './screens/Home.svelte';
-  import Household from './screens/Household.svelte';
   import Invite from './screens/Invite.svelte';
-  import NewHousehold from './screens/NewHousehold.svelte';
   import NotFound from './screens/NotFound.svelte';
   import Setup from './screens/Setup.svelte';
   import SignIn from './screens/SignIn.svelte';
@@ -95,21 +89,21 @@
     {#if $route === '/'}
       <Home />
     {:else if $route === '/calendar'}
-      {#key app.hhId}<Calendar />{/key}
+      {#key app.hhId}<Lazy load={() => import('./screens/Calendar.svelte')} />{/key}
     {:else if $route === '/chores/new'}
-      {#key app.hhId}<ChoreEditor />{/key}
+      {#key app.hhId}<Lazy load={() => import('./screens/ChoreEditor.svelte')} />{/key}
     {:else if choreId}
-      {#key `${app.hhId}/${choreId}`}<ChoreDetail id={choreId} />{/key}
+      {#key `${app.hhId}/${choreId}`}<Lazy load={() => import('./screens/ChoreDetail.svelte')} props={{ id: choreId }} />{/key}
     {:else if editId}
-      {#key `${app.hhId}/${editId}`}<ChoreEditor id={editId} />{/key}
+      {#key `${app.hhId}/${editId}`}<Lazy load={() => import('./screens/ChoreEditor.svelte')} props={{ id: editId }} />{/key}
     {:else if $route === '/households/new'}
-      <NewHousehold />
+      <Lazy load={() => import('./screens/NewHousehold.svelte')} />
     {:else if hhId}
-      <Household id={hhId} />
+      {#key hhId}<Lazy load={() => import('./screens/Household.svelte')} props={{ id: hhId }} />{/key}
     {:else if $route === '/account'}
-      <Account />
+      <Lazy load={() => import('./screens/Account.svelte')} />
     {:else if $route === '/admin' && app.user.isAdmin}
-      <Admin />
+      <Lazy load={() => import('./screens/Admin.svelte')} />
     {:else}
       <NotFound />
     {/if}
@@ -203,7 +197,7 @@
     min-block-size: 56px;
   }
   main.with-tabs {
-    padding-block-end: 88px;
+    padding-block-end: 160px; /* room for the tab bar and a toast above it */
   }
   @media (min-width: 768px) {
     .tabs {

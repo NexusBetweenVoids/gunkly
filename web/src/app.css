@@ -172,10 +172,12 @@ textarea {
 /* Forms and shared layout. */
 .stack {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space);
 }
 .stack-sm {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
 }
 .row {
@@ -193,6 +195,7 @@ textarea {
 }
 .field {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 6px;
 }
 .field > label,
@@ -220,6 +223,7 @@ textarea {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
+  inline-size: 100%;
   max-inline-size: 100%;
 }
 input[aria-invalid="true"] {

@@ -3,7 +3,9 @@ package api
 import (
 	"context"
 	"errors"
+	"maps"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -407,6 +409,17 @@ func (s *Server) EnabledKinds(ctx context.Context) (map[string]bool, error) {
 		return nil, err
 	}
 	return kindSet(st), nil
+}
+
+// listNotificationKinds tells any signed-in user which services they may add
+// channels for, so the channel form can offer them. Admin settings (which also
+// list the kinds that could be enabled) stay admin-only.
+func (s *Server) listNotificationKinds(w http.ResponseWriter, r *http.Request, _ *call) error {
+	kinds, err := s.EnabledKinds(r.Context())
+	if err != nil {
+		return err
+	}
+	return ok(w, map[string][]string{"enabledNotificationKinds": append([]string{}, slices.Sorted(maps.Keys(kinds))...)})
 }
 
 func kindSet(st store.InstanceSettings) map[string]bool {

@@ -41,17 +41,32 @@
   let s = $state<S | null>(null);
   let minLen = $state('8');
   let limitInputs = $state<Record<string, string>>({});
+  let savedKinds = '';
   let busy = $state(false);
   let err = $state('');
 
   function adopt(v: S): void {
     s = v;
+    savedKinds = [...v.enabledNotificationKinds].sort().join();
     minLen = String(v.minPasswordLength);
     limitInputs = Object.fromEntries(Object.entries(v.limits).map(([k, n]) => [k, String(n)]));
   }
   api<S>('GET', '/admin/settings')
     .then(adopt)
     .catch((x) => (err = failure(x).message));
+
+  async function resetKinds(): Promise<void> {
+    busy = true;
+    err = '';
+    try {
+      adopt(await withStepUp(() => api<S>('PATCH', '/admin/settings', { enabledNotificationKinds: null })));
+      toast(t('common.saved'));
+    } catch (x) {
+      err = failure(x).message;
+    } finally {
+      busy = false;
+    }
+  }
 
   async function save(e: SubmitEvent): Promise<void> {
     e.preventDefault();
@@ -68,7 +83,8 @@
             inviteRegistration: s!.inviteRegistration,
             minPasswordLength: Number(minLen),
             limits,
-            enabledNotificationKinds: s!.enabledNotificationKinds,
+            // Only when the admin changed it, so saving other settings never freezes the defaults.
+            ...([...s!.enabledNotificationKinds].sort().join() === savedKinds ? {} : { enabledNotificationKinds: s!.enabledNotificationKinds }),
             ...(s!.egressGuardLocked ? {} : { egressGuard: s!.egressGuard }),
           }),
         ),
@@ -97,6 +113,7 @@
             <label class="check"><input type="checkbox" value={k} bind:group={s.enabledNotificationKinds} />{k}</label>
           {/each}
         </div>
+        <div><Button variant="quiet" {busy} onclick={resetKinds}>{t('admin.kindsReset')}</Button></div>
       </fieldset>
       <div class="stack-sm">
         <label class="check"><input type="checkbox" bind:checked={s.egressGuard} disabled={s.egressGuardLocked} aria-describedby="eg-hint" />{t('admin.egressGuard')}</label>

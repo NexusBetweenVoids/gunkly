@@ -63,6 +63,39 @@ func TestUserChannelsWriteOnlyURL(t *testing.T) {
 	expect(t, st, v, 404, "")
 }
 
+func TestNotificationKindsForAnyUser(t *testing.T) {
+	f := newLinks(t)
+	f.e.user("root", true)
+	root := f.e.signedIn("root")
+	const path = "/api/v1/notification-kinds"
+
+	// Defaults, visible to a plain member (not just admins).
+	st, v := f.m.do("GET", path, nil)
+	got := raw(field(v, "enabledNotificationKinds"))
+	if st != 200 || !strings.Contains(got, `"discord"`) || !strings.Contains(got, `"ntfy"`) || strings.Contains(got, `"gotify"`) {
+		t.Fatalf("defaults: %d %v", st, v)
+	}
+
+	// It follows the admin's setting at once, sorted.
+	st, v = root.do("PATCH", "/api/v1/admin/settings", map[string]any{"enabledNotificationKinds": []string{"gotify", "discord"}})
+	expect(t, st, v, 200, "")
+	st, v = f.x.do("GET", path, nil)
+	if st != 200 || raw(field(v, "enabledNotificationKinds")) != `["discord","gotify"]` {
+		t.Fatalf("custom: %d %v", st, v)
+	}
+	st, v = root.do("PATCH", "/api/v1/admin/settings", map[string]any{"enabledNotificationKinds": []string{}})
+	expect(t, st, v, 200, "")
+	if st, v = f.m.do("GET", path, nil); st != 200 || raw(field(v, "enabledNotificationKinds")) != "[]" {
+		t.Fatalf("none enabled must be an empty list, not null: %d %v", st, v)
+	}
+
+	// Signed-out callers get nothing.
+	anon := f.e.client()
+	if st, v = anon.do("GET", path, nil); st != 401 {
+		t.Fatalf("anonymous: %d %v", st, v)
+	}
+}
+
 func TestChannelKindAllowlist(t *testing.T) {
 	f := newLinks(t)
 	f.e.user("root", true)

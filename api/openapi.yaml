@@ -650,6 +650,14 @@ paths:
       responses:
         "200": {description: OK, content: {application/json: {schema: {type: object, properties: {id: {type: string}, url: {type: string}}}}}}
         "404": {$ref: "#/components/responses/NotFound"}
+  /notification-kinds:
+    get:
+      tags: [channels]
+      summary: Notification services enabled on this instance (signed in)
+      description: What users may add channels for. Sorted. Admins change it with PATCH /admin/settings.
+      responses:
+        "200": {description: OK, content: {application/json: {schema: {type: object, properties: {enabledNotificationKinds: {type: array, items: {type: string}}}}}}}
+        "401": {$ref: "#/components/responses/Unauthenticated"}
   /account/channels:
     get:
       tags: [channels]

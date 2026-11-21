@@ -109,7 +109,6 @@
             tabindex={d === sel ? 0 : -1}
             aria-selected={d === sel}
             aria-current={d === today() ? 'date' : undefined}
-            aria-label="{fmt(d, { dateStyle: 'full' })}, {t('calendar.count', { count: n })}"
             class:out={view === 'month' && d.slice(0, 7) !== sel.slice(0, 7)}
             class:sel={d === sel}
             class:today={d === today()}
@@ -122,7 +121,8 @@
               }
             }}
           >
-            <span class="num">{+d.slice(8)}</span>
+            <span class="num" aria-hidden="true">{+d.slice(8)}</span>
+            <span class="visually-hidden">{fmt(d, { dateStyle: 'full' })}, {t('calendar.count', { count: n })}</span>
             {#if n}
               {#if view === 'week'}
                 <ul aria-hidden="true">{#each byDate[d] as e (e.choreId)}<li>{e.name}</li>{/each}</ul>

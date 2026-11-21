@@ -19,3 +19,7 @@ web/dist/*
 web/node_modules/
 coverage.out
 *.test
+
+# Playwright
+web/e2e/.out/
+web/e2e/.out/

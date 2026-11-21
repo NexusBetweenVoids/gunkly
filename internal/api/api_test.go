@@ -809,6 +809,11 @@ func TestAdmin(t *testing.T) {
 	if st != 200 || len(field(v, "password").(string)) < 16 {
 		t.Fatalf("reset: %d %v", st, v)
 	}
+	// Unset shows the effective default, not 0 (the form's min would block saving).
+	st, v = root.do("GET", "/api/v1/admin/settings", nil)
+	if st != 200 || field(v, "minPasswordLength") != float64(auth.DefaultMinPasswordLen) {
+		t.Fatalf("default min password length: %d %v", st, v)
+	}
 	st, v = root.do("PATCH", "/api/v1/admin/settings", map[string]any{"limits": map[string]int{"nope": 1}})
 	expect(t, st, v, 400, "invalid")
 	st, v = root.do("PATCH", "/api/v1/admin/settings", map[string]any{"openSignup": true, "minPasswordLength": 12,

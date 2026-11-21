@@ -9,6 +9,7 @@
   import Confirm from './Confirm.svelte';
   import Dialog from './Dialog.svelte';
   import Field from './Field.svelte';
+  import Select from './Select.svelte';
 
   // `base` is /account/channels or /households/{id}/channels.
   let { base, title, id: sid }: { base: `/${string}`; title: string; id: string } = $props();
@@ -20,6 +21,8 @@
   let label = $state('');
   let url = $state('');
   let deleting = $state<Channel | null>(null);
+  let kinds = $state<string[] | null>(null); // null until loaded
+  let kind = $state('');
 
   async function load(): Promise<void> {
     try {
@@ -34,7 +37,18 @@
     editing = c;
     label = c === 'new' ? '' : c.label;
     url = '';
+    kind = '';
     err = '';
+    if (c === 'new' && kinds === null) {
+      api<{ enabledNotificationKinds: string[] }>('GET', '/notification-kinds')
+        .then((r) => (kinds = r.enabledNotificationKinds))
+        .catch(() => {}); // the free URL field still works
+    }
+  }
+
+  /** Picking a service sets the URL scheme and keeps whatever follows it. */
+  function pick(): void {
+    if (kind) url = `${kind.replace('-selfhosted', '')}://${url.replace(/^[a-z0-9+.-]+:\/\//i, '')}`;
   }
 
   const fail = (x: unknown) => failure(x).message;
@@ -108,6 +122,18 @@
 <Dialog open={!!editing} title={editing === 'new' ? t('channels.add') : t('channels.edit')} onclose={() => (editing = null)}>
   <form class="stack" onsubmit={save}>
     <Field label={t('channels.label')} bind:value={label} maxlength={100} />
+    {#if editing === 'new'}
+      {#if kinds?.length}
+        <Select
+          label={t('channels.service')}
+          bind:value={kind}
+          onchange={pick}
+          options={[{ value: '', label: t('channels.serviceOther') }, ...kinds.map((k) => ({ value: k, label: k }))]}
+        />
+      {:else if kinds}
+        <p class="hint">{t('channels.noServices')}</p>
+      {/if}
+    {/if}
     <Field
       label={editing === 'new' ? t('channels.url') : t('channels.newUrl')}
       hint={editing === 'new' ? t('channels.urlHint') : t('channels.urlKeep')}

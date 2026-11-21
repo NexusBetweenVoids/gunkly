@@ -110,6 +110,7 @@ func (s *Server) registerLinkAndNotifyRoutes() {
 	s.handle("POST /api/v1/households/{hh}/feeds/{id}/regenerate", guest, s.regenerateFeed)
 
 	// Notification channels: URLs are write-only.
+	s.handle("GET /api/v1/notification-kinds", session, s.listNotificationKinds)
 	s.handle("GET /api/v1/account/channels", session, s.listUserChannels)
 	s.handle("POST /api/v1/account/channels", session, s.createUserChannel)
 	s.handle("PATCH /api/v1/account/channels/{id}", session, s.patchUserChannel)

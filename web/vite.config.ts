@@ -16,5 +16,6 @@ export default defineConfig({
     modulePreload: { polyfill: false },
     cssCodeSplit: false,
     sourcemap: false,
+    manifest: true, // scripts/budget.mjs reads the entry's static imports from it
   },
 });

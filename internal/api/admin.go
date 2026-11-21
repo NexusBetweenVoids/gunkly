@@ -7,6 +7,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/NexusBetweenVoids/gunkly/internal/auth"
 	"github.com/NexusBetweenVoids/gunkly/internal/ids"
 	"github.com/NexusBetweenVoids/gunkly/internal/limits"
 	"github.com/NexusBetweenVoids/gunkly/internal/notify"
@@ -103,7 +104,11 @@ func (s *Server) adminGetSettings(w http.ResponseWriter, r *http.Request, _ *cal
 	if err != nil {
 		return err
 	}
-	v := settingsView{OpenSignup: st.OpenSignup, InviteRegistration: st.InviteRegistration, MinPasswordLength: st.MinPasswordLength,
+	minLen := st.MinPasswordLength
+	if minLen <= 0 {
+		minLen = auth.DefaultMinPasswordLen // 0 is stored as "unset"; show the effective value
+	}
+	v := settingsView{OpenSignup: st.OpenSignup, InviteRegistration: st.InviteRegistration, MinPasswordLength: minLen,
 		Limits: map[limits.Kind]int{}, LimitDefaults: limits.Defaults,
 		EnabledNotificationKinds: append([]string{}, slices.Sorted(maps.Keys(kindSet(st)))...), AvailableNotificationKinds: notify.AllKinds(),
 		EgressGuard: s.hosted || st.EgressGuard, EgressGuardLocked: s.hosted}
