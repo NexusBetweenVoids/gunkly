@@ -15,6 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # Keep in sync with `grep -rn 'func Fuzz'` (scripts/fuzz-targets.sh checks this).
         # Add every Fuzz* target that parses user input (imports, notification URLs, ...).
         include:
           - pkg: ./internal/schedule
@@ -23,6 +24,12 @@ jobs:
             target: FuzzValidateURL
           - pkg: ./internal/ical
             target: FuzzEscapeFold
+          - pkg: ./internal/schedule
+            target: FuzzLocalTime
+          - pkg: ./internal/egress
+            target: FuzzBlocked
+          - pkg: ./internal/egress
+            target: FuzzWebPushAllowed
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

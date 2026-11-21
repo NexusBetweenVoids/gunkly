@@ -1,0 +1,102 @@
+name: DAST
+
+on:
+  schedule:
+    - cron: '41 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dast
+  cancel-in-progress: false
+
+jobs:
+  zap-baseline:
+    name: OWASP ZAP baseline
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Build image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64
+          push: false
+          load: true
+          tags: gunkly:dast
+          build-args: VERSION=dast-${{ github.sha }}
+      - name: Run the app (read-only, all capabilities dropped)
+        run: |
+          key="1:$(openssl rand -base64 32)"
+          echo "::add-mask::$key"
+          docker volume create gunkly-dast
+          docker run -d --name gunkly --read-only --cap-drop ALL --security-opt no-new-privileges \
+            -p 8080:8080 -v gunkly-dast:/data \
+            -e GUNKLY_SECRET_KEYS="$key" -e GUNKLY_BASE_URL=http://localhost:8080 gunkly:dast
+          for i in $(seq 1 30); do
+            curl -fsS http://localhost:8080/healthz >/dev/null && exit 0
+            sleep 1
+          done
+          docker logs gunkly
+          exit 1
+      - name: First-run setup (so authenticated pages exist)
+        run: |
+          set -eu
+          code=""
+          for i in $(seq 1 20); do
+            code=$(docker logs gunkly 2>&1 | jq -Rr 'fromjson? | .setup_code? // empty' | head -n1)
+            [ -n "$code" ] && break
+            sleep 1
+          done
+          [ -n "$code" ] || { echo "no setup code in logs"; exit 1; }
+          echo "::add-mask::$code"
+          pw="$(openssl rand -hex 24)"
+          echo "::add-mask::$pw"
+          jar="$RUNNER_TEMP/jar"
+          base=http://localhost:8080/api/v1
+          curl -fsS -c "$jar" "$base/session" >/dev/null
+          csrf=$(awk '$6=="gunkly_csrf"{print $7}' "$jar")
+          body=$(jq -n --arg c "$code" --arg p "$pw" \
+            '{code:$c,username:"dast",displayName:"DAST",email:"dast@example.com",password:$p}')
+          curl -fsS -b "$jar" -c "$jar" -H "X-CSRF-Token: $csrf" -H 'Content-Type: application/json' \
+            -d "$body" "$base/setup" >/dev/null
+          session=$(awk '$6=="gunkly_session"{print $7}' "$jar")
+          [ -n "$session" ] || { echo "no session cookie"; exit 1; }
+          echo "::add-mask::$session"
+          echo "ZAP_COOKIE=gunkly_session=$session; gunkly_csrf=$csrf" >> "$GITHUB_ENV"
+          # Seed a household so the authenticated API has something to expose.
+          curl -fsS -b "$jar" -H "X-CSRF-Token: $csrf" -H 'Content-Type: application/json' \
+            -d '{"name":"DAST home","timezone":"UTC"}' "$base/households" >/dev/null || true
+      - name: ZAP baseline scan
+        uses: zaproxy/action-baseline@de8ad967d3548d44ef623df22cf95c3b0baf8b25 # v0.15.0
+        with:
+          target: http://localhost:8080
+          # Failure is decided below (High only); the action itself would also fail on warnings.
+          fail_action: false
+          allow_issue_writing: false
+          artifact_name: zap-report
+          # Send the signed-in session with every request so authenticated pages are spidered.
+          cmd_options: >-
+            -z "-config replacer.full_list(0).description=session
+            -config replacer.full_list(0).enabled=true
+            -config replacer.full_list(0).matchtype=REQ_HEADER
+            -config replacer.full_list(0).matchstr=Cookie
+            -config replacer.full_list(0).regex=false
+            -config replacer.full_list(0).replacement=${{ env.ZAP_COOKIE }}"
+      - name: Fail on High alerts
+        run: |
+          high=$(jq '[.site[].alerts[] | select(.riskcode == "3")] | length' report_json.json)
+          echo "High alerts: $high"
+          jq -r '.site[].alerts[] | select(.riskcode == "3") | "- \(.name)"' report_json.json
+          [ "$high" -eq 0 ]
+      - name: App logs
+        if: always()
+        run: docker logs gunkly || true
