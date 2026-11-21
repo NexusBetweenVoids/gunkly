@@ -14,6 +14,10 @@
     minPasswordLength: number;
     limits: Record<string, number>;
     limitDefaults: Record<string, number>;
+    enabledNotificationKinds: string[];
+    availableNotificationKinds: string[];
+    egressGuard: boolean;
+    egressGuardLocked: boolean;
   };
   const LIMITS: Record<string, Key> = {
     households_per_user: 'limit.households_per_user',
@@ -64,6 +68,8 @@
             inviteRegistration: s!.inviteRegistration,
             minPasswordLength: Number(minLen),
             limits,
+            enabledNotificationKinds: s!.enabledNotificationKinds,
+            ...(s!.egressGuardLocked ? {} : { egressGuard: s!.egressGuard }),
           }),
         ),
       );
@@ -83,6 +89,19 @@
       <label class="check"><input type="checkbox" bind:checked={s.openSignup} />{t('admin.openSignup')}</label>
       <label class="check"><input type="checkbox" bind:checked={s.inviteRegistration} />{t('admin.inviteRegistration')}</label>
       <Field label={t('admin.minPassword')} type="number" bind:value={minLen} min="8" max="128" required />
+      <fieldset class="stack-sm">
+        <legend class="label">{t('admin.kinds')}</legend>
+        <p class="hint">{t('admin.kindsHint')}</p>
+        <div class="row">
+          {#each s.availableNotificationKinds as k (k)}
+            <label class="check"><input type="checkbox" value={k} bind:group={s.enabledNotificationKinds} />{k}</label>
+          {/each}
+        </div>
+      </fieldset>
+      <div class="stack-sm">
+        <label class="check"><input type="checkbox" bind:checked={s.egressGuard} disabled={s.egressGuardLocked} aria-describedby="eg-hint" />{t('admin.egressGuard')}</label>
+        <p class="hint" id="eg-hint">{s.egressGuardLocked ? t('admin.egressLocked') : t('admin.egressHint')}</p>
+      </div>
       <h3>{t('admin.limits')}</h3>
       <p class="hint">{t('admin.limitsHint')}</p>
       {#each Object.keys(s.limits) as k (k)}

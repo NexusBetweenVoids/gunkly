@@ -2,7 +2,10 @@
   import Alert from '../components/Alert.svelte';
   import Button from '../components/Button.svelte';
   import Confirm from '../components/Confirm.svelte';
+  import Channels from '../components/Channels.svelte';
+  import Deliveries from '../components/Deliveries.svelte';
   import Field from '../components/Field.svelte';
+  import Select from '../components/Select.svelte';
   import TimeZone from '../components/TimeZone.svelte';
   import { api } from '../lib/api';
   import { failure } from '../lib/errors';
@@ -12,6 +15,8 @@
   import { toast } from '../lib/toast.svelte';
   import type { Household, Member, Role } from '../lib/types';
   import { zones } from '../lib/zones';
+  import Areas from './household/Areas.svelte';
+  import Feeds from './household/Feeds.svelte';
   import Invites from './household/Invites.svelte';
 
   let { id }: { id: string } = $props();
@@ -23,6 +28,7 @@
 
   let name = $state('');
   let timezone = $state('');
+  let preset = $state('');
   let quiet = $state(false);
   let qStart = $state('22:00');
   let qEnd = $state('07:00');
@@ -45,6 +51,7 @@
       ]);
       name = hh.name;
       timezone = hh.timezone;
+      preset = hh.defaultReminderPreset ?? '';
       quiet = !!hh.quietHours;
       if (hh.quietHours) [qStart, qEnd] = [hm(hh.quietHours.start), hm(hh.quietHours.end)];
     } catch (x) {
@@ -67,6 +74,7 @@
       await api('PATCH', `/households/${id}`, {
         name: name.trim(),
         timezone,
+        defaultReminderPreset: preset,
         quietHours: quiet ? { start: mins(qStart), end: mins(qEnd) } : null,
       });
       await refreshHouseholds();
@@ -127,6 +135,16 @@
         <form class="stack" onsubmit={save}>
           <Field label={t('household.name')} bind:value={name} required maxlength={100} />
           <TimeZone bind:value={timezone} error={tzErr} />
+          <Select
+            label={t('household.defaultReminder')}
+            hint={t('household.defaultReminderHint')}
+            bind:value={preset}
+            options={[
+              { value: '', label: t('reminder.none') },
+              { value: 'gentle', label: t('reminder.gentle') },
+              { value: 'nag', label: t('reminder.nag') },
+            ]}
+          />
           <div class="stack-sm">
             <label class="check"><input type="checkbox" bind:checked={quiet} />{t('household.quiet')}</label>
             {#if quiet}
@@ -173,6 +191,12 @@
       </ul>
     </section>
 
+    {#if hh.role !== 'guest'}<Areas {id} />{/if}
+    <Feeds {id} />
+    {#if hh.role !== 'guest'}
+      <Channels base="/households/{id}/channels" title={t('channels.householdTitle')} id="hh" />
+      <Deliveries path="/households/{id}/deliveries" title={t('delivery.householdTitle')} id="hh" />
+    {/if}
     {#if isOwner}<Invites {id} />{/if}
 
     <section class="card" aria-labelledby="h-leave">

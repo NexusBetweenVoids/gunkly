@@ -336,3 +336,65 @@ dialog::backdrop {
 /* Spacing utilities (inline style attributes are blocked by the CSP). */
 .mt-md { margin-block-start: 16px; }
 .mt-lg { margin-block-start: 20px; }
+
+/* Chores, avatars, toggles, toast action. */
+.avatars {
+  display: inline-flex;
+}
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: 28px;
+  block-size: 28px;
+  padding-inline: 4px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.avatar + .avatar {
+  margin-inline-start: -6px;
+}
+[aria-pressed="true"].btn-quiet {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+.chip {
+  min-block-size: var(--tap);
+  border-radius: 999px;
+}
+fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-inline-size: 0;
+}
+.toast-action {
+  margin-inline-start: 12px;
+  min-block-size: var(--tap);
+  min-inline-size: var(--tap);
+  padding-inline: 12px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+textarea {
+  inline-size: 100%;
+  resize: vertical;
+}
+@media (max-width: 767px) {
+  .toasts {
+    inset-block-end: calc(var(--space) + 72px);
+  }
+}
+@media (min-width: 768px) {
+  .toasts {
+    inset-inline-start: calc(200px + var(--space));
+  }
+}

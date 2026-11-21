@@ -1,35 +1,167 @@
 <script lang="ts">
+  import Alert from '../components/Alert.svelte';
+  import Button from '../components/Button.svelte';
+  import Initials from '../components/Initials.svelte';
+  import { api } from '../lib/api';
+  import { dueText } from '../lib/dates';
+  import { failure } from '../lib/errors';
   import { formatDate, t, type Key } from '../lib/i18n';
+  import { app, currentHousehold } from '../lib/session.svelte';
+  import { toast } from '../lib/toast.svelte';
+  import type { Area, Chore, Member, Status } from '../lib/types';
 
-  // Due-status groups, in display order. Chores arrive from /api/v1 later.
-  const groups: { id: string; title: Key; empty: Key }[] = [
+  const groups: { id: Status; title: Key; empty: Key }[] = [
     { id: 'overdue', title: 'home.overdue', empty: 'home.empty.overdue' },
     { id: 'today', title: 'home.dueToday', empty: 'home.empty.dueToday' },
-    { id: 'week', title: 'home.thisWeek', empty: 'home.empty.thisWeek' },
+    { id: 'thisWeek', title: 'home.thisWeek', empty: 'home.empty.thisWeek' },
     { id: 'later', title: 'home.later', empty: 'home.empty.later' },
   ];
+
+  let chores = $state<Chore[]>([]);
+  let areas = $state<Area[]>([]);
+  let members = $state<Member[]>([]);
+  let mine = $state(false);
+  let archived = $state(false);
+  let area = $state('');
+  let loaded = $state(false);
+  let err = $state('');
+  let doneErr = $state('');
+
+  const hh = $derived(app.hhId);
+  const canEdit = $derived(currentHousehold()?.role !== 'guest');
+  const base = $derived(`/households/${hh}`);
+
+  async function load(): Promise<void> {
+    err = '';
+    try {
+      const q = (archived ? '?archived=1' : '') + (mine ? `${archived ? '&' : '?'}mine=1` : '');
+      [chores, areas, members] = await Promise.all([
+        api<Chore[]>('GET', `${base}/chores${q}`),
+        api<Area[]>('GET', `${base}/areas`),
+        api<Member[]>('GET', `${base}/members`),
+      ]);
+    } catch (x) {
+      err = failure(x).message;
+    }
+    loaded = true;
+  }
+  $effect(() => {
+    void [hh, mine, archived];
+    if (hh) void load();
+  });
+
+  const visible = $derived(chores.filter((c) => !area || c.areaId === area));
+  const areaName = (id: string | null) => areas.find((a) => a.id === id)?.name ?? '';
+  const who = (c: Chore) => c.assignees.map((id) => members.find((m) => m.userId === id)?.displayName ?? '').filter(Boolean);
+  const rest = $derived(visible.filter((c) => !groups.some((g) => g.id === c.status)));
+  const swap = (c: Chore) => (chores = chores.map((x) => (x.id === c.id ? c : x)));
+
+  async function done(c: Chore): Promise<void> {
+    doneErr = '';
+    const i = chores.findIndex((x) => x.id === c.id);
+    chores = chores.filter((x) => x.id !== c.id); // optimistic
+    try {
+      const r = await api<{ completion: { id: string }; chore: Chore }>('POST', `${base}/chores/${c.id}/complete`);
+      if (!archived) chores = [...chores, r.chore];
+      toast(t('home.completed', { name: c.name }), {
+        label: t('common.undo'),
+        run: () => undo(c, r.completion.id),
+      });
+    } catch (x) {
+      chores = [...chores.slice(0, i), c, ...chores.slice(i)]; // roll back
+      doneErr = failure(x).message;
+    }
+  }
+
+  async function undo(c: Chore, id: string): Promise<void> {
+    try {
+      swap(await api<Chore>('POST', `${base}/chores/${c.id}/completions/${id}/revert`));
+      toast(t('home.undone', { name: c.name }));
+    } catch (x) {
+      doneErr = failure(x).message;
+    }
+  }
 </script>
 
 <h1>{t('home.title')}</h1>
-<p class="muted">{t('home.today', { date: formatDate(new Date()) })}</p>
+<p class="muted">{t('home.today', { date: formatDate(new Date(), { dateStyle: 'full', timeZone: currentHousehold()?.timezone }) })}</p>
 
-<div class="groups">
-  {#each groups as g (g.id)}
-    <section class="card" aria-labelledby="group-{g.id}">
-      <h2 id="group-{g.id}">
-        {t(g.title)}
-        <span class="count muted">{t('home.count', { count: 0 })}</span>
-      </h2>
-      <p class="muted empty">{t(g.empty)}</p>
+{#if !hh}
+  <p class="muted">{t('home.noHousehold')} <a href="/households/new">{t('nav.newHousehold')}</a></p>
+{:else}
+  <div class="row toolbar">
+    <div role="group" aria-label={t('home.whose')} class="seg">
+      <button type="button" class="btn btn-quiet" aria-pressed={!mine} onclick={() => (mine = false)}>{t('home.everyone')}</button>
+      <button type="button" class="btn btn-quiet" aria-pressed={mine} onclick={() => (mine = true)}>{t('home.mine')}</button>
+    </div>
+    <label class="check"><input type="checkbox" bind:checked={archived} />{t('home.archived')}</label>
+  </div>
+  {#if areas.length}
+    <div role="group" aria-label={t('home.areas')} class="row chips">
+      <button type="button" class="btn btn-quiet chip" aria-pressed={!area} onclick={() => (area = '')}>{t('home.allAreas')}</button>
+      {#each areas as a (a.id)}
+        <button type="button" class="btn btn-quiet chip" aria-pressed={area === a.id} onclick={() => (area = a.id)}>{a.name}</button>
+      {/each}
+    </div>
+  {/if}
+
+  <div aria-live="polite"><Alert message={err || doneErr} /></div>
+
+  {#snippet item(c: Chore)}
+    <li class="chore">
+      <a class="chore-main" href="/chores/{c.id}">
+        <strong>{c.name}</strong>
+        <span class="muted" class:late={c.status === 'overdue'}>
+          {#if areaName(c.areaId)}{areaName(c.areaId)} &middot; {/if}
+          {#if c.status === 'paused'}{t('chore.paused')}{:else if c.status === 'none' || c.status === 'archived'}{t(c.status === 'none' ? 'chore.noDue' : 'chore.archived')}{:else}{dueText(c.dueDate)}{/if}
+        </span>
+      </a>
+      <Initials names={who(c)} />
+      {#if canEdit && !archived && c.status !== 'paused' && c.status !== 'none'}
+        <Button onclick={() => done(c)} aria-label={t('home.doneFor', { name: c.name })}>{t('common.done')}</Button>
+      {/if}
+    </li>
+  {/snippet}
+
+  {#if !loaded}
+    <p role="status" class="muted">{t('common.loading')}</p>
+  {:else if archived}
+    <section class="card mt-md">
+      <h2>{t('home.archived')}</h2>
+      {#if visible.length}<ul class="list">{#each visible as c (c.id)}{@render item(c)}{/each}</ul>{:else}<p class="muted">{t('home.empty.archived')}</p>{/if}
     </section>
-  {/each}
-</div>
+  {:else if !chores.length}
+    <section class="card mt-md">
+      <p>{mine ? t('home.empty.mine') : t('home.empty.all')}</p>
+      {#if canEdit}<a class="btn" href="/chores/new">{t('chore.add')}</a>{/if}
+    </section>
+  {:else}
+    <div class="groups">
+      {#each groups as g (g.id)}
+        {@const items = visible.filter((c) => c.status === g.id).sort((a, b) => a.dueDate.localeCompare(b.dueDate))}
+        <section class="card" aria-labelledby="group-{g.id}">
+          <h2 id="group-{g.id}">
+            {t(g.title)}
+            <span class="count muted">{t('home.count', { count: items.length })}</span>
+          </h2>
+          {#if items.length}<ul class="list">{#each items as c (c.id)}{@render item(c)}{/each}</ul>{:else}<p class="muted empty">{t(g.empty)}</p>{/if}
+        </section>
+      {/each}
+      {#if rest.length}
+        <section class="card" aria-labelledby="group-rest">
+          <h2 id="group-rest">{t('home.other')}</h2>
+          <ul class="list">{#each rest as c (c.id)}{@render item(c)}{/each}</ul>
+        </section>
+      {/if}
+    </div>
+  {/if}
+{/if}
 
 <style>
   .groups {
     display: grid;
     gap: var(--space);
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
     margin-block-start: var(--space);
   }
   h2 {
@@ -45,5 +177,32 @@
   }
   .empty {
     margin: 0;
+  }
+  .toolbar {
+    justify-content: space-between;
+    margin-block: var(--space) 8px;
+  }
+  .seg {
+    display: flex;
+    gap: 4px;
+  }
+  .chips {
+    margin-block-end: var(--space);
+  }
+  .chore {
+    flex-wrap: nowrap;
+  }
+  .chore-main {
+    flex: 1;
+    display: grid;
+    min-inline-size: 0;
+    min-block-size: var(--tap);
+    align-content: center;
+    color: var(--text);
+    text-decoration: none;
+  }
+  .late {
+    color: var(--danger);
+    font-weight: 600;
   }
 </style>

@@ -3,9 +3,12 @@
   import StepUp from './components/StepUp.svelte';
   import { t } from './lib/i18n';
   import { navigate, route } from './lib/router';
-  import { app, bootstrap, selectHousehold, signOut } from './lib/session.svelte';
+  import { app, bootstrap, currentHousehold, selectHousehold, signOut } from './lib/session.svelte';
   import Account from './screens/Account.svelte';
   import Admin from './screens/Admin.svelte';
+  import Calendar from './screens/Calendar.svelte';
+  import ChoreDetail from './screens/ChoreDetail.svelte';
+  import ChoreEditor from './screens/ChoreEditor.svelte';
   import Home from './screens/Home.svelte';
   import Household from './screens/Household.svelte';
   import Invite from './screens/Invite.svelte';
@@ -17,6 +20,8 @@
   void bootstrap();
 
   const invite = $derived($route.match(/^\/invite\/([^/]+)$/)?.[1]);
+  const choreId = $derived($route.match(/^\/chores\/([^/]+)$/)?.[1]);
+  const editId = $derived($route.match(/^\/chores\/([^/]+)\/edit$/)?.[1]);
   const hhId = $derived($route.match(/^\/households\/([^/]+)$/)?.[1]);
   const isPublic = $derived($route === '/signin' || $route === '/setup' || !!invite);
 
@@ -53,10 +58,6 @@
         </div>
       {/if}
       <ul>
-        <li><a href="/" aria-current={here('/')}>{t('nav.home')}</a></li>
-        {#if app.hhId}
-          <li><a href="/households/{app.hhId}" aria-current={here(`/households/${app.hhId}`)}>{t('nav.household')}</a></li>
-        {/if}
         <li><a href="/households/new" aria-current={here('/households/new')}>{t('nav.newHousehold')}</a></li>
         <li><a href="/account" aria-current={here('/account')}>{t('nav.account')}</a></li>
         {#if app.user.isAdmin}
@@ -68,7 +69,20 @@
   </nav>
 </header>
 
-<main id="main">
+{#if app.user && app.hhId && !isPublic}
+  <nav class="tabs" aria-label={t('nav.primary')}>
+    <ul>
+      <li><a href="/" aria-current={here('/')}><span aria-hidden="true">&#x2713;</span>{t('nav.home')}</a></li>
+      <li><a href="/calendar" aria-current={here('/calendar')}><span aria-hidden="true">&#x25A6;</span>{t('nav.calendar')}</a></li>
+      {#if currentHousehold()?.role !== 'guest'}
+        <li><a href="/chores/new" aria-current={here('/chores/new')}><span aria-hidden="true">+</span>{t('nav.add')}</a></li>
+      {/if}
+      <li><a href="/households/{app.hhId}" aria-current={here(`/households/${app.hhId}`)}><span aria-hidden="true">&#x2699;</span>{t('nav.settings')}</a></li>
+    </ul>
+  </nav>
+{/if}
+
+<main id="main" class:with-tabs={app.user && app.hhId && !isPublic}>
   {#if !app.ready}
     <p role="status" class="muted">{t('common.loading')}</p>
   {:else if $route === '/signin'}
@@ -80,6 +94,14 @@
   {:else if app.user}
     {#if $route === '/'}
       <Home />
+    {:else if $route === '/calendar'}
+      {#key app.hhId}<Calendar />{/key}
+    {:else if $route === '/chores/new'}
+      {#key app.hhId}<ChoreEditor />{/key}
+    {:else if choreId}
+      {#key `${app.hhId}/${choreId}`}<ChoreDetail id={choreId} />{/key}
+    {:else if editId}
+      {#key `${app.hhId}/${editId}`}<ChoreEditor id={editId} />{/key}
     {:else if $route === '/households/new'}
       <NewHousehold />
     {:else if hhId}
@@ -153,5 +175,61 @@
     margin-inline: auto;
     padding-block: calc(var(--space) * 1.5);
     padding-inline: var(--space);
+  }
+  /* Phones: bottom tab bar. Desktop: sidebar at the inline start (mirrors in RTL). */
+  .tabs {
+    position: fixed;
+    inset-inline: 0;
+    inset-block-end: 0;
+    z-index: 2;
+    background: var(--surface);
+    border-block-start: 1px solid var(--border);
+    padding-block-end: env(safe-area-inset-bottom);
+  }
+  .tabs ul {
+    flex-wrap: nowrap;
+    justify-content: space-around;
+    gap: 0;
+  }
+  .tabs li {
+    flex: 1;
+  }
+  .tabs a {
+    flex-direction: column;
+    justify-content: center;
+    inline-size: 100%;
+    padding-inline: 4px;
+    font-size: 0.8125rem;
+    min-block-size: 56px;
+  }
+  main.with-tabs {
+    padding-block-end: 88px;
+  }
+  @media (min-width: 768px) {
+    .tabs {
+      inset-block: 56px 0;
+      inset-inline: 0 auto;
+      inline-size: 200px;
+      padding-block-start: 8px;
+      border-block-start: 0;
+      border-inline-end: 1px solid var(--border);
+    }
+    .tabs ul {
+      flex-direction: column;
+      padding-inline: 8px;
+      gap: 4px;
+    }
+    .tabs a {
+      flex-direction: row;
+      justify-content: flex-start;
+      gap: 10px;
+      font-size: 1rem;
+      min-block-size: var(--tap);
+      padding-inline: 12px;
+    }
+    main.with-tabs {
+      padding-block-end: calc(var(--space) * 1.5);
+      margin-inline: 200px auto;
+    }
   }
 </style>

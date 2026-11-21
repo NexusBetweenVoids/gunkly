@@ -24,6 +24,10 @@ const MESSAGES: Record<string, Key> = {
   conflict: 'err.conflict',
   limit_reached: 'err.limit_reached',
   body_too_large: 'err.body_too_large',
+  invalid_channel_url: 'err.invalid_channel_url',
+  service_disabled: 'err.service_disabled',
+  no_next_occurrence: 'err.no_next_occurrence',
+  egress_guard_locked: 'err.egress_guard_locked',
   internal: 'err.internal',
   not_ready: 'err.internal',
 };

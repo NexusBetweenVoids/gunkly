@@ -1,4 +1,6 @@
 <script lang="ts">
+  import Channels from '../components/Channels.svelte';
+  import Deliveries from '../components/Deliveries.svelte';
   import { t } from '../lib/i18n';
   import Audit from './account/Audit.svelte';
   import Password from './account/Password.svelte';
@@ -12,6 +14,8 @@
   <Profile />
   <Password />
   <Totp />
+  <Channels base="/account/channels" title={t('channels.personalTitle')} id="me" />
+  <Deliveries path="/account/deliveries" title={t('delivery.personalTitle')} id="me" />
   <Sessions />
   <Audit />
 </div>
