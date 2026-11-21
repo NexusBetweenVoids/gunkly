@@ -1,0 +1,105 @@
+<script lang="ts">
+  import Alert from '../../components/Alert.svelte';
+  import Button from '../../components/Button.svelte';
+  import Field from '../../components/Field.svelte';
+  import { api } from '../../lib/api';
+  import { failure } from '../../lib/errors';
+  import { t, type Key } from '../../lib/i18n';
+  import { withStepUp } from '../../lib/stepup.svelte';
+  import { toast } from '../../lib/toast.svelte';
+
+  type S = {
+    openSignup: boolean;
+    inviteRegistration: boolean;
+    minPasswordLength: number;
+    limits: Record<string, number>;
+    limitDefaults: Record<string, number>;
+  };
+  const LIMITS: Record<string, Key> = {
+    households_per_user: 'limit.households_per_user',
+    members_per_household: 'limit.members_per_household',
+    chores_per_household: 'limit.chores_per_household',
+    reminders_per_chore: 'limit.reminders_per_chore',
+    channels_per_user: 'limit.channels_per_user',
+    channels_per_household: 'limit.channels_per_household',
+    notifications_household_hour: 'limit.notifications_household_hour',
+    notifications_household_day: 'limit.notifications_household_day',
+    notifications_user_day: 'limit.notifications_user_day',
+    emails_account_hour: 'limit.emails_account_hour',
+    emails_ip_hour: 'limit.emails_ip_hour',
+    emails_global_hour: 'limit.emails_global_hour',
+    active_invites_per_household: 'limit.active_invites_per_household',
+    calendar_feeds_per_user: 'limit.calendar_feeds_per_user',
+    signups_per_ip_hour: 'limit.signups_per_ip_hour',
+    login_attempts_per_minute: 'limit.login_attempts_per_minute',
+  };
+
+  let s = $state<S | null>(null);
+  let minLen = $state('8');
+  let limitInputs = $state<Record<string, string>>({});
+  let busy = $state(false);
+  let err = $state('');
+
+  function adopt(v: S): void {
+    s = v;
+    minLen = String(v.minPasswordLength);
+    limitInputs = Object.fromEntries(Object.entries(v.limits).map(([k, n]) => [k, String(n)]));
+  }
+  api<S>('GET', '/admin/settings')
+    .then(adopt)
+    .catch((x) => (err = failure(x).message));
+
+  async function save(e: SubmitEvent): Promise<void> {
+    e.preventDefault();
+    if (!s) return;
+    busy = true;
+    err = '';
+    const limits: Record<string, number> = {};
+    for (const [k, v] of Object.entries(limitInputs)) if (Number(v) !== s.limits[k]) limits[k] = Number(v);
+    try {
+      adopt(
+        await withStepUp(() =>
+          api<S>('PATCH', '/admin/settings', {
+            openSignup: s!.openSignup,
+            inviteRegistration: s!.inviteRegistration,
+            minPasswordLength: Number(minLen),
+            limits,
+          }),
+        ),
+      );
+      toast(t('common.saved'));
+    } catch (x) {
+      err = failure(x).message;
+    } finally {
+      busy = false;
+    }
+  }
+</script>
+
+<section class="card" aria-labelledby="ad-settings">
+  <h2 id="ad-settings">{t('admin.settings')}</h2>
+  {#if s}
+    <form class="stack" onsubmit={save}>
+      <label class="check"><input type="checkbox" bind:checked={s.openSignup} />{t('admin.openSignup')}</label>
+      <label class="check"><input type="checkbox" bind:checked={s.inviteRegistration} />{t('admin.inviteRegistration')}</label>
+      <Field label={t('admin.minPassword')} type="number" bind:value={minLen} min="8" max="128" required />
+      <h3>{t('admin.limits')}</h3>
+      <p class="hint">{t('admin.limitsHint')}</p>
+      {#each Object.keys(s.limits) as k (k)}
+        <Field
+          label={LIMITS[k] ? t(LIMITS[k]) : k}
+          hint={t('admin.limitDefault', { n: s.limitDefaults[k] ?? 0 })}
+          type="number"
+          min="0"
+          max="1000000"
+          bind:value={limitInputs[k]}
+        />
+      {/each}
+      <Alert message={err} />
+      <div><Button type="submit" {busy}>{t('common.save')}</Button></div>
+    </form>
+  {:else}
+    <Alert message={err} />
+    {#if !err}<p role="status" class="muted">{t('common.loading')}</p>{/if}
+  {/if}
+</section>

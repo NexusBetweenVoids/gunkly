@@ -1,65 +1,83 @@
 <script lang="ts">
+  import Alert from '../components/Alert.svelte';
+  import Button from '../components/Button.svelte';
+  import Field from '../components/Field.svelte';
+  import SecondFactor from '../components/SecondFactor.svelte';
+  import { api } from '../lib/api';
+  import { safeNext } from '../lib/clip';
+  import { failure } from '../lib/errors';
   import { t } from '../lib/i18n';
+  import { navigate } from '../lib/router';
+  import { adopt } from '../lib/session.svelte';
+  import type { SessionView } from '../lib/types';
 
-  let notice = $state(false);
+  const next = safeNext(new URLSearchParams(location.search).get('next'));
+  let login = $state('');
+  let password = $state('');
+  let code = $state('');
+  let recovery = $state(false);
+  let needSecond = $state(false);
+  let busy = $state(false);
+  let err = $state({ code: '', message: '' });
 
-  function submit(e: SubmitEvent): void {
+  async function submit(e: SubmitEvent): Promise<void> {
     e.preventDefault();
-    notice = true; // Placeholder until /api/v1 auth exists.
+    busy = true;
+    err = { code: '', message: '' };
+    try {
+      const body: Record<string, string> = { login, password };
+      if (needSecond) body[recovery ? 'recoveryCode' : 'totp'] = code.trim();
+      const s = await api<SessionView>('POST', '/session', body);
+      if (s.twoFactorRequired) {
+        needSecond = true;
+      } else {
+        await adopt(s);
+        password = '';
+        navigate(next, true);
+      }
+    } catch (x) {
+      err = failure(x);
+    } finally {
+      busy = false;
+    }
   }
 </script>
 
-<section class="card signin">
+<section class="card narrow">
   <h1>{t('signIn.title')}</h1>
-  <form onsubmit={submit} novalidate>
-    <div class="field">
-      <label for="username">{t('signIn.username')}</label>
-      <input
-        id="username"
-        name="username"
-        type="text"
+  <form class="stack" onsubmit={submit}>
+    {#if needSecond}
+      <p class="muted">{t('signIn.twoFactor')}</p>
+      <SecondFactor bind:code bind:recovery error={err.code === 'invalid_code' ? err.message : ''} />
+    {:else}
+      <Field
+        label={t('signIn.username')}
+        bind:value={login}
         autocomplete="username"
         autocapitalize="none"
         spellcheck="false"
         required
       />
-    </div>
-    <div class="field">
-      <label for="password">{t('signIn.password')}</label>
-      <input id="password" name="password" type="password" autocomplete="current-password" required />
-    </div>
-    <button class="btn" type="submit">{t('signIn.submit')}</button>
-    <p class="muted" role="status">{notice ? t('signIn.unavailable') : ''}</p>
+      <Field
+        label={t('field.password')}
+        type="password"
+        bind:value={password}
+        autocomplete="current-password"
+        required
+        error={err.code === 'invalid_credentials' ? err.message : ''}
+      />
+    {/if}
+    {#if err.code !== 'invalid_credentials' && err.code !== 'invalid_code'}<Alert message={err.message} />{/if}
+    <Button type="submit" {busy}>{needSecond ? t('signIn.verify') : t('signIn.submit')}</Button>
+    {#if needSecond}
+      <Button
+        variant="quiet"
+        onclick={() => {
+          needSecond = false;
+          code = '';
+          err = { code: '', message: '' };
+        }}>{t('common.back')}</Button
+      >
+    {/if}
   </form>
 </section>
-
-<style>
-  .signin {
-    max-inline-size: 420px;
-    margin-inline: auto;
-  }
-  form {
-    display: grid;
-    gap: var(--space);
-  }
-  .field {
-    display: grid;
-    gap: 6px;
-  }
-  label {
-    font-weight: 600;
-    font-size: 0.9375rem;
-  }
-  input {
-    min-block-size: var(--tap);
-    padding-block: 10px;
-    padding-inline: 12px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    background: var(--surface);
-  }
-  [role='status'] {
-    margin: 0;
-    min-block-size: 1.5em;
-  }
-</style>

@@ -5,11 +5,13 @@ const CSRF_COOKIE = 'gunkly_csrf';
 export class ApiError extends Error {
   readonly status: number; // 0 = network failure
   readonly code: string;
-  constructor(status: number, code: string) {
+  readonly retryAfter: number; // seconds, from Retry-After on 429; 0 if absent
+  constructor(status: number, code: string, retryAfter = 0) {
     super(code);
     this.name = 'ApiError';
     this.status = status;
     this.code = code;
+    this.retryAfter = retryAfter;
   }
 }
 
@@ -44,7 +46,11 @@ export async function api<T>(method: Method, path: `/${string}`, body?: unknown)
   if (!res.ok) {
     // Expected error body: {"error": {"code": "..."}}; anything else falls back to http_<status>.
     const code = (data as { error?: { code?: unknown } } | null)?.error?.code;
-    throw new ApiError(res.status, typeof code === 'string' ? code : `http_${res.status}`);
+    throw new ApiError(
+      res.status,
+      typeof code === 'string' ? code : `http_${res.status}`,
+      Number(res.headers.get('Retry-After')) || 0,
+    );
   }
   return data as T;
 }

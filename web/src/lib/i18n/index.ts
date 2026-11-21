@@ -40,3 +40,9 @@ export function applyLocale(): void {
   document.documentElement.lang = locale;
   document.documentElement.dir = RTL.has(locale) ? 'rtl' : 'ltr';
 }
+
+export const available = Object.keys(catalogs);
+
+export function languageName(tag: string): string {
+  return new Intl.DisplayNames(locale, { type: 'language' }).of(tag) ?? tag;
+}
