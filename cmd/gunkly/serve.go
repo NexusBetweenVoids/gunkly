@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/NexusBetweenVoids/gunkly/internal/api"
+	"github.com/NexusBetweenVoids/gunkly/internal/egress"
 	"github.com/NexusBetweenVoids/gunkly/internal/notify"
 	"github.com/NexusBetweenVoids/gunkly/internal/scheduler"
 	"github.com/NexusBetweenVoids/gunkly/web"
@@ -133,8 +134,7 @@ func healthURL(listen string) (string, error) {
 func (a *app) startScheduler(ctx context.Context) {
 	w := scheduler.New(scheduler.Config{
 		Store: a.store, DB: a.db, Keyring: a.keyring, Limits: a.limits, BaseURL: a.cfg.BaseURL, Logger: a.log,
-		// TODO(shoutrrr): notify.Unconfigured until the Shoutrrr sender lands (needs Go 1.27); see ADR 0007.
-		Sender: notify.Unconfigured{},
+		Sender: notify.NewShoutrrrSender(egress.Guard{Enabled: true}),
 	})
 	wctx, cancel := context.WithCancel(context.WithoutCancel(ctx))
 	done := make(chan struct{})

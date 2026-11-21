@@ -19,4 +19,4 @@ Users want reminders on services they already use, without Gunkly running a mess
 ## Consequences
 - Reminder text is sent to third-party providers at the user's instruction; this is disclosed in the privacy policy and channel-setup UI.
 - Provider outages surface in the delivery log, not as silent drops.
-- Every Shoutrrr release that can inject both the HTTP client and the dial function (`SenderOptions.DialContext`, v0.20.0+) requires Go 1.27, so wiring the Shoutrrr transport moves the module, the build image and golangci-lint to Go 1.27. Until then the scheduler uses `notify.Unconfigured` and deliveries fail visibly.
+- Every Shoutrrr release that can inject both the HTTP client and the dial function (`SenderOptions.DialContext`, v0.20.0+) requires Go 1.27, so Gunkly targets Go 1.27 and pins Shoutrrr v0.25.0. `TestSendersBlocked` proves every enabled and sample admin-enableable service is blocked from loopback and metadata addresses; an upgrade that bypasses the guard fails the build.
