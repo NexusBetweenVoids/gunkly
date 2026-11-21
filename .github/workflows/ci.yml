@@ -119,10 +119,13 @@ jobs:
       - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: go.mod
+      # paho.golang (MQTT, via Shoutrrr) is dual EPL-2.0 / EDL-1.0; Gunkly uses
+      # it under EDL-1.0 (BSD-3-Clause), which go-licenses cannot detect.
       - name: go-licenses check
         run: >-
           go run github.com/google/go-licenses/v2@v2.0.1 check ./...
           --ignore github.com/NexusBetweenVoids/gunkly
+          --ignore github.com/eclipse/paho.golang
           --allowed_licenses=MIT,BSD-2-Clause,BSD-3-Clause,Apache-2.0,ISC,MPL-2.0,AGPL-3.0,LGPL-2.1,LGPL-3.0
       - name: npm licenses
         working-directory: web
