@@ -17,7 +17,7 @@ lint:
 	golangci-lint run
 
 deadcode:
-	@out="$$($(GO) run golang.org/x/tools/cmd/deadcode@v0.39.0 -test ./... 2>&1)"; test -z "$$out" || { echo "$$out"; exit 1; }
+	@out="$$($(GO) run golang.org/x/tools/cmd/deadcode@v0.39.0 -test ./...)" || exit 1; test -z "$$out" || { echo "$$out"; exit 1; }
 
 test:
 	$(GO) test -race -count=1 $(PKGS)
