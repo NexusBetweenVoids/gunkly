@@ -1,0 +1,8 @@
+{
+  "notify.title": "Gunkly: {chore}",
+  "notify.before": "{chore} is due on {date}.",
+  "notify.on": "{chore} is due today.",
+  "notify.overdue": "{chore} is overdue (was due on {date}).",
+  "notify.mark_done": "Mark as done: {url}",
+  "ical.calendar_name": "Gunkly: {household}"
+}

@@ -14,6 +14,8 @@ import (
 	"time"
 
 	"github.com/NexusBetweenVoids/gunkly/internal/api"
+	"github.com/NexusBetweenVoids/gunkly/internal/notify"
+	"github.com/NexusBetweenVoids/gunkly/internal/scheduler"
 	"github.com/NexusBetweenVoids/gunkly/web"
 )
 
@@ -58,7 +60,9 @@ func serve(ctx context.Context, logOut io.Writer) error {
 
 	ctx, stop := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
-	// TODO(scheduler): if !a.cfg.DisableScheduler, start the scheduler here and a.onShutdown(its stop).
+	if !a.cfg.DisableScheduler {
+		a.startScheduler(ctx)
+	}
 
 	errc := make(chan error, 1)
 	go func() { errc <- httpSrv.ListenAndServe() }()
@@ -121,4 +125,32 @@ func healthURL(listen string) (string, error) {
 		host = "[" + host + "]"
 	}
 	return "http://" + host + ":" + port + "/healthz", nil
+}
+
+// startScheduler runs the reminder worker until shutdown. Its hook (run after
+// the HTTP drain, before the database closes) stops new sends, waits for
+// in-flight ones and releases the Postgres lock, within the shutdown timeout.
+func (a *app) startScheduler(ctx context.Context) {
+	w := scheduler.New(scheduler.Config{
+		Store: a.store, DB: a.db, Keyring: a.keyring, Limits: a.limits, BaseURL: a.cfg.BaseURL, Logger: a.log,
+		// TODO(shoutrrr): notify.Unconfigured until the Shoutrrr sender lands (needs Go 1.27); see ADR 0007.
+		Sender: notify.Unconfigured{},
+	})
+	wctx, cancel := context.WithCancel(context.WithoutCancel(ctx))
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		if err := w.Run(wctx); err != nil {
+			a.log.Error("scheduler stopped", "err", err)
+		}
+	}()
+	a.onShutdown(func(sctx context.Context) error {
+		cancel()
+		select {
+		case <-done:
+			return nil
+		case <-sctx.Done():
+			return fmt.Errorf("scheduler: %w", sctx.Err())
+		}
+	})
 }

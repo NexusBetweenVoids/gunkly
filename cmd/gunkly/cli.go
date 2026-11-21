@@ -13,6 +13,7 @@ import (
 	"github.com/NexusBetweenVoids/gunkly/internal/api"
 	"github.com/NexusBetweenVoids/gunkly/internal/auth"
 	"github.com/NexusBetweenVoids/gunkly/internal/db"
+	"github.com/NexusBetweenVoids/gunkly/internal/notify"
 	"github.com/NexusBetweenVoids/gunkly/internal/store"
 )
 
@@ -102,6 +103,9 @@ var rotators = []rotator{
 		return s.RotateTOTPSecrets(ctx, func(userID, ct string) (string, error) {
 			return reencrypt(k, ct, []byte("totp:"+userID))
 		})
+	}},
+	{name: "notification channel URLs", run: func(ctx context.Context, s *store.Store, k *auth.Keyring) (int, error) {
+		return notify.RotateSecrets(ctx, s, k)
 	}},
 }
 
