@@ -19,6 +19,8 @@ tags:
   - {name: areas}
   - {name: chores}
   - {name: reminders}
+  - {name: feeds}
+  - {name: channels}
   - {name: admin}
 paths:
   /setup:
@@ -617,6 +619,142 @@ paths:
                         dates: {type: array, items: {type: string, format: date}}
         "400": {$ref: "#/components/responses/Invalid"}
         "404": {$ref: "#/components/responses/NotFound"}
+  /households/{hh}/feeds:
+    parameters: [{$ref: "#/components/parameters/hh"}]
+    get:
+      tags: [feeds]
+      summary: The caller's calendar feeds for the household (guest)
+      responses:
+        "200": {description: OK, content: {application/json: {schema: {type: array, items: {$ref: "#/components/schemas/Feed"}}}}}
+        "404": {$ref: "#/components/responses/NotFound"}
+    post:
+      tags: [feeds]
+      summary: Create a read-only iCal feed (guest); the URL is shown once
+      responses:
+        "201": {description: Created, content: {application/json: {schema: {$ref: "#/components/schemas/FeedCreated"}}}}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409": {$ref: "#/components/responses/LimitReached"}
+  /households/{hh}/feeds/{id}:
+    parameters: [{$ref: "#/components/parameters/hh"}, {$ref: "#/components/parameters/id"}]
+    delete:
+      tags: [feeds]
+      summary: Revoke a feed (guest, own feeds)
+      responses:
+        "204": {description: Revoked}
+        "404": {$ref: "#/components/responses/NotFound"}
+  /households/{hh}/feeds/{id}/regenerate:
+    parameters: [{$ref: "#/components/parameters/hh"}, {$ref: "#/components/parameters/id"}]
+    post:
+      tags: [feeds]
+      summary: Replace a feed's secret URL (guest, own feeds); the new URL is shown once
+      responses:
+        "200": {description: OK, content: {application/json: {schema: {type: object, properties: {id: {type: string}, url: {type: string}}}}}}
+        "404": {$ref: "#/components/responses/NotFound"}
+  /account/channels:
+    get:
+      tags: [channels]
+      summary: The caller's personal notification channels
+      responses:
+        "200": {description: OK, content: {application/json: {schema: {type: array, items: {$ref: "#/components/schemas/Channel"}}}}}
+    post:
+      tags: [channels]
+      summary: Add a personal notification channel (the URL is write-only)
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/ChannelInput"}}}}
+      responses:
+        "201": {description: Created, content: {application/json: {schema: {$ref: "#/components/schemas/Channel"}}}}
+        "400": {$ref: "#/components/responses/ChannelInvalid"}
+        "409": {$ref: "#/components/responses/LimitReached"}
+  /account/channels/{id}:
+    parameters: [{$ref: "#/components/parameters/id"}]
+    patch:
+      tags: [channels]
+      summary: Rename a channel or replace its URL
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/ChannelPatch"}}}}
+      responses:
+        "200": {description: OK, content: {application/json: {schema: {$ref: "#/components/schemas/Channel"}}}}
+        "400": {$ref: "#/components/responses/ChannelInvalid"}
+        "404": {$ref: "#/components/responses/NotFound"}
+    delete:
+      tags: [channels]
+      summary: Delete a channel
+      responses:
+        "204": {description: Deleted}
+        "404": {$ref: "#/components/responses/NotFound"}
+  /account/channels/{id}/test:
+    parameters: [{$ref: "#/components/parameters/id"}]
+    post:
+      tags: [channels]
+      summary: Send a test message and log it
+      responses:
+        "200": {$ref: "#/components/responses/TestResult"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+  /households/{hh}/channels:
+    parameters: [{$ref: "#/components/parameters/hh"}]
+    get:
+      tags: [channels]
+      summary: Household notification channels (member)
+      responses:
+        "200": {description: OK, content: {application/json: {schema: {type: array, items: {$ref: "#/components/schemas/Channel"}}}}}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+    post:
+      tags: [channels]
+      summary: Add a household notification channel (member)
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/ChannelInput"}}}}
+      responses:
+        "201": {description: Created, content: {application/json: {schema: {$ref: "#/components/schemas/Channel"}}}}
+        "400": {$ref: "#/components/responses/ChannelInvalid"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409": {$ref: "#/components/responses/LimitReached"}
+  /households/{hh}/channels/{id}:
+    parameters: [{$ref: "#/components/parameters/hh"}, {$ref: "#/components/parameters/id"}]
+    patch:
+      tags: [channels]
+      summary: Rename a household channel or replace its URL (member)
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/ChannelPatch"}}}}
+      responses:
+        "200": {description: OK, content: {application/json: {schema: {$ref: "#/components/schemas/Channel"}}}}
+        "400": {$ref: "#/components/responses/ChannelInvalid"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+    delete:
+      tags: [channels]
+      summary: Delete a household channel (member)
+      responses:
+        "204": {description: Deleted}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+  /households/{hh}/channels/{id}/test:
+    parameters: [{$ref: "#/components/parameters/hh"}, {$ref: "#/components/parameters/id"}]
+    post:
+      tags: [channels]
+      summary: Send a test message through a household channel and log it (member)
+      responses:
+        "200": {$ref: "#/components/responses/TestResult"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+  /account/deliveries:
+    get:
+      tags: [channels]
+      summary: Delivery log of the caller's personal channels, newest first
+      parameters: [{$ref: "#/components/parameters/limit"}, {$ref: "#/components/parameters/before"}]
+      responses:
+        "200": {description: OK, content: {application/json: {schema: {$ref: "#/components/schemas/DeliveryList"}}}}
+        "400": {$ref: "#/components/responses/Invalid"}
+  /households/{hh}/deliveries:
+    parameters: [{$ref: "#/components/parameters/hh"}]
+    get:
+      tags: [channels]
+      summary: Delivery log of the household's channels, newest first (member)
+      parameters: [{$ref: "#/components/parameters/limit"}, {$ref: "#/components/parameters/before"}]
+      responses:
+        "200": {description: OK, content: {application/json: {schema: {$ref: "#/components/schemas/DeliveryList"}}}}
+        "400": {$ref: "#/components/responses/Invalid"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
   /admin/users:
     get:
       tags: [admin]
@@ -671,6 +809,8 @@ paths:
                 inviteRegistration: {type: boolean}
                 minPasswordLength: {type: integer, minimum: 8, maximum: 128}
                 limits: {type: object, additionalProperties: {type: integer}, description: "0 resets a limit to its default"}
+                enabledNotificationKinds: {type: array, items: {type: string}, description: "Allowed notification services; must be a subset of availableNotificationKinds"}
+                egressGuard: {type: boolean, description: "Block outbound requests to private addresses; rejected while egressGuardLocked"}
       responses:
         "200": {description: OK, content: {application/json: {schema: {$ref: "#/components/schemas/AdminSettings"}}}}
         "400": {$ref: "#/components/responses/Invalid"}
@@ -679,7 +819,14 @@ components:
   parameters:
     hh: {name: hh, in: path, required: true, schema: {type: string}, description: Household ID}
     chore: {name: chore, in: path, required: true, schema: {type: string}, description: Chore ID}
+    id: {name: id, in: path, required: true, schema: {type: string}}
+    limit: {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 200, default: 50}}
+    before: {name: before, in: query, schema: {type: string}, description: Opaque cursor from a previous page's next}
   responses:
+    ChannelInvalid: {description: Invalid input (invalid, invalid_json, invalid_channel_url, service_disabled), content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
+    TestResult:
+      description: Test outcome; error text is redacted
+      content: {application/json: {schema: {type: object, properties: {sent: {type: boolean}, error: {type: string}}}}}
     Invalid: {description: Validation failed (invalid, invalid_json), content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
     Unauthenticated: {description: Not signed in (unauthenticated), content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
     Forbidden: {description: Role too low, CSRF failure or step-up needed (forbidden, csrf_failed, step_up_required), content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
@@ -784,6 +931,59 @@ components:
         totpEnabled: {type: boolean}
         createdAt: {type: string, format: date-time}
         lastActiveAt: {type: string, format: date-time}
+    Feed:
+      type: object
+      properties:
+        id: {type: string}
+        createdAt: {type: string, format: date-time}
+    FeedCreated:
+      allOf:
+        - $ref: "#/components/schemas/Feed"
+        - type: object
+          properties: {url: {type: string, description: "Secret iCal URL, shown once; relative when BASE_URL is unset"}}
+    Channel:
+      type: object
+      description: The channel URL is a secret and is never returned.
+      properties:
+        id: {type: string}
+        scope: {type: string, enum: [user, household]}
+        kind: {type: string, description: Notification service kind}
+        label: {type: string}
+        hint: {type: string, description: Masked tail of the URL}
+        createdAt: {type: string, format: date-time}
+        updatedAt: {type: string, format: date-time}
+    ChannelInput:
+      type: object
+      required: [url]
+      properties:
+        url: {type: string, description: Write-only service URL}
+        label: {type: string}
+    ChannelPatch:
+      type: object
+      properties:
+        url: {type: string, description: Write-only; replaces the URL}
+        label: {type: string}
+    Delivery:
+      type: object
+      properties:
+        id: {type: string}
+        type: {type: string, enum: [before, on_due, overdue, test]}
+        choreId: {type: string}
+        choreName: {type: string}
+        channelId: {type: string}
+        channelLabel: {type: string}
+        kind: {type: string}
+        status: {type: string}
+        attempts: {type: integer}
+        error: {type: string, description: Redacted}
+        createdAt: {type: string, format: date-time}
+        sentAt: {type: string, format: date-time}
+        nextAttemptAt: {type: string, format: date-time}
+    DeliveryList:
+      type: object
+      properties:
+        items: {type: array, items: {$ref: "#/components/schemas/Delivery"}}
+        next: {type: string, description: Pass as before for the next page; absent on the last page}
     AdminSettings:
       type: object
       properties:
@@ -792,6 +992,10 @@ components:
         minPasswordLength: {type: integer}
         limits: {type: object, additionalProperties: {type: integer}}
         limitDefaults: {type: object, additionalProperties: {type: integer}}
+        enabledNotificationKinds: {type: array, items: {type: string}}
+        availableNotificationKinds: {type: array, items: {type: string}}
+        egressGuard: {type: boolean}
+        egressGuardLocked: {type: boolean, description: "Hosted mode: the guard cannot be turned off"}
     Area:
       type: object
       properties:
@@ -883,3 +1087,14 @@ components:
         preset: {type: string}
         effectivePreset: {type: string}
         reminders: {type: array, items: {$ref: "#/components/schemas/Reminder"}}
+x-outside-api-v1:
+  description: |
+    Unauthenticated, token-addressed endpoints served outside /api/v1 (hence
+    not under paths:). Tokens are secrets; every failure answers one generic
+    page or 404.
+  routes:
+    "GET /done/{token}": Confirmation page for a mark-done link (HTML, no side effects). Rate limit 30/min per IP.
+    "POST /done/{token}": Completes the occurrence the link addresses and shows an undo form (HTML form post, CSRF-checked by Origin/Sec-Fetch-Site). Rate limit 30/min per IP.
+    "POST /done/undo/{token}": Reverts that completion within 5 minutes (HTML). Rate limit 30/min per IP.
+    "GET /done.css": Stylesheet of the mark-done pages.
+    "GET /ical/{file}": Read-only iCalendar feed; {file} is "<token>.ics". Rate limit 60/min per IP.

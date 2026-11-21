@@ -3,10 +3,12 @@ package store
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"slices"
 	"strconv"
 	"time"
 
+	"github.com/NexusBetweenVoids/gunkly/internal/db"
 	"github.com/NexusBetweenVoids/gunkly/internal/ids"
 	"github.com/NexusBetweenVoids/gunkly/internal/schedule"
 )
@@ -15,26 +17,81 @@ import (
 // occurrence or whether the chore is active), so each one invalidates the
 // chore's outstanding links in the same transaction.
 
-// MoveChoreOccurrence moves the chore's current occurrence to dueDate/next
-// (computed by the caller with internal/schedule): snooze, or skip once
-// (advance to the next occurrence without a completion). Member or owner.
-// Archived chores are ErrConflict.
-func (s *Store) MoveChoreOccurrence(ctx context.Context, a Actor, householdID, choreID, dueDate string, next time.Time) (Chore, error) {
-	if _, err := time.Parse(time.DateOnly, dueDate); err != nil || next.IsZero() {
-		return Chore{}, ErrInvalid
-	}
-	var c Chore
+// ErrNoNextOccurrence is returned by SkipChore when the series has ended.
+var ErrNoNextOccurrence = errors.New("store: no next occurrence")
+
+// SnoozeChore moves the chore's current occurrence to the local date until,
+// which must not be before today in the household zone (ErrInvalid). Member
+// or owner. Archived chores are ErrConflict. The read, the computation and the
+// write happen in one transaction (the chore row is locked on Postgres), so a
+// concurrent edit is never overwritten.
+func (s *Store) SnoozeChore(ctx context.Context, a Actor, householdID, choreID string, until schedule.Date) (Chore, error) {
+	return s.moveOccurrence(ctx, a, householdID, choreID, func(_ Chore, _ *time.Location, today schedule.Date) (schedule.Date, error) {
+		if until.Before(today) || until.Year > 9000 {
+			return schedule.Date{}, ErrInvalid
+		}
+		return until, nil
+	})
+}
+
+// SkipChore advances a recurring chore to its next occurrence after today (and
+// after the current one) without recording a completion. One-off chores are
+// ErrInvalid, an ended series ErrNoNextOccurrence. Member or owner; archived
+// chores are ErrConflict. Transactional like SnoozeChore.
+func (s *Store) SkipChore(ctx context.Context, a Actor, householdID, choreID string) (Chore, error) {
+	return s.moveOccurrence(ctx, a, householdID, choreID, func(c Chore, _ *time.Location, today schedule.Date) (schedule.Date, error) {
+		rule, err := RuleOf(c)
+		if err != nil {
+			return schedule.Date{}, err
+		}
+		cur, perr := schedule.ParseDate(c.DueDate)
+		if rule == nil || perr != nil {
+			return schedule.Date{}, ErrInvalid // one-off chores do not repeat
+		}
+		next, found := schedule.NextDue(rule, schedule.FromScheduled, cur, today)
+		if !found {
+			return schedule.Date{}, ErrNoNextOccurrence
+		}
+		return next, nil
+	})
+}
+
+func (s *Store) moveOccurrence(ctx context.Context, a Actor, householdID, choreID string,
+	pick func(c Chore, loc *time.Location, today schedule.Date) (schedule.Date, error)) (Chore, error) {
+	var out Chore
 	err := s.write(ctx, a, householdID, RoleMember, func(t *tx, _ Role) error {
-		if err := t.requireActive(ctx, householdID, choreID); err != nil {
+		if t.d == db.Postgres {
+			var id string
+			if err := t.queryRow(ctx, "SELECT id FROM chores WHERE id = ? AND household_id = ? FOR UPDATE", choreID, householdID).Scan(&id); err != nil {
+				return notFound(err)
+			}
+		}
+		c, err := t.chore(ctx, householdID, choreID)
+		if err != nil {
+			return err
+		}
+		if !c.ArchivedAt.IsZero() {
+			return ErrConflict
+		}
+		var tz string
+		if err := t.queryRow(ctx, "SELECT timezone FROM households WHERE id = ?", householdID).Scan(&tz); err != nil {
+			return notFound(err)
+		}
+		loc, err := time.LoadLocation(tz)
+		if err != nil {
+			return err
+		}
+		d, err := pick(c, loc, schedule.DateOf(s.now(), loc))
+		if err != nil {
 			return err
 		}
 		if err := t.execOne(ctx, "UPDATE chores SET due_date = ?, next_due = ?, updated_at = ? WHERE id = ? AND household_id = ?",
-			dueDate, ms(next), s.nowMS(), choreID, householdID); err != nil {
+			d.String(), ms(OccurrenceInstant(d, loc)), s.nowMS(), choreID, householdID); err != nil {
 			return err
 		}
-		return t.finishState(ctx, householdID, choreID, &c)
+		return t.finishState(ctx, householdID, choreID, &out)
 	})
-	return c, err
+	return out, err
 }
 
 // SetChorePause pauses a chore until the given instant, or indefinitely

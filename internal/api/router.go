@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/NexusBetweenVoids/gunkly/internal/limits"
 	"github.com/NexusBetweenVoids/gunkly/internal/store"
 )
 
@@ -52,16 +53,23 @@ func (p policy) withRate(bucket string) policy { p.rate = bucket; return p }
 // withTokenAuth declares the route authenticated by a URL token (see policy).
 func (p policy) withTokenAuth() policy { p.tokenAuth = true; return p }
 
-// Rate-limit buckets (all share the login-attempt rate from internal/limits).
+// Rate-limit buckets (login-attempt rate from internal/limits unless overridden in
+// bucketRates).
 const (
 	rateLogin    = "login"
 	rateSetup    = "setup"
 	rateTwoFA    = "2fa"
 	ratePassword = "password"
 	rateInvite   = "invite"
-	rateLink     = "link" // unauthenticated mark-done and feed links
-	rateTest     = "test" // test notifications, per user
+	rateMarkDone = "markdone" // unauthenticated mark-done pages
+	rateICal     = "ical"     // unauthenticated calendar feeds (apps poll)
+	rateTest     = "test"     // test notifications, per user
 )
+
+// bucketRates gives the unauthenticated link buckets their own rate per IP:
+// several people may sit behind one NAT and calendar apps poll, while login
+// stays at the strict default.
+var bucketRates = map[string]int{rateMarkDone: limits.MarkDonePerMinute, rateICal: limits.ICalPerMinute}
 
 type route struct {
 	pattern string

@@ -96,6 +96,7 @@ func New(o Options) *Server {
 		s.ready = func(context.Context) error { return nil }
 	}
 	s.rl = newRateLimiter(limits.Defaults[limits.LoginAttemptsPerMinute], 10000, s.now)
+	s.rl.perMinute = bucketRates
 	s.registerRoutes()
 	return s
 }

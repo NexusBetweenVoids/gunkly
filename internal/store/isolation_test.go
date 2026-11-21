@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/NexusBetweenVoids/gunkly/internal/schedule"
 	"github.com/NexusBetweenVoids/gunkly/internal/store"
 )
 
@@ -120,8 +121,11 @@ var ops = []op{
 	{name: "SetChoreReminders", write: true, run: func(ctx context.Context, s *store.Store, a store.Actor, hh string, f *fixture) error {
 		return s.SetChoreReminders(ctx, a, hh, f.choreA, "nag", nil, 10)
 	}},
-	{name: "MoveChoreOccurrence", write: true, run: func(ctx context.Context, s *store.Store, a store.Actor, hh string, f *fixture) error {
-		return ignore(s.MoveChoreOccurrence(ctx, a, hh, f.choreA, "2027-01-01", time.Now()))
+	{name: "SnoozeChore", write: true, run: func(ctx context.Context, s *store.Store, a store.Actor, hh string, f *fixture) error {
+		return ignore(s.SnoozeChore(ctx, a, hh, f.choreA, schedule.Date{Year: 2999, Month: 1, Day: 1}))
+	}},
+	{name: "SkipChore", write: true, run: func(ctx context.Context, s *store.Store, a store.Actor, hh string, f *fixture) error {
+		return ignore(s.SkipChore(ctx, a, hh, f.choreA))
 	}},
 	{name: "SetChorePause", write: true, run: func(ctx context.Context, s *store.Store, a store.Actor, hh string, f *fixture) error {
 		return ignore(s.SetChorePause(ctx, a, hh, f.choreA, time.Time{}, true))

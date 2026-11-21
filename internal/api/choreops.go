@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 	"time"
@@ -122,15 +123,11 @@ func (s *Server) snoozeChore(w http.ResponseWriter, r *http.Request, c *call) er
 	if err := decode(r, &in); err != nil {
 		return err
 	}
-	ch, loc, today, err := s.stateCtx(r, c)
+	until, err := schedule.ParseDate(in.Until)
 	if err != nil {
-		return err
+		return errInvalid
 	}
-	until, err := futureDate(in.Until, today)
-	if err != nil {
-		return err
-	}
-	ch, err = s.st.MoveChoreOccurrence(r.Context(), c.actor(), c.hh, ch.ID, until.String(), store.OccurrenceInstant(until, loc))
+	ch, err := s.st.SnoozeChore(r.Context(), c.actor(), c.hh, r.PathValue("chore"), until)
 	if err != nil {
 		return err
 	}
@@ -140,23 +137,10 @@ func (s *Server) snoozeChore(w http.ResponseWriter, r *http.Request, c *call) er
 // skipChore advances a recurring chore to its next occurrence after today (and
 // after the current one) without recording a completion.
 func (s *Server) skipChore(w http.ResponseWriter, r *http.Request, c *call) error {
-	ch, loc, today, err := s.stateCtx(r, c)
-	if err != nil {
-		return err
-	}
-	rule, err := store.RuleOf(ch)
-	if err != nil {
-		return err
-	}
-	cur, perr := schedule.ParseDate(ch.DueDate)
-	if rule == nil || perr != nil {
-		return errInvalid // one-off chores do not repeat
-	}
-	next, found := schedule.NextDue(rule, schedule.FromScheduled, cur, today)
-	if !found {
+	ch, err := s.st.SkipChore(r.Context(), c.actor(), c.hh, r.PathValue("chore"))
+	if errors.Is(err, store.ErrNoNextOccurrence) {
 		return errf(http.StatusConflict, "no_next_occurrence")
 	}
-	ch, err = s.st.MoveChoreOccurrence(r.Context(), c.actor(), c.hh, ch.ID, next.String(), store.OccurrenceInstant(next, loc))
 	if err != nil {
 		return err
 	}

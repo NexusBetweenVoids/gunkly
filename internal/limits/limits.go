@@ -50,6 +50,13 @@ var Defaults = map[Kind]int{
 	LoginAttemptsPerMinute:     5,
 }
 
+// Per-IP request rates of the unauthenticated link endpoints. Fixed, not
+// admin-tunable (the login rate above stays strict and separate).
+const (
+	MarkDonePerMinute = 30
+	ICalPerMinute     = 60
+)
+
 // ErrExceeded is returned by Check when current has reached the limit.
 var ErrExceeded = errors.New("limits: limit reached")
 

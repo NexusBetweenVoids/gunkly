@@ -94,14 +94,14 @@ func (s *Server) registerRoutes() {
 // it merges cleanly with the other route groups.
 func (s *Server) registerLinkAndNotifyRoutes() {
 	member, guest := household(store.RoleMember), household(store.RoleGuest)
-	link := publicRateLimited(rateLink)
+	markDone, ical := publicRateLimited(rateMarkDone), publicRateLimited(rateICal)
 
 	// Links that work without signing in (token-authenticated; see policy.tokenAuth).
-	s.handle("GET /done/{token}", link, s.doneConfirm)
-	s.handle("POST /done/{token}", link.withTokenAuth(), s.doneSubmit)
-	s.handle("POST /done/undo/{token}", link.withTokenAuth(), s.doneUndo)
+	s.handle("GET /done/{token}", markDone, s.doneConfirm)
+	s.handle("POST /done/{token}", markDone.withTokenAuth(), s.doneSubmit)
+	s.handle("POST /done/undo/{token}", markDone.withTokenAuth(), s.doneUndo)
 	s.handle("GET /done.css", public, s.doneStyle)
-	s.handle("GET /ical/{file}", link, s.icalFeed) // {file} is "<token>.ics"
+	s.handle("GET /ical/{file}", ical, s.icalFeed) // {file} is "<token>.ics"
 
 	// Calendar feeds: read-only, so guests may have them.
 	s.handle("GET /api/v1/households/{hh}/feeds", guest, s.listFeeds)

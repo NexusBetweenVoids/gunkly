@@ -2,7 +2,9 @@ package store_test
 
 import (
 	"context"
+	"errors"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -113,5 +115,62 @@ func TestSetChoreReminders(t *testing.T) {
 	noErr(t, f.s.SetChoreReminders(ctx, f.m, f.hA, f.choreA, "nag", nil, 10))
 	if preset, got, _ = f.s.ChoreReminders(ctx, f.g, f.hA, f.choreA); preset != "nag" || len(got) != 0 {
 		t.Fatalf("after switching: %q %v", preset, got)
+	}
+}
+
+func TestSnoozeSkipTransactional(t *testing.T) {
+	f := newMD(t)
+	tok := f.link(t, f.m.UserID, "")
+
+	// Snooze: scoped, validated, and it invalidates outstanding mark-done links.
+	until := schedule.Date{Year: 2026, Month: 12, Day: 5}
+	c, err := f.s.SnoozeChore(f.ctx, f.m, f.hid, f.chore.ID, until)
+	if err != nil || c.DueDate != "2026-12-05" {
+		t.Fatalf("snooze: %v %+v", err, c)
+	}
+	if _, err := f.s.PeekMarkDone(f.ctx, tok); err == nil {
+		t.Fatal("mark-done link survived a snooze")
+	}
+	if _, err := f.s.SnoozeChore(f.ctx, f.m, f.hid, f.chore.ID, schedule.Date{Year: 2026, Month: 11, Day: 1}); !errors.Is(err, store.ErrInvalid) {
+		t.Fatalf("past snooze: %v", err)
+	}
+	if _, err := f.s.SnoozeChore(f.ctx, f.g, f.hid, f.chore.ID, until); !errors.Is(err, store.ErrForbidden) {
+		t.Fatalf("guest snooze: %v", err)
+	}
+	if _, err := f.s.SnoozeChore(f.ctx, f.m, f.otherHID, f.otherChore.ID, until); err == nil {
+		t.Fatal("snoozed in a household the caller is not in")
+	}
+	if _, err := f.s.SnoozeChore(f.ctx, f.m, f.hid, f.otherChore.ID, until); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("chore of another household: %v", err)
+	}
+
+	// Skip moves to the next occurrence after today.
+	c, err = f.s.SkipChore(f.ctx, f.m, f.hid, f.chore.ID)
+	if err != nil || c.DueDate <= "2026-12-05" {
+		t.Fatalf("skip: %v %+v", err, c)
+	}
+
+	// Concurrent snoozes and skips serialise: no error, a consistent result.
+	var wg sync.WaitGroup
+	for i := range 8 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			var err error
+			if i%2 == 0 {
+				_, err = f.s.SkipChore(f.ctx, f.m, f.hid, f.chore.ID)
+			} else {
+				_, err = f.s.SnoozeChore(f.ctx, f.m, f.hid, f.chore.ID, until)
+			}
+			if err != nil {
+				t.Error(err)
+			}
+		}()
+	}
+	wg.Wait()
+
+	noErr(t, f.s.ArchiveChore(f.ctx, f.owner, f.hid, f.chore.ID))
+	if _, err := f.s.SkipChore(f.ctx, f.m, f.hid, f.chore.ID); !errors.Is(err, store.ErrConflict) {
+		t.Fatalf("archived skip: %v", err)
 	}
 }

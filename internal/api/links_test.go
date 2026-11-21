@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/NexusBetweenVoids/gunkly/internal/limits"
 	"github.com/NexusBetweenVoids/gunkly/internal/notify"
 	"github.com/NexusBetweenVoids/gunkly/internal/store"
 )
@@ -458,5 +459,40 @@ func TestFeedURLUsesBaseURL(t *testing.T) {
 	st, v := f.m.do("POST", "/api/v1/households/"+f.hA+"/feeds", nil)
 	if st != 201 || !strings.HasPrefix(field(v, "url").(string), "https://gunkly.example/ical/") {
 		t.Fatalf("%d %v", st, v)
+	}
+}
+
+// TestLinkRateBuckets: mark-done pages and calendar feeds have their own
+// per-IP buckets (30 and 60 per minute) apart from the strict login bucket.
+func TestLinkRateBuckets(t *testing.T) {
+	e := newEnv(t)
+	e.srv.rl = newRateLimiter(limits.Defaults[limits.LoginAttemptsPerMinute], 100, e.clock.Now)
+	e.srv.rl.perMinute = bucketRates
+	count := func(path string) int { // requests until the first 429
+		for i := 1; i <= 100; i++ {
+			if e.anon("GET", path, nil).status == 429 {
+				return i - 1
+			}
+		}
+		return 100
+	}
+	if n := count("/done/nope"); n != limits.MarkDonePerMinute {
+		t.Fatalf("mark-done allowed %d, want %d", n, limits.MarkDonePerMinute)
+	}
+	if n := count("/ical/nope.ics"); n != limits.ICalPerMinute {
+		t.Fatalf("ical allowed %d, want %d", n, limits.ICalPerMinute)
+	}
+	// Exhausting both left login untouched, and login is still strict.
+	c := e.client()
+	var allowed int
+	for range 10 {
+		r := c.raw("POST", "/api/v1/session", map[string]string{"login": "x", "password": "password-x"}, c.cookie(csrfCookie))
+		r.Body.Close()
+		if r.StatusCode != 429 {
+			allowed++
+		}
+	}
+	if allowed != limits.Defaults[limits.LoginAttemptsPerMinute] {
+		t.Fatalf("login allowed %d", allowed)
 	}
 }
