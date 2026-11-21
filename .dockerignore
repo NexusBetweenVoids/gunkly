@@ -1,0 +1,21 @@
+# Keep the build context small and secret-free.
+.git
+.github
+.env
+.env.*
+!.env.example
+/bin
+/data
+/gunkly
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+coverage.out
+*.test
+web/node_modules
+web/dist
+Dockerfile
+.dockerignore
+compose.*.yml

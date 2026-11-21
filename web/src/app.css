@@ -1,0 +1,170 @@
+/* Design tokens. Light by default, dark via system preference unless overridden
+   with <html data-theme="light|dark">. Logical properties only (RTL-ready). */
+:root {
+  color-scheme: light;
+  --bg: #f5f5f7;
+  --surface: #ffffff;
+  --surface-2: #f0f0f3;
+  --text: #1d1d1f;
+  --text-2: #5e5e63;
+  --border: #d2d2d7;
+  --accent: #0060c7;
+  --accent-text: #ffffff;
+  --danger: #c4221b;
+  --focus: #0071e3;
+  --radius: 12px;
+  --radius-lg: 18px;
+  --space: 16px;
+  --tap: 44px;
+  --shadow: 0 1px 2px rgb(0 0 0 / 6%), 0 4px 16px rgb(0 0 0 / 4%);
+  --font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
+    "Noto Sans", "PingFang SC", "PingFang TC", "Hiragino Sans", "Hiragino Kaku Gothic ProN",
+    "Apple SD Gothic Neo", "Microsoft YaHei", "Microsoft JhengHei", "Yu Gothic", "Malgun Gothic",
+    "Noto Sans CJK SC", "Noto Sans CJK JP", "Noto Sans CJK KR", "Noto Sans Arabic", "Noto Sans Hebrew",
+    sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji";
+  --ease: cubic-bezier(0.25, 0.1, 0.25, 1);
+  --dur: 180ms;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #000000;
+    --surface: #1c1c1e;
+    --surface-2: #2c2c2e;
+    --text: #f5f5f7;
+    --text-2: #a1a1a6;
+    --border: #3a3a3c;
+    --accent: #4da3ff;
+    --accent-text: #000000;
+    --danger: #ff6961;
+    --focus: #4da3ff;
+    --shadow: none;
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #000000;
+  --surface: #1c1c1e;
+  --surface-2: #2c2c2e;
+  --text: #f5f5f7;
+  --text-2: #a1a1a6;
+  --border: #3a3a3c;
+  --accent: #4da3ff;
+  --accent-text: #000000;
+  --danger: #ff6961;
+  --focus: #4da3ff;
+  --shadow: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur: 0ms;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-block-size: 100dvh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 1.0625rem;
+  line-height: 1.5;
+  text-align: start;
+  overflow-wrap: anywhere;
+  line-break: strict;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  line-height: 1.2;
+  margin-block: 0 0.5em;
+  letter-spacing: -0.01em;
+}
+
+a {
+  color: var(--accent);
+}
+
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-block-size: var(--tap);
+  min-inline-size: var(--tap);
+  padding-block: 10px;
+  padding-inline: 20px;
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: var(--accent-text);
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity var(--dur) var(--ease);
+}
+
+.btn:hover {
+  opacity: 0.88;
+}
+
+.btn-quiet {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.card {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  padding-block: var(--space);
+  padding-inline: calc(var(--space) * 1.25);
+}
+
+.muted {
+  color: var(--text-2);
+}
+
+.visually-hidden {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

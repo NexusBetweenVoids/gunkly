@@ -1,0 +1,14 @@
+#!/bin/sh
+# Gunkly pre-commit hook: block staged secrets.
+# Install: ln -s ../../scripts/pre-commit .git/hooks/pre-commit
+set -eu
+if command -v gitleaks >/dev/null 2>&1; then
+  # gitleaks v8.19+ prefers `git --staged`; `protect --staged` still works on older versions.
+  if gitleaks git --help >/dev/null 2>&1; then
+    exec gitleaks git --pre-commit --staged --redact --no-banner
+  fi
+  exec gitleaks protect --staged --redact --no-banner
+fi
+echo "pre-commit: gitleaks not installed; secret scan skipped (CI will still run it)." >&2
+echo "  install: https://github.com/gitleaks/gitleaks#installing" >&2
+exit 0

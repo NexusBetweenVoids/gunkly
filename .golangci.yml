@@ -1,0 +1,51 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: none
+  enable:
+    - bodyclose
+    - depguard
+    - errcheck
+    - errorlint
+    - gosec
+    - govet
+    - ineffassign
+    - misspell
+    - rowserrcheck
+    - sqlclosecheck
+    - staticcheck
+    - unused
+  settings:
+    depguard:
+      rules:
+        # Architectural fitness: only internal/db and internal/store touch the database.
+        no-direct-db:
+          files:
+            - "**/internal/api/**"
+            - "**/cmd/**"
+          deny:
+            - pkg: database/sql
+              desc: "handlers and commands go through internal/store"
+            - pkg: github.com/jackc/pgx
+              desc: "database drivers belong in internal/db"
+            - pkg: modernc.org/sqlite
+              desc: "database drivers belong in internal/db"
+    govet:
+      enable-all: true
+      disable:
+        - fieldalignment
+        - shadow
+  exclusions:
+    presets:
+      - std-error-handling
+    rules:
+      # Tests may use weak randomness and unchecked fixtures.
+      - path: _test\.go
+        linters: [gosec]
+
+formatters:
+  enable:
+    - gofmt

@@ -1,0 +1,163 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  go:
+    name: Go (SQLite)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version-file: go.mod
+      - name: gofmt
+        run: make fmt
+      - name: go vet
+        run: make vet
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
+        with:
+          version: v2.15.0
+      - name: deadcode
+        run: make deadcode
+      - name: go test -race (SQLite)
+        run: make test
+      - name: govulncheck
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.10.0 ./...
+
+  go-postgres:
+    name: Go (Postgres)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: gunkly
+          POSTGRES_PASSWORD: gunkly
+          POSTGRES_DB: gunkly_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U gunkly -d gunkly_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      GUNKLY_TEST_POSTGRES_URL: postgres://gunkly:gunkly@localhost:5432/gunkly_test?sslmode=disable
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version-file: go.mod
+      - name: go test -race (Postgres)
+        run: make test-pg
+
+  web:
+    name: Web
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci --ignore-scripts
+      - run: npm run check
+      - run: npm run build
+      - run: npm run budget
+
+  gitleaks:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Organisation-owned repos also need GITLEAKS_LICENSE; personal repos do not.
+          GITLEAKS_ENABLE_COMMENTS: false
+
+  licenses:
+    name: License compatibility (AGPL-3.0)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version-file: go.mod
+      - name: go-licenses check
+        run: >-
+          go run github.com/google/go-licenses/v2@v2.0.1 check ./...
+          --ignore github.com/NexusBetweenVoids/gunkly
+          --allowed_licenses=MIT,BSD-2-Clause,BSD-3-Clause,Apache-2.0,ISC,MPL-2.0,AGPL-3.0,LGPL-2.1,LGPL-3.0
+      - name: npm licenses
+        working-directory: web
+        run: npm run licenses
+
+  docker:
+    name: Container image
+    runs-on: ubuntu-latest
+    needs: [go, web]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Build (linux/amd64, no push)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64
+          push: false
+          load: true
+          tags: gunkly:ci
+          build-args: VERSION=${{ github.sha }}
+      - name: Image size
+        run: docker image ls gunkly:ci --format '{{.Size}}'
+      # TODO: drop continue-on-error once cmd/gunkly serves /healthz and implements `healthcheck`.
+      - name: Boot and probe /healthz
+        continue-on-error: true
+        run: |
+          key="1:$(openssl rand -base64 32)"
+          docker volume create gunkly-ci
+          docker run -d --name gunkly --read-only --cap-drop ALL --security-opt no-new-privileges \
+            -p 8080:8080 -v gunkly-ci:/data \
+            -e GUNKLY_SECRET_KEYS="$key" -e GUNKLY_BASE_URL=http://localhost:8080 gunkly:ci
+          for i in $(seq 1 30); do
+            curl -fsS http://localhost:8080/healthz && exit 0
+            sleep 1
+          done
+          docker logs gunkly
+          exit 1
+      - name: Logs
+        if: always()
+        run: docker logs gunkly || true

@@ -1,0 +1,25 @@
+# Gunkly with SQLite (default). Usage:
+#   cp .env.example .env   # set GUNKLY_SECRET_KEYS and GUNKLY_BASE_URL
+#   docker compose -f compose.sqlite.yml up -d
+name: gunkly
+
+services:
+  gunkly:
+    image: ghcr.io/nexusbetweenvoids/gunkly:latest
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      GUNKLY_DATABASE_URL: sqlite:///data/gunkly.db
+      SQLITE_TMPDIR: /data/tmp
+    ports:
+      - "8080:8080"
+    volumes:
+      - gunkly-data:/data
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  gunkly-data:

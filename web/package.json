@@ -1,0 +1,26 @@
+{
+  "name": "gunkly-web",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "license": "AGPL-3.0-only",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build && node -e \"require('node:fs').writeFileSync('dist/.gitkeep','')\"",
+    "check": "svelte-check --fail-on-warnings && npm run -s i18n-check",
+    "i18n-check": "node scripts/i18n-check.mjs",
+    "budget": "node scripts/budget.mjs",
+    "icons": "node scripts/icons.mjs",
+    "licenses": "node scripts/licenses.mjs"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "7.3.1",
+    "svelte": "5.59.1",
+    "svelte-check": "4.7.8",
+    "typescript": "6.0.3",
+    "vite": "8.3.8"
+  }
+}
