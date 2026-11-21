@@ -150,6 +150,33 @@ func (s *Server) csrfOK(r *http.Request) bool {
 	return subtle.ConstantTimeCompare([]byte(c.Value), []byte(r.Header.Get("X-CSRF-Token"))) == 1
 }
 
+// requestOK is the CSRF gate for unsafe methods. Session routes need the
+// double-submit cookie plus the cross-site check. Token routes (mark-done
+// links) have no cookie to submit and nothing ambient for an attacker to
+// ride: the capability is the unguessable URL token itself, which a
+// cross-site page cannot know. They only get tokenRequestOK, so a
+// browser never submits them from another site.
+func (s *Server) requestOK(p policy, r *http.Request) bool {
+	if p.tokenAuth {
+		return s.tokenRequestOK(r)
+	}
+	return s.csrfOK(r)
+}
+
+// tokenRequestOK rejects browser requests initiated from another site.
+// Sec-Fetch-Site is authoritative when present ("same-origin" or "none" pass). Otherwise a
+// present Origin must match this server; "null" is tolerated there because
+// Referrer-Policy: no-referrer (which every page here sends) makes some
+// browsers serialise a same-origin form POST's Origin as "null". Requests
+// with neither header (curl, old clients) pass: they are not browser-ambient.
+func (s *Server) tokenRequestOK(r *http.Request) bool {
+	if sfs := r.Header.Get("Sec-Fetch-Site"); sfs != "" {
+		return sfs == "same-origin" || sfs == "none"
+	}
+	o := r.Header.Get("Origin")
+	return o == "" || o == "null" || s.sameOrigin(o, r)
+}
+
 func (s *Server) sameOrigin(origin string, r *http.Request) bool {
 	if s.baseURL != "" {
 		return strings.EqualFold(origin, s.baseURL)

@@ -14,8 +14,6 @@ import (
 	"time"
 
 	"github.com/NexusBetweenVoids/gunkly/internal/api"
-	"github.com/NexusBetweenVoids/gunkly/internal/egress"
-	"github.com/NexusBetweenVoids/gunkly/internal/notify"
 	"github.com/NexusBetweenVoids/gunkly/internal/scheduler"
 	"github.com/NexusBetweenVoids/gunkly/web"
 )
@@ -43,7 +41,7 @@ func serve(ctx context.Context, logOut io.Writer) error {
 	}
 	srv := api.New(api.Options{
 		Store: a.store, Limits: a.limits, Keyring: a.keyring, BaseURL: a.cfg.BaseURL,
-		TrustedProxies: a.cfg.TrustedProxies, Logger: a.log, Ready: a.ready, Static: dist,
+		TrustedProxies: a.cfg.TrustedProxies, Logger: a.log, Ready: a.ready, Static: dist, HostedMode: a.cfg.HostedMode,
 	})
 	if err := srv.InitSetup(ctx); err != nil {
 		return err
@@ -62,7 +60,7 @@ func serve(ctx context.Context, logOut io.Writer) error {
 	ctx, stop := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 	if !a.cfg.DisableScheduler {
-		a.startScheduler(ctx)
+		a.startScheduler(ctx, srv)
 	}
 
 	errc := make(chan error, 1)
@@ -131,10 +129,12 @@ func healthURL(listen string) (string, error) {
 // startScheduler runs the reminder worker until shutdown. Its hook (run after
 // the HTTP drain, before the database closes) stops new sends, waits for
 // in-flight ones and releases the Postgres lock, within the shutdown timeout.
-func (a *app) startScheduler(ctx context.Context) {
+func (a *app) startScheduler(ctx context.Context, srv *api.Server) {
 	w := scheduler.New(scheduler.Config{
 		Store: a.store, DB: a.db, Keyring: a.keyring, Limits: a.limits, BaseURL: a.cfg.BaseURL, Logger: a.log,
-		Sender: notify.NewShoutrrrSender(egress.Guard{Enabled: true}),
+		// The server's sender and allowlist follow the admin settings (egress
+		// guard, enabled notification kinds), read at send time.
+		Sender: srv.Sender(), EnabledKinds: srv.EnabledKinds,
 	})
 	wctx, cancel := context.WithCancel(context.WithoutCancel(ctx))
 	done := make(chan struct{})

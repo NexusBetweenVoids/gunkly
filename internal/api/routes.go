@@ -58,6 +58,45 @@ func (s *Server) registerRoutes() {
 	s.handle("POST /api/v1/admin/users/{id}/reset-password", admin.withStepUp(), s.adminResetPassword)
 	s.handle("GET /api/v1/admin/settings", admin, s.adminGetSettings)
 	s.handle("PATCH /api/v1/admin/settings", admin.withStepUp(), s.adminPatchSettings)
+
+	s.registerLinkAndNotifyRoutes()
+}
+
+// registerLinkAndNotifyRoutes: unauthenticated links (mark-done pages, iCal),
+// calendar feeds, notification channels, delivery logs. Kept in one block so
+// it merges cleanly with the other route groups.
+func (s *Server) registerLinkAndNotifyRoutes() {
+	member, guest := household(store.RoleMember), household(store.RoleGuest)
+	link := publicRateLimited(rateLink)
+
+	// Links that work without signing in (token-authenticated; see policy.tokenAuth).
+	s.handle("GET /done/{token}", link, s.doneConfirm)
+	s.handle("POST /done/{token}", link.withTokenAuth(), s.doneSubmit)
+	s.handle("POST /done/undo/{token}", link.withTokenAuth(), s.doneUndo)
+	s.handle("GET /done.css", public, s.doneStyle)
+	s.handle("GET /ical/{file}", link, s.icalFeed) // {file} is "<token>.ics"
+
+	// Calendar feeds: read-only, so guests may have them.
+	s.handle("GET /api/v1/households/{hh}/feeds", guest, s.listFeeds)
+	s.handle("POST /api/v1/households/{hh}/feeds", guest, s.createFeed)
+	s.handle("DELETE /api/v1/households/{hh}/feeds/{id}", guest, s.deleteFeed)
+	s.handle("POST /api/v1/households/{hh}/feeds/{id}/regenerate", guest, s.regenerateFeed)
+
+	// Notification channels: URLs are write-only.
+	s.handle("GET /api/v1/account/channels", session, s.listUserChannels)
+	s.handle("POST /api/v1/account/channels", session, s.createUserChannel)
+	s.handle("PATCH /api/v1/account/channels/{id}", session, s.patchUserChannel)
+	s.handle("DELETE /api/v1/account/channels/{id}", session, s.deleteUserChannel)
+	s.handle("POST /api/v1/account/channels/{id}/test", session, s.testUserChannel)
+	s.handle("GET /api/v1/households/{hh}/channels", member, s.listHouseholdChannels)
+	s.handle("POST /api/v1/households/{hh}/channels", member, s.createHouseholdChannel)
+	s.handle("PATCH /api/v1/households/{hh}/channels/{id}", member, s.patchHouseholdChannel)
+	s.handle("DELETE /api/v1/households/{hh}/channels/{id}", member, s.deleteHouseholdChannel)
+	s.handle("POST /api/v1/households/{hh}/channels/{id}/test", member, s.testHouseholdChannel)
+
+	// Delivery logs.
+	s.handle("GET /api/v1/account/deliveries", session, s.listUserDeliveries)
+	s.handle("GET /api/v1/households/{hh}/deliveries", member, s.listHouseholdDeliveries)
 }
 
 func (s *Server) healthz(w http.ResponseWriter, _ *http.Request, _ *call) error {

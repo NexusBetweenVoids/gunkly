@@ -415,9 +415,23 @@ const deliveryLogQuery = `SELECT d.id, COALESCE(d.chore_id, ''), COALESCE(c.name
 	LEFT JOIN notification_channels nc ON nc.id = d.channel_id
 	WHERE `
 
-func (t *tx) deliveryLog(ctx context.Context, where string, limit int, args ...any) ([]Delivery, error) {
+// DeliveryPage selects a page of a delivery log, newest first. The zero value
+// is the first page of 100. A cursor (BeforeAt, BeforeID) is the CreatedAt and
+// ID of the last entry of the previous page.
+type DeliveryPage struct {
+	Limit    int // 1..500; otherwise 100
+	BeforeAt time.Time
+	BeforeID string
+}
+
+func (t *tx) deliveryLog(ctx context.Context, where string, p DeliveryPage, args ...any) ([]Delivery, error) {
+	limit := p.Limit
 	if limit <= 0 || limit > 500 {
 		limit = 100
+	}
+	if !p.BeforeAt.IsZero() {
+		where += " AND (d.created_at < ? OR (d.created_at = ? AND d.id < ?))"
+		args = append(args, p.BeforeAt.UnixMilli(), p.BeforeAt.UnixMilli(), p.BeforeID)
 	}
 	rows, err := t.query(ctx, deliveryLogQuery+where+" ORDER BY d.created_at DESC, d.id DESC LIMIT ?", append(args, limit)...)
 	if err != nil {
@@ -443,13 +457,18 @@ func (t *tx) deliveryLog(ctx context.Context, where string, limit int, args ...a
 // ListHouseholdDeliveries is the household's delivery log: deliveries to its
 // household channels plus the actor's own. Member or owner.
 func (s *Store) ListHouseholdDeliveries(ctx context.Context, a Actor, householdID string, limit int) ([]Delivery, error) {
+	return s.ListHouseholdDeliveriesPage(ctx, a, householdID, DeliveryPage{Limit: limit})
+}
+
+// ListHouseholdDeliveriesPage is ListHouseholdDeliveries with a cursor.
+func (s *Store) ListHouseholdDeliveriesPage(ctx context.Context, a Actor, householdID string, p DeliveryPage) ([]Delivery, error) {
 	var out []Delivery
 	err := s.inTx(ctx, false, func(t *tx) error {
 		if _, err := t.authorize(ctx, a, householdID, RoleMember, false); err != nil {
 			return err
 		}
 		var err error
-		out, err = t.deliveryLog(ctx, "d.household_id = ? AND (d.user_id IS NULL OR d.user_id = ?)", limit, householdID, a.UserID)
+		out, err = t.deliveryLog(ctx, "d.household_id = ? AND (d.user_id IS NULL OR d.user_id = ?)", p, householdID, a.UserID)
 		return err
 	})
 	return out, err
@@ -457,13 +476,53 @@ func (s *Store) ListHouseholdDeliveries(ctx context.Context, a Actor, householdI
 
 // ListUserDeliveries is the actor's personal delivery log across households.
 func (s *Store) ListUserDeliveries(ctx context.Context, a Actor, limit int) ([]Delivery, error) {
+	return s.ListUserDeliveriesPage(ctx, a, DeliveryPage{Limit: limit})
+}
+
+// ListUserDeliveriesPage is ListUserDeliveries with a cursor.
+func (s *Store) ListUserDeliveriesPage(ctx context.Context, a Actor, p DeliveryPage) ([]Delivery, error) {
 	var out []Delivery
 	err := s.inTx(ctx, false, func(t *tx) error {
 		var err error
-		out, err = t.deliveryLog(ctx, "d.user_id = ?", limit, a.UserID)
+		out, err = t.deliveryLog(ctx, "d.user_id = ?", p, a.UserID)
 		return err
 	})
 	return out, err
+}
+
+// RecordTestDelivery logs the outcome of a test message (no chore, kind 0).
+// householdID is "" for a personal channel, whose entry is private to the
+// actor; for a household channel the entry is visible to its members. lastErr
+// must already be redacted (notify.SafeError). Callers have verified channel
+// access; a channel that is not in that scope is ErrNotFound.
+func (s *Store) RecordTestDelivery(ctx context.Context, a Actor, householdID, channelID string, sent bool, lastErr string) error {
+	return s.inTx(ctx, true, func(t *tx) error {
+		var n int
+		q, args := "SELECT count(*) FROM notification_channels WHERE id = ? AND scope = 'user' AND user_id = ?", []any{channelID, a.UserID}
+		if householdID != "" {
+			q, args = "SELECT count(*) FROM notification_channels WHERE id = ? AND scope = 'household' AND household_id = ?", []any{channelID, householdID}
+		}
+		if err := t.queryRow(ctx, q, args...).Scan(&n); err != nil {
+			return err
+		}
+		if n != 1 {
+			return ErrNotFound
+		}
+		now, status := s.nowMS(), DeliveryFailed
+		var sentAt sql.NullInt64
+		if sent {
+			status, sentAt = DeliverySent, sql.NullInt64{Int64: now, Valid: true}
+			lastErr = ""
+		}
+		id := ids.New()
+		var user any
+		if householdID == "" {
+			user = a.UserID
+		}
+		_, err := t.exec(ctx, `INSERT INTO deliveries (id, delivery_key, household_id, user_id, channel_id, status, attempts, last_error, created_at, sent_at)
+			VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?)`, id, "test:"+id, nullStr(householdID), user, channelID, status, lastErr, now, sentAt)
+		return err
+	})
 }
 
 // --- Scheduler state ---

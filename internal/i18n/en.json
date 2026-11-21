@@ -4,5 +4,16 @@
   "notify.on": "{chore} is due today.",
   "notify.overdue": "{chore} is overdue (was due on {date}).",
   "notify.mark_done": "Mark as done: {url}",
-  "ical.calendar_name": "Gunkly: {household}"
+  "notify.test_title": "Gunkly test message",
+  "notify.test_body": "This is a test message from Gunkly. If you can read it, this channel works.",
+  "ical.calendar_name": "Gunkly: {household}",
+  "done.page_title": "Gunkly",
+  "done.confirm_heading": "Mark \"{chore}\" as done?",
+  "done.confirm_button": "Mark as done",
+  "done.success_heading": "Done: \"{chore}\" is marked as done.",
+  "done.undo_button": "Undo",
+  "done.undo_note": "Pressed by mistake? You can undo this for 5 minutes.",
+  "done.undone_heading": "Undone. The chore is open again.",
+  "done.invalid_heading": "This link is not valid any more.",
+  "done.invalid_note": "It may have been used, may have expired, or the chore may have changed. Open Gunkly to see what is due."
 }

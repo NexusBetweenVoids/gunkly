@@ -28,6 +28,11 @@ type policy struct {
 	minRole store.Role // authHousehold only
 	stepUp  bool       // requires re-verification within stepUpWindow
 	rate    string     // rate-limit bucket keyed by client IP; "" = none
+	// tokenAuth marks a public route whose credential is an unguessable token
+	// in the URL (mark-done links). Unsafe methods skip the cookie CSRF
+	// double-submit, which cannot apply without a session, and get the
+	// cross-site request check only (crossSiteOK).
+	tokenAuth bool
 }
 
 var (
@@ -44,6 +49,9 @@ func (p policy) withStepUp() policy { p.stepUp = true; return p }
 
 func (p policy) withRate(bucket string) policy { p.rate = bucket; return p }
 
+// withTokenAuth declares the route authenticated by a URL token (see policy).
+func (p policy) withTokenAuth() policy { p.tokenAuth = true; return p }
+
 // Rate-limit buckets (all share the login-attempt rate from internal/limits).
 const (
 	rateLogin    = "login"
@@ -51,6 +59,8 @@ const (
 	rateTwoFA    = "2fa"
 	ratePassword = "password"
 	rateInvite   = "invite"
+	rateLink     = "link" // unauthenticated mark-done and feed links
+	rateTest     = "test" // test notifications, per user
 )
 
 type route struct {
@@ -91,6 +101,8 @@ func (p policy) validate(pattern string) error {
 		return fmt.Errorf("api: route %q names {hh} but is not household-scoped", pattern)
 	case p.stepUp && p.auth == authPublic:
 		return fmt.Errorf("api: public route %q cannot require step-up", pattern)
+	case p.tokenAuth && (p.auth != authPublic || p.rate == ""):
+		return fmt.Errorf("api: token route %q must be public and rate limited", pattern)
 	}
 	return nil
 }
@@ -102,7 +114,7 @@ func (s *Server) enforce(p policy, h handlerFunc) http.Handler {
 		info := infoFrom(r)
 		info.pattern = r.Pattern
 		c := &call{ip: info.ip.String()}
-		if !safeMethod(r.Method) && !s.csrfOK(r) {
+		if !safeMethod(r.Method) && !s.requestOK(p, r) {
 			s.fail(w, r, errCSRF)
 			return
 		}

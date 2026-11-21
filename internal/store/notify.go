@@ -23,6 +23,7 @@ type Channel struct {
 	HouseholdID string // scope household
 	Service     string // notify kind
 	Label       string
+	Hint        string // masked URL ("…abcd"); the URL itself is never returned
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 }
@@ -34,7 +35,8 @@ type NewChannel struct {
 	Service    string
 	Ciphertext string
 	Label      string
-	Max        int // limits.ChannelsPerUser / ChannelsPerHousehold, resolved by the caller
+	Hint       string // masked form of the URL, for display
+	Max        int    // limits.ChannelsPerUser / ChannelsPerHousehold, resolved by the caller
 }
 
 // ChannelUpdate changes a channel; nil/empty fields are unchanged. Service
@@ -43,6 +45,7 @@ type ChannelUpdate struct {
 	Label      *string
 	Service    string
 	Ciphertext string
+	Hint       string // set with Ciphertext
 }
 
 func (in *NewChannel) validate() bool {
@@ -61,12 +64,12 @@ func (u *ChannelUpdate) validate() bool {
 	return (u.Service == "") == (u.Ciphertext == "")
 }
 
-const channelCols = `id, scope, COALESCE(user_id, ''), COALESCE(household_id, ''), service, label, created_at, updated_at`
+const channelCols = `id, scope, COALESCE(user_id, ''), COALESCE(household_id, ''), service, label, url_hint, created_at, updated_at`
 
 func scanChannel(row interface{ Scan(...any) error }) (Channel, error) {
 	var c Channel
 	var created, updated int64
-	if err := row.Scan(&c.ID, &c.Scope, &c.UserID, &c.HouseholdID, &c.Service, &c.Label, &created, &updated); err != nil {
+	if err := row.Scan(&c.ID, &c.Scope, &c.UserID, &c.HouseholdID, &c.Service, &c.Label, &c.Hint, &created, &updated); err != nil {
 		return Channel{}, notFound(err)
 	}
 	c.CreatedAt, c.UpdatedAt = time.UnixMilli(created).UTC(), time.UnixMilli(updated).UTC()
@@ -102,8 +105,8 @@ func (t *tx) insertChannel(ctx context.Context, scope, owner string, in NewChann
 	if n >= in.Max {
 		return Channel{}, ErrLimit
 	}
-	_, err := t.exec(ctx, `INSERT INTO notification_channels (id, scope, `+col+`, service, url_ciphertext, label, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, in.ID, scope, owner, in.Service, in.Ciphertext, in.Label, now, now)
+	_, err := t.exec(ctx, `INSERT INTO notification_channels (id, scope, `+col+`, service, url_ciphertext, label, url_hint, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, in.ID, scope, owner, in.Service, in.Ciphertext, in.Label, in.Hint, now, now)
 	if err != nil {
 		return Channel{}, notFoundFK(conflict(err))
 	}
@@ -174,8 +177,8 @@ func (t *tx) updateChannel(ctx context.Context, where string, owner, channelID s
 		args = append(args, *u.Label)
 	}
 	if u.Ciphertext != "" {
-		set += ", service = ?, url_ciphertext = ?"
-		args = append(args, u.Service, u.Ciphertext)
+		set += ", service = ?, url_ciphertext = ?, url_hint = ?"
+		args = append(args, u.Service, u.Ciphertext, u.Hint)
 	}
 	args = append(args, channelID, owner)
 	if err := t.execOne(ctx, "UPDATE notification_channels SET "+set+" WHERE id = ? AND "+where, args...); err != nil {
@@ -326,4 +329,29 @@ func (s *Store) ReplaceChannelCiphertext(ctx context.Context, channelID, old, re
 		}
 		return nil
 	})
+}
+
+// UserChannelCiphertext returns the sealed URL of one of the actor's personal
+// channels, for a test send. ErrNotFound if it is not theirs.
+func (s *Store) UserChannelCiphertext(ctx context.Context, a Actor, channelID string) (string, error) {
+	var ct string
+	err := s.inTx(ctx, false, func(t *tx) error {
+		return notFound(t.queryRow(ctx, "SELECT url_ciphertext FROM notification_channels WHERE id = ? AND scope = 'user' AND user_id = ?",
+			channelID, a.UserID).Scan(&ct))
+	})
+	return ct, err
+}
+
+// HouseholdChannelCiphertext returns the sealed URL of a household channel
+// (member or owner), for a test send.
+func (s *Store) HouseholdChannelCiphertext(ctx context.Context, a Actor, householdID, channelID string) (string, error) {
+	var ct string
+	err := s.inTx(ctx, false, func(t *tx) error {
+		if _, err := t.authorize(ctx, a, householdID, RoleMember, false); err != nil {
+			return err
+		}
+		return notFound(t.queryRow(ctx, "SELECT url_ciphertext FROM notification_channels WHERE id = ? AND scope = 'household' AND household_id = ?",
+			channelID, householdID).Scan(&ct))
+	})
+	return ct, err
 }

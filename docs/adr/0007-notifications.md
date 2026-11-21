@@ -15,6 +15,7 @@ Users want reminders on services they already use, without Gunkly running a mess
 - Built-in reminder presets: `gentle` (on the due date 09:00), `nag` (day before 18:00, due date 09:00, daily overdue 09:00), `none`; `custom` uses the chore's own reminders. A chore's empty preset uses the household default.
 - Mark-done links: opening never changes state; only the confirmation POST does. Tokens are random, hashed, single-use, scoped (personal: one occurrence and one non-guest recipient; household: one occurrence and one channel), expire on state-affecting changes and within 7 days. Guests never receive them.
 - Quiet hours defer and coalesce; guests get no reminders.
+- Channel URLs are write-only over the API: views carry the kind, label and a masked hint ("…abcd", stored at save time). The admin allowlist and the egress-guard switch are instance settings read at use (channel validation, test sends, scheduler); hosted mode forces the guard on. Test messages go through the real sender and appear in the delivery log with a redacted error. Calendar feeds may be created by guests (read-only data: names, areas, dates).
 
 ## Consequences
 - Reminder text is sent to third-party providers at the user's instruction; this is disclosed in the privacy policy and channel-setup UI.
