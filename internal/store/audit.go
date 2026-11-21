@@ -1,0 +1,93 @@
+package store
+
+import (
+	"context"
+	"encoding/json"
+	"time"
+
+	"github.com/NexusBetweenVoids/gunkly/internal/ids"
+)
+
+// Audit event names. Stable strings: the UI translates them.
+const (
+	AuditSetup             = "setup"
+	AuditLoginSuccess      = "login_success"
+	AuditLoginFailure      = "login_failure"
+	AuditLogout            = "logout"
+	AuditPasswordChange    = "password_change"
+	AuditPasswordReset     = "password_reset"
+	AuditTOTPEnable        = "totp_enable"
+	AuditTOTPDisable       = "totp_disable"
+	AuditRecoveryCodeUse   = "recovery_code_use"
+	AuditSessionRevoke     = "session_revoke"
+	AuditMemberRoleChange  = "member_role_change"
+	AuditMemberRemove      = "member_remove"
+	AuditInviteCreate      = "invite_create"
+	AuditInviteAccept      = "invite_accept"
+	AuditInviteRevoke      = "invite_revoke"
+	AuditHouseholdCreate   = "household_create"
+	AuditAdminUserCreate   = "admin_user_create"
+	AuditAdminSettings     = "admin_settings"
+	AuditRegisterByInvite  = "register_invite"
+	AuditHouseholdSettings = "household_settings"
+)
+
+// AuditEvent is one audit-log entry. Meta must never contain secrets.
+type AuditEvent struct {
+	ID          string
+	ActorUserID string // empty = system / unknown
+	HouseholdID string
+	Event       string
+	IP          string
+	Meta        map[string]string
+	CreatedAt   time.Time
+}
+
+// Audit appends an entry to the audit log.
+func (s *Store) Audit(ctx context.Context, e AuditEvent) error {
+	meta := "{}"
+	if len(e.Meta) > 0 {
+		b, err := json.Marshal(e.Meta)
+		if err != nil {
+			return err
+		}
+		meta = string(b)
+	}
+	return s.inTx(ctx, true, func(t *tx) error {
+		_, err := t.exec(ctx, `INSERT INTO audit_log (id, actor_user_id, household_id, event, ip, meta, created_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?)`, ids.New(), nullStr(e.ActorUserID), nullStr(e.HouseholdID), e.Event, e.IP, meta, s.nowMS())
+		return err
+	})
+}
+
+// ListAuditForUser returns the newest limit events performed by the user
+// (their own account history).
+func (s *Store) ListAuditForUser(ctx context.Context, userID string, limit int) ([]AuditEvent, error) {
+	if limit <= 0 || limit > 500 {
+		limit = 500
+	}
+	var out []AuditEvent
+	err := s.inTx(ctx, false, func(t *tx) error {
+		rows, err := t.query(ctx, `SELECT id, COALESCE(actor_user_id, ''), COALESCE(household_id, ''), event, ip, meta, created_at
+			FROM audit_log WHERE actor_user_id = ? ORDER BY created_at DESC, id DESC LIMIT ?`, userID, limit)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var e AuditEvent
+			var meta string
+			var created int64
+			if err := rows.Scan(&e.ID, &e.ActorUserID, &e.HouseholdID, &e.Event, &e.IP, &meta, &created); err != nil {
+				return err
+			}
+			if err := json.Unmarshal([]byte(meta), &e.Meta); err != nil {
+				e.Meta = nil
+			}
+			e.CreatedAt = time.UnixMilli(created).UTC()
+			out = append(out, e)
+		}
+		return rows.Err()
+	})
+	return out, err
+}

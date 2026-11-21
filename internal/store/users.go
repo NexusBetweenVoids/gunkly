@@ -43,27 +43,33 @@ func normLogin(s string) string { return strings.ToLower(strings.TrimSpace(s)) }
 // CreateUser inserts a user. ErrConflict if the email or username is taken
 // (case-insensitively); ErrInvalid if required fields are missing.
 func (s *Store) CreateUser(ctx context.Context, in NewUser) (User, error) {
+	var u User
+	err := s.inTx(ctx, true, func(t *tx) error {
+		var err error
+		u, err = t.insertUser(ctx, in, s.nowMS())
+		return err
+	})
+	return u, err
+}
+
+func (t *tx) insertUser(ctx context.Context, in NewUser, now int64) (User, error) {
 	email, username := strings.TrimSpace(in.Email), strings.TrimSpace(in.Username)
 	if username == "" || strings.TrimSpace(in.DisplayName) == "" || in.PasswordHash == "" ||
 		strings.Contains(username, "@") {
 		return User{}, ErrInvalid
 	}
-	now := s.nowMS()
 	u := User{
 		ID: ids.New(), Email: email, Username: username, DisplayName: strings.TrimSpace(in.DisplayName),
 		PasswordHash: in.PasswordHash, Locale: in.Locale, IsAdmin: in.IsAdmin,
 		CreatedAt: time.UnixMilli(now).UTC(), LastActiveAt: time.UnixMilli(now).UTC(),
 	}
-	err := s.inTx(ctx, true, func(t *tx) error {
-		_, err := t.exec(ctx, `INSERT INTO users (id, email, email_lower, username, username_lower, display_name,
-			password_hash, locale, is_admin, password_changed_at, created_at, last_active_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			u.ID, nullStr(email), nullStr(normLogin(email)), username, normLogin(username), u.DisplayName,
-			u.PasswordHash, u.Locale, u.IsAdmin, now, now, now)
-		return conflict(err)
-	})
+	_, err := t.exec(ctx, `INSERT INTO users (id, email, email_lower, username, username_lower, display_name,
+		password_hash, locale, is_admin, password_changed_at, created_at, last_active_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		u.ID, nullStr(email), nullStr(normLogin(email)), username, normLogin(username), u.DisplayName,
+		u.PasswordHash, u.Locale, u.IsAdmin, now, now, now)
 	if err != nil {
-		return User{}, err
+		return User{}, conflict(err)
 	}
 	return u, nil
 }

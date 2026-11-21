@@ -46,45 +46,53 @@ func (s *Store) CompleteChore(ctx context.Context, a Actor, householdID, choreID
 	if in.Source != SourceApp && in.Source != SourceMarkDoneLink && in.Source != SourceAPIToken || in.CompletedAt.IsZero() || len(in.Note) > 2000 {
 		return Completion{}, ErrInvalid
 	}
-	c := Completion{ID: ids.New(), ChoreID: choreID, UserID: a.UserID, CompletedAt: in.CompletedAt.UTC().Truncate(time.Millisecond),
-		Source: in.Source, TokenID: in.TokenID, Note: in.Note}
+	var c Completion
 	err := s.write(ctx, a, householdID, RoleMember, func(t *tx, _ Role) error {
-		var kind, dueDate string
-		var next, archived sql.NullInt64
-		err := t.queryRow(ctx, "SELECT kind, due_date, next_due, archived_at FROM chores WHERE id = ? AND household_id = ?",
-			choreID, householdID).Scan(&kind, &dueDate, &next, &archived)
-		if err != nil {
-			return notFound(err)
-		}
-		if archived.Valid {
-			return ErrConflict
-		}
-		now := s.nowMS()
-		if _, err := t.exec(ctx, `INSERT INTO completions (id, chore_id, user_id, completed_at, source, token_id, note,
-			prev_next_due, prev_due_date, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			c.ID, choreID, a.UserID, c.CompletedAt.UnixMilli(), in.Source, nullStr(in.TokenID), in.Note, next, dueDate, now); err != nil {
-			return err
-		}
-		if kind == KindOneOff {
-			err = t.execOne(ctx, "UPDATE chores SET archived_at = ?, updated_at = ? WHERE id = ? AND household_id = ?",
-				now, now, choreID, householdID)
-		} else {
-			if _, perr := time.Parse(time.DateOnly, in.DueDate); perr != nil {
-				return ErrInvalid
-			}
-			err = t.execOne(ctx, "UPDATE chores SET next_due = ?, due_date = ?, updated_at = ? WHERE id = ? AND household_id = ?",
-				ms(in.NextDue), in.DueDate, now, choreID, householdID)
-		}
-		if err != nil {
-			return err
-		}
-		_, err = t.exec(ctx, "DELETE FROM mark_done_tokens WHERE chore_id = ?", choreID)
+		var err error
+		c, err = t.complete(ctx, householdID, choreID, a.UserID, in, s.nowMS())
 		return err
 	})
 	if err != nil {
 		return Completion{}, err
 	}
 	return c, nil
+}
+
+// complete records a completion by userID ("" = household channel) and
+// advances the chore, inside t. The caller has authorized the completion.
+func (t *tx) complete(ctx context.Context, householdID, choreID, userID string, in CompletionInput, now int64) (Completion, error) {
+	c := Completion{ID: ids.New(), ChoreID: choreID, UserID: userID, CompletedAt: in.CompletedAt.UTC().Truncate(time.Millisecond),
+		Source: in.Source, TokenID: in.TokenID, Note: in.Note}
+	var kind, dueDate string
+	var next, archived sql.NullInt64
+	err := t.queryRow(ctx, "SELECT kind, due_date, next_due, archived_at FROM chores WHERE id = ? AND household_id = ?",
+		choreID, householdID).Scan(&kind, &dueDate, &next, &archived)
+	if err != nil {
+		return Completion{}, notFound(err)
+	}
+	if archived.Valid {
+		return Completion{}, ErrConflict
+	}
+	if _, err := t.exec(ctx, `INSERT INTO completions (id, chore_id, user_id, completed_at, source, token_id, note,
+		prev_next_due, prev_due_date, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		c.ID, choreID, nullStr(userID), c.CompletedAt.UnixMilli(), in.Source, nullStr(in.TokenID), in.Note, next, dueDate, now); err != nil {
+		return Completion{}, err
+	}
+	if kind == KindOneOff {
+		err = t.execOne(ctx, "UPDATE chores SET archived_at = ?, updated_at = ? WHERE id = ? AND household_id = ?",
+			now, now, choreID, householdID)
+	} else {
+		if _, perr := time.Parse(time.DateOnly, in.DueDate); perr != nil {
+			return Completion{}, ErrInvalid
+		}
+		err = t.execOne(ctx, "UPDATE chores SET next_due = ?, due_date = ?, updated_at = ? WHERE id = ? AND household_id = ?",
+			ms(in.NextDue), in.DueDate, now, choreID, householdID)
+	}
+	if err != nil {
+		return Completion{}, err
+	}
+	_, err = t.exec(ctx, "DELETE FROM mark_done_tokens WHERE chore_id = ?", choreID)
+	return c, err
 }
 
 // ListCompletions returns a chore's history, newest first (limit <= 0 means 100).
@@ -128,34 +136,38 @@ func (s *Store) ListCompletions(ctx context.Context, a Actor, householdID, chore
 // ErrConflict if already reverted.
 func (s *Store) RevertCompletion(ctx context.Context, a Actor, householdID, completionID string) error {
 	return s.write(ctx, a, householdID, RoleMember, func(t *tx, _ Role) error {
-		var choreID, prevDueDate, kind string
-		var prevNext, reverted sql.NullInt64
-		err := t.queryRow(ctx, `SELECT c.chore_id, c.prev_next_due, c.prev_due_date, c.reverted_at, ch.kind
-			FROM completions c JOIN chores ch ON ch.id = c.chore_id
-			WHERE c.id = ? AND ch.household_id = ?`, completionID, householdID).Scan(&choreID, &prevNext, &prevDueDate, &reverted, &kind)
-		if err != nil {
-			return notFound(err)
-		}
-		if reverted.Valid {
-			return ErrConflict
-		}
-		var latest string
-		if err := t.queryRow(ctx, `SELECT id FROM completions WHERE chore_id = ? AND reverted_at IS NULL
-			ORDER BY created_at DESC, id DESC LIMIT 1`, choreID).Scan(&latest); err != nil {
-			return err
-		}
-		now := s.nowMS()
-		if err := t.execOne(ctx, "UPDATE completions SET reverted_at = ? WHERE id = ?", now, completionID); err != nil {
-			return err
-		}
-		if latest != completionID {
-			return nil
-		}
-		if kind == KindOneOff {
-			return t.execOne(ctx, "UPDATE chores SET archived_at = NULL, updated_at = ? WHERE id = ? AND household_id = ?",
-				now, choreID, householdID)
-		}
-		return t.execOne(ctx, "UPDATE chores SET next_due = ?, due_date = ?, updated_at = ? WHERE id = ? AND household_id = ?",
-			prevNext, prevDueDate, now, choreID, householdID)
+		return t.revertCompletion(ctx, householdID, completionID, s.nowMS())
 	})
+}
+
+// revertCompletion is RevertCompletion's body inside t, after authorization.
+func (t *tx) revertCompletion(ctx context.Context, householdID, completionID string, now int64) error {
+	var choreID, prevDueDate, kind string
+	var prevNext, reverted sql.NullInt64
+	err := t.queryRow(ctx, `SELECT c.chore_id, c.prev_next_due, c.prev_due_date, c.reverted_at, ch.kind
+		FROM completions c JOIN chores ch ON ch.id = c.chore_id
+		WHERE c.id = ? AND ch.household_id = ?`, completionID, householdID).Scan(&choreID, &prevNext, &prevDueDate, &reverted, &kind)
+	if err != nil {
+		return notFound(err)
+	}
+	if reverted.Valid {
+		return ErrConflict
+	}
+	var latest string
+	if err := t.queryRow(ctx, `SELECT id FROM completions WHERE chore_id = ? AND reverted_at IS NULL
+		ORDER BY created_at DESC, id DESC LIMIT 1`, choreID).Scan(&latest); err != nil {
+		return err
+	}
+	if err := t.execOne(ctx, "UPDATE completions SET reverted_at = ? WHERE id = ?", now, completionID); err != nil {
+		return err
+	}
+	if latest != completionID {
+		return nil
+	}
+	if kind == KindOneOff {
+		return t.execOne(ctx, "UPDATE chores SET archived_at = NULL, updated_at = ? WHERE id = ? AND household_id = ?",
+			now, choreID, householdID)
+	}
+	return t.execOne(ctx, "UPDATE chores SET next_due = ?, due_date = ?, updated_at = ? WHERE id = ? AND household_id = ?",
+		prevNext, prevDueDate, now, choreID, householdID)
 }
