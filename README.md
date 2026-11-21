@@ -6,17 +6,39 @@ A self-hostable chore tracker for recurring household chores and home maintenanc
 
 ## Quick start
 
-Placeholders until the first release:
+Needs Docker with Compose. The compose files pull `ghcr.io/nexusbetweenvoids/gunkly` (published from the first release; until then `docker compose ... up -d --build` builds it from this checkout).
 
 ```sh
+cp .env.example .env
+# Generate an encryption key and put it in .env as GUNKLY_SECRET_KEYS=1:<key>
+echo "GUNKLY_SECRET_KEYS=1:$(openssl rand -base64 32)"
+# Set GUNKLY_BASE_URL to the address you will open Gunkly at (scheme://host[:port], no path).
+
 # SQLite (one container)
 docker compose -f compose.sqlite.yml up -d
 
-# Postgres (Gunkly plus Postgres)
+# or Postgres (Gunkly plus Postgres): also set POSTGRES_PASSWORD in .env
 docker compose -f compose.postgres.yml up -d
 ```
 
-On first start, find the setup code in the container logs and open the app to create the admin account.
+Keep `GUNKLY_SECRET_KEYS` safe and backed up: it protects stored two-factor secrets and notification URLs, and Gunkly refuses to start without it. Every setting is documented in `.env.example`.
+
+On first start Gunkly logs a one-time setup code (the `setup_code` field of a `FIRST-RUN SETUP` line). Find it, then open the app (port 8080) and enter it to create the admin account:
+
+```sh
+docker compose -f compose.sqlite.yml logs gunkly | grep setup_code
+```
+
+The code only works until the first account exists; if you miss it, restart the container for a new one.
+
+## Upgrading
+
+```sh
+docker compose -f compose.sqlite.yml pull
+docker compose -f compose.sqlite.yml up -d
+```
+
+Pending database migrations are applied on start (`GUNKLY_AUTO_MIGRATE=true`, the default); with SQLite a snapshot is written to `/data/backups/pre-migrate-<timestamp>.db` first. Set it to `false` to apply them yourself with `docker compose -f compose.sqlite.yml run --rm gunkly migrate`. Back up before upgrading.
 
 ## SQLite or Postgres
 
@@ -25,17 +47,17 @@ On first start, find the setup code in the container logs and open the app to cr
 | **SQLite** (default) | One household, family and friends, or a small community instance; one container and simple one-command backups |
 | **Postgres** | A larger or public instance; you already run and back up Postgres; you want the database on its own server, or more than one app container later |
 
-You can switch later with `gunkly migrate-db --from sqlite:///data/gunkly.db --to postgres://...`.
+Switching later (`gunkly migrate-db`) is planned for a later release.
 
 ## Backups
 
 Never copy the data volume while Gunkly is running; SQLite's write-ahead log can make the copy corrupt. Use:
 
 ```sh
-docker exec gunkly /gunkly backup > backup.db
+docker compose -f compose.sqlite.yml exec gunkly /gunkly backup - > backup.db
 ```
 
-For Postgres use `pg_dump`.
+The snapshot is consistent while Gunkly runs. Without the `-` argument it is written inside the data volume (`/data/backups`) instead. For Postgres use `pg_dump`. Restore by stopping Gunkly and placing the file as `gunkly.db` in the data volume.
 
 ## Releases and verification
 

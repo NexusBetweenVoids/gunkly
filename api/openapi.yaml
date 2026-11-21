@@ -816,6 +816,10 @@ paths:
                 openSignup: {type: boolean}
                 inviteRegistration: {type: boolean}
                 minPasswordLength: {type: integer, minimum: 8, maximum: 128}
+                sessionIdleDays: {type: integer, minimum: 1, maximum: 365, description: "Sign out after this many days without use (default 30); must not exceed sessionMaxDays"}
+                sessionMaxDays: {type: integer, minimum: 1, maximum: 730, description: "Absolute session lifetime in days from sign-in (default 90)"}
+                auditRetentionDays: {type: integer, minimum: 1, maximum: 3650, description: "Audit log entries older than this are deleted daily (default 90)"}
+                deliveryRetentionDays: {type: integer, minimum: 1, maximum: 3650, description: "Delivery log entries older than this are deleted daily (default 30)"}
                 limits: {type: object, additionalProperties: {type: integer}, description: "0 resets a limit to its default"}
                 enabledNotificationKinds: {type: array, items: {type: string}, description: "Allowed notification services; must be a subset of availableNotificationKinds"}
                 egressGuard: {type: boolean, description: "Block outbound requests to private addresses; rejected while egressGuardLocked"}
@@ -998,6 +1002,10 @@ components:
         openSignup: {type: boolean}
         inviteRegistration: {type: boolean}
         minPasswordLength: {type: integer}
+        sessionIdleDays: {type: integer}
+        sessionMaxDays: {type: integer}
+        auditRetentionDays: {type: integer}
+        deliveryRetentionDays: {type: integer}
         limits: {type: object, additionalProperties: {type: integer}}
         limitDefaults: {type: object, additionalProperties: {type: integer}}
         enabledNotificationKinds: {type: array, items: {type: string}}

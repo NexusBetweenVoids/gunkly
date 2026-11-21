@@ -13,10 +13,19 @@ import (
 type RetentionPolicy struct {
 	AuditLog   time.Duration // default 90 days
 	Deliveries time.Duration // default 30 days
+	// Session lifetimes (zero = skip): sessions idle longer than SessionIdle
+	// or older than SessionMax are deleted alongside expired ones.
+	SessionIdle, SessionMax time.Duration
 }
 
-// DefaultRetention is the PRD default.
-var DefaultRetention = RetentionPolicy{AuditLog: 90 * 24 * time.Hour, Deliveries: 30 * 24 * time.Hour}
+// Policy returns the retention policy for the instance settings.
+func (st InstanceSettings) Policy() RetentionPolicy {
+	const day = 24 * time.Hour
+	return RetentionPolicy{
+		AuditLog: time.Duration(st.AuditRetentionDays) * day, Deliveries: time.Duration(st.DeliveryRetentionDays) * day,
+		SessionIdle: time.Duration(st.SessionIdleDays) * day, SessionMax: time.Duration(st.SessionMaxDays) * day,
+	}
+}
 
 // purgeBatch bounds each DELETE so no single statement holds the write lock long.
 const purgeBatch = 1000
@@ -28,20 +37,23 @@ func (s *Store) PurgeExpired(ctx context.Context, p RetentionPolicy, now time.Ti
 	jobs := []struct {
 		table, pk, where string
 		arg              int64
+		skip             bool
 	}{
-		{"audit_log", "id", "created_at < ?", now.Add(-p.AuditLog).UnixMilli()},
-		{"deliveries", "id", "created_at < ?", now.Add(-p.Deliveries).UnixMilli()},
-		{"sessions", "id", "expires_at < ?", n},
-		{"user_tokens", "token_hash", "expires_at < ?", n},
-		{"invites", "id", "expires_at < ? OR revoked_at IS NOT NULL", n},
-		{"mark_done_tokens", "token_hash", "expires_at < ?", n},
-		{"undo_tokens", "token_hash", "expires_at < ?", n},
-		{"rate_limits", "key", "expires_at < ?", n},
-		{"calendar_feeds", "id", "revoked_at IS NOT NULL AND revoked_at < ?", n},
+		{"audit_log", "id", "created_at < ?", now.Add(-p.AuditLog).UnixMilli(), p.AuditLog <= 0},
+		{"deliveries", "id", "created_at < ?", now.Add(-p.Deliveries).UnixMilli(), p.Deliveries <= 0},
+		{"sessions", "id", "expires_at < ?", n, false},
+		{"sessions", "id", "last_seen_at < ?", now.Add(-p.SessionIdle).UnixMilli(), p.SessionIdle <= 0},
+		{"sessions", "id", "created_at < ?", now.Add(-p.SessionMax).UnixMilli(), p.SessionMax <= 0},
+		{"user_tokens", "token_hash", "expires_at < ?", n, false},
+		{"invites", "id", "expires_at < ? OR revoked_at IS NOT NULL", n, false},
+		{"mark_done_tokens", "token_hash", "expires_at < ?", n, false},
+		{"undo_tokens", "token_hash", "expires_at < ?", n, false},
+		{"rate_limits", "key", "expires_at < ?", n, false},
+		{"calendar_feeds", "id", "revoked_at IS NOT NULL AND revoked_at < ?", n, false},
 	}
 	var total int64
 	for _, j := range jobs {
-		if (j.table == "audit_log" && p.AuditLog <= 0) || (j.table == "deliveries" && p.Deliveries <= 0) {
+		if j.skip {
 			continue
 		}
 		// Table and column names are constants above, never input.

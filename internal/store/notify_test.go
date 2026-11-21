@@ -258,7 +258,7 @@ func TestPurgeExpired(t *testing.T) {
 	d.Key = "new"
 	must(s.EnqueueDeliveries(ctx, []store.NewDelivery{d}, store.Quota{}, now))
 	noErr(t, s.Audit(ctx, store.AuditEvent{ActorUserID: a.UserID, Event: store.AuditLogout}))
-	n := must(s.PurgeExpired(ctx, store.DefaultRetention, now))
+	n := must(s.PurgeExpired(ctx, store.InstanceSettings{AuditRetentionDays: 90, DeliveryRetentionDays: 30}.Policy(), now))
 	if n < 1 {
 		t.Fatalf("purged %d", n)
 	}

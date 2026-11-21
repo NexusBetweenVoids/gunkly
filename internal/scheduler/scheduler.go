@@ -71,12 +71,11 @@ type Config struct {
 	// EnabledKinds returns the admin's service allowlist; nil = notify.DefaultKinds.
 	// A delivery to a kind disabled after the channel was saved fails.
 	EnabledKinds func(context.Context) (map[string]bool, error)
-	Retention    store.RetentionPolicy // zero = store.DefaultRetention
-	Logger       *slog.Logger          // nil = slog.Default()
-	Now          func() time.Time      // nil = time.Now
-	Tick         time.Duration         // 0 = DefaultTick
-	LockKey      int64                 // 0 = DefaultLockKey
-	Concurrency  int                   // parallel sends; 0 = 4
+	Logger       *slog.Logger     // nil = slog.Default()
+	Now          func() time.Time // nil = time.Now
+	Tick         time.Duration    // 0 = DefaultTick
+	LockKey      int64            // 0 = DefaultLockKey
+	Concurrency  int              // parallel sends; 0 = 4
 }
 
 // Worker is the scheduler. Create with New, start with Run.
@@ -100,9 +99,6 @@ func New(cfg Config) *Worker {
 	}
 	if cfg.Concurrency <= 0 {
 		cfg.Concurrency = 4
-	}
-	if cfg.Retention == (store.RetentionPolicy{}) {
-		cfg.Retention = store.DefaultRetention
 	}
 	l := cfg.Logger
 	if l == nil {
@@ -481,7 +477,12 @@ func (w *Worker) deliver(ctx context.Context, d store.ClaimedDelivery, enabled m
 }
 
 func (w *Worker) retention(ctx context.Context, now time.Time) {
-	n, err := w.cfg.Store.PurgeExpired(ctx, w.cfg.Retention, now)
+	st, err := w.cfg.Store.InstanceSettings(ctx) // read each run so admin changes apply
+	if err != nil {
+		w.log.Error("scheduler: retention settings", "err", err)
+		return
+	}
+	n, err := w.cfg.Store.PurgeExpired(ctx, st.Policy(), now)
 	if err != nil {
 		w.log.Error("scheduler: retention", "err", err)
 		return

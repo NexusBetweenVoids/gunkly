@@ -3,6 +3,7 @@ package config
 import (
 	"encoding/base64"
 	"log/slog"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -125,5 +126,36 @@ func TestErrorsDoNotLeakSecrets(t *testing.T) {
 	_, err := Load(env(map[string]string{"GUNKLY_SECRET_KEYS": "1:" + secret}))
 	if err == nil || strings.Contains(err.Error(), secret) {
 		t.Fatalf("err = %v", err)
+	}
+}
+
+// TestEnvExampleListsEveryKey keeps .env.example in step with Load: every
+// GUNKLY_* variable Load reads must be documented there, and it must not
+// document variables Load ignores.
+func TestEnvExampleListsEveryKey(t *testing.T) {
+	read := map[string]bool{}
+	vars := base()
+	if _, err := Load(func(k string) string { read[k] = true; return vars[k] }); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile("../../.env.example")
+	if err != nil {
+		t.Fatal(err)
+	}
+	documented := map[string]bool{}
+	for _, line := range strings.Split(string(raw), "\n") {
+		if k, _, ok := strings.Cut(strings.TrimPrefix(line, "#"), "="); ok && strings.HasPrefix(k, "GUNKLY_") && !strings.ContainsAny(k, " \t") {
+			documented[k] = true
+		}
+	}
+	for k := range read {
+		if !documented[k] {
+			t.Errorf(".env.example lacks %s", k)
+		}
+	}
+	for k := range documented {
+		if !read[k] {
+			t.Errorf(".env.example documents %s, which config.Load does not read", k)
+		}
 	}
 }

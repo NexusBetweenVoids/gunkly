@@ -169,11 +169,9 @@ func safeMethod(m string) bool {
 	return m == http.MethodGet || m == http.MethodHead || m == http.MethodOptions
 }
 
-// Session lifetime policy. Constants in one place; admin-configurable
-// values are a later change (PRD: Sessions).
+// Session timing constants. The idle and absolute lifetimes are instance
+// settings (see sessionLifetimes).
 const (
-	sessionIdle       = 30 * 24 * time.Hour
-	sessionAbsolute   = 90 * 24 * time.Hour
 	sessionTouchEvery = 5 * time.Minute
 	stepUpWindow      = 15 * time.Minute
 )

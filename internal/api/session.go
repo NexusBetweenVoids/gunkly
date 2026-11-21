@@ -42,6 +42,46 @@ func (s *Server) ensureCSRF(w http.ResponseWriter, r *http.Request) string {
 	return v
 }
 
+const settingsCacheTTL = 5 * time.Second
+
+// sessionLifetimes returns the admin-configured idle and absolute session
+// lifetimes. They are read on use, cached briefly, and the cache is dropped
+// when settings change here. On a read error the last known (or default)
+// values are used so a database hiccup does not sign everyone out.
+func (s *Server) sessionLifetimes() (idle, abs time.Duration) {
+	const day = 24 * time.Hour
+	s.lifeMu.Lock()
+	defer s.lifeMu.Unlock()
+	if s.lifeIdle == 0 || time.Since(s.lifeAt) > settingsCacheTTL {
+		st, err := s.st.InstanceSettings(context.Background())
+		switch {
+		case err == nil:
+			s.lifeIdle, s.lifeMax = time.Duration(st.SessionIdleDays)*day, time.Duration(st.SessionMaxDays)*day
+			s.lifeAt = time.Now()
+		case s.lifeIdle == 0:
+			s.lifeIdle, s.lifeMax = store.DefaultSessionIdleDays*day, store.DefaultSessionMaxDays*day
+			s.log.Error("session lifetimes", "err", err)
+		default:
+			s.log.Error("session lifetimes", "err", err)
+		}
+	}
+	return s.lifeIdle, s.lifeMax
+}
+
+func (s *Server) forgetLifetimes() {
+	s.lifeMu.Lock()
+	s.lifeIdle = 0
+	s.lifeMu.Unlock()
+}
+
+// sessionExpired applies idle and absolute expiry. The absolute limit is
+// measured from sign-in, so a changed setting also applies to existing
+// sessions; ExpiresAt is only the hard ceiling set at creation.
+func (s *Server) sessionExpired(ss store.Session, now time.Time) bool {
+	idle, abs := s.sessionLifetimes()
+	return !now.Before(ss.ExpiresAt) || now.Sub(ss.LastSeenAt) > idle || !now.Before(ss.CreatedAt.Add(abs))
+}
+
 // authenticate resolves the session cookie, enforcing idle and absolute
 // expiry and throttled last-seen updates.
 func (s *Server) authenticate(w http.ResponseWriter, r *http.Request) (store.Session, store.User, bool) {
@@ -59,7 +99,7 @@ func (s *Server) authenticate(w http.ResponseWriter, r *http.Request) (store.Ses
 		return store.Session{}, store.User{}, false
 	}
 	now := s.now()
-	if !now.Before(ss.ExpiresAt) || now.Sub(ss.LastSeenAt) > sessionIdle {
+	if s.sessionExpired(ss, now) {
 		_ = s.st.DeleteSession(ctx, ss.UserID, ss.ID)
 		s.clearCookies(w)
 		return store.Session{}, store.User{}, false
@@ -76,14 +116,16 @@ func (s *Server) authenticate(w http.ResponseWriter, r *http.Request) (store.Ses
 func (s *Server) startSession(w http.ResponseWriter, r *http.Request, c *call, u store.User, status int) error {
 	token := ids.Token()
 	ss, err := s.st.CreateSession(r.Context(), store.NewSession{
-		UserID: u.ID, TokenHash: ids.Hash(token), Label: deviceLabel(r.UserAgent()), ExpiresAt: s.now().Add(sessionAbsolute),
+		UserID: u.ID, TokenHash: ids.Hash(token), Label: deviceLabel(r.UserAgent()), ExpiresAt: s.now().Add(store.MaxSessionMaxDays * 24 * time.Hour),
 	})
 	if err != nil {
 		return err
 	}
 	csrf := ids.Token() // rotate on sign-in
-	http.SetCookie(w, s.cookie(sessionCookie, token, true, ss.ExpiresAt))
-	http.SetCookie(w, s.cookie(csrfCookie, csrf, false, ss.ExpiresAt))
+	_, abs := s.sessionLifetimes()
+	cookieEnd := ss.CreatedAt.Add(abs)
+	http.SetCookie(w, s.cookie(sessionCookie, token, true, cookieEnd))
+	http.SetCookie(w, s.cookie(csrfCookie, csrf, false, cookieEnd))
 	c.user, c.sess = u, ss
 	writeJSON(w, status, sessionView{Authenticated: true, User: viewMe(u), CSRF: csrf})
 	return nil
@@ -257,7 +299,7 @@ func (s *Server) listSessions(w http.ResponseWriter, r *http.Request, c *call) e
 	out := make([]deviceView, 0, len(list))
 	now := s.now()
 	for _, ss := range list {
-		if !now.Before(ss.ExpiresAt) || now.Sub(ss.LastSeenAt) > sessionIdle {
+		if s.sessionExpired(ss, now) {
 			continue
 		}
 		b, o, _ := strings.Cut(ss.Label, "/")

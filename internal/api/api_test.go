@@ -441,6 +441,62 @@ func TestSessionExpiry(t *testing.T) {
 	expect(t, st, v, 401, "unauthenticated")
 }
 
+func TestSessionLifetimesConfigurable(t *testing.T) {
+	e := newEnv(t)
+	e.user("ann", false)
+	e.user("root", true)
+	root := e.signedIn("root")
+	st, v := root.do("GET", "/api/v1/admin/settings", nil)
+	if st != 200 || field(v, "sessionIdleDays") != 30.0 || field(v, "sessionMaxDays") != 90.0 ||
+		field(v, "auditRetentionDays") != 90.0 || field(v, "deliveryRetentionDays") != 30.0 {
+		t.Fatalf("defaults: %d %v", st, v)
+	}
+	for _, bad := range []map[string]any{
+		{"sessionIdleDays": 0}, {"sessionIdleDays": 366}, {"sessionMaxDays": 731},
+		{"sessionIdleDays": 100}, // exceeds the stored max (90)
+		{"sessionMaxDays": 20},   // below the stored idle (30)
+		{"auditRetentionDays": 0}, {"deliveryRetentionDays": 3651},
+	} {
+		st, v = root.do("PATCH", "/api/v1/admin/settings", bad)
+		expect(t, st, v, 400, "invalid")
+	}
+	st, v = root.do("PATCH", "/api/v1/admin/settings", map[string]any{"sessionIdleDays": 2, "sessionMaxDays": 5,
+		"auditRetentionDays": 7, "deliveryRetentionDays": 3})
+	if st != 200 || field(v, "sessionIdleDays") != 2.0 || field(v, "sessionMaxDays") != 5.0 ||
+		field(v, "auditRetentionDays") != 7.0 || field(v, "deliveryRetentionDays") != 3.0 {
+		t.Fatalf("patch: %d %v", st, v)
+	}
+
+	// Idle: a session unused for more than 2 days is gone.
+	c := e.signedIn("ann")
+	e.clock.Add(47 * time.Hour)
+	st, _ = c.do("GET", "/api/v1/me", nil)
+	expect(t, st, nil, 200, "")
+	e.clock.Add(49 * time.Hour)
+	st, v = c.do("GET", "/api/v1/me", nil)
+	expect(t, st, v, 401, "unauthenticated")
+
+	// Absolute: active daily, still expires after 5 days.
+	c = e.signedIn("ann")
+	for range 4 {
+		e.clock.Add(24 * time.Hour)
+		st, _ = c.do("GET", "/api/v1/me", nil)
+		expect(t, st, nil, 200, "")
+	}
+	e.clock.Add(25 * time.Hour)
+	st, v = c.do("GET", "/api/v1/me", nil)
+	expect(t, st, v, 401, "unauthenticated")
+
+	// Raising the limits applies to existing sessions.
+	root = e.signedIn("root")
+	c = e.signedIn("ann")
+	st, v = root.do("PATCH", "/api/v1/admin/settings", map[string]any{"sessionMaxDays": 60, "sessionIdleDays": 40})
+	expect(t, st, v, 200, "")
+	e.clock.Add(39 * 24 * time.Hour)
+	st, v = c.do("GET", "/api/v1/me", nil)
+	expect(t, st, v, 200, "")
+}
+
 func totpCode(secret string, at time.Time) string {
 	key, _ := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(secret)
 	var msg [8]byte

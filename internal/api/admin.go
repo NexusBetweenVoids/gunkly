@@ -85,11 +85,15 @@ func (s *Server) adminResetPassword(w http.ResponseWriter, r *http.Request, c *c
 }
 
 type settingsView struct {
-	OpenSignup         bool                `json:"openSignup"`
-	InviteRegistration bool                `json:"inviteRegistration"`
-	MinPasswordLength  int                 `json:"minPasswordLength"`
-	Limits             map[limits.Kind]int `json:"limits"`        // effective instance-wide values
-	LimitDefaults      map[limits.Kind]int `json:"limitDefaults"` // built-in defaults
+	OpenSignup            bool                `json:"openSignup"`
+	InviteRegistration    bool                `json:"inviteRegistration"`
+	MinPasswordLength     int                 `json:"minPasswordLength"`
+	SessionIdleDays       int                 `json:"sessionIdleDays"`
+	SessionMaxDays        int                 `json:"sessionMaxDays"`
+	AuditRetentionDays    int                 `json:"auditRetentionDays"`
+	DeliveryRetentionDays int                 `json:"deliveryRetentionDays"`
+	Limits                map[limits.Kind]int `json:"limits"`        // effective instance-wide values
+	LimitDefaults         map[limits.Kind]int `json:"limitDefaults"` // built-in defaults
 	// EnabledNotificationKinds are the notification services users may add
 	// channels for; AvailableNotificationKinds lists every kind that can be
 	// enabled. EgressGuard is the effective guard (forced on when hosted).
@@ -109,6 +113,8 @@ func (s *Server) adminGetSettings(w http.ResponseWriter, r *http.Request, _ *cal
 		minLen = auth.DefaultMinPasswordLen // 0 is stored as "unset"; show the effective value
 	}
 	v := settingsView{OpenSignup: st.OpenSignup, InviteRegistration: st.InviteRegistration, MinPasswordLength: minLen,
+		SessionIdleDays: st.SessionIdleDays, SessionMaxDays: st.SessionMaxDays,
+		AuditRetentionDays: st.AuditRetentionDays, DeliveryRetentionDays: st.DeliveryRetentionDays,
 		Limits: map[limits.Kind]int{}, LimitDefaults: limits.Defaults,
 		EnabledNotificationKinds: append([]string{}, slices.Sorted(maps.Keys(kindSet(st)))...), AvailableNotificationKinds: notify.AllKinds(),
 		EgressGuard: s.hosted || st.EgressGuard, EgressGuardLocked: s.hosted}
@@ -123,10 +129,14 @@ func (s *Server) adminGetSettings(w http.ResponseWriter, r *http.Request, _ *cal
 
 func (s *Server) adminPatchSettings(w http.ResponseWriter, r *http.Request, c *call) error {
 	var in struct {
-		OpenSignup         *bool          `json:"openSignup"`
-		InviteRegistration *bool          `json:"inviteRegistration"`
-		MinPasswordLength  *int           `json:"minPasswordLength"`
-		Limits             map[string]int `json:"limits"` // 0 resets to the default
+		OpenSignup            *bool          `json:"openSignup"`
+		InviteRegistration    *bool          `json:"inviteRegistration"`
+		MinPasswordLength     *int           `json:"minPasswordLength"`
+		SessionIdleDays       *int           `json:"sessionIdleDays"`
+		SessionMaxDays        *int           `json:"sessionMaxDays"`
+		AuditRetentionDays    *int           `json:"auditRetentionDays"`
+		DeliveryRetentionDays *int           `json:"deliveryRetentionDays"`
+		Limits                map[string]int `json:"limits"` // 0 resets to the default
 		// null resets to the built-in defaults; [] enables nothing.
 		EnabledNotificationKinds optional[[]string] `json:"enabledNotificationKinds"`
 		EgressGuard              *bool              `json:"egressGuard"`
@@ -143,7 +153,9 @@ func (s *Server) adminPatchSettings(w http.ResponseWriter, r *http.Request, c *c
 		}
 	}
 	upd := store.SettingsUpdate{OpenSignup: in.OpenSignup,
-		InviteRegistration: in.InviteRegistration, MinPasswordLength: in.MinPasswordLength, Limits: in.Limits, EgressGuard: in.EgressGuard}
+		InviteRegistration: in.InviteRegistration, MinPasswordLength: in.MinPasswordLength, Limits: in.Limits, EgressGuard: in.EgressGuard,
+		SessionIdleDays: in.SessionIdleDays, SessionMaxDays: in.SessionMaxDays,
+		AuditRetentionDays: in.AuditRetentionDays, DeliveryRetentionDays: in.DeliveryRetentionDays}
 	if in.EgressGuard != nil && !*in.EgressGuard && s.hosted {
 		return errf(http.StatusBadRequest, "egress_guard_locked")
 	}
@@ -164,6 +176,7 @@ func (s *Server) adminPatchSettings(w http.ResponseWriter, r *http.Request, c *c
 		upd.NotificationKinds = &kinds
 	}
 	err := s.st.UpdateInstanceSettings(r.Context(), upd)
+	s.forgetLifetimes()
 	if err != nil {
 		return err
 	}

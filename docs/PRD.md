@@ -38,7 +38,7 @@ Gunkly tracks recurring household chores and home maintenance (gutters, washing-
 - **Leaving a household / deleting an account:** chores assigned only to that person become unassigned ("anyone"); they are removed from other chores' assignees; past completions stay but are anonymised ("Deleted user"). When a household's last owner leaves, ownership transfers only to non-guest members; guests are never promoted. A household with no non-guest members left is deleted, and the app warns and asks confirmation first.
 - **First-run setup:** one-time screen to create the instance admin, gated by a setup code printed in the container logs; disappears once used.
 - **Admin CLI recovery:** `gunkly admin reset-password <user>` and `gunkly admin reset-2fa <user>` (TOTP and email-OTP), run via `docker exec`.
-- **Sessions:** users list signed-in devices, sign out one or all. Sliding expiry default 30 days inactivity, 90-day absolute max (admin-configurable). Sensitive actions (password/email/2FA change, API token creation, account deletion) need step-up verification within 15 minutes.
+- **Sessions:** users list signed-in devices, sign out one or all. Sliding expiry default 30 days inactivity, 90-day absolute max (admin-configurable: 1-365 idle, 1-730 absolute days). Sensitive actions (password/email/2FA change, API token creation, account deletion) need step-up verification within 15 minutes.
 - Each household has an IANA **time zone**, defaulting to the creator's browser zone. Timestamps are stored in UTC; reminder times use the household zone.
 
 ### Chores and scheduling
@@ -112,7 +112,7 @@ Gunkly tracks recurring household chores and home maintenance (gutters, washing-
 | Sign-ups per IP per hour (open sign-up on) | 5 |
 | Login attempts per IP and per IP + account | 5/minute, then exponential backoff; never hard-lock |
 
-### Data retention (daily cleanup; all configurable)
+### Data retention (daily cleanup; audit and delivery periods configurable by the admin)
 
 | Data | Default |
 |-|-|

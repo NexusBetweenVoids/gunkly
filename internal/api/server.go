@@ -66,6 +66,11 @@ type Server struct {
 	dummyOnce      sync.Once
 	dummyHash      string
 
+	// Cached session lifetimes (see sessionLifetimes).
+	lifeMu            sync.Mutex
+	lifeIdle, lifeMax time.Duration
+	lifeAt            time.Time
+
 	setupMu   sync.Mutex
 	setupHash string // hash of the first-run setup code; empty when not in setup
 

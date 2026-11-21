@@ -17,6 +17,10 @@ const (
 	settingSetupCompleted     = "setup_completed"
 	settingNotificationKinds  = "notification_kinds" // JSON array; absent = notify.DefaultKinds
 	settingEgressGuard        = "egress_guard"
+	settingSessionIdleDays    = "session_idle_days"
+	settingSessionMaxDays     = "session_max_days"
+	settingAuditRetentionDays = "audit_retention_days"
+	settingDeliveryRetention  = "delivery_retention_days"
 	settingLimitPrefix        = "limit."
 )
 
@@ -33,7 +37,22 @@ type InstanceSettings struct {
 	// EgressGuard blocks outbound connections to non-public addresses.
 	// Default true. Hosted mode forces it on regardless (internal/api).
 	EgressGuard bool
+	// Session lifetimes and data retention, in days; defaults applied
+	// (PRD: sessions 30 idle / 90 absolute; audit 90, deliveries 30).
+	SessionIdleDays, SessionMaxDays           int
+	AuditRetentionDays, DeliveryRetentionDays int
 }
+
+// Bounds and defaults for the day-valued settings.
+const (
+	DefaultSessionIdleDays       = 30
+	DefaultSessionMaxDays        = 90
+	MaxSessionIdleDays           = 365
+	MaxSessionMaxDays            = 730
+	DefaultAuditRetentionDays    = 90
+	DefaultDeliveryRetentionDays = 30
+	MaxRetentionDays             = 3650
+)
 
 // SettingsUpdate changes instance settings; nil fields are unchanged. A
 // limit value of 0 removes the override (back to the built-in default).
@@ -47,11 +66,17 @@ type SettingsUpdate struct {
 	// the defaults.
 	NotificationKinds *[]string
 	EgressGuard       *bool
+	// Day-valued settings; validated against the bounds above, and idle must
+	// not exceed max (checked against the stored value for whichever is unset).
+	SessionIdleDays, SessionMaxDays           *int
+	AuditRetentionDays, DeliveryRetentionDays *int
 }
 
 // InstanceSettings reads the instance settings.
 func (s *Store) InstanceSettings(ctx context.Context) (InstanceSettings, error) {
-	out := InstanceSettings{InviteRegistration: true, EgressGuard: true, Limits: map[string]int{}}
+	out := InstanceSettings{InviteRegistration: true, EgressGuard: true, Limits: map[string]int{},
+		SessionIdleDays: DefaultSessionIdleDays, SessionMaxDays: DefaultSessionMaxDays,
+		AuditRetentionDays: DefaultAuditRetentionDays, DeliveryRetentionDays: DefaultDeliveryRetentionDays}
 	err := s.inTx(ctx, false, func(t *tx) error {
 		rows, err := t.query(ctx, "SELECT key, value FROM settings")
 		if err != nil {
@@ -75,6 +100,14 @@ func (s *Store) InstanceSettings(ctx context.Context) (InstanceSettings, error) 
 				}
 			case k == settingEgressGuard:
 				out.EgressGuard = v != "false"
+			case k == settingSessionIdleDays:
+				out.SessionIdleDays = atoiOr(v, out.SessionIdleDays)
+			case k == settingSessionMaxDays:
+				out.SessionMaxDays = atoiOr(v, out.SessionMaxDays)
+			case k == settingAuditRetentionDays:
+				out.AuditRetentionDays = atoiOr(v, out.AuditRetentionDays)
+			case k == settingDeliveryRetention:
+				out.DeliveryRetentionDays = atoiOr(v, out.DeliveryRetentionDays)
 			case k == settingMinPasswordLength:
 				out.MinPasswordLength, _ = strconv.Atoi(v)
 			case strings.HasPrefix(k, settingLimitPrefix):
@@ -88,10 +121,37 @@ func (s *Store) InstanceSettings(ctx context.Context) (InstanceSettings, error) 
 	return out, err
 }
 
+func atoiOr(v string, def int) int {
+	if n, err := strconv.Atoi(v); err == nil && n > 0 {
+		return n
+	}
+	return def
+}
+
+func inRange(p *int, lo, hi int) bool { return p == nil || (*p >= lo && *p <= hi) }
+
 // UpdateInstanceSettings applies u atomically.
 func (s *Store) UpdateInstanceSettings(ctx context.Context, u SettingsUpdate) error {
-	if u.MinPasswordLength != nil && *u.MinPasswordLength < 1 {
+	if (u.MinPasswordLength != nil && *u.MinPasswordLength < 1) ||
+		!inRange(u.SessionIdleDays, 1, MaxSessionIdleDays) || !inRange(u.SessionMaxDays, 1, MaxSessionMaxDays) ||
+		!inRange(u.AuditRetentionDays, 1, MaxRetentionDays) || !inRange(u.DeliveryRetentionDays, 1, MaxRetentionDays) {
 		return ErrInvalid
+	}
+	if u.SessionIdleDays != nil || u.SessionMaxDays != nil {
+		cur, err := s.InstanceSettings(ctx)
+		if err != nil {
+			return err
+		}
+		idle, maxD := cur.SessionIdleDays, cur.SessionMaxDays
+		if u.SessionIdleDays != nil {
+			idle = *u.SessionIdleDays
+		}
+		if u.SessionMaxDays != nil {
+			maxD = *u.SessionMaxDays
+		}
+		if idle > maxD {
+			return ErrInvalid
+		}
 	}
 	return s.inTx(ctx, true, func(t *tx) error {
 		now := s.nowMS()
@@ -109,6 +169,15 @@ func (s *Store) UpdateInstanceSettings(ctx context.Context, u SettingsUpdate) er
 		}
 		if err == nil && u.MinPasswordLength != nil {
 			err = set(settingMinPasswordLength, strconv.Itoa(*u.MinPasswordLength))
+		}
+		for _, d := range []struct {
+			v   *int
+			key string
+		}{{u.SessionIdleDays, settingSessionIdleDays}, {u.SessionMaxDays, settingSessionMaxDays},
+			{u.AuditRetentionDays, settingAuditRetentionDays}, {u.DeliveryRetentionDays, settingDeliveryRetention}} {
+			if err == nil && d.v != nil {
+				err = set(d.key, strconv.Itoa(*d.v))
+			}
 		}
 		if err == nil && u.EgressGuard != nil {
 			err = set(settingEgressGuard, strconv.FormatBool(*u.EgressGuard))
