@@ -100,7 +100,7 @@ test('theme override: light, dark and following the system', async ({ world }) =
   const set = async (v: string) => {
     await page.getByLabel('Appearance').selectOption(v);
     await page.getByRole('region', { name: 'Profile' }).getByRole('button', { name: 'Save' }).click();
-    await expect(page.getByText('Saved.')).toBeVisible();
+    await expect(page.getByText('Saved.').last()).toBeVisible(); // earlier toasts may still be fading out
   };
 
   expect(await bg()).toBe('rgb(245, 245, 247)');
