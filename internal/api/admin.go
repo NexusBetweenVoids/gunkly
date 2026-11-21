@@ -1,12 +1,15 @@
 package api
 
 import (
+	"maps"
 	"net/http"
 	"regexp"
+	"slices"
 	"time"
 
 	"github.com/NexusBetweenVoids/gunkly/internal/ids"
 	"github.com/NexusBetweenVoids/gunkly/internal/limits"
+	"github.com/NexusBetweenVoids/gunkly/internal/notify"
 	"github.com/NexusBetweenVoids/gunkly/internal/store"
 )
 
@@ -86,6 +89,13 @@ type settingsView struct {
 	MinPasswordLength  int                 `json:"minPasswordLength"`
 	Limits             map[limits.Kind]int `json:"limits"`        // effective instance-wide values
 	LimitDefaults      map[limits.Kind]int `json:"limitDefaults"` // built-in defaults
+	// EnabledNotificationKinds are the notification services users may add
+	// channels for; AvailableNotificationKinds lists every kind that can be
+	// enabled. EgressGuard is the effective guard (forced on when hosted).
+	EnabledNotificationKinds   []string `json:"enabledNotificationKinds"`
+	AvailableNotificationKinds []string `json:"availableNotificationKinds"`
+	EgressGuard                bool     `json:"egressGuard"`
+	EgressGuardLocked          bool     `json:"egressGuardLocked"` // hosted mode: cannot be turned off
 }
 
 func (s *Server) adminGetSettings(w http.ResponseWriter, r *http.Request, _ *call) error {
@@ -94,7 +104,9 @@ func (s *Server) adminGetSettings(w http.ResponseWriter, r *http.Request, _ *cal
 		return err
 	}
 	v := settingsView{OpenSignup: st.OpenSignup, InviteRegistration: st.InviteRegistration, MinPasswordLength: st.MinPasswordLength,
-		Limits: map[limits.Kind]int{}, LimitDefaults: limits.Defaults}
+		Limits: map[limits.Kind]int{}, LimitDefaults: limits.Defaults,
+		EnabledNotificationKinds: append([]string{}, slices.Sorted(maps.Keys(kindSet(st)))...), AvailableNotificationKinds: notify.AllKinds(),
+		EgressGuard: s.hosted || st.EgressGuard, EgressGuardLocked: s.hosted}
 	for k, d := range limits.Defaults {
 		v.Limits[k] = d
 		if o, set := st.Limits[string(k)]; set && o > 0 {
@@ -110,6 +122,9 @@ func (s *Server) adminPatchSettings(w http.ResponseWriter, r *http.Request, c *c
 		InviteRegistration *bool          `json:"inviteRegistration"`
 		MinPasswordLength  *int           `json:"minPasswordLength"`
 		Limits             map[string]int `json:"limits"` // 0 resets to the default
+		// null resets to the built-in defaults; [] enables nothing.
+		EnabledNotificationKinds optional[[]string] `json:"enabledNotificationKinds"`
+		EgressGuard              *bool              `json:"egressGuard"`
 	}
 	if err := decode(r, &in); err != nil {
 		return err
@@ -122,8 +137,28 @@ func (s *Server) adminPatchSettings(w http.ResponseWriter, r *http.Request, c *c
 			return errInvalid
 		}
 	}
-	err := s.st.UpdateInstanceSettings(r.Context(), store.SettingsUpdate{OpenSignup: in.OpenSignup,
-		InviteRegistration: in.InviteRegistration, MinPasswordLength: in.MinPasswordLength, Limits: in.Limits})
+	upd := store.SettingsUpdate{OpenSignup: in.OpenSignup,
+		InviteRegistration: in.InviteRegistration, MinPasswordLength: in.MinPasswordLength, Limits: in.Limits, EgressGuard: in.EgressGuard}
+	if in.EgressGuard != nil && !*in.EgressGuard && s.hosted {
+		return errf(http.StatusBadRequest, "egress_guard_locked")
+	}
+	if in.EnabledNotificationKinds.set {
+		kinds := []string(nil)
+		if in.EnabledNotificationKinds.Value != nil {
+			kinds = []string{}
+			for _, k := range *in.EnabledNotificationKinds.Value {
+				if !slices.Contains(notify.AllKinds(), k) {
+					return errInvalid
+				}
+				if !slices.Contains(kinds, k) {
+					kinds = append(kinds, k)
+				}
+			}
+			slices.Sort(kinds)
+		}
+		upd.NotificationKinds = &kinds
+	}
+	err := s.st.UpdateInstanceSettings(r.Context(), upd)
 	if err != nil {
 		return err
 	}

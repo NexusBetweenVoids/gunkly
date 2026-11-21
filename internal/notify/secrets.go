@@ -21,7 +21,7 @@ func Prepare(k *auth.Keyring, rawURL, label string, enabled map[string]bool) (st
 		return store.NewChannel{}, err
 	}
 	id := ids.New()
-	return store.NewChannel{ID: id, Service: kind, Ciphertext: Seal(k, id, rawURL), Label: label}, nil
+	return store.NewChannel{ID: id, Service: kind, Ciphertext: Seal(k, id, rawURL), Label: label, Hint: Hint(rawURL)}, nil
 }
 
 // Reseal validates a replacement URL for an existing channel and returns the
@@ -31,7 +31,17 @@ func Reseal(k *auth.Keyring, channelID, rawURL string, enabled map[string]bool) 
 	if err != nil {
 		return store.ChannelUpdate{}, err
 	}
-	return store.ChannelUpdate{Service: kind, Ciphertext: Seal(k, channelID, rawURL)}, nil
+	return store.ChannelUpdate{Service: kind, Ciphertext: Seal(k, channelID, rawURL), Hint: Hint(rawURL)}, nil
+}
+
+// Hint is the masked form of a channel URL that may be shown after saving: an
+// ellipsis and the last four characters. Short URLs reveal nothing.
+func Hint(rawURL string) string {
+	r := []rune(rawURL)
+	if len(r) < 20 {
+		return "…"
+	}
+	return "…" + string(r[len(r)-4:])
 }
 
 // Seal encrypts a channel URL bound to its channel ID.

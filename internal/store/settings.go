@@ -15,6 +15,8 @@ const (
 	settingInviteRegistration = "invite_registration"
 	settingMinPasswordLength  = "min_password_length"
 	settingSetupCompleted     = "setup_completed"
+	settingNotificationKinds  = "notification_kinds" // JSON array; absent = notify.DefaultKinds
+	settingEgressGuard        = "egress_guard"
 	settingLimitPrefix        = "limit."
 )
 
@@ -25,6 +27,12 @@ type InstanceSettings struct {
 	InviteRegistration bool           // default true: a valid invite lets someone register
 	MinPasswordLength  int            // 0 = auth.DefaultMinPasswordLen
 	Limits             map[string]int // instance-wide overrides of internal/limits defaults
+	// NotificationKinds are the admin-enabled notification service kinds
+	// (internal/notify); nil = never set, meaning the built-in defaults.
+	NotificationKinds []string
+	// EgressGuard blocks outbound connections to non-public addresses.
+	// Default true. Hosted mode forces it on regardless (internal/api).
+	EgressGuard bool
 }
 
 // SettingsUpdate changes instance settings; nil fields are unchanged. A
@@ -34,11 +42,16 @@ type SettingsUpdate struct {
 	InviteRegistration *bool
 	MinPasswordLength  *int
 	Limits             map[string]int
+	// NotificationKinds replaces the enabled kinds. A non-nil slice (possibly
+	// empty: nothing enabled) is stored; a pointer to a nil slice resets to
+	// the defaults.
+	NotificationKinds *[]string
+	EgressGuard       *bool
 }
 
 // InstanceSettings reads the instance settings.
 func (s *Store) InstanceSettings(ctx context.Context) (InstanceSettings, error) {
-	out := InstanceSettings{InviteRegistration: true, Limits: map[string]int{}}
+	out := InstanceSettings{InviteRegistration: true, EgressGuard: true, Limits: map[string]int{}}
 	err := s.inTx(ctx, false, func(t *tx) error {
 		rows, err := t.query(ctx, "SELECT key, value FROM settings")
 		if err != nil {
@@ -55,6 +68,13 @@ func (s *Store) InstanceSettings(ctx context.Context) (InstanceSettings, error) 
 				out.OpenSignup = v == "true"
 			case k == settingInviteRegistration:
 				out.InviteRegistration = v == "true"
+			case k == settingNotificationKinds:
+				var kinds []string
+				if json.Unmarshal([]byte(v), &kinds) == nil {
+					out.NotificationKinds = append([]string{}, kinds...)
+				}
+			case k == settingEgressGuard:
+				out.EgressGuard = v != "false"
 			case k == settingMinPasswordLength:
 				out.MinPasswordLength, _ = strconv.Atoi(v)
 			case strings.HasPrefix(k, settingLimitPrefix):
@@ -89,6 +109,19 @@ func (s *Store) UpdateInstanceSettings(ctx context.Context, u SettingsUpdate) er
 		}
 		if err == nil && u.MinPasswordLength != nil {
 			err = set(settingMinPasswordLength, strconv.Itoa(*u.MinPasswordLength))
+		}
+		if err == nil && u.EgressGuard != nil {
+			err = set(settingEgressGuard, strconv.FormatBool(*u.EgressGuard))
+		}
+		if err == nil && u.NotificationKinds != nil {
+			if *u.NotificationKinds == nil {
+				_, err = t.exec(ctx, "DELETE FROM settings WHERE key = ?", settingNotificationKinds)
+			} else {
+				var b []byte
+				if b, err = json.Marshal(*u.NotificationKinds); err == nil {
+					err = set(settingNotificationKinds, string(b))
+				}
+			}
 		}
 		for k, v := range u.Limits {
 			switch {

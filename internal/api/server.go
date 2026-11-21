@@ -17,15 +17,22 @@ import (
 	"github.com/NexusBetweenVoids/gunkly/internal/auth"
 	"github.com/NexusBetweenVoids/gunkly/internal/ids"
 	"github.com/NexusBetweenVoids/gunkly/internal/limits"
+	"github.com/NexusBetweenVoids/gunkly/internal/notify"
 	"github.com/NexusBetweenVoids/gunkly/internal/store"
 )
 
 // Options configures a Server.
 type Options struct {
-	Store          *store.Store
-	Limits         *limits.Service
-	Keyring        *auth.Keyring
-	BaseURL        string // scheme://host[:port] or empty
+	Store   *store.Store
+	Limits  *limits.Service
+	Keyring *auth.Keyring
+	BaseURL string // scheme://host[:port] or empty
+	// HostedMode forces the egress guard on, whatever the admin setting says.
+	HostedMode bool
+	// Sender delivers test notifications. Nil builds the Shoutrrr sender
+	// whose egress guard follows the instance setting; use Server.Sender()
+	// for the scheduler so both behave alike.
+	Sender         notify.Sender
 	TrustedProxies []netip.Prefix
 	Logger         *slog.Logger
 	// Ready reports whether the server can take traffic (database reachable,
@@ -43,6 +50,8 @@ type Server struct {
 	limits  *limits.Service
 	keyring *auth.Keyring
 	baseURL string
+	hosted  bool
+	sender  notify.Sender
 	secure  bool // cookies get Secure; HSTS is sent
 	proxies []netip.Prefix
 	log     *slog.Logger
@@ -72,6 +81,10 @@ func New(o Options) *Server {
 		proxies: o.TrustedProxies, log: o.Logger, ready: o.Ready, static: o.Static, now: o.Now,
 		hashPassword: auth.HashPassword, verifyPassword: auth.VerifyPassword,
 		mux: http.NewServeMux(),
+	}
+	s.hosted, s.sender = o.HostedMode, o.Sender
+	if s.sender == nil {
+		s.sender = notify.NewSwitchSender(s.EgressGuardEnabled)
 	}
 	if s.log == nil {
 		s.log = slog.Default()

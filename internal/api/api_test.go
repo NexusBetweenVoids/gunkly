@@ -218,6 +218,8 @@ func TestRoutePolicies(t *testing.T) {
 		{"GET /api/v1/households/{hh}/x", policy{auth: authHousehold}},
 		{"GET /api/v1/x", household(store.RoleGuest)},
 		{"GET /api/v1/x", public.withStepUp()},
+		{"POST /x/{token}", public.withTokenAuth()},                // token routes must be rate limited
+		{"POST /x/{token}", session.withRate("x").withTokenAuth()}, // and public
 	} {
 		if bad.p.validate(bad.pattern) == nil {
 			t.Errorf("%s %+v accepted", bad.pattern, bad.p)
@@ -646,7 +648,8 @@ func newHH(t *testing.T, mutate ...func(*Options)) *hhFixture {
 func (f *hhFixture) path(pattern, hh string) (string, string) {
 	method, p, _ := strings.Cut(pattern, " ")
 	p = strings.NewReplacer("{hh}", hh, "{user}", f.mID, "{invite}", f.inviteID,
-		"{area}", "nope", "{chore}", "nope", "{completion}", "nope").Replace(p)
+		"{area}", "nope", "{chore}", "nope", "{completion}", "nope",
+		"{id}", "0190f0e0-0000-7000-8000-000000000000").Replace(p)
 	return method, p
 }
 
@@ -681,7 +684,9 @@ func TestHouseholdIsolation(t *testing.T) {
 				t.Errorf("%s as %s: %d %v", r.pattern, name, st, v)
 			}
 		}
-		if r.policy.minRole != store.RoleGuest || strings.HasPrefix(r.pattern, "DELETE") {
+		// DELETE is guest-level on members (guests may leave), so it needs the
+		// owner check; feeds are a guest's own, read-only objects.
+		if r.policy.minRole != store.RoleGuest || (strings.HasPrefix(r.pattern, "DELETE") && !strings.Contains(r.pattern, "/feeds/")) {
 			st, v := f.g.do(method, p, validBody(r.pattern))
 			if st != 403 {
 				t.Errorf("%s as guest: %d %v", r.pattern, st, v)
