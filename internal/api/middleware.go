@@ -101,6 +101,9 @@ func (s *Server) middleware(next http.Handler) http.Handler {
 			// Path templates only: never raw paths, query strings or tokens.
 			s.log.Info("http", "method", r.Method, "route", pattern, "status", sw.status,
 				"ms", s.now().Sub(start).Milliseconds())
+			if s.metrics != nil {
+				s.metrics.ObserveRequest(pattern, sw.status, s.now().Sub(start))
+			}
 		}()
 		next.ServeHTTP(sw, r)
 	})

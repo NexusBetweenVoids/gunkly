@@ -105,6 +105,8 @@
       <Lazy load={() => import('./screens/Account.svelte')} />
     {:else if $route === '/admin' && app.user.isAdmin}
       <Lazy load={() => import('./screens/Admin.svelte')} />
+    {:else if $route === '/admin/updates' && app.user.isAdmin}
+      <Lazy load={() => import('./screens/AdminUpdates.svelte')} />
     {:else}
       <NotFound />
     {/if}

@@ -6,6 +6,7 @@ package api
 
 import (
 	"context"
+	"crypto/sha256"
 	"io/fs"
 	"log/slog"
 	"net/http"
@@ -17,6 +18,7 @@ import (
 	"github.com/NexusBetweenVoids/gunkly/internal/auth"
 	"github.com/NexusBetweenVoids/gunkly/internal/ids"
 	"github.com/NexusBetweenVoids/gunkly/internal/limits"
+	"github.com/NexusBetweenVoids/gunkly/internal/metrics"
 	"github.com/NexusBetweenVoids/gunkly/internal/notify"
 	"github.com/NexusBetweenVoids/gunkly/internal/store"
 )
@@ -27,6 +29,14 @@ type Options struct {
 	Limits  *limits.Service
 	Keyring *auth.Keyring
 	BaseURL string // scheme://host[:port] or empty
+	// Metrics enables GET /metrics (Prometheus text format) behind
+	// MetricsToken (a bearer token). Both must be set; otherwise the route is
+	// not registered.
+	Metrics      *metrics.Registry
+	MetricsToken string
+	// Version is the running release ("dev" for a development build), shown on
+	// the admin Updates page.
+	Version string
 	// HostedMode forces the egress guard on, whatever the admin setting says.
 	HostedMode bool
 	// Sender delivers test notifications. Nil builds the Shoutrrr sender
@@ -50,16 +60,21 @@ type Server struct {
 	limits  *limits.Service
 	keyring *auth.Keyring
 	baseURL string
-	hosted  bool
-	sender  notify.Sender
-	secure  bool // cookies get Secure; HSTS is sent
-	proxies []netip.Prefix
-	log     *slog.Logger
-	ready   func(context.Context) error
-	static  fs.FS
-	now     func() time.Time
-	rl      *rateLimiter
-	acct    *acctGuard
+	metrics *metrics.Registry
+	// metricsTokenHash is the SHA-256 of the metrics token (zero when off).
+	metricsTokenHash [sha256.Size]byte
+	version          string
+	hosted           bool
+	sender           notify.Sender
+	push             *notify.WebPush
+	secure           bool // cookies get Secure; HSTS is sent
+	proxies          []netip.Prefix
+	log              *slog.Logger
+	ready            func(context.Context) error
+	static           fs.FS
+	now              func() time.Time
+	rl               *rateLimiter
+	acct             *acctGuard
 
 	// Password hashing hooks; tests swap in fast fakes and counters.
 	hashPassword   func(string) string
@@ -85,7 +100,7 @@ type Server struct {
 func New(o Options) *Server {
 	s := &Server{
 		st: o.Store, limits: o.Limits, keyring: o.Keyring,
-		baseURL: o.BaseURL, secure: strings.HasPrefix(o.BaseURL, "https://"),
+		baseURL: o.BaseURL, version: o.Version, secure: strings.HasPrefix(o.BaseURL, "https://"),
 		proxies: o.TrustedProxies, log: o.Logger, ready: o.Ready, static: o.Static, now: o.Now,
 		hashPassword: auth.HashPassword, verifyPassword: auth.VerifyPassword,
 		mux: http.NewServeMux(), bodyLimits: map[string]int64{},
@@ -100,6 +115,12 @@ func New(o Options) *Server {
 	if s.now == nil {
 		s.now = time.Now
 	}
+	// The VAPID contact claim: this instance's https URL when it has one.
+	subject := "https://github.com/NexusBetweenVoids/gunkly"
+	if s.secure {
+		subject = o.BaseURL
+	}
+	s.push = notify.NewWebPush(s.st, s.keyring, subject, s.EgressGuardEnabled, s.now)
 	if s.ready == nil {
 		s.ready = func(context.Context) error { return nil }
 	}
@@ -115,6 +136,9 @@ func New(o Options) *Server {
 			return 0
 		}
 		return n
+	}
+	if o.Metrics != nil && o.MetricsToken != "" {
+		s.metrics, s.metricsTokenHash = o.Metrics, sha256.Sum256([]byte(o.MetricsToken))
 	}
 	s.registerRoutes()
 	return s

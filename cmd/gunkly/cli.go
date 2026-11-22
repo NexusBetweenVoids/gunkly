@@ -105,6 +105,9 @@ var rotators = []rotator{
 	{name: "notification channel URLs", run: func(ctx context.Context, s *store.Store, k *auth.Keyring) (int, error) {
 		return notify.RotateSecrets(ctx, s, k)
 	}},
+	{name: "web push keys", run: func(ctx context.Context, s *store.Store, k *auth.Keyring) (int, error) {
+		return notify.RotatePushSecrets(ctx, s, k)
+	}},
 }
 
 // reencrypt returns ct unchanged if it already uses the current key.

@@ -71,11 +71,16 @@ type Config struct {
 	// EnabledKinds returns the admin's service allowlist; nil = notify.DefaultKinds.
 	// A delivery to a kind disabled after the channel was saved fails.
 	EnabledKinds func(context.Context) (map[string]bool, error)
-	Logger       *slog.Logger     // nil = slog.Default()
-	Now          func() time.Time // nil = time.Now
-	Tick         time.Duration    // 0 = DefaultTick
-	LockKey      int64            // 0 = DefaultLockKey
-	Concurrency  int              // parallel sends; 0 = 4
+	// Pusher delivers Web Push reminders; nil fails them ("push not configured").
+	Pusher notify.Pusher
+	// OnDelivery, if set, is told each finished send attempt: the channel kind
+	// ("webpush" for push) and whether it succeeded (metrics).
+	OnDelivery  func(kind string, ok bool)
+	Logger      *slog.Logger     // nil = slog.Default()
+	Now         func() time.Time // nil = time.Now
+	Tick        time.Duration    // 0 = DefaultTick
+	LockKey     int64            // 0 = DefaultLockKey
+	Concurrency int              // parallel sends; 0 = 4
 }
 
 // Worker is the scheduler. Create with New, start with Run.
@@ -322,9 +327,13 @@ func (w *Worker) enqueueChore(ctx context.Context, c store.ReminderChore, from, 
 			keyAt = release
 		}
 		for _, tg := range targets {
+			target := tg.ChannelID
+			if tg.PushID != "" {
+				target = "push:" + tg.PushID // a subscription is a target like a channel
+			}
 			ds = append(ds, store.NewDelivery{
-				Key:         DeliveryKey(c.ID, c.DueDate, f.Kind, keyAt, deferred, tg.ChannelID, tg.UserID),
-				HouseholdID: c.HouseholdID, ChoreID: c.ID, UserID: tg.UserID, ChannelID: tg.ChannelID,
+				Key:         DeliveryKey(c.ID, c.DueDate, f.Kind, keyAt, deferred, target, tg.UserID),
+				HouseholdID: c.HouseholdID, ChoreID: c.ID, UserID: tg.UserID, ChannelID: tg.ChannelID, PushID: tg.PushID,
 				Kind: f.Kind, DueDate: c.DueDate, FireAt: f.At, NextAttemptAt: release, Coalesce: deferred,
 			})
 		}
@@ -413,7 +422,7 @@ func Backoff(attempt int) time.Duration {
 func (w *Worker) deliver(ctx context.Context, d store.ClaimedDelivery, enabled map[string]bool) {
 	st := w.cfg.Store
 	log := w.log.With("delivery", d.ID)
-	if d.ChoreID == "" || !d.ChoreActive || d.ChoreDueDate != d.DueDate || !d.RecipientOK || d.Service == "" {
+	if d.ChoreID == "" || !d.ChoreActive || d.ChoreDueDate != d.DueDate || !d.RecipientOK || (d.Service == "" && d.PushEndpoint == "") {
 		if err := st.DropDelivery(ctx, d.ID); err != nil {
 			log.Error("scheduler: drop delivery", "err", err)
 		}
@@ -427,6 +436,10 @@ func (w *Worker) deliver(ctx context.Context, d store.ClaimedDelivery, enabled m
 		if err := st.MarkDeliveryFailed(ctx, d.ID, msg, at); err != nil {
 			log.Error("scheduler: mark failed", "err", err)
 		}
+	}
+	if d.PushEndpoint != "" {
+		w.deliverPush(ctx, d, fail)
+		return
 	}
 	if !enabled[d.Service] {
 		fail("service disabled", false)
@@ -468,11 +481,63 @@ func (w *Worker) deliver(ctx context.Context, d store.ClaimedDelivery, enabled m
 		}
 		safe := notify.SafeError(err, rawURL)
 		log.Warn("scheduler: send failed", "service", d.Service, "attempt", d.Attempts+1, "err", safe)
+		w.observe(d.Service, false)
 		fail(safe, !errors.Is(err, notify.ErrNoSender))
 		return
 	}
+	w.observe(d.Service, true)
 	if err := st.MarkDeliverySent(ctx, d.ID, w.cfg.Now()); err != nil {
 		log.Error("scheduler: mark sent", "err", err)
+	}
+}
+
+func (w *Worker) observe(kind string, ok bool) {
+	if w.cfg.OnDelivery != nil {
+		w.cfg.OnDelivery(kind, ok)
+	}
+}
+
+// deliverPush sends a reminder to a browser push subscription. The payload is
+// the reminder text and a same-origin path; no mark-done link (opening the app
+// is the action). A subscription the push service reports gone is deleted.
+func (w *Worker) deliverPush(ctx context.Context, d store.ClaimedDelivery, fail func(string, bool)) {
+	st := w.cfg.Store
+	log := w.log.With("delivery", d.ID)
+	if w.cfg.Pusher == nil {
+		fail("push not configured", false)
+		return
+	}
+	due, err := schedule.ParseDate(d.DueDate)
+	if err != nil {
+		fail("invalid due date", false)
+		return
+	}
+	msg := notify.Render(notify.Reminder{Locale: d.Locale, ChoreName: d.ChoreName, Kind: d.Kind, Due: due})
+	sctx, cancel := context.WithTimeout(ctx, sendTimeout)
+	err = w.cfg.Pusher.Push(sctx, d.PushID, d.PushEndpoint, d.PushCiphertext,
+		notify.PushMessage{Title: msg.Title, Body: msg.Body, URL: "/chores/" + d.ChoreID})
+	cancel()
+	switch {
+	case err == nil:
+		w.observe(notify.KindWebPush, true)
+		if err := st.MarkDeliverySent(ctx, d.ID, w.cfg.Now()); err != nil {
+			log.Error("scheduler: mark sent", "err", err)
+		}
+		if err := st.MarkPushUsed(ctx, d.PushID, w.cfg.Now()); err != nil {
+			log.Warn("scheduler: mark push used", "err", err)
+		}
+	case errors.Is(err, notify.ErrPushGone):
+		w.observe(notify.KindWebPush, false)
+		log.Info("scheduler: push subscription gone, removing it")
+		fail("subscription expired", false)
+		if err := st.DeleteGonePushSubscription(ctx, d.PushID); err != nil {
+			log.Error("scheduler: delete push subscription", "err", err)
+		}
+	default:
+		// The error never carries the endpoint (webpush.Post strips it).
+		w.observe(notify.KindWebPush, false)
+		log.Warn("scheduler: push failed", "attempt", d.Attempts+1, "err", err)
+		fail(notify.SafeError(err, d.PushEndpoint), true)
 	}
 }
 

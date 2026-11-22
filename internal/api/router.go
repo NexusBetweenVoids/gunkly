@@ -20,6 +20,7 @@ const (
 	authSession             // any signed-in user
 	authHousehold           // signed-in member of {hh} with at least minRole
 	authAdmin               // signed-in instance admin
+	authMetrics             // bearer token from GUNKLY_METRICS_TOKEN (the /metrics scrape endpoint)
 )
 
 // policy is the access declaration every route carries. The router enforces
@@ -43,6 +44,9 @@ var (
 	public  = policy{auth: authPublic}
 	session = policy{auth: authSession}
 	admin   = policy{auth: authAdmin}
+	// metricsToken is the scrape endpoint's policy: no session, no CSRF (GET
+	// only); a constant-time bearer token compare and a per-IP rate limit.
+	metricsToken = policy{auth: authMetrics, rate: rateMetrics}
 )
 
 func publicRateLimited(bucket string) policy { return policy{auth: authPublic, rate: bucket} }
@@ -71,6 +75,7 @@ const (
 	rateICal     = "ical"     // unauthenticated calendar feeds (apps poll)
 	rateTest     = "test"     // test notifications, per user
 	rateTransfer = "transfer" // data export and import, per IP
+	rateMetrics  = "metrics"  // /metrics scrapes (and token guesses), per IP
 
 	rateUserWrite      = "uwrite" // authenticated non-GET requests, per user
 	rateHouseholdWrite = "hwrite" // household write requests, per household
@@ -80,7 +85,7 @@ const (
 // several people may sit behind one NAT and calendar apps poll, while login
 // stays at the strict default.
 var bucketRates = map[string]int{
-	rateMarkDone: limits.MarkDonePerMinute, rateTransfer: limits.TransfersPerMinute, rateICal: limits.ICalPerMinute,
+	rateMarkDone: limits.MarkDonePerMinute, rateMetrics: limits.MetricsPerMinute, rateTransfer: limits.TransfersPerMinute, rateICal: limits.ICalPerMinute,
 	rateUserWrite: limits.UserWritesPerMinute, rateHouseholdWrite: limits.HouseholdWritesPerMinute,
 }
 
@@ -121,7 +126,7 @@ func (s *Server) handle(pattern string, p policy, h handlerFunc) {
 func (p policy) validate(pattern string) error {
 	hasHH := strings.Contains(pattern, "{hh}")
 	switch {
-	case p.auth <= authUnset || p.auth > authAdmin:
+	case p.auth <= authUnset || p.auth > authMetrics:
 		return fmt.Errorf("api: route %q has no auth policy", pattern)
 	case p.auth == authHousehold && (!hasHH || !p.minRole.Valid()):
 		return fmt.Errorf("api: household route %q needs {hh} and a minimum role", pattern)
@@ -129,6 +134,8 @@ func (p policy) validate(pattern string) error {
 		return fmt.Errorf("api: route %q names {hh} but is not household-scoped", pattern)
 	case p.stepUp && p.auth == authPublic:
 		return fmt.Errorf("api: public route %q cannot require step-up", pattern)
+	case p.auth == authMetrics && (p.rate == "" || p.stepUp || p.tokenAuth || !strings.HasPrefix(pattern, "GET ")):
+		return fmt.Errorf("api: metrics route %q must be a rate-limited GET without step-up", pattern)
 	case p.tokenAuth && (p.auth != authPublic || p.rate == ""):
 		return fmt.Errorf("api: token route %q must be public and rate limited", pattern)
 	}
@@ -149,7 +156,13 @@ func (s *Server) enforce(p policy, h handlerFunc) http.Handler {
 		if p.rate != "" && !s.allow(w, p.rate+":ip:"+c.rip) {
 			return
 		}
-		if p.auth >= authSession {
+		if p.auth == authMetrics {
+			if !s.metricsAuthorized(r) {
+				w.Header().Set("WWW-Authenticate", `Bearer realm="gunkly-metrics"`)
+				s.fail(w, r, errUnauthenticated)
+				return
+			}
+		} else if p.auth >= authSession {
 			ss, u, ok := s.authenticate(w, r)
 			if !ok {
 				s.fail(w, r, errUnauthenticated)

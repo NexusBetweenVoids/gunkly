@@ -21,6 +21,7 @@ tags:
   - {name: reminders}
   - {name: feeds}
   - {name: channels}
+  - {name: push}
   - {name: admin}
 paths:
   /setup:
@@ -748,6 +749,41 @@ paths:
       responses:
         "204": {description: Deleted}
         "404": {$ref: "#/components/responses/NotFound"}
+  /push/vapid-public-key:
+    get:
+      tags: [push]
+      summary: The VAPID public key a browser subscribes to Web Push with (signed in)
+      description: Generated on first use; the private half is stored encrypted. Base64url, uncompressed P-256 point (applicationServerKey).
+      responses:
+        "200": {description: OK, content: {application/json: {schema: {type: object, properties: {publicKey: {type: string}}}}}}
+        "401": {$ref: "#/components/responses/Unauthenticated"}
+  /account/push-subscriptions:
+    get:
+      tags: [push]
+      summary: The caller's browser push subscriptions
+      responses:
+        "200": {description: OK, content: {application/json: {schema: {type: array, items: {$ref: "#/components/schemas/PushSubscription"}}}}}
+    post:
+      tags: [push]
+      summary: Register this browser for Web Push reminders
+      description: |
+        Body is the browser's PushSubscription.toJSON() (endpoint and keys). The endpoint must be a known push
+        service (fcm.googleapis.com, web.push.apple.com, updates.push.services.mozilla.com, *.notify.windows.com;
+        https, port 443). An endpoint that is already registered is replaced, so reminders follow whoever is
+        signed in in that browser. The endpoint and keys are never returned.
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/PushSubscriptionInput"}}}}
+      responses:
+        "201": {description: Created, content: {application/json: {schema: {$ref: "#/components/schemas/PushSubscription"}}}}
+        "400": {description: "Invalid input (invalid_json, invalid_push_endpoint, invalid_push_keys)", content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
+        "409": {$ref: "#/components/responses/LimitReached"}
+  /account/push-subscriptions/{id}:
+    parameters: [{$ref: "#/components/parameters/id"}]
+    delete:
+      tags: [push]
+      summary: Remove a push subscription
+      responses:
+        "204": {description: Deleted}
+        "404": {$ref: "#/components/responses/NotFound"}
   /account/channels/{id}/test:
     parameters: [{$ref: "#/components/parameters/id"}]
     post:
@@ -857,6 +893,18 @@ paths:
         "200": {description: OK, content: {application/json: {schema: {type: object, properties: {password: {type: string}}}}}}
         "403": {$ref: "#/components/responses/Forbidden"}
         "404": {$ref: "#/components/responses/NotFound"}
+  /admin/updates:
+    get:
+      tags: [admin]
+      summary: Running version and the latest release (admin)
+      description: |
+        Reads the cached result of the background release check, which asks the GitHub Releases API at most
+        every 12 hours with the User-Agent "gunkly-update-check" and no instance data. It never makes a request
+        itself. With updateCheck off, nothing is shown (enabled false). changelog is plain text: show it as
+        text, never as HTML.
+      responses:
+        "200": {description: OK, content: {application/json: {schema: {$ref: "#/components/schemas/Updates"}}}}
+        "403": {$ref: "#/components/responses/Forbidden"}
   /admin/settings:
     get:
       tags: [admin]
@@ -884,6 +932,7 @@ paths:
                 limits: {type: object, additionalProperties: {type: integer}, description: "0 resets a limit to its default"}
                 enabledNotificationKinds: {type: array, items: {type: string}, description: "Allowed notification services; must be a subset of availableNotificationKinds"}
                 egressGuard: {type: boolean, description: "Block outbound requests to private addresses; rejected while egressGuardLocked"}
+                updateCheck: {type: boolean, description: "Check for new releases in the background (default true)"}
       responses:
         "200": {description: OK, content: {application/json: {schema: {$ref: "#/components/schemas/AdminSettings"}}}}
         "400": {$ref: "#/components/responses/Invalid"}
@@ -1147,6 +1196,35 @@ components:
         availableNotificationKinds: {type: array, items: {type: string}}
         egressGuard: {type: boolean}
         egressGuardLocked: {type: boolean, description: "Hosted mode: the guard cannot be turned off"}
+        updateCheck: {type: boolean}
+    Updates:
+      type: object
+      properties:
+        running: {type: string, description: "Version of this server (dev for development builds)"}
+        latest: {type: string, description: "Latest release tag; empty if never checked or the check is off"}
+        newer: {type: boolean, description: "latest is newer than running"}
+        changelog: {type: string, description: "Release notes, plain text, at most 8000 characters"}
+        checkedAt: {type: string, format: date-time, nullable: true}
+        enabled: {type: boolean, description: "The updateCheck setting"}
+    PushSubscription:
+      type: object
+      properties:
+        id: {type: string}
+        endpointHash: {type: string, description: "Hex SHA-256 of the endpoint; a device compares it with its own to find its entry"}
+        userAgent: {type: string}
+        createdAt: {type: string, format: date-time}
+        lastUsedAt: {type: string, format: date-time}
+    PushSubscriptionInput:
+      type: object
+      required: [endpoint, keys]
+      properties:
+        endpoint: {type: string}
+        keys:
+          type: object
+          required: [p256dh, auth]
+          properties:
+            p256dh: {type: string, description: "Base64url, 65-byte P-256 public key"}
+            auth: {type: string, description: "Base64url, 16 bytes"}
     Area:
       type: object
       properties:
@@ -1240,7 +1318,7 @@ components:
         reminders: {type: array, items: {$ref: "#/components/schemas/Reminder"}}
 x-outside-api-v1:
   description: |
-    Unauthenticated, token-addressed endpoints served outside /api/v1 (hence
+    Session-less, token-addressed endpoints served outside /api/v1 (hence
     not under paths:). Tokens are secrets; every failure answers one generic
     page or 404.
   routes:
@@ -1249,3 +1327,10 @@ x-outside-api-v1:
     "POST /done/undo/{token}": Reverts that completion within 5 minutes (HTML). Rate limit 30/min per IP.
     "GET /done.css": Stylesheet of the mark-done pages.
     "GET /ical/{file}": Read-only iCalendar feed; {file} is "<token>.ics". Rate limit 60/min per IP.
+    "GET /metrics": |
+      Prometheus text exposition (format 0.0.4). Registered only when GUNKLY_METRICS_TOKEN is set; requires
+      "Authorization: Bearer <token>" (constant-time compare, otherwise 401). Rate limit 30/min per IP. Series:
+      gunkly_build_info{version}, process_start_time_seconds, go_goroutines, go_memstats_alloc_bytes,
+      gunkly_http_requests_total{route,code} (route pattern, status class), gunkly_http_request_duration_seconds
+      (histogram), gunkly_deliveries_total{kind,result}, gunkly_scheduler_last_tick_age_seconds,
+      gunkly_delivery_queue_depth, gunkly_db_open_connections. No per-user or per-household labels.

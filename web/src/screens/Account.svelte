@@ -16,6 +16,7 @@
   <Password />
   <Totp />
   <Channels base="/account/channels" title={t('channels.personalTitle')} id="me" />
+  <Lazy load={() => import('./account/PushNotifications.svelte')} />
   <Deliveries path="/account/deliveries" title={t('delivery.personalTitle')} id="me" />
   <Sessions />
   <Lazy load={() => import('./account/ExportData.svelte')} />

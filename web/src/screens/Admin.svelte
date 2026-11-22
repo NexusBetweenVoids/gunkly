@@ -5,6 +5,7 @@
 </script>
 
 <h1>{t('admin.title')}</h1>
+<p><a href="/admin/updates">{t('nav.updates')}</a></p>
 <div class="sections">
   <Users />
   <Settings />

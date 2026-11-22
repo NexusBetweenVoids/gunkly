@@ -114,6 +114,7 @@ type settingsView struct {
 	AvailableNotificationKinds []string `json:"availableNotificationKinds"`
 	EgressGuard                bool     `json:"egressGuard"`
 	EgressGuardLocked          bool     `json:"egressGuardLocked"` // hosted mode: cannot be turned off
+	UpdateCheck                bool     `json:"updateCheck"`       // ask GitHub for the latest release (Updates page)
 }
 
 func (s *Server) adminGetSettings(w http.ResponseWriter, r *http.Request, _ *call) error {
@@ -130,7 +131,7 @@ func (s *Server) adminGetSettings(w http.ResponseWriter, r *http.Request, _ *cal
 		AuditRetentionDays: st.AuditRetentionDays, DeliveryRetentionDays: st.DeliveryRetentionDays,
 		Limits: map[limits.Kind]int{}, LimitDefaults: limits.Defaults,
 		EnabledNotificationKinds: append([]string{}, slices.Sorted(maps.Keys(kindSet(st)))...), AvailableNotificationKinds: notify.AllKinds(),
-		EgressGuard: s.hosted || st.EgressGuard, EgressGuardLocked: s.hosted}
+		EgressGuard: s.hosted || st.EgressGuard, EgressGuardLocked: s.hosted, UpdateCheck: st.UpdateCheck}
 	for k, d := range limits.Defaults {
 		v.Limits[k] = d
 		if o, set := st.Limits[string(k)]; set && o > 0 {
@@ -153,6 +154,7 @@ func (s *Server) adminPatchSettings(w http.ResponseWriter, r *http.Request, c *c
 		// null resets to the built-in defaults; [] enables nothing.
 		EnabledNotificationKinds optional[[]string] `json:"enabledNotificationKinds"`
 		EgressGuard              *bool              `json:"egressGuard"`
+		UpdateCheck              *bool              `json:"updateCheck"`
 	}
 	if err := decode(r, &in); err != nil {
 		return err
@@ -166,7 +168,7 @@ func (s *Server) adminPatchSettings(w http.ResponseWriter, r *http.Request, c *c
 		}
 	}
 	upd := store.SettingsUpdate{OpenSignup: in.OpenSignup,
-		InviteRegistration: in.InviteRegistration, MinPasswordLength: in.MinPasswordLength, Limits: in.Limits, EgressGuard: in.EgressGuard,
+		InviteRegistration: in.InviteRegistration, MinPasswordLength: in.MinPasswordLength, Limits: in.Limits, EgressGuard: in.EgressGuard, UpdateCheck: in.UpdateCheck,
 		SessionIdleDays: in.SessionIdleDays, SessionMaxDays: in.SessionMaxDays,
 		AuditRetentionDays: in.AuditRetentionDays, DeliveryRetentionDays: in.DeliveryRetentionDays}
 	if in.EgressGuard != nil && !*in.EgressGuard && s.hosted {

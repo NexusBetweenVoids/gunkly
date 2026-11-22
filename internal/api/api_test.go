@@ -200,7 +200,7 @@ func expect(t *testing.T, gotStatus int, body any, wantStatus int, wantCode stri
 }
 
 func TestRoutePolicies(t *testing.T) {
-	e := newEnv(t)
+	e := newEnv(t, withMetrics) // include the optional /metrics route
 	n := 0
 	for _, r := range e.srv.routes {
 		if err := r.policy.validate(r.pattern); err != nil {

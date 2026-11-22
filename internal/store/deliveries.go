@@ -111,35 +111,42 @@ func (s *Store) ReminderChores(ctx context.Context, now, horizon time.Time, afte
 }
 
 // ReminderTarget is one place a chore's reminder goes: a recipient's personal
-// channel (UserID set) or a household channel (UserID empty).
+// channel or Web Push subscription (UserID set; exactly one of ChannelID and
+// PushID) or a household channel (UserID empty).
 type ReminderTarget struct {
 	UserID    string
 	ChannelID string
+	PushID    string
 }
 
 // ReminderTargets resolves where a chore's reminders go: the personal
-// channels of its non-guest assignees (or, with no assignees, of every
-// non-guest member) who have not muted it, plus the household's channels.
-// Guests never receive reminders.
+// channels and Web Push subscriptions of its non-guest assignees (or, with no
+// assignees, of every non-guest member) who have not muted it, plus the
+// household's channels. Guests never receive reminders.
 func (s *Store) ReminderTargets(ctx context.Context, householdID, choreID string) ([]ReminderTarget, error) {
 	var out []ReminderTarget
 	err := s.inTx(ctx, false, func(t *tx) error {
-		rows, err := t.query(ctx, `SELECT m.user_id, nc.id FROM memberships m
-			JOIN notification_channels nc ON nc.scope = 'user' AND nc.user_id = m.user_id
-			WHERE m.household_id = ? AND m.role <> 'guest'
+		const eligible = `m.household_id = ? AND m.role <> 'guest'
 			AND NOT EXISTS (SELECT 1 FROM chore_mutes cm WHERE cm.user_id = m.user_id AND cm.chore_id = ?)
 			AND (NOT EXISTS (SELECT 1 FROM chore_assignees ca WHERE ca.chore_id = ?)
-				OR EXISTS (SELECT 1 FROM chore_assignees ca WHERE ca.chore_id = ? AND ca.user_id = m.user_id))
+				OR EXISTS (SELECT 1 FROM chore_assignees ca WHERE ca.chore_id = ? AND ca.user_id = m.user_id))`
+		rows, err := t.query(ctx, `SELECT m.user_id, nc.id, '' FROM memberships m
+			JOIN notification_channels nc ON nc.scope = 'user' AND nc.user_id = m.user_id
+			WHERE `+eligible+`
 			UNION ALL
-			SELECT '', id FROM notification_channels WHERE scope = 'household' AND household_id = ?
-			ORDER BY 1, 2`, householdID, choreID, choreID, choreID, householdID)
+			SELECT m.user_id, '', ps.id FROM memberships m
+			JOIN push_subscriptions ps ON ps.user_id = m.user_id
+			WHERE `+eligible+`
+			UNION ALL
+			SELECT '', id, '' FROM notification_channels WHERE scope = 'household' AND household_id = ?
+			ORDER BY 1, 2, 3`, householdID, choreID, choreID, choreID, householdID, choreID, choreID, choreID, householdID)
 		if err != nil {
 			return err
 		}
 		defer rows.Close()
 		for rows.Next() {
 			var r ReminderTarget
-			if err := rows.Scan(&r.UserID, &r.ChannelID); err != nil {
+			if err := rows.Scan(&r.UserID, &r.ChannelID, &r.PushID); err != nil {
 				return err
 			}
 			out = append(out, r)
@@ -157,7 +164,8 @@ type NewDelivery struct {
 	HouseholdID   string
 	ChoreID       string
 	UserID        string // "" for a household channel
-	ChannelID     string
+	ChannelID     string // "" for a push delivery
+	PushID        string // push subscription; "" for a channel delivery
 	Kind          schedule.ReminderKind
 	DueDate       string    // occurrence the reminder is for
 	FireAt        time.Time // when it fired
@@ -207,10 +215,10 @@ func (s *Store) EnqueueDeliveries(ctx context.Context, ds []NewDelivery, q Quota
 			} else {
 				n++
 			}
-			if _, err := t.exec(ctx, `INSERT INTO deliveries (id, delivery_key, household_id, chore_id, user_id, channel_id, status,
+			if _, err := t.exec(ctx, `INSERT INTO deliveries (id, delivery_key, household_id, chore_id, user_id, channel_id, push_subscription_id, status,
 				attempts, next_attempt_at, last_error, created_at, kind, due_date, fire_at)
-				VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?)`,
-				ids.New(), d.Key, d.HouseholdID, nullStr(d.ChoreID), nullStr(d.UserID), nullStr(d.ChannelID), status,
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?)`,
+				ids.New(), d.Key, d.HouseholdID, nullStr(d.ChoreID), nullStr(d.UserID), nullStr(d.ChannelID), nullStr(d.PushID), status,
 				next, lastErr, now.UnixMilli(), int(d.Kind), d.DueDate, ms(d.FireAt)); err != nil {
 				return err
 			}
@@ -263,8 +271,12 @@ type ClaimedDelivery struct {
 	DueDate     string
 	Attempts    int
 
-	Service    string // "" = channel deleted
+	Service    string // "" = channel deleted (and no push subscription)
 	Ciphertext string
+
+	PushID         string // push subscription; "" for a channel delivery
+	PushEndpoint   string // "" = subscription deleted
+	PushCiphertext string // sealed keys
 
 	ChoreName    string
 	ChoreDueDate string
@@ -332,17 +344,19 @@ func (t *tx) claimed(ctx context.Context, id string, now time.Time) (ClaimedDeli
 	var muted int
 	err := t.queryRow(ctx, `SELECT d.id, d.household_id, COALESCE(d.chore_id, ''), COALESCE(d.user_id, ''), COALESCE(d.channel_id, ''),
 		d.kind, d.due_date, d.attempts, COALESCE(nc.service, ''), COALESCE(nc.url_ciphertext, ''),
+		COALESCE(d.push_subscription_id, ''), COALESCE(ps.endpoint, ''), COALESCE(ps.keys_ciphertext, ''),
 		c.name, c.due_date, c.next_due, c.archived_at, c.paused_indefinitely, c.paused_until,
 		COALESCE(u.locale, ''), m.role, h.timezone,
 		(SELECT count(*) FROM chore_mutes cm WHERE cm.user_id = d.user_id AND cm.chore_id = d.chore_id)
 		FROM deliveries d
 		LEFT JOIN notification_channels nc ON nc.id = d.channel_id
+		LEFT JOIN push_subscriptions ps ON ps.id = d.push_subscription_id
 		LEFT JOIN chores c ON c.id = d.chore_id AND c.household_id = d.household_id
 		LEFT JOIN users u ON u.id = d.user_id
 		LEFT JOIN memberships m ON m.household_id = d.household_id AND m.user_id = d.user_id
 		LEFT JOIN households h ON h.id = d.household_id
 		WHERE d.id = ?`, id).Scan(&c.ID, &c.HouseholdID, &c.ChoreID, &c.UserID, &c.ChannelID, &kind, &c.DueDate, &c.Attempts,
-		&c.Service, &c.Ciphertext, &choreName, &choreDue, &next, &archived, &pausedIndef, &pausedUntil,
+		&c.Service, &c.Ciphertext, &c.PushID, &c.PushEndpoint, &c.PushCiphertext, &choreName, &choreDue, &next, &archived, &pausedIndef, &pausedUntil,
 		&c.Locale, &role, &tz, &muted)
 	if err != nil {
 		return ClaimedDelivery{}, err
@@ -409,10 +423,11 @@ type Delivery struct {
 }
 
 const deliveryLogQuery = `SELECT d.id, COALESCE(d.chore_id, ''), COALESCE(c.name, ''), COALESCE(d.user_id, ''), COALESCE(d.channel_id, ''),
-	COALESCE(nc.label, ''), COALESCE(nc.service, ''), d.kind, d.status, d.attempts, d.last_error, d.created_at, d.sent_at, d.next_attempt_at
+	COALESCE(nc.label, ''), CASE WHEN ps.id IS NOT NULL THEN 'webpush' ELSE COALESCE(nc.service, '') END, d.kind, d.status, d.attempts, d.last_error, d.created_at, d.sent_at, d.next_attempt_at
 	FROM deliveries d
 	LEFT JOIN chores c ON c.id = d.chore_id
 	LEFT JOIN notification_channels nc ON nc.id = d.channel_id
+	LEFT JOIN push_subscriptions ps ON ps.id = d.push_subscription_id
 	WHERE `
 
 // DeliveryPage selects a page of a delivery log, newest first. The zero value

@@ -36,7 +36,13 @@ type Config struct {
 	DisableScheduler bool
 	ShutdownTimeout  time.Duration
 	LogLevel         slog.Level
+	// MetricsToken enables GET /metrics (Prometheus) behind
+	// "Authorization: Bearer <token>"; empty = no metrics endpoint.
+	MetricsToken string
 }
+
+// MinMetricsTokenLen is the shortest accepted GUNKLY_METRICS_TOKEN.
+const MinMetricsTokenLen = 16
 
 // SMTP holds outbound mail settings; only used when EmailEnabled.
 type SMTP struct {
@@ -117,6 +123,13 @@ func Load(lookup func(string) string) (*Config, error) {
 			fail("GUNKLY_SHUTDOWN_TIMEOUT: must be a positive duration such as 30s")
 		}
 		c.ShutdownTimeout = d
+	}
+
+	if v := get("METRICS_TOKEN"); v != "" {
+		if len(v) < MinMetricsTokenLen {
+			fail("GUNKLY_METRICS_TOKEN: must be at least %d characters (generate with: openssl rand -hex 24)", MinMetricsTokenLen)
+		}
+		c.MetricsToken = v
 	}
 
 	if v := get("LOG_LEVEL"); v != "" {

@@ -3,6 +3,9 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/ecdh"
+	"crypto/rand"
+	"encoding/base64"
 	"io"
 	"log/slog"
 	"net"
@@ -19,6 +22,7 @@ import (
 	"github.com/NexusBetweenVoids/gunkly/internal/db/dbtest"
 	"github.com/NexusBetweenVoids/gunkly/internal/notify"
 	"github.com/NexusBetweenVoids/gunkly/internal/store"
+	"github.com/NexusBetweenVoids/gunkly/internal/webpush"
 )
 
 // TestResetPasswordInvalidatesLinks: `gunkly admin reset-password` must kill
@@ -216,12 +220,31 @@ func TestRotateKey(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// A Web Push subscription and the instance VAPID key, both on the old key.
+	ua, err := ecdh.P256().GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	subKeys := webpush.Keys{P256dh: base64.RawURLEncoding.EncodeToString(ua.PublicKey().Bytes()), Auth: base64.RawURLEncoding.EncodeToString([]byte("0123456789abcdef"))}
+	sealed, err := notify.SealPush(oldRing, "sub-1", subKeys)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.store.CreatePushSubscription(ctx, actor, store.NewPushSubscription{ID: "sub-1", Endpoint: "https://fcm.googleapis.com/fcm/send/x", Ciphertext: sealed, Max: 5}); err != nil {
+		t.Fatal(err)
+	}
+	vapidPub, err := notify.NewWebPush(a.store, oldRing, "https://gunkly.example", func(context.Context) bool { return true }, nil).PublicKey(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	a.keyring = bothRing
 	var out bytes.Buffer
 	if err := a.rotateKey(ctx, &out); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "totp secrets: 1 re-encrypted") || !strings.Contains(out.String(), "notification channel URLs: 1 re-encrypted") {
+	if !strings.Contains(out.String(), "totp secrets: 1 re-encrypted") || !strings.Contains(out.String(), "notification channel URLs: 1 re-encrypted") ||
+		!strings.Contains(out.String(), "web push keys: 2 re-encrypted") {
 		t.Fatalf("output: %q", out.String())
 	}
 
@@ -242,6 +265,17 @@ func TestRotateKey(t *testing.T) {
 	url, err := notify.Open(newOnly, ch.ID, secrets[0].Ciphertext)
 	if err != nil || url != "ntfy://ntfy.sh/gunkly-private-topic-1234" {
 		t.Fatalf("channel after old key removal: %q %v", url, err)
+	}
+
+	pushSecrets, err := a.store.PushSecrets(ctx, "", 10)
+	if err != nil || len(pushSecrets) != 1 || !strings.HasPrefix(pushSecrets[0].Ciphertext, "v2:") {
+		t.Fatalf("push keys not on the new key: %+v %v", pushSecrets, err)
+	}
+	if k, err := notify.OpenPush(newOnly, "sub-1", pushSecrets[0].Ciphertext); err != nil || k != subKeys {
+		t.Fatalf("push keys after old key removal: %+v %v", k, err)
+	}
+	if pub, err := notify.NewWebPush(a.store, newOnly, "https://gunkly.example", func(context.Context) bool { return true }, nil).PublicKey(ctx); err != nil || pub != vapidPub {
+		t.Fatalf("VAPID key after old key removal: %q (want %q) %v", pub, vapidPub, err)
 	}
 
 	// Idempotent: a second run has nothing to do.

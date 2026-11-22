@@ -14,6 +14,9 @@ func (s *Server) registerRoutes() {
 	// Probes and static files.
 	s.handle("GET /healthz", public, s.healthz)
 	s.handle("GET /readyz", public, s.readyz)
+	if s.metrics != nil {
+		s.handle("GET /metrics", metricsToken, s.metricsHandler)
+	}
 	s.handle("GET /", public, s.serveStatic) // unknown /api/ paths get a JSON 404 there
 
 	// First-run setup.
@@ -85,6 +88,7 @@ func (s *Server) registerRoutes() {
 	s.handle("POST /api/v1/admin/users/{id}/reset-password", admin.withStepUp(), s.adminResetPassword)
 	s.handle("GET /api/v1/admin/settings", admin, s.adminGetSettings)
 	s.handle("PATCH /api/v1/admin/settings", admin.withStepUp(), s.adminPatchSettings)
+	s.handle("GET /api/v1/admin/updates", admin, s.adminUpdates)
 
 	s.registerLinkAndNotifyRoutes()
 	s.registerTransferRoutes()
@@ -122,6 +126,13 @@ func (s *Server) registerLinkAndNotifyRoutes() {
 	s.handle("PATCH /api/v1/households/{hh}/channels/{id}", member, s.patchHouseholdChannel)
 	s.handle("DELETE /api/v1/households/{hh}/channels/{id}", member, s.deleteHouseholdChannel)
 	s.handle("POST /api/v1/households/{hh}/channels/{id}/test", member, s.testHouseholdChannel)
+
+	// Web Push (browser notifications): the VAPID key a browser subscribes
+	// with, and this user's subscriptions.
+	s.handle("GET /api/v1/push/vapid-public-key", session, s.vapidPublicKey)
+	s.handle("GET /api/v1/account/push-subscriptions", session, s.listPushSubscriptions)
+	s.handle("POST /api/v1/account/push-subscriptions", session, s.createPushSubscription)
+	s.handle("DELETE /api/v1/account/push-subscriptions/{id}", session, s.deletePushSubscription)
 
 	// Delivery logs.
 	s.handle("GET /api/v1/account/deliveries", session, s.listUserDeliveries)

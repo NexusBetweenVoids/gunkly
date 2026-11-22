@@ -14,7 +14,10 @@ import (
 	"time"
 
 	"github.com/NexusBetweenVoids/gunkly/internal/api"
+	"github.com/NexusBetweenVoids/gunkly/internal/egress"
+	"github.com/NexusBetweenVoids/gunkly/internal/metrics"
 	"github.com/NexusBetweenVoids/gunkly/internal/scheduler"
+	"github.com/NexusBetweenVoids/gunkly/internal/updates"
 	"github.com/NexusBetweenVoids/gunkly/web"
 )
 
@@ -39,9 +42,14 @@ func serve(ctx context.Context, logOut io.Writer) error {
 	if err != nil {
 		return err
 	}
+	var reg *metrics.Registry
+	if a.cfg.MetricsToken != "" {
+		reg = a.newMetrics()
+	}
 	srv := api.New(api.Options{
 		Store: a.store, Limits: a.limits, Keyring: a.keyring, BaseURL: a.cfg.BaseURL,
 		TrustedProxies: a.cfg.TrustedProxies, Logger: a.log, Ready: a.ready, Static: dist, HostedMode: a.cfg.HostedMode,
+		Metrics: reg, MetricsToken: a.cfg.MetricsToken, Version: version,
 	})
 	if err := srv.InitSetup(ctx); err != nil {
 		return err
@@ -60,8 +68,9 @@ func serve(ctx context.Context, logOut io.Writer) error {
 	ctx, stop := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 	if !a.cfg.DisableScheduler {
-		a.startScheduler(ctx, srv)
+		a.startScheduler(ctx, srv, reg)
 	}
+	a.startUpdateCheck(ctx)
 
 	errc := make(chan error, 1)
 	go func() { errc <- httpSrv.ListenAndServe() }()
@@ -129,13 +138,17 @@ func healthURL(listen string) (string, error) {
 // startScheduler runs the reminder worker until shutdown. Its hook (run after
 // the HTTP drain, before the database closes) stops new sends, waits for
 // in-flight ones and releases the Postgres lock, within the shutdown timeout.
-func (a *app) startScheduler(ctx context.Context, srv *api.Server) {
-	w := scheduler.New(scheduler.Config{
+func (a *app) startScheduler(ctx context.Context, srv *api.Server, reg *metrics.Registry) {
+	cfg := scheduler.Config{
 		Store: a.store, DB: a.db, Keyring: a.keyring, Limits: a.limits, BaseURL: a.cfg.BaseURL, Logger: a.log,
 		// The server's sender and allowlist follow the admin settings (egress
 		// guard, enabled notification kinds), read at send time.
-		Sender: srv.Sender(), EnabledKinds: srv.EnabledKinds,
-	})
+		Sender: srv.Sender(), EnabledKinds: srv.EnabledKinds, Pusher: srv.Pusher(),
+	}
+	if reg != nil {
+		cfg.OnDelivery = reg.Delivery
+	}
+	w := scheduler.New(cfg)
 	wctx, cancel := context.WithCancel(context.WithoutCancel(ctx))
 	done := make(chan struct{})
 	go func() {
@@ -151,6 +164,51 @@ func (a *app) startScheduler(ctx context.Context, srv *api.Server) {
 			return nil
 		case <-sctx.Done():
 			return fmt.Errorf("scheduler: %w", sctx.Err())
+		}
+	})
+}
+
+// newMetrics builds the Prometheus registry with the gauges read at scrape
+// time: scheduler tick age (from the database, so any instance reports the
+// leader's progress), delivery queue depth and open database connections.
+func (a *app) newMetrics() *metrics.Registry {
+	reg := metrics.New(version)
+	reg.AddGauge("gunkly_scheduler_last_tick_age_seconds", "Seconds since the scheduler last processed a window (absent if it never ran).",
+		func(ctx context.Context) (float64, error) {
+			at, err := a.store.LastSchedulerTick(ctx)
+			if err != nil || at.IsZero() {
+				return 0, errors.New("no tick")
+			}
+			return max(0, time.Since(at).Seconds()), nil
+		})
+	reg.AddGauge("gunkly_delivery_queue_depth", "Reminder deliveries waiting to be sent or retried.",
+		func(ctx context.Context) (float64, error) {
+			n, err := a.store.PendingDeliveries(ctx)
+			return float64(n), err
+		})
+	reg.AddGauge("gunkly_db_open_connections", "Open database connections (in use and idle).",
+		func(context.Context) (float64, error) { return float64(a.db.Stats().OpenConnections), nil })
+	return reg
+}
+
+// startUpdateCheck runs the background release check (admin Updates page). It
+// uses the always-guarded egress client and asks only if the admin has not
+// switched the check off.
+func (a *app) startUpdateCheck(ctx context.Context) {
+	c := &updates.Checker{Store: a.store, Client: egress.NewClient(egress.Guard{Enabled: true}), Log: a.log}
+	uctx, cancel := context.WithCancel(context.WithoutCancel(ctx))
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		c.Run(uctx)
+	}()
+	a.onShutdown(func(sctx context.Context) error {
+		cancel()
+		select {
+		case <-done:
+			return nil
+		case <-sctx.Done():
+			return fmt.Errorf("update check: %w", sctx.Err())
 		}
 	})
 }

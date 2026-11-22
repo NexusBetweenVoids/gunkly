@@ -21,6 +21,7 @@ const (
 	settingSessionMaxDays     = "session_max_days"
 	settingAuditRetentionDays = "audit_retention_days"
 	settingDeliveryRetention  = "delivery_retention_days"
+	settingUpdateCheck        = "update_check"
 	settingLimitPrefix        = "limit."
 )
 
@@ -41,6 +42,9 @@ type InstanceSettings struct {
 	// (PRD: sessions 30 idle / 90 absolute; audit 90, deliveries 30).
 	SessionIdleDays, SessionMaxDays           int
 	AuditRetentionDays, DeliveryRetentionDays int
+	// UpdateCheck lets the server ask GitHub for the latest release (the
+	// Updates page). Default true.
+	UpdateCheck bool
 }
 
 // Bounds and defaults for the day-valued settings.
@@ -66,6 +70,7 @@ type SettingsUpdate struct {
 	// the defaults.
 	NotificationKinds *[]string
 	EgressGuard       *bool
+	UpdateCheck       *bool
 	// Day-valued settings; validated against the bounds above, and idle must
 	// not exceed max (checked against the stored value for whichever is unset).
 	SessionIdleDays, SessionMaxDays           *int
@@ -74,7 +79,7 @@ type SettingsUpdate struct {
 
 // InstanceSettings reads the instance settings.
 func (s *Store) InstanceSettings(ctx context.Context) (InstanceSettings, error) {
-	out := InstanceSettings{InviteRegistration: true, EgressGuard: true, Limits: map[string]int{},
+	out := InstanceSettings{InviteRegistration: true, EgressGuard: true, UpdateCheck: true, Limits: map[string]int{},
 		SessionIdleDays: DefaultSessionIdleDays, SessionMaxDays: DefaultSessionMaxDays,
 		AuditRetentionDays: DefaultAuditRetentionDays, DeliveryRetentionDays: DefaultDeliveryRetentionDays}
 	err := s.inTx(ctx, false, func(t *tx) error {
@@ -100,6 +105,8 @@ func (s *Store) InstanceSettings(ctx context.Context) (InstanceSettings, error) 
 				}
 			case k == settingEgressGuard:
 				out.EgressGuard = v != "false"
+			case k == settingUpdateCheck:
+				out.UpdateCheck = v != "false"
 			case k == settingSessionIdleDays:
 				out.SessionIdleDays = atoiOr(v, out.SessionIdleDays)
 			case k == settingSessionMaxDays:
@@ -181,6 +188,9 @@ func (s *Store) UpdateInstanceSettings(ctx context.Context, u SettingsUpdate) er
 		}
 		if err == nil && u.EgressGuard != nil {
 			err = set(settingEgressGuard, strconv.FormatBool(*u.EgressGuard))
+		}
+		if err == nil && u.UpdateCheck != nil {
+			err = set(settingUpdateCheck, strconv.FormatBool(*u.UpdateCheck))
 		}
 		if err == nil && u.NotificationKinds != nil {
 			if *u.NotificationKinds == nil {

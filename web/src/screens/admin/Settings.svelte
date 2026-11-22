@@ -38,6 +38,7 @@
     emails_global_hour: 'limit.emails_global_hour',
     active_invites_per_household: 'limit.active_invites_per_household',
     calendar_feeds_per_user: 'limit.calendar_feeds_per_user',
+    push_subscriptions_per_user: 'limit.push_subscriptions_per_user',
     signups_per_ip_hour: 'limit.signups_per_ip_hour',
     login_attempts_per_minute: 'limit.login_attempts_per_minute',
     areas_per_household: 'limit.areas_per_household',

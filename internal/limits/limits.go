@@ -26,6 +26,7 @@ const (
 	EmailsGlobalHour           Kind = "emails_global_hour"
 	ActiveInvitesPerHousehold  Kind = "active_invites_per_household"
 	CalendarFeedsPerUser       Kind = "calendar_feeds_per_user"
+	PushSubscriptionsPerUser   Kind = "push_subscriptions_per_user"
 	SignupsPerIPHour           Kind = "signups_per_ip_hour"
 	LoginAttemptsPerMinute     Kind = "login_attempts_per_minute"
 	AreasPerHousehold          Kind = "areas_per_household"
@@ -48,6 +49,7 @@ var Defaults = map[Kind]int{
 	EmailsGlobalHour:           500,
 	ActiveInvitesPerHousehold:  20,
 	CalendarFeedsPerUser:       10,
+	PushSubscriptionsPerUser:   10,
 	SignupsPerIPHour:           5,
 	LoginAttemptsPerMinute:     5,
 	AreasPerHousehold:          100,
@@ -59,6 +61,9 @@ var Defaults = map[Kind]int{
 const (
 	MarkDonePerMinute = 30
 	ICalPerMinute     = 60
+	// MetricsPerMinute caps /metrics requests per client IP (a scraper polls
+	// every few seconds; guessing the token must not be free).
+	MetricsPerMinute = 30
 	// TransfersPerMinute caps data exports and imports per client IP.
 	TransfersPerMinute = 6
 	// ImportMaxBytes is the upload cap of the import routes (the default
