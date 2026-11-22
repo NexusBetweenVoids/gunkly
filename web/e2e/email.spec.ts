@@ -21,8 +21,8 @@ test('open sign-up solves the proof of work in a worker, then the emailed link c
     await page.getByLabel('Password', { exact: true }).fill(PASSWORD);
     await page.getByRole('button', { name: 'Create account' }).click();
 
-    await expect(page).toHaveURL(/\/$/);
-    await expect(page.getByText(`Confirm your email address: we sent a link to ${email}.`)).toBeVisible();
+    // Nobody is signed in yet, and a taken address would have looked the same.
+    await expect(page.getByText('Check your email to finish signing up.')).toBeVisible();
 
     const m = await nextMail(email, /Confirm your email address/, mark);
     expect(m.link).toMatch(/^\/verify-email\?token=/);
@@ -34,7 +34,10 @@ test('open sign-up solves the proof of work in a worker, then the emailed link c
     await page.goto(m.link);
     await expect(page.getByText(/This link is not valid any more/)).toBeVisible();
 
-    await page.goto('/');
+    await page.goto('/signin');
+    await page.getByLabel('Email or username').fill(name);
+    await page.getByLabel('Password', { exact: true }).fill(PASSWORD);
+    await page.getByRole('button', { name: 'Sign in' }).click();
     await expect(page.getByRole('heading', { name: 'Chores' })).toBeVisible();
     await expect(page.getByText(/Confirm your email address: we sent a link/)).toHaveCount(0);
   } finally {

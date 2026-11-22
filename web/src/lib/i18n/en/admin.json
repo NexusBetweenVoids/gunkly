@@ -50,6 +50,7 @@
   "limit.notifications_household_day": "Notifications per household per day",
   "limit.notifications_user_day": "Notifications per user per day",
   "limit.emails_account_hour": "Emails per account per hour",
+  "limit.email_codes_account_hour": "Sign-in codes emailed per account per hour",
   "limit.emails_ip_hour": "Emails per IP address per hour",
   "limit.emails_global_hour": "Emails per hour, instance-wide",
   "limit.active_invites_per_household": "Active invites per household",

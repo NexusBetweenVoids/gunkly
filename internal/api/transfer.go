@@ -80,7 +80,7 @@ func viewImport(r store.ImportResult) importSummary {
 // importOptions resolves the limits an import file is validated against
 // (the household's, or the instance's for a new household).
 func (s *Server) importOptions(ctx context.Context, hh string) (transfer.Options, error) {
-	o := transfer.Options{ValidPreset: func(n string) bool { _, ok := scheduler.Presets[n]; return ok }}
+	o := transfer.Options{MaxTotalCompletions: limits.ImportMaxCompletions, ValidPreset: func(n string) bool { _, ok := scheduler.Presets[n]; return ok }}
 	for kind, dst := range map[limits.Kind]*int{
 		limits.ChoresPerHousehold: &o.MaxChores, limits.AreasPerHousehold: &o.MaxAreas,
 		limits.RemindersPerChore: &o.MaxReminders, limits.CompletionsPerChore: &o.MaxCompletions,
@@ -131,6 +131,9 @@ func importError(err error) error {
 
 func (s *Server) importNewHousehold(w http.ResponseWriter, r *http.Request, c *call) error {
 	ctx := r.Context()
+	if err := s.requireAccess(ctx, c.user); err != nil {
+		return err
+	}
 	f, err := s.parseImport(r, "")
 	if err != nil {
 		return err
@@ -150,6 +153,9 @@ func (s *Server) importNewHousehold(w http.ResponseWriter, r *http.Request, c *c
 
 func (s *Server) importMerge(w http.ResponseWriter, r *http.Request, c *call) error {
 	ctx := r.Context()
+	if err := s.requireAccess(ctx, c.user); err != nil {
+		return err
+	}
 	f, err := s.parseImport(r, c.hh)
 	if err != nil {
 		return err

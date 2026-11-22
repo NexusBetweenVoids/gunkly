@@ -1,9 +1,12 @@
 package api
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"reflect"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
@@ -56,13 +59,16 @@ func TestSignupClosedByDefault(t *testing.T) {
 func TestSignupWithProofOfWork(t *testing.T) {
 	e := newMailEnv(t)
 	e.openSignup(true)
+	root := e.signedInStepUp("root")
+	st, v := root.do("PATCH", "/api/v1/admin/settings", map[string]any{"limits": map[string]int{"signups_per_ip_hour": 50}})
+	expect(t, st, v, 200, "")
 	c := e.client()
 	if st, v := c.do("GET", "/api/v1/instance", nil); field(v, "openSignup") != true || field(v, "requirePow") != true {
 		t.Fatalf("instance: %d %v", st, v)
 	}
 
 	// No solution, a wrong one and a forged signature are refused.
-	st, v := c.do("POST", "/api/v1/signup", signupBody("ann", nil))
+	st, v = c.do("POST", "/api/v1/signup", signupBody("ann", nil))
 	expect(t, st, v, 400, "pow_invalid")
 	st, ch := c.do("GET", "/api/v1/signup/challenge", nil)
 	expect(t, st, ch, 200, "")
@@ -81,13 +87,21 @@ func TestSignupWithProofOfWork(t *testing.T) {
 	st, v = c.do("POST", "/api/v1/signup", signupBody("ann", map[string]any{"pow": bad}))
 	expect(t, st, v, 400, "pow_invalid")
 
-	// A mistake in the form does not spend the solution.
+	// The solution is spent before the form is validated (and the password
+	// hashed), so a mistake in the form burns it and a replay is refused.
 	st, v = c.do("POST", "/api/v1/signup", signupBody("a", map[string]any{"pow": sol}))
 	expect(t, st, v, 400, "invalid")
 	st, v = c.do("POST", "/api/v1/signup", signupBody("ann", map[string]any{"pow": sol}))
-	expect(t, st, v, 201, "")
-	if field(v, "authenticated") != true || field(field(v, "user"), "emailVerified") != false {
+	expect(t, st, v, 400, "pow_invalid")
+	_, ch = c.do("GET", "/api/v1/signup/challenge", nil)
+	sol = solvePoW(t, ch)
+	st, v = c.do("POST", "/api/v1/signup", signupBody("ann", map[string]any{"pow": sol}))
+	expect(t, st, v, 202, "")
+	if field(v, "authenticated") == true || field(v, "accepted") != true {
 		t.Fatalf("signup: %v", v)
+	}
+	if st, _ = c.do("GET", "/api/v1/me", nil); st != 401 {
+		t.Fatalf("signed in before confirming the address: %d", st)
 	}
 	msg := e.oneMail("ann@example.org")
 	if tokenIn(t, msg) == "" {
@@ -98,16 +112,24 @@ func TestSignupWithProofOfWork(t *testing.T) {
 	st, v = e.client().do("POST", "/api/v1/signup", signupBody("bob", map[string]any{"pow": sol}))
 	expect(t, st, v, 400, "pow_invalid")
 
-	// A taken username or email gets the same answer.
-	for _, name := range []string{"ann", "other"} {
-		_, ch = c.do("GET", "/api/v1/signup/challenge", nil)
-		body := signupBody(name, map[string]any{"pow": solvePoW(t, ch)})
-		if name == "other" {
-			body["email"] = "ann@example.org"
-		}
-		st, v = e.client().do("POST", "/api/v1/signup", body)
-		expect(t, st, v, 400, "registration_failed")
+	// A taken email answers exactly like success (no oracle) and mails its
+	// owner instead; no account is created.
+	_, ch = c.do("GET", "/api/v1/signup/challenge", nil)
+	st, dup := e.client().do("POST", "/api/v1/signup", signupBody("other", map[string]any{"pow": solvePoW(t, ch), "email": "ann@example.org"}))
+	expect(t, st, dup, 202, "")
+	if !reflect.DeepEqual(dup, any(map[string]any{"accepted": true})) {
+		t.Fatalf("differs from success: %v", dup)
 	}
+	if m := e.oneMail("ann@example.org"); !strings.Contains(m.Subject, "already have a Gunkly account") || strings.Contains(m.Body, "token=") {
+		t.Fatalf("notice: %+v", m)
+	}
+	if _, err := e.st.UserByLogin(context.Background(), "other"); err == nil {
+		t.Fatal("account created for a taken email")
+	}
+	// A taken username is still reported.
+	_, ch = c.do("GET", "/api/v1/signup/challenge", nil)
+	st, v = e.client().do("POST", "/api/v1/signup", signupBody("ann", map[string]any{"pow": solvePoW(t, ch), "email": "fresh@example.org"}))
+	expect(t, st, v, 400, "registration_failed")
 }
 
 func TestSignupChallengeExpires(t *testing.T) {
@@ -128,7 +150,7 @@ func TestSignupWithoutProofOfWorkWhenAdminTurnsItOff(t *testing.T) {
 	st, v := c.do("GET", "/api/v1/signup/challenge", nil)
 	expect(t, st, v, 404, "not_found")
 	st, v = c.do("POST", "/api/v1/signup", signupBody("ann", nil))
-	expect(t, st, v, 201, "")
+	expect(t, st, v, 202, "")
 	// Email is required when the instance sends email.
 	st, v = e.client().do("POST", "/api/v1/signup", signupBody("bob", map[string]any{"email": ""}))
 	expect(t, st, v, 400, "invalid")
@@ -149,13 +171,13 @@ func TestSignupPerIPLimit(t *testing.T) {
 	expect(t, st, v, 200, "")
 	for _, n := range []string{"a1", "a2"} {
 		st, v = e.client().do("POST", "/api/v1/signup", signupBody(n, nil))
-		expect(t, st, v, 201, "")
+		expect(t, st, v, 202, "")
 	}
 	st, v = e.client().do("POST", "/api/v1/signup", signupBody("a3", nil))
 	expect(t, st, v, 429, "rate_limited")
 	e.clock.Add(time.Hour + time.Second)
 	st, v = e.client().do("POST", "/api/v1/signup", signupBody("a3", nil))
-	expect(t, st, v, 201, "")
+	expect(t, st, v, 202, "")
 }
 
 func TestHostedModeDefaultsToOpenSignupWithProofOfWork(t *testing.T) {
@@ -167,7 +189,7 @@ func TestHostedModeDefaultsToOpenSignupWithProofOfWork(t *testing.T) {
 	st, ch := c.do("GET", "/api/v1/signup/challenge", nil)
 	expect(t, st, ch, 200, "")
 	st, v := c.do("POST", "/api/v1/signup", signupBody("ann", map[string]any{"pow": solvePoW(t, ch), "locale": "en"}))
-	expect(t, st, v, 201, "")
+	expect(t, st, v, 202, "")
 
 	// An admin can still close it.
 	e.user("root", true)
@@ -177,4 +199,33 @@ func TestHostedModeDefaultsToOpenSignupWithProofOfWork(t *testing.T) {
 	if st, v = c.do("GET", "/api/v1/instance", nil); field(v, "openSignup") != false {
 		t.Fatalf("instance: %d %v", st, v)
 	}
+}
+
+// A replayed or forged proof of work must cost one cheap check, never an
+// Argon2id hash, and the per-IP sign-up cap is checked before the proof.
+func TestSignupProofSpentAndCapCheckedBeforeHashing(t *testing.T) {
+	e := newMailEnv(t)
+	e.openSignup(true)
+	root := e.signedInStepUp("root")
+	st, v := root.do("PATCH", "/api/v1/admin/settings", map[string]any{"limits": map[string]int{"signups_per_ip_hour": 3}})
+	expect(t, st, v, 200, "")
+	hashes := 0
+	e.srv.hashPassword = func(pw string) string { hashes++; return "fake:" + pw }
+	c := e.client()
+	_, ch := c.do("GET", "/api/v1/signup/challenge", nil)
+	sol := solvePoW(t, ch)
+	st, v = c.do("POST", "/api/v1/signup", signupBody("ann", map[string]any{"pow": sol}))
+	expect(t, st, v, 202, "")
+	if hashes != 1 {
+		t.Fatalf("hashes %d", hashes)
+	}
+	st, v = c.do("POST", "/api/v1/signup", signupBody("bob", map[string]any{"pow": sol}))
+	expect(t, st, v, 400, "pow_invalid")
+	if hashes != 1 {
+		t.Fatalf("replayed proof was hashed: %d", hashes)
+	}
+	// Cap reached (3 attempts): even garbage is refused with 429, before the proof is looked at.
+	c.do("POST", "/api/v1/signup", signupBody("cat", nil))
+	st, v = c.do("POST", "/api/v1/signup", signupBody("dan", map[string]any{"pow": sol}))
+	expect(t, st, v, 429, "rate_limited")
 }

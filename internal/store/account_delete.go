@@ -380,10 +380,14 @@ func (s *Store) DeleteAccount(ctx context.Context, userID string, o AccountDelet
 				return err
 			}
 		}
-		// Audit rows keep no personal data: no actor, IP or metadata, also where
-		// another actor's row mentions this user's ID in its metadata.
-		if _, err := t.exec(ctx, "UPDATE audit_log SET actor_user_id = NULL, ip = '', meta = '{}' WHERE actor_user_id = ? OR meta LIKE ?",
-			userID, "%"+userID+"%"); err != nil {
+		// Audit rows keep no personal data: the user's own rows lose actor,
+		// IP and metadata; another actor's row that mentions this user's ID in
+		// its metadata loses only its metadata and IP (the actor stays, so the
+		// trail of what others did is kept).
+		if _, err := t.exec(ctx, "UPDATE audit_log SET actor_user_id = NULL, ip = '', meta = '{}' WHERE actor_user_id = ?", userID); err != nil {
+			return err
+		}
+		if _, err := t.exec(ctx, "UPDATE audit_log SET ip = '', meta = '{}' WHERE meta LIKE ?", "%"+userID+"%"); err != nil {
 			return err
 		}
 		if err := t.execOne(ctx, "DELETE FROM users WHERE id = ?", userID); err != nil {

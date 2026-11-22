@@ -22,6 +22,7 @@ const (
 	NotificationsHouseholdDay  Kind = "notifications_household_day"
 	NotificationsUserDay       Kind = "notifications_user_day"
 	EmailsAccountHour          Kind = "emails_account_hour"
+	EmailCodesAccountHour      Kind = "email_codes_account_hour"
 	EmailsIPHour               Kind = "emails_ip_hour"
 	EmailsGlobalHour           Kind = "emails_global_hour"
 	ActiveInvitesPerHousehold  Kind = "active_invites_per_household"
@@ -45,6 +46,7 @@ var Defaults = map[Kind]int{
 	NotificationsHouseholdDay:  250,
 	NotificationsUserDay:       500,
 	EmailsAccountHour:          10,
+	EmailCodesAccountHour:      20,
 	EmailsIPHour:               5,
 	EmailsGlobalHour:           500,
 	ActiveInvitesPerHousehold:  20,
@@ -69,6 +71,9 @@ const (
 	// ImportMaxBytes is the upload cap of the import routes (the default
 	// request cap is 1 MiB).
 	ImportMaxBytes = 5 << 20
+	// ImportMaxCompletions caps the completions in one import file, over all
+	// its chores (the per-chore cap alone allows chores x 1000).
+	ImportMaxCompletions = 20000
 	// Authenticated write throttles: a token bucket per user over all unsafe
 	// /api/v1 requests, and one per household over its write routes.
 	UserWritesPerMinute      = 120

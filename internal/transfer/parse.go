@@ -45,6 +45,9 @@ type Options struct {
 	// Ceilings from internal/limits. A file over any of them is rejected;
 	// the store re-checks the totals against the target household.
 	MaxChores, MaxAreas, MaxReminders, MaxCompletions int
+	// MaxTotalCompletions caps the history entries in the whole file (0 =
+	// unchecked), so a file of many full chores cannot be huge.
+	MaxTotalCompletions int
 	// ValidPreset reports whether name is a built-in reminder preset.
 	ValidPreset func(name string) bool
 }
@@ -146,6 +149,13 @@ func (f *Household) normalise(o Options) error {
 	}
 	if len(f.Chores) > o.MaxChores {
 		return bad(ReasonLimitChore, "chores")
+	}
+	total := 0
+	for i := range f.Chores {
+		total += len(f.Chores[i].Completions)
+	}
+	if o.MaxTotalCompletions > 0 && total > o.MaxTotalCompletions {
+		return bad(ReasonLimitComp, "chores")
 	}
 	areas := make([]Area, 0, len(f.Areas))
 	seen := map[string]string{} // lower-case name -> canonical name
@@ -309,7 +319,7 @@ func (c *Completion) normalise(p string) error {
 		return err
 	}
 	switch c.Source {
-	case "app", "mark_done_link", "api_token":
+	case "app", "mark_done_link", "api_token", "import":
 	default:
 		return bad(ReasonInvalid, p+".source")
 	}

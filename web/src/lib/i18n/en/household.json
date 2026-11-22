@@ -99,7 +99,7 @@
   "import.err.limit_chores": "The file has more chores than this household may have.",
   "import.err.limit_areas": "The file has more areas than this household may have.",
   "import.err.limit_reminders": "A chore in the file has more reminders than allowed.",
-  "import.err.limit_completions": "A chore in the file has more history entries than allowed.",
+  "import.err.limit_completions": "The file has more history entries than allowed.",
   "household.leaveOwnerTitle": "Choose a new owner for {name}",
   "household.leaveOwnerWarn": "You are the only owner. Pick the member who takes over before you leave.",
   "household.leaveNewOwner": "New owner",

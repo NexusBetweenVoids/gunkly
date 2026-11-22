@@ -259,7 +259,7 @@ paths:
   /signup:
     post:
       tags: [setup]
-      summary: Create an account without an invite (only when open sign-up is on) and sign in. The email is required when the instance sends email and is verified by link
+      summary: Create an account without an invite (only when open sign-up is on). The email is required when the instance sends email; then the answer is 202 (nobody is signed in, the address is verified by link) whether or not the address already had an account. Without email the account is created and signed in (201)
       requestBody:
         required: true
         content:
@@ -272,8 +272,9 @@ paths:
                     locale: {type: string}
                     pow: {$ref: "#/components/schemas/PoWSolution"}
       responses:
-        "201": {description: Account created and signed in, content: {application/json: {schema: {$ref: "#/components/schemas/Session"}}}}
-        "400": {description: Invalid input, pow_invalid (bad, expired or reused solution) or registration_failed (username or email taken), content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
+        "201": {description: Account created and signed in (instances without email), content: {application/json: {schema: {$ref: "#/components/schemas/Session"}}}}
+        "202": {description: Email instances - check your email. Same answer for a new and an already registered address, content: {application/json: {schema: {type: object, properties: {accepted: {type: boolean}}}}}}
+        "400": {description: Invalid input, pow_invalid (bad, expired or reused solution; the solution is spent as soon as it is checked) or registration_failed (username taken), content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
         "403": {description: registration_disabled}
         "429": {$ref: "#/components/responses/RateLimited"}
   /account/audit:
@@ -1506,7 +1507,7 @@ components:
         choreId: {type: string}
         userId: {type: string, nullable: true}
         completedAt: {type: string, format: date-time}
-        source: {type: string, enum: [app, mark_done_link, api_token]}
+        source: {type: string, enum: [app, mark_done_link, api_token, import]}
         note: {type: string}
         revertedAt: {type: string, format: date-time, nullable: true}
     Reminder:

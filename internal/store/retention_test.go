@@ -1,6 +1,7 @@
 package store_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -49,5 +50,40 @@ func TestPurgeHonoursSessionPolicy(t *testing.T) {
 	n = must(s.PurgeExpired(ctx, store.RetentionPolicy{SessionIdle: 5 * day, SessionMax: 90 * day}, now.Add(10*day)))
 	if n != 2 {
 		t.Fatalf("idle purge: %d", n)
+	}
+}
+
+// Accounts that never verified their email and belong to no household are
+// removed after the retention period, freeing squatted addresses.
+func TestPurgeUnverifiedAccounts(t *testing.T) {
+	ctx := context.Background()
+	s, clk := emailStore(t)
+	day := 24 * time.Hour
+	ann := mkUser(t, s, "ann") // unverified, no household: goes
+	bob := mkUser(t, s, "bob") // unverified but in a household: stays
+	mkHousehold(t, s, bob, "H")
+	cat := mkUser(t, s, "cat") // verified: stays
+	noErr(t, s.IssueVerifyToken(ctx, cat.UserID, "vt", "", clk.t.Add(time.Hour)))
+	if _, _, err := s.VerifyEmail(ctx, "vt", false, nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.CreateUser(ctx, store.NewUser{Username: "noemail", DisplayName: "n", PasswordHash: "x"}); err != nil { // no address: stays
+		t.Fatal(err)
+	}
+	clk.t = clk.t.Add(6 * day)
+	dan := mkUser(t, s, "dan") // too young: stays
+	p := store.RetentionPolicy{UnverifiedAccounts: store.UnverifiedAccountMaxAge}
+	must(s.PurgeExpired(ctx, p, clk.t.Add(2*day)))
+	for name, want := range map[string]bool{"ann": false, "bob": true, "cat": true, "noemail": true, "dan": true} {
+		_, err := s.UserByLogin(ctx, name)
+		if (err == nil) != want {
+			t.Errorf("%s present=%v, want %v", name, err == nil, want)
+		}
+	}
+	_, _ = ann, dan
+	// Without the policy nothing is touched.
+	must(s.PurgeExpired(ctx, store.RetentionPolicy{}, clk.t.Add(30*day)))
+	if _, err := s.UserByLogin(ctx, "dan"); err != nil {
+		t.Errorf("dan purged without a policy: %v", err)
 	}
 }

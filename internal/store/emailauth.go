@@ -28,10 +28,36 @@ func (s *Store) IssueVerifyToken(ctx context.Context, userID, tokenHash, newEmai
 	return s.issue(ctx, userID, tokenVerifyEmail, tokenHash, "", newEmail, expires)
 }
 
-// IssueResetToken stores the hash of a single-use password reset token,
-// replacing any outstanding one for the user.
-func (s *Store) IssueResetToken(ctx context.Context, userID, tokenHash string, expires time.Time) error {
-	return s.issue(ctx, userID, tokenResetPassword, tokenHash, "", "", expires)
+// MaxResetTokens is how many unexpired, unused reset tokens one account may
+// have outstanding.
+const MaxResetTokens = 3
+
+// IssueResetToken stores the hash of a single-use password reset token and
+// reports whether it did. Earlier unexpired tokens stay valid (a stranger
+// requesting resets for someone else's account must not invalidate the link
+// the owner already holds), up to MaxResetTokens; beyond that nothing is
+// issued. Using any one of them drops the rest (ResetPassword).
+func (s *Store) IssueResetToken(ctx context.Context, userID, tokenHash string, expires time.Time) (bool, error) {
+	issued := false
+	err := s.inTx(ctx, true, func(t *tx) error {
+		now := s.nowMS()
+		if _, err := t.exec(ctx, "DELETE FROM user_tokens WHERE user_id = ? AND purpose = ? AND (used_at IS NOT NULL OR expires_at <= ?)",
+			userID, tokenResetPassword, now); err != nil {
+			return err
+		}
+		var n int
+		if err := t.queryRow(ctx, "SELECT count(*) FROM user_tokens WHERE user_id = ? AND purpose = ?", userID, tokenResetPassword).Scan(&n); err != nil {
+			return err
+		}
+		if n >= MaxResetTokens {
+			return nil
+		}
+		_, err := t.exec(ctx, `INSERT INTO user_tokens (token_hash, user_id, purpose, created_at, expires_at)
+			VALUES (?, ?, ?, ?, ?)`, tokenHash, userID, tokenResetPassword, now, expires.UnixMilli())
+		issued = err == nil
+		return notFoundFK(err)
+	})
+	return issued, err
 }
 
 // IssueEmailOTP stores a new emailed second-factor code for the user: the

@@ -204,6 +204,15 @@ func (s *Server) enforce(p policy, h handlerFunc) http.Handler {
 				s.fail(w, r, store.ErrForbidden)
 				return
 			}
+			// Hosted: an invited account (exempt from the gate at
+			// registration) cannot reach household data until it has a
+			// verified address and a second factor.
+			if s.hosted {
+				if err := s.requireAccess(r.Context(), c.user); err != nil {
+					s.fail(w, r, err)
+					return
+				}
+			}
 		}
 		if err := h(w, r, c); err != nil {
 			s.fail(w, r, err)

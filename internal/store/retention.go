@@ -2,6 +2,8 @@ package store
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -16,7 +18,16 @@ type RetentionPolicy struct {
 	// Session lifetimes (zero = skip): sessions idle longer than SessionIdle
 	// or older than SessionMax are deleted alongside expired ones.
 	SessionIdle, SessionMax time.Duration
+	// UnverifiedAccounts (zero = skip; the caller sets it only when email is
+	// enabled) deletes accounts with an email address that was never verified
+	// and that belong to no household, once they are this old. It frees
+	// addresses squatted at sign-up.
+	UnverifiedAccounts time.Duration
 }
+
+// UnverifiedAccountMaxAge is how long an unverified, household-less account
+// with an email address is kept (PRD "Data retention").
+const UnverifiedAccountMaxAge = 7 * 24 * time.Hour
 
 // Policy returns the retention policy for the instance settings.
 func (st InstanceSettings) Policy() RetentionPolicy {
@@ -78,7 +89,55 @@ func (s *Store) PurgeExpired(ctx context.Context, p RetentionPolicy, now time.Ti
 			}
 		}
 	}
+	if p.UnverifiedAccounts > 0 {
+		n, err := s.purgeUnverified(ctx, now.Add(-p.UnverifiedAccounts))
+		total += n
+		if err != nil {
+			return total, err
+		}
+	}
 	return total, nil
+}
+
+// purgeUnverified deletes accounts created before cutoff whose email was
+// never verified and that have no household membership (never admins), in
+// bounded batches, through DeleteAccount so everything personal goes.
+func (s *Store) purgeUnverified(ctx context.Context, cutoff time.Time) (int64, error) {
+	var total int64
+	for {
+		var ids []string
+		err := s.inTx(ctx, false, func(t *tx) error {
+			return t.each(ctx, func(r *sql.Rows) error {
+				var id string
+				if err := r.Scan(&id); err != nil {
+					return err
+				}
+				ids = append(ids, id)
+				return nil
+			}, `SELECT id FROM users WHERE email IS NOT NULL AND email_verified = ? AND is_admin = ? AND created_at < ?
+				AND NOT EXISTS (SELECT 1 FROM memberships m WHERE m.user_id = users.id) ORDER BY id LIMIT ?`,
+				false, false, cutoff.UnixMilli(), purgeBatch)
+		})
+		if err != nil {
+			return total, fmt.Errorf("store: purge unverified accounts: %w", err)
+		}
+		deleted := 0
+		for _, id := range ids {
+			// A user who joined a household since the query is left alone: it
+			// would need an owner decision, so DeleteAccount refuses.
+			switch _, err := s.DeleteAccount(ctx, id, AccountDeletion{RefuseAdmin: true}); {
+			case err == nil:
+				deleted++
+			case errors.Is(err, ErrNotFound), errors.Is(err, ErrOwnerRequired), errors.Is(err, ErrLastAdmin), errors.Is(err, ErrConflict):
+			default:
+				return total, fmt.Errorf("store: purge unverified accounts: %w", err)
+			}
+		}
+		total += int64(deleted)
+		if deleted == 0 || len(ids) < purgeBatch {
+			return total, nil
+		}
+	}
 }
 
 // ReclaimSpace returns free SQLite pages to the filesystem with at most
