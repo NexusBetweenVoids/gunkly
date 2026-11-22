@@ -3,11 +3,16 @@
   import Button from './Button.svelte';
   import Field from './Field.svelte';
 
+  // The second step: a code from the authenticator app or from email (with
+  // "email me a new code"), or a recovery code. The parent decides which body
+  // field the code goes into from `method` and `recovery`.
   let {
     code = $bindable(''),
     recovery = $bindable(false),
     error = '',
-  }: { code: string; recovery: boolean; error?: string } = $props();
+    method = 'totp',
+    onresend,
+  }: { code: string; recovery: boolean; error?: string; method?: 'totp' | 'email'; onresend?: () => void } = $props();
 </script>
 
 {#if recovery}
@@ -23,14 +28,17 @@
   />
 {:else}
   <Field
-    label={t('twofa.code')}
-    hint={t('twofa.codeHint')}
+    label={method === 'email' ? t('twofa.emailCode') : t('twofa.code')}
+    hint={method === 'email' ? t('twofa.emailCodeHint') : t('twofa.codeHint')}
     bind:value={code}
     {error}
     inputmode="numeric"
     autocomplete="one-time-code"
     required
   />
+  {#if method === 'email' && onresend}
+    <Button variant="quiet" onclick={onresend}>{t('twofa.resend')}</Button>
+  {/if}
 {/if}
 <Button
   variant="quiet"
@@ -39,5 +47,5 @@
     code = '';
   }}
 >
-  {recovery ? t('twofa.useApp') : t('twofa.useRecovery')}
+  {recovery ? (method === 'email' ? t('twofa.useEmail') : t('twofa.useApp')) : t('twofa.useRecovery')}
 </Button>

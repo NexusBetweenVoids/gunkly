@@ -75,13 +75,13 @@ func (a *app) adminCommand(ctx context.Context, sub, login string, stdout io.Wri
 		_, err = fmt.Fprintf(stdout, "New password for %s: %s\nAll of their sessions were signed out.\n", u.Username, pw)
 		return err
 	case "reset-2fa":
-		if err := a.store.DisableTOTP(ctx, u.ID, ""); err != nil {
+		if err := a.store.DisableTwoFactor(ctx, u.ID, ""); err != nil {
 			return err
 		}
 		if err := a.store.Audit(ctx, store.AuditEvent{Event: store.AuditTOTPDisable, Meta: via}); err != nil {
 			return err
 		}
-		_, err = fmt.Fprintf(stdout, "Two-factor authentication removed for %s.\n", u.Username)
+		_, err = fmt.Fprintf(stdout, "Two-factor authentication (authenticator app, email codes, recovery codes) removed for %s.\n", u.Username)
 		return err
 	}
 	return fmt.Errorf("unknown admin command %q", sub)

@@ -1,11 +1,12 @@
 import { api, ApiError } from './api';
-import type { Household, Me, SessionView } from './types';
+import type { Household, Instance, Me, SessionView } from './types';
 
 const HH_KEY = 'gunkly.household';
 
 export const app = $state({
   ready: false,
   user: null as Me | null,
+  instance: { openSignup: false, emailEnabled: false, hostedMode: false, requirePow: false } as Instance,
   setupNeeded: false,
   households: [] as Household[],
   hhId: '',
@@ -49,7 +50,11 @@ export async function adopt(s: SessionView): Promise<void> {
 
 export async function bootstrap(): Promise<void> {
   try {
-    const s = await api<SessionView>('GET', '/session');
+    const [s, instance] = await Promise.all([
+      api<SessionView>('GET', '/session'),
+      api<Instance>('GET', '/instance').catch(() => app.instance),
+    ]);
+    app.instance = instance;
     if (s.authenticated) await adopt(s);
     else app.setupNeeded = (await api<{ needed: boolean }>('GET', '/setup')).needed;
   } catch (e) {

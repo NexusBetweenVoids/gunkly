@@ -11,7 +11,8 @@ import {
   request,
   test as base,
 } from '@playwright/test';
-import { stateFile } from './global-setup';
+import { mailFile, stateFile } from './global-setup';
+import { decodeBody, readMails } from './smtp';
 
 export const ZONE = 'Europe/Berlin';
 export const PASSWORD = 'correct horse battery staple';
@@ -55,6 +56,33 @@ export class Api {
   get = <T>(p: string) => this.call<T>('GET', p);
   post = <T>(p: string, d?: unknown) => this.call<T>('POST', p, d ?? {});
   storageState = () => this.ctx.storageState();
+}
+
+/** Number of emails sent so far; pass it to nextMail as `after` to wait for a new one. */
+export const mailMark = (): number => readMails(mailFile).length;
+
+export type Sent = { to: string; subject: string; body: string; link: string; code: string };
+
+/** Waits for an email to `to` whose subject matches, sent after `after` (from mailMark). */
+export async function nextMail(to: string, subject: RegExp, after: number): Promise<Sent> {
+  const deadline = Date.now() + 10_000;
+  for (;;) {
+    for (const m of readMails(mailFile).slice(after)) {
+      const subj = /^Subject: (.*)$/m.exec(m.data)?.[1] ?? '';
+      if (!m.to.includes(to) || !subject.test(subj)) continue;
+      const body = decodeBody(m.data);
+      const url = /https?:\/\/\S+/.exec(body)?.[0];
+      return {
+        to,
+        subject: subj,
+        body,
+        link: url ? new URL(url).pathname + new URL(url).search : '',
+        code: /code is (\d{6})/.exec(body)?.[1] ?? '',
+      };
+    }
+    if (Date.now() > deadline) throw new Error(`no email to ${to} matching ${subject} (${readMails(mailFile).length - after} new emails)`);
+    await new Promise((r) => setTimeout(r, 100));
+  }
 }
 
 export type Chore = { id: string; name: string; status: string };
@@ -117,6 +145,8 @@ export const test = base.extend<{ world: World; csp: string[] }>({
     if (!creds) throw new Error('setup.spec.ts must run first');
     const admin = await signIn(creds.username, creds.password);
     await admin.call('POST', '/session/step-up', { password: creds.password }, 204);
+    // The e2e SMTP server listens on loopback, which the egress guard blocks by default.
+    await admin.call('PATCH', '/admin/settings', { egressGuard: false });
 
     const newContext: World['newContext'] = async (opts = {}) => {
       const headers = { 'X-Forwarded-For': nextIP(), ...(opts.extraHTTPHeaders ?? {}) };

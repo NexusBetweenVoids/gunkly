@@ -62,6 +62,12 @@ func (s *Server) adminCreateUser(w http.ResponseWriter, r *http.Request, c *call
 		return err
 	}
 	s.audit(ctx, c, c.user.ID, store.AuditAdminUserCreate, "", map[string]string{"user": u.ID})
+	if s.emailEnabled() && u.Email != "" {
+		// Sent on the admin's account quota, not the new user's request.
+		if _, err := s.sendVerification(ctx, c, u, "", false); err != nil {
+			s.log.Error("verification email", "err", err)
+		}
+	}
 	writeJSON(w, http.StatusCreated, adminUserView{ID: u.ID, Username: u.Username, Email: u.Email, DisplayName: u.DisplayName,
 		IsAdmin: u.IsAdmin, CreatedAt: u.CreatedAt, LastActiveAt: u.LastActiveAt})
 	return nil
@@ -98,7 +104,8 @@ func (s *Server) adminResetPassword(w http.ResponseWriter, r *http.Request, c *c
 }
 
 type settingsView struct {
-	OpenSignup            bool                `json:"openSignup"`
+	OpenSignup            bool                `json:"openSignup"` // effective: hosted mode defaults to on
+	RequirePoW            bool                `json:"requirePow"` // effective: hosted mode defaults to on
 	InviteRegistration    bool                `json:"inviteRegistration"`
 	MinPasswordLength     int                 `json:"minPasswordLength"`
 	SessionIdleDays       int                 `json:"sessionIdleDays"`
@@ -125,7 +132,8 @@ func (s *Server) adminGetSettings(w http.ResponseWriter, r *http.Request, _ *cal
 	if minLen <= 0 {
 		minLen = auth.DefaultMinPasswordLen // 0 is stored as "unset"; show the effective value
 	}
-	v := settingsView{OpenSignup: st.OpenSignup, InviteRegistration: st.InviteRegistration, MinPasswordLength: minLen,
+	open, pow := s.signupSettings(st)
+	v := settingsView{OpenSignup: open, RequirePoW: pow, InviteRegistration: st.InviteRegistration, MinPasswordLength: minLen,
 		SessionIdleDays: st.SessionIdleDays, SessionMaxDays: st.SessionMaxDays,
 		AuditRetentionDays: st.AuditRetentionDays, DeliveryRetentionDays: st.DeliveryRetentionDays,
 		Limits: map[limits.Kind]int{}, LimitDefaults: limits.Defaults,
@@ -143,6 +151,7 @@ func (s *Server) adminGetSettings(w http.ResponseWriter, r *http.Request, _ *cal
 func (s *Server) adminPatchSettings(w http.ResponseWriter, r *http.Request, c *call) error {
 	var in struct {
 		OpenSignup            *bool          `json:"openSignup"`
+		RequirePoW            *bool          `json:"requirePow"`
 		InviteRegistration    *bool          `json:"inviteRegistration"`
 		MinPasswordLength     *int           `json:"minPasswordLength"`
 		SessionIdleDays       *int           `json:"sessionIdleDays"`
@@ -165,7 +174,7 @@ func (s *Server) adminPatchSettings(w http.ResponseWriter, r *http.Request, c *c
 			return errInvalid
 		}
 	}
-	upd := store.SettingsUpdate{OpenSignup: in.OpenSignup,
+	upd := store.SettingsUpdate{OpenSignup: in.OpenSignup, RequirePoW: in.RequirePoW,
 		InviteRegistration: in.InviteRegistration, MinPasswordLength: in.MinPasswordLength, Limits: in.Limits, EgressGuard: in.EgressGuard,
 		SessionIdleDays: in.SessionIdleDays, SessionMaxDays: in.SessionMaxDays,
 		AuditRetentionDays: in.AuditRetentionDays, DeliveryRetentionDays: in.DeliveryRetentionDays}

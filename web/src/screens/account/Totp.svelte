@@ -2,6 +2,7 @@
   import Alert from '../../components/Alert.svelte';
   import Button from '../../components/Button.svelte';
   import Confirm from '../../components/Confirm.svelte';
+  import RecoveryCodes from '../../components/RecoveryCodes.svelte';
   import Field from '../../components/Field.svelte';
   import { api } from '../../lib/api';
   import { copyText } from '../../lib/clip';
@@ -59,31 +60,12 @@
       confirmOff = false;
     }
   }
-
-  function download(): void {
-    const url = URL.createObjectURL(new Blob([codes.join('\n') + '\n'], { type: 'text/plain' }));
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = t('totp.filename');
-    a.click();
-    URL.revokeObjectURL(url);
-  }
 </script>
 
 <section class="card" aria-labelledby="a-totp">
   <h2 id="a-totp">{t('totp.title')}</h2>
   {#if codes.length}
-    <div class="stack">
-      <p>{t('totp.codesIntro')}</p>
-      <ul class="list mono" aria-label={t('totp.codesLabel')}>
-        {#each codes as c (c)}<li>{c}</li>{/each}
-      </ul>
-      <div class="row">
-        <Button variant="quiet" onclick={() => copyText(codes.join('\n'))}>{t('common.copy')}</Button>
-        <Button variant="quiet" onclick={download}>{t('totp.download')}</Button>
-        <Button onclick={() => (codes = [])}>{t('totp.saved')}</Button>
-      </div>
-    </div>
+    <RecoveryCodes {codes} intro={t('totp.codesIntro')} onsaved={() => (codes = [])} />
   {:else if setup}
     <form class="stack" onsubmit={confirm}>
       <p>{t('totp.setupIntro')}</p>
@@ -114,10 +96,14 @@
         <span class="badge">{app.user?.totpEnabled ? t('totp.on') : t('totp.off')}</span>
       </p>
       <p class="muted">{t('totp.intro')}</p>
+      {#if app.user?.emailOtpEnabled}<p class="muted">{t('totp.replacesEmail')}</p>{/if}
+      {#if app.user?.totpEnabled && app.instance.hostedMode}<p class="muted">{t('totp.mandatory')}</p>{/if}
       <Alert message={err.message} />
       <div>
         {#if app.user?.totpEnabled}
-          <Button variant="danger" onclick={() => (confirmOff = true)}>{t('totp.disable')}</Button>
+          {#if !app.instance.hostedMode}
+            <Button variant="danger" onclick={() => (confirmOff = true)}>{t('totp.disable')}</Button>
+          {/if}
         {:else}
           <Button {busy} onclick={start}>{t('totp.setup')}</Button>
         {/if}
