@@ -2,7 +2,7 @@ import { ApiError } from './api';
 import { has, t, type Key } from './i18n';
 
 // API error code -> translated message (err.<code>, or an alias). Unknown codes fall back to err.unknown.
-const ALIAS: Record<string, string> = { invalid_json: 'invalid', not_ready: 'internal', invalid_push_endpoint: 'invalid', invalid_push_keys: 'invalid' };
+const ALIAS: Record<string, string> = { invalid_json: 'invalid', not_ready: 'internal' };
 
 function wait(seconds: number): string {
   const nf = (unit: string, n: number) =>

@@ -61,6 +61,10 @@ func (s *Server) createPushSubscription(w http.ResponseWriter, r *http.Request, 
 	var in struct {
 		Endpoint string       `json:"endpoint"`
 		Keys     webpush.Keys `json:"keys"`
+		// PushSubscription.toJSON() always includes expirationTime (null in
+		// every browser that ships today). Accepted and ignored: a browser
+		// that sets it renews the subscription itself, which re-registers.
+		ExpirationTime *float64 `json:"expirationTime"`
 	}
 	if err := decode(r, &in); err != nil {
 		return err

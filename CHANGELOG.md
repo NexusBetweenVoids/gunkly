@@ -11,6 +11,14 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 - Account, Integrations lists **Connected apps** with Disconnect (`GET /api/v1/account/oauth-grants`, `DELETE /api/v1/account/oauth-grants/{id}`); the assistant guide gains ChatGPT and Claude (connector). Password changes and second-factor removal disconnect all apps; audit events `oauth_grant`, `oauth_token_reuse`, `oauth_revoke`.
 - New limits `oauth_clients` (instance, default 1000) and `oauth_grants_per_user` (default 20); migrations 0013 and 0014 (the latter widens the completions source check on both databases and stores the registering address key for the per-address cap).
 
+### Fixed
+
+- Turning on reminders failed with "Some of the information isn't valid" on iPhone (Home Screen app) and in every other browser: the browser's subscription includes `expirationTime`, which the strict API decoder rejected as an unknown field. `POST /api/v1/account/push-subscriptions` now accepts and ignores it, the app sends only the endpoint and keys, and asks for notification permission first thing in the tap (iOS needs the tap's user activation). An unsupported push service or unusable keys now get their own messages.
+
+### Changed
+
+- The total JavaScript budget (lazy screens included) is now 200 KB gzipped; the first-load budget stays 45 KB and CSS 15 KB.
+
 ### Security
 
 - OAuth consent now requires a step-up: unless the session re-verified in the last 15 minutes, the consent page asks for the password (plus the authenticator code, an emailed code via an "Email me a code" button, or a recovery code), with the same verifier, backoff and rate limits as the step-up endpoint; failures are audited. A stolen session alone can no longer approve an app. "Deny" never asks.

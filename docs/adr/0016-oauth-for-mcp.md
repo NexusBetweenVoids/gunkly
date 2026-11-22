@@ -36,4 +36,4 @@ ADR 0015 made `/mcp` available with API tokens (ADR 0014). Claude Code, Gemini C
 - Another credential type and about 900 lines of Go, a migration and a consent page to maintain; all of it dormant unless an admin opts in.
 - Sign-in with a hosted-mode account that lacks a verified address or second factor is refused at the consent page, as for API tokens.
 - Browser-based MCP clients (which need CORS) and confidential clients are not supported (see the threat analysis); both can be added later without changing the stored model.
-- The web bundle grew about 1.4 KB gzipped (Connected apps, the two guide options, an admin switch); the total stays under the 100 KB budget, partly by replacing the audit-event label list with a dictionary lookup.
+- The web bundle grew about 1.4 KB gzipped (Connected apps, the two guide options, an admin switch); the total stayed under the then 100 KB budget (now 200 KB), partly by replacing the audit-event label list with a dictionary lookup.

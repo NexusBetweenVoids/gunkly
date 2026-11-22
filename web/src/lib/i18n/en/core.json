@@ -67,6 +67,8 @@
   "err.invalid_credentials": "Incorrect username or password.",
   "err.invalid_code": "That code isn't valid. Check it and try again.",
   "err.not_found": "That couldn't be found.",
+  "err.invalid_push_endpoint": "This browser's push service isn't supported by Gunkly. Use email or a messaging app instead.",
+  "err.invalid_push_keys": "This browser sent notification keys Gunkly can't use. Reload the page and try again.",
   "err.invalid": "Some of the information isn't valid. Please check it and try again.",
   "err.invalid_setup_code": "That setup code isn't correct.",
   "err.password_invalid": "That password isn't allowed.",

@@ -5,6 +5,7 @@ import { expect, mailMark, nextMail, PASSWORD, test, uniq } from './helpers';
 async function stubSubscribe(page: Page): Promise<void> {
   await page.addInitScript(() => {
     (window as unknown as { __subscribed: number }).__subscribed = 0;
+    Notification.requestPermission = async () => 'granted';
     PushManager.prototype.subscribe = () => {
       (window as unknown as { __subscribed: number }).__subscribed++;
       return Promise.reject(new DOMException('denied', 'NotAllowedError'));
@@ -14,6 +15,39 @@ async function stubSubscribe(page: Page): Promise<void> {
 
 /** Headless Chromium reports notifications as "denied"; a real browser starts at "default" (can ask). */
 const askable = (page: Page) => page.addInitScript(() => Object.defineProperty(Notification, 'permission', { get: () => 'default' }));
+
+/** Replaces subscribe with one that resolves a REAL-shaped PushSubscription (toJSON() includes expirationTime: null), as Chrome, Safari and Firefox do. */
+async function stubRealSubscription(page: Page, endpoint: string): Promise<void> {
+  await page.addInitScript((ep) => {
+    const b64u = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    const auth = crypto.getRandomValues(new Uint8Array(16));
+    let p256dh = new Uint8Array(65);
+    const ready = crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']).then(async (k) => {
+      p256dh = new Uint8Array(await crypto.subtle.exportKey('raw', k.publicKey)); // a real P-256 point, like the browser's
+    });
+    const sub = {
+      endpoint: ep,
+      expirationTime: null,
+      options: {},
+      toJSON: () => ({ endpoint: ep, expirationTime: null, keys: { p256dh: b64u(p256dh), auth: b64u(auth) } }),
+      unsubscribe: async () => {
+        current = null;
+        return true;
+      },
+    };
+    let current: typeof sub | null = null;
+    (window as unknown as { __subscribed: number }).__subscribed = 0;
+    Notification.requestPermission = async () => 'granted';
+    PushManager.prototype.subscribe = async function (o?: PushSubscriptionOptionsInit) {
+      if (!(o?.applicationServerKey instanceof Uint8Array) || o.applicationServerKey.length !== 65) throw new TypeError('bad applicationServerKey');
+      (window as unknown as { __subscribed: number }).__subscribed++;
+      await ready;
+      current = sub;
+      return sub as unknown as PushSubscription;
+    };
+    PushManager.prototype.getSubscription = async () => current as unknown as PushSubscription | null;
+  }, endpoint);
+}
 
 const subscribeCalls = (page: Page) => page.evaluate(() => (window as unknown as { __subscribed: number }).__subscribed);
 
@@ -68,6 +102,26 @@ test('account: notifications are ordered this device, email, then messaging apps
   // Household settings explain what a household channel does.
   await page.goto(`/households/${h.id}`);
   await expect(page.getByRole('region', { name: 'Household notification channels' }).getByText(/family Telegram or Discord group/)).toBeVisible();
+});
+
+test('account: turning on reminders saves a real-shaped subscription (Apple and FCM endpoints) and shows it on', async ({ world }) => {
+  const u = await world.newUser();
+  for (const endpoint of [
+    'https://web.push.apple.com/QGxPq3-_Zy9aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ',
+    'https://fcm.googleapis.com/fcm/send/dUMMY123:APA91bHxYzAbCdEfGhIjKlMnOpQrStUvWxYz-_0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMN',
+  ]) {
+    const { page } = await u.open();
+    await askable(page);
+    await stubRealSubscription(page, endpoint);
+    const saved = page.waitForResponse((r) => r.url().endsWith('/account/push-subscriptions') && r.request().method() === 'POST');
+    await page.goto('/account');
+    const card = page.getByRole('region', { name: 'This device' });
+    await card.getByRole('button', { name: 'Turn on reminders on this device' }).click();
+    expect((await saved).status()).toBe(201);
+    await expect(card.getByTestId('push-status')).toContainText('On:');
+    await expect(card.getByRole('button', { name: 'Turn off reminders on this device' })).toBeVisible();
+    await expect(card.getByRole('alert')).toHaveCount(0);
+  }
 });
 
 test('account: the email reminders switch needs a confirmed address and then works', async ({ world }) => {
