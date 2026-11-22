@@ -1,4 +1,7 @@
-# Gunkly
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/banner-dark.jpg">
+  <img alt="Gunkly — recurring household chores and home maintenance" src="docs/assets/banner-light.jpg" width="100%">
+</picture>
 
 A self-hostable chore tracker for recurring household chores and home maintenance (gutters, washing-machine filter, descaling the kettle). Flexible schedules, optional reminders on your own messaging services, and a calm interface on phone and desktop. One Go binary, one container, SQLite or Postgres. No telemetry.
 
