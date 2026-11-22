@@ -1,4 +1,5 @@
 <script lang="ts">
+  import AssistantConnect from './AssistantConnect.svelte';
   import Alert from '../../components/Alert.svelte';
   import Button from '../../components/Button.svelte';
   import Confirm from '../../components/Confirm.svelte';
@@ -106,6 +107,8 @@
     await load();
   }
 </script>
+
+<AssistantConnect {households} oncreated={load} />
 
 <section class="card" aria-labelledby="a-tokens">
   <h2 id="a-tokens">{t('tokens.title')}</h2>

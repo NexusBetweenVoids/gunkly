@@ -32,7 +32,10 @@ func (s *Server) getInstance(w http.ResponseWriter, r *http.Request, _ *call) er
 		return err
 	}
 	open, pow := s.signupSettings(st)
-	return ok(w, map[string]bool{"openSignup": open, "emailEnabled": s.emailEnabled(), "hostedMode": s.hosted, "requirePow": open && pow})
+	return ok(w, map[string]any{
+		"openSignup": open, "emailEnabled": s.emailEnabled(), "hostedMode": s.hosted, "requirePow": open && pow,
+		"baseUrl": s.baseURL, "mcpEnabled": s.mcpEnabled(r.Context()),
+	})
 }
 
 // signupChallenge hands out a proof-of-work challenge (ALTCHA format).

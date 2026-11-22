@@ -435,3 +435,32 @@ input[type="checkbox"],
 input[type="radio"] {
   accent-color: var(--accent);
 }
+
+/* Guided assistant setup: copyable code and numbered steps. */
+.code {
+  margin-block: var(--space-sm, 0.5rem);
+  padding: 0.75rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.8125rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+.steps,
+.bullets {
+  margin-block: 0;
+  padding-inline-start: 1.25rem;
+}
+.steps > li + li {
+  margin-block-start: 0.75rem;
+}
+.facts dt {
+  font-weight: 600;
+  margin-block-start: 0.5rem;
+}
+.facts dd {
+  margin-inline: 0;
+}

@@ -67,3 +67,48 @@ test('integrations: create an access token in the UI, use it as a bearer, revoke
   expect(after.headers()['www-authenticate']).toBe('Bearer');
   await api.dispose();
 });
+
+test('integrations: guided Claude Code setup creates a working token, then revoke', async ({ world, baseURL }) => {
+  const u = await world.newUser();
+  const h = await world.household(u);
+  const { page } = await u.open();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/account');
+
+  const card = page.getByRole('region', { name: 'Connect an AI assistant' });
+  await expect(card.getByText(/can only use the households and actions you allow/)).toBeVisible();
+  await card.getByRole('button', { name: 'Connect an assistant' }).click();
+
+  const dialog = page.getByRole('dialog', { name: 'Connect an AI assistant' });
+  await expect(dialog.getByLabel('Claude Code')).toBeChecked();
+  await expect(dialog.getByLabel(h.name)).toBeChecked();
+  await expect(dialog.getByLabel('Mark chores as done, snooze or skip')).toBeChecked();
+  await expect(dialog.getByLabel('Create chores')).not.toBeChecked();
+  await axe(page, 'connect assistant dialog');
+  await dialog.getByRole('button', { name: 'Create access' }).click();
+
+  const confirm = page.getByRole('dialog', { name: "Confirm it's you" });
+  await confirm.getByLabel('Password').fill(u.password);
+  await confirm.getByRole('button', { name: 'Confirm' }).click();
+
+  const ready = page.getByRole('dialog', { name: 'Your assistant is ready to connect' });
+  const cmd = (await ready.locator('pre.code').textContent())!;
+  expect(cmd).toContain(`--transport http gunkly ${new URL(baseURL!).origin}/mcp`);
+  const secret = cmd.match(/Bearer (gk_[\w-]{43})/)![1]!;
+  await axe(page, 'assistant ready');
+  await page.screenshot({ path: '/tmp/claude-1000/brand/mcp-guide.png' });
+  await ready.getByRole('button', { name: 'Copy command' }).click();
+  await ready.getByRole('button', { name: 'Done' }).click();
+
+  const api = await request.newContext({ baseURL, extraHTTPHeaders: { 'X-Forwarded-For': nextIP() } });
+  const auth = { Authorization: `Bearer ${secret}` };
+  expect((await api.get('/api/v1/token', { headers: auth })).status()).toBe(200);
+
+  await page.reload();
+  const row = page.getByRole('region', { name: 'Integrations' }).getByRole('listitem').filter({ hasText: 'Claude Code (MCP)' });
+  await row.getByRole('button', { name: 'Revoke' }).click();
+  await page.getByRole('dialog', { name: 'Revoke Claude Code (MCP)?' }).getByRole('button', { name: 'Revoke' }).click();
+  await expect(page.getByText('Token revoked.')).toBeVisible();
+  expect((await api.get('/api/v1/token', { headers: auth })).status()).toBe(401);
+  await api.dispose();
+});

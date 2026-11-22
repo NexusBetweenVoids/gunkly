@@ -44,6 +44,14 @@ func signupBody(name string, extra map[string]any) map[string]any {
 	return b
 }
 
+func TestInstanceMCPAndBaseURL(t *testing.T) {
+	e := newEnv(t, func(o *Options) { o.BaseURL = "https://gunkly.example" })
+	st, v := e.client().do("GET", "/api/v1/instance", nil)
+	if st != 200 || field(v, "baseUrl") != "https://gunkly.example" || field(v, "mcpEnabled") != true {
+		t.Fatalf("instance: %d %v", st, v)
+	}
+}
+
 func TestSignupClosedByDefault(t *testing.T) {
 	e := newMailEnv(t)
 	c := e.client()

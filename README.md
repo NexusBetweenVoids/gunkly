@@ -13,10 +13,18 @@
   <a href="Dockerfile"><img alt="Distroless container" src="https://img.shields.io/badge/container-distroless%2C%20non--root-345461?logo=docker&logoColor=white"></a>
   <a href="https://github.com/NexusBetweenVoids/gunkly/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/NexusBetweenVoids/gunkly?color=345461"></a>
   <a href="https://hub.docker.com/r/gunkly/gunkly"><img alt="Docker Hub" src="https://img.shields.io/docker/pulls/gunkly/gunkly?logo=docker&logoColor=white&color=345461"></a>
+  <a href="docs/ai-assistants.md"><img alt="MCP server built in" src="https://img.shields.io/badge/MCP-built--in-7ba99d"></a>
+  <a href="https://github.com/NexusBetweenVoids/gunkly-homeassistant"><img alt="Home Assistant integration" src="https://img.shields.io/badge/Home%20Assistant-integration-345461?logo=homeassistant&logoColor=white"></a>
+  <img alt="Installable PWA with Web Push" src="https://img.shields.io/badge/PWA-Web%20Push-345461?logo=pwa&logoColor=white">
+  <img alt="Maintained with AI" src="https://img.shields.io/badge/maintained%20with-AI-7ba99d">
   <img alt="No telemetry" src="https://img.shields.io/badge/telemetry-none-7ba99d">
 </p>
 
-A self-hostable chore tracker for recurring household chores and home maintenance (gutters, washing-machine filter, descaling the kettle). Flexible schedules, optional reminders on your own messaging services, and a calm interface on phone and desktop. One Go binary, one container, SQLite or Postgres. No telemetry.
+A self-hostable, **AI-friendly** chore tracker for recurring household chores and home maintenance (gutters, washing-machine filter, descaling the kettle). Flexible schedules, optional reminders on your own messaging services, and a calm interface on phone and desktop. One Go binary, one container, SQLite or Postgres. No telemetry.
+
+- **Works with AI assistants:** a built-in [MCP server](docs/ai-assistants.md) lets AI assistants that support MCP — such as Claude, Gemini CLI, Cursor and VS Code — list, complete, snooze and plan your chores — limited to the households and actions you allow, revocable at any time.
+- **Works with your smart home:** a [Home Assistant integration](https://github.com/NexusBetweenVoids/gunkly-homeassistant) adds to-do lists, sensors and a calendar; a scoped REST API covers the rest.
+- **Built and maintained with AI, openly:** most of the code, tests and docs are written by AI coding agents working from a public plan and strict rules ([AGENTS.md](AGENTS.md)), with a human maintainer deciding scope and reviewing. Every change has to pass the same automated gates — tests on SQLite and Postgres, linting, security scanning (CodeQL, govulncheck, ZAP), accessibility checks and independent AI security reviews. If you find something an AI or a human missed, please [report it](SECURITY.md).
 
 **Status: early release.** Expect rough edges; please [report issues](https://github.com/NexusBetweenVoids/gunkly/issues). Pin a version tag in production and back up before upgrading.
 

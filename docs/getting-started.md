@@ -62,5 +62,6 @@ Open the household's Settings, "Calendar feeds", "Create feed" and copy the addr
 
 ## Next steps
 
+- Connect an AI assistant such as Claude: [AI assistants](ai-assistants.md).
 - Back up: `docker compose -f compose.sqlite.yml exec gunkly /gunkly backup - > backup.db` (see [Backups](../README.md#backups)).
 - Monitoring and upgrades: [README](../README.md).

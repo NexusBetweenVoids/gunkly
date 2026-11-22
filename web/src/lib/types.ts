@@ -19,7 +19,7 @@ export type SessionView = {
   method?: 'totp' | 'email';
   user?: Me;
 };
-export type Instance = { openSignup: boolean; emailEnabled: boolean; hostedMode: boolean; requirePow: boolean };
+export type Instance = { openSignup: boolean; emailEnabled: boolean; hostedMode: boolean; requirePow: boolean; baseUrl?: string; mcpEnabled?: boolean };
 export type Household = {
   id: string;
   name: string;

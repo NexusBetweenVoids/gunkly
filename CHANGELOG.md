@@ -4,7 +4,12 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-22
+
 ### Added
+
+- Guided "Connect an AI assistant" setup under Account, Integrations: pick Claude Code, Claude Desktop, Gemini CLI or another MCP app and get the exact setup with your address and key filled in. Plain-language guide in `docs/ai-assistants.md`.
+- Home Assistant integration (separate repository `gunkly-homeassistant`): to-do lists, sensors, calendar and actions, using API tokens.
 
 - API tokens for integrations such as Home Assistant and AI assistants (MCP): create them under Account, Integrations. Each token is bound to the households you pick and to the permissions you choose (`chores:read`, `chores:complete`, `chores:write`), never exceeds your own role, is shown once, can expire and can be revoked at once. Send it as `Authorization: Bearer gk_...`; `GET /api/v1/token` describes it. Completions made with a token are recorded as such. See ADR 0014 and the `bearerAuth` operations in the OpenAPI document.
 - New limit `api_tokens_per_user` (default 20).
