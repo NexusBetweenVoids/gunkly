@@ -139,13 +139,13 @@ A reverse proxy (Caddy, nginx, Traefik, Nginx Proxy Manager, ...) gives Gunkly H
 
 **Find the proxy's address as Gunkly sees it:**
 
-- Proxy on the host (or another machine): its LAN address, for example `192.168.8.1`.
+- Proxy on the host (or another machine): its LAN address, for example `192.168.1.1`.
 - Proxy in a container on the same Docker network: that network's subnet. Run `docker network inspect <network> | grep Subnet`, for example `172.18.0.0/16`. `172.16.0.0/12` covers all default Docker networks.
 
 ```sh
-GUNKLY_TRUSTED_PROXIES=192.168.8.1/32                  # one address
+GUNKLY_TRUSTED_PROXIES=192.168.1.1/32                  # one address
 GUNKLY_TRUSTED_PROXIES=172.18.0.0/16                   # a Docker network
-GUNKLY_TRUSTED_PROXIES=192.168.8.1/32,172.16.0.0/12    # several, comma-separated
+GUNKLY_TRUSTED_PROXIES=192.168.1.1/32,172.16.0.0/12    # several, comma-separated
 ```
 
 Only list proxies you control, and make sure Gunkly's port is not reachable except through them. Also set `GUNKLY_BASE_URL` to the public https address (for example `https://chores.example.com`).

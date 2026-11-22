@@ -1198,7 +1198,7 @@ func TestInviteMaxUses(t *testing.T) {
 func TestBaseURLMismatchIsExplained(t *testing.T) {
 	e := newEnv(t, func(o *Options) { o.BaseURL = "http://localhost:4865" })
 	for _, tc := range []struct{ name, origin, want string }{
-		{"other address", "http://192.168.8.1:4865", "base_url_mismatch"},
+		{"other address", "http://192.168.1.1:4865", "base_url_mismatch"},
 		{"matching address, no token", "http://localhost:4865", "csrf_failed"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

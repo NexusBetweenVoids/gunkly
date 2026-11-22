@@ -123,9 +123,9 @@ func TestUntrustedProxyTracking(t *testing.T) {
 	obs := func(at time.Time, peer string, hdr ...string) { u.observe(fwdReq(peer, hdr...), trusted, at) }
 
 	obs(now, "10.0.0.2:1", "X-Forwarded-For", "1.2.3.4")    // trusted: not recorded
-	obs(now, "192.168.8.1:1")                               // no headers: not recorded
-	obs(now, "192.168.8.1:2", "X-Forwarded-For", "1.2.3.4") // recorded
-	obs(now, "192.168.8.1:3", "Forwarded", "for=1.2.3.4")   // same peer, once
+	obs(now, "192.168.1.1:1")                               // no headers: not recorded
+	obs(now, "192.168.1.1:2", "X-Forwarded-For", "1.2.3.4") // recorded
+	obs(now, "192.168.1.1:3", "Forwarded", "for=1.2.3.4")   // same peer, once
 	obs(now, "[fd00::5]:1", "X-Real-IP", "1.2.3.4")         // IPv6 (ULA), X-Real-IP
 	if got := u.list(now); len(got) != 2 {
 		t.Fatalf("got %v", got)
@@ -135,9 +135,9 @@ func TestUntrustedProxyTracking(t *testing.T) {
 	if got := u.list(now.Add(untrustedTTL - time.Second)); len(got) != 2 {
 		t.Fatalf("expired early: %v", got)
 	}
-	obs(now.Add(time.Hour), "192.168.8.1:1", "X-Forwarded-For", "1.2.3.4") // refresh one
+	obs(now.Add(time.Hour), "192.168.1.1:1", "X-Forwarded-For", "1.2.3.4") // refresh one
 	got := u.list(now.Add(untrustedTTL + time.Minute))
-	if len(got) != 1 || got[0].IP.String() != "192.168.8.1" {
+	if len(got) != 1 || got[0].IP.String() != "192.168.1.1" {
 		t.Fatalf("after expiry: %v", got)
 	}
 	if got := u.list(now.Add(3 * untrustedTTL)); len(got) != 0 {
