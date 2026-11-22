@@ -11,10 +11,6 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 - Account, Integrations lists **Connected apps** with Disconnect (`GET /api/v1/account/oauth-grants`, `DELETE /api/v1/account/oauth-grants/{id}`); the assistant guide gains ChatGPT and Claude (connector). Password changes and second-factor removal disconnect all apps; audit events `oauth_grant`, `oauth_token_reuse`, `oauth_revoke`.
 - New limits `oauth_clients` (instance, default 1000) and `oauth_grants_per_user` (default 20); migrations 0013 and 0014 (the latter widens the completions source check on both databases and stores the registering address key for the per-address cap).
 
-### Fixed
-
-- Turning on reminders failed with "Some of the information isn't valid" on iPhone (Home Screen app) and in every other browser: the browser's subscription includes `expirationTime`, which the strict API decoder rejected as an unknown field. `POST /api/v1/account/push-subscriptions` now accepts and ignores it, the app sends only the endpoint and keys, and asks for notification permission first thing in the tap (iOS needs the tap's user activation). An unsupported push service or unusable keys now get their own messages.
-
 ### Changed
 
 - The total JavaScript budget (lazy screens included) is now 200 KB gzipped; the first-load budget stays 45 KB and CSS 15 KB.
@@ -26,6 +22,12 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 - The consent page shows the return host as its largest line, warns when this user never approved an app returning to that host, and registration refuses client names containing "gunkly" (Unicode-folded) so an app cannot impersonate Gunkly.
 - OAuth completions are attributable: they carry the source `oauth` and the grant id instead of `api_token`.
 - Documented that browser-based (CORS) MCP clients are not supported (ADR 0016, `docs/ai-assistants.md`).
+
+## [0.2.2] - 2026-11-22
+
+### Fixed
+
+- Turning on reminders failed with "Some of the information isn't valid" on iPhone (Home Screen app) and in every other browser: the browser's subscription includes `expirationTime`, which the strict API decoder rejected as an unknown field. `POST /api/v1/account/push-subscriptions` now accepts and ignores it, the app sends only the endpoint and keys, and asks for notification permission first thing in the tap (iOS needs the tap's user activation). An unsupported push service or unusable keys now get their own messages.
 
 ## [0.2.1] - 2026-11-22
 
