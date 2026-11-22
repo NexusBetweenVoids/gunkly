@@ -72,5 +72,11 @@
   "admin.inactiveEnabled": "Warn and delete inactive accounts",
   "admin.inactiveWarn": "Warn after (days without activity)",
   "admin.inactiveDelete": "Delete after (days without activity)",
-  "admin.inactiveDeleteHint": "At least 30 days after the warning. A final warning goes out 30 days before deletion. Instance admins are never deleted."
+  "admin.inactiveDeleteHint": "At least 30 days after the warning. A final warning goes out 30 days before deletion. Instance admins are never deleted.",
+  "proxy.title": "Reverse proxy not trusted",
+  "proxy.body": "Gunkly received requests from {peers} that carry forwarding headers, but that address is not in the trusted proxy list. Until it is, client addresses in the activity log and sessions show the proxy's address, and per-address limits treat every visitor as one, so everyone shares a single sign-in rate limit.",
+  "proxy.fix": "If that address is your reverse proxy, add this to the Gunkly environment and restart:",
+  "proxy.copy": "Copy setting",
+  "proxy.docs": "Read how to set up a reverse proxy",
+  "proxy.shared": "Only add addresses you control. Anything listed there is believed when it says who the visitor is."
 }

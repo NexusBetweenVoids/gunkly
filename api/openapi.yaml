@@ -1137,6 +1137,18 @@ paths:
         "200": {description: OK, content: {application/json: {schema: {type: object, properties: {password: {type: string}}}}}}
         "403": {$ref: "#/components/responses/Forbidden"}
         "404": {$ref: "#/components/responses/NotFound"}
+  /admin/health:
+    get:
+      tags: [admin]
+      summary: Reverse-proxy misconfiguration hints (admin)
+      description: |
+        Lists up to 5 direct peers seen in the last 24 hours that are not trusted proxies but sent
+        X-Forwarded-For, Forwarded or X-Real-IP, most recent first. Such a peer is probably a reverse proxy
+        missing from GUNKLY_TRUSTED_PROXIES: client addresses and per-IP rate limits then use the proxy's
+        address. Kept in memory only (lost on restart), never logged and never trusted automatically.
+      responses:
+        "200": {description: OK, content: {application/json: {schema: {$ref: "#/components/schemas/AdminHealth"}}}}
+        "403": {$ref: "#/components/responses/Forbidden"}
   /admin/updates:
     get:
       tags: [admin]
@@ -1543,6 +1555,16 @@ components:
       properties:
         error: {type: object, properties: {code: {type: string}}}
         households: {type: array, items: {$ref: "#/components/schemas/OwnerChoice"}}
+    AdminHealth:
+      type: object
+      properties:
+        untrustedProxies:
+          type: array
+          items:
+            type: object
+            properties:
+              ip: {type: string, description: "Direct peer address (IPv4 or IPv6)"}
+              lastSeen: {type: string, format: date-time}
     Updates:
       type: object
       properties:

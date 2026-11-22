@@ -116,6 +116,7 @@ func (s *Server) registerRoutes() {
 	s.handle("POST /api/v1/admin/users/{id}/reset-password", admin.noToken().withStepUp(), s.adminResetPassword)
 	s.handle("GET /api/v1/admin/settings", admin.noToken(), s.adminGetSettings)
 	s.handle("PATCH /api/v1/admin/settings", admin.noToken().withStepUp(), s.adminPatchSettings)
+	s.handle("GET /api/v1/admin/health", admin.noToken(), s.adminHealth)
 	s.handle("GET /api/v1/admin/updates", admin.noToken(), s.adminUpdates)
 	s.handle("POST /api/v1/admin/updates/check", admin.noToken(), s.adminUpdatesCheck)
 

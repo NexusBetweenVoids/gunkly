@@ -17,7 +17,7 @@ Edit `.env`: set `GUNKLY_SECRET_KEYS` and `GUNKLY_BASE_URL` (the address you wil
 docker compose -f compose.sqlite.yml up -d      # or compose.postgres.yml (also set POSTGRES_PASSWORD)
 ```
 
-Gunkly listens on port 4865. For anything beyond localhost, put a TLS reverse proxy in front and set `GUNKLY_TRUSTED_PROXIES` to its address; Web Push and installing the app need HTTPS (or `localhost`).
+Gunkly listens on port 4865. For anything beyond localhost, put a TLS reverse proxy in front and set `GUNKLY_TRUSTED_PROXIES` to its address (the admin page warns if you forget; see [Behind a reverse proxy](../README.md#behind-a-reverse-proxy)); Web Push and installing the app need HTTPS (or `localhost`).
 
 ## 2. Create the admin
 

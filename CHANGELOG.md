@@ -6,10 +6,13 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ### Added
 
+- Administration warns when requests arrive with `X-Forwarded-For`, `Forwarded` or `X-Real-IP` from a direct peer that is not in `GUNKLY_TRUSTED_PROXIES` (the usual sign of a reverse proxy that was never listed): a banner explains the effect on client IPs and rate limits and offers the exact `GUNKLY_TRUSTED_PROXIES=...` line to copy. New admin-only `GET /api/v1/admin/health` returns `untrustedProxies` (up to 5 peers seen in the last 24 hours, kept in memory, never logged, never trusted automatically).
+- README section "Behind a reverse proxy" with Caddy, nginx, Traefik and Nginx Proxy Manager examples.
 - Updates page: "Check now" button (`POST /api/v1/admin/updates/check`) and a "Checking for updates…" state. `GET /api/v1/admin/updates` gains `checking` and `ahead`.
 
 ### Changed
 
+- The client address is also read from the standard `Forwarded` header (RFC 7239), only from trusted proxies and with the same right-to-left walk as `X-Forwarded-For`; `Forwarded` wins when both are present, and an obfuscated, `unknown` or malformed hop ends the walk at the last trusted hop.
 - Creating another household moved out of the header and menu into Settings (Households section); the header shows the household name as plain text when you belong to one household and a switcher only with two or more. With no household, Home shows a prominent "Create your first household" button.
 
 ### Fixed

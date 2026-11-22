@@ -86,6 +86,7 @@ type Server struct {
 	push             *notify.WebPush
 	secure           bool // cookies get Secure; HSTS is sent
 	proxies          []netip.Prefix
+	untrusted        untrustedProxies
 	log              *slog.Logger
 	ready            func(context.Context) error
 	static           fs.FS

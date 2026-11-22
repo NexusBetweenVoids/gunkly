@@ -119,7 +119,7 @@ Prefer working from a checkout? `compose.sqlite.yml` and `compose.postgres.yml` 
 
 Keep `GUNKLY_SECRET_KEYS` safe and backed up: it protects stored two-factor secrets and notification URLs, and Gunkly refuses to start without it.
 
-The setup code only works until the first account exists; if you miss it, restart the container for a new one. Put a TLS-terminating reverse proxy in front for anything beyond localhost (Web Push and installing the PWA need HTTPS) and list its address in `GUNKLY_TRUSTED_PROXIES`.
+The setup code only works until the first account exists; if you miss it, restart the container for a new one. Put a TLS-terminating reverse proxy in front for anything beyond localhost (Web Push and installing the PWA need HTTPS) and list its address in `GUNKLY_TRUSTED_PROXIES` (see [Behind a reverse proxy](#behind-a-reverse-proxy)).
 
 ### Postgres
 
@@ -133,6 +133,46 @@ docker compose -f compose.postgres.yml up -d
 | **SQLite** (default) | One household, family and friends, or a small community instance; one container and simple one-command backups |
 | **Postgres** | A larger or public instance; you already run and back up Postgres; you want the database on its own server |
 
+## Behind a reverse proxy
+
+A reverse proxy (Caddy, nginx, Traefik, Nginx Proxy Manager, ...) gives Gunkly HTTPS. Gunkly only believes the client address the proxy forwards (`X-Forwarded-For` or the standard `Forwarded` header) when the proxy is listed in `GUNKLY_TRUSTED_PROXIES`. Without it, every request seems to come from the proxy: the activity log and session list show the proxy's address, and the per-address rate limits (sign-in, sign-up, invites) treat all visitors as one, so everyone shares one login limit. Gunkly never trusts a proxy by itself; the Administration page shows a warning with the exact setting to copy when it sees forwarded requests from an address that is not trusted.
+
+**Find the proxy's address as Gunkly sees it:**
+
+- Proxy on the host (or another machine): its LAN address, for example `192.168.8.1`.
+- Proxy in a container on the same Docker network: that network's subnet. Run `docker network inspect <network> | grep Subnet`, for example `172.18.0.0/16`. `172.16.0.0/12` covers all default Docker networks.
+
+```sh
+GUNKLY_TRUSTED_PROXIES=192.168.8.1/32                  # one address
+GUNKLY_TRUSTED_PROXIES=172.18.0.0/16                   # a Docker network
+GUNKLY_TRUSTED_PROXIES=192.168.8.1/32,172.16.0.0/12    # several, comma-separated
+```
+
+Only list proxies you control, and make sure Gunkly's port is not reachable except through them. Also set `GUNKLY_BASE_URL` to the public https address (for example `https://chores.example.com`).
+
+**Caddy** sets `X-Forwarded-For` by default:
+
+```
+chores.example.com {
+	reverse_proxy gunkly:4865
+}
+```
+
+**nginx:**
+
+```nginx
+location / {
+	proxy_pass http://gunkly:4865;
+	proxy_set_header Host $host;
+	proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+	proxy_set_header X-Forwarded-Proto $scheme;
+}
+```
+
+**Traefik** sets `X-Forwarded-For` by default; point a router at the service on port 4865 (for example with the labels `` traefik.http.routers.gunkly.rule=Host(`chores.example.com`) `` and `traefik.http.services.gunkly.loadbalancer.server.port=4865`).
+
+**Nginx Proxy Manager:** the defaults work; add a proxy host for `gunkly` port `4865` with an SSL certificate.
+
 ## Configuration
 
 Everything is set through environment variables, all documented with their defaults in [`.env.example`](.env.example). The ones you will touch first:
@@ -142,7 +182,7 @@ Everything is set through environment variables, all documented with their defau
 | `GUNKLY_SECRET_KEYS` | Required. Encryption keys, `<version>:<base64 32-byte key>` |
 | `GUNKLY_BASE_URL` | Public origin used in links (no path) |
 | `GUNKLY_DATABASE_URL` | `sqlite:///data/gunkly.db` or `postgres://...` (the compose files set it) |
-| `GUNKLY_TRUSTED_PROXIES` | Reverse-proxy CIDRs/IPs whose `X-Forwarded-For` is trusted |
+| `GUNKLY_TRUSTED_PROXIES` | Reverse-proxy CIDRs/IPs whose `X-Forwarded-For` / `Forwarded` is trusted; see [Behind a reverse proxy](#behind-a-reverse-proxy) |
 | `GUNKLY_EMAIL_ENABLED` and `GUNKLY_SMTP_*` | Email verification, password reset, email codes (optional) |
 | `GUNKLY_METRICS_TOKEN` | Enables `/metrics` |
 | `GUNKLY_AUTO_MIGRATE` | Apply migrations on start (default `true`) |

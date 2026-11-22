@@ -81,6 +81,7 @@ func (s *Server) middleware(next http.Handler) http.Handler {
 			h.Set("Strict-Transport-Security", "max-age=31536000")
 		}
 		info := &reqInfo{ip: clientIP(r, s.proxies)}
+		s.untrusted.observe(r, s.proxies, s.now())
 		r = r.WithContext(context.WithValue(r.Context(), infoKey{}, info))
 		r.Body = http.MaxBytesReader(w, r.Body, s.bodyLimit(r))
 		sw := &statusWriter{ResponseWriter: w}
@@ -107,44 +108,6 @@ func (s *Server) middleware(next http.Handler) http.Handler {
 		}()
 		next.ServeHTTP(sw, r)
 	})
-}
-
-// clientIP returns the peer address, or the first untrusted address in
-// X-Forwarded-For (walking right to left) when the peer is a trusted proxy.
-func clientIP(r *http.Request, trusted []netip.Prefix) netip.Addr {
-	ap, err := netip.ParseAddrPort(r.RemoteAddr)
-	if err != nil {
-		return netip.Addr{}
-	}
-	addr := ap.Addr().Unmap()
-	if !isTrusted(addr, trusted) {
-		return addr
-	}
-	hops := strings.Split(strings.Join(r.Header.Values("X-Forwarded-For"), ","), ",")
-	for i := len(hops) - 1; i >= 0; i-- {
-		hop := strings.TrimSpace(hops[i])
-		if hop == "" {
-			continue
-		}
-		a, err := netip.ParseAddr(hop)
-		if err != nil {
-			return addr // malformed: stop at the last trusted hop
-		}
-		addr = a.Unmap()
-		if !isTrusted(addr, trusted) {
-			return addr
-		}
-	}
-	return addr
-}
-
-func isTrusted(a netip.Addr, trusted []netip.Prefix) bool {
-	for _, p := range trusted {
-		if p.Contains(a) {
-			return true
-		}
-	}
-	return false
 }
 
 // csrfOK implements double-submit plus a cross-site request check: the
