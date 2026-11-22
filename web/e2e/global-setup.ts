@@ -4,11 +4,14 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { startFakeSmtp } from './smtp';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const web = resolve(here, '..');
 const root = resolve(web, '..');
 export const stateFile = join(here, '.out', 'state.json');
+/** Every email the app sent, one JSON object per line (written by the fake SMTP server below). */
+export const mailFile = join(here, '.out', 'mail.jsonl');
 
 // Builds the web bundle and the Go binary, starts it on a fresh SQLite database
 // and records the one-time setup code from its log. Returns the teardown.
@@ -22,6 +25,8 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
   run('npm', ['run', '-s', 'build'], web);
   run('go', ['build', '-o', bin, './cmd/gunkly'], root, { CGO_ENABLED: '0' });
 
+  mkdirSync(dirname(mailFile), { recursive: true });
+  const smtp = await startFakeSmtp(mailFile);
   const key = randomBytes(32).toString('base64');
   const server: ChildProcess = spawn(bin, ['serve'], {
     cwd: dir,
@@ -35,6 +40,14 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
       // so the per-IP login and invite rate limits do not couple unrelated tests.
       GUNKLY_TRUSTED_PROXIES: '127.0.0.1/32',
       GUNKLY_LOG_LEVEL: 'info',
+      // Email goes to the fake SMTP server above (plain, on loopback; the specs turn the egress guard off).
+      GUNKLY_EMAIL_ENABLED: 'true',
+      GUNKLY_SMTP_HOST: '127.0.0.1',
+      GUNKLY_SMTP_PORT: String(smtp.port),
+      GUNKLY_SMTP_TLS: 'none',
+      GUNKLY_SMTP_FROM: 'Gunkly <gunkly@example.test>',
+      // Small puzzle so sign-up specs stay fast.
+      GUNKLY_SIGNUP_POW_MAX: '2000',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -60,6 +73,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
 
   return async () => {
     server.kill('SIGTERM');
+    await smtp.close();
     await new Promise<void>((r) => (exited ? r() : server.on('exit', () => r())));
     rmSync(dir, { recursive: true, force: true });
   };

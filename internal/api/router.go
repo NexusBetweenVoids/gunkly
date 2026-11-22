@@ -64,6 +64,10 @@ const (
 	rateMarkDone = "markdone" // unauthenticated mark-done pages
 	rateICal     = "ical"     // unauthenticated calendar feeds (apps poll)
 	rateTest     = "test"     // test notifications, per user
+	rateVerify   = "verify"   // email verification links
+	rateReset    = "reset"    // password reset request and confirm
+	rateSignup   = "signup"   // sign-up and its proof-of-work challenge
+	rateEmail    = "email"    // authenticated actions that send email
 
 	rateUserWrite      = "uwrite" // authenticated non-GET requests, per user
 	rateHouseholdWrite = "hwrite" // household write requests, per household
@@ -74,6 +78,7 @@ const (
 // stays at the strict default.
 var bucketRates = map[string]int{
 	rateMarkDone: limits.MarkDonePerMinute, rateICal: limits.ICalPerMinute,
+	rateVerify: 20, rateReset: 10, rateSignup: 20, rateEmail: 10,
 	rateUserWrite: limits.UserWritesPerMinute, rateHouseholdWrite: limits.HouseholdWritesPerMinute,
 }
 

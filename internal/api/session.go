@@ -134,6 +134,7 @@ func (s *Server) startSession(w http.ResponseWriter, r *http.Request, c *call, u
 type sessionView struct {
 	Authenticated     bool    `json:"authenticated"`
 	TwoFactorRequired bool    `json:"twoFactorRequired,omitempty"`
+	Method            string  `json:"method,omitempty"` // second factor asked for: "totp" or "email"
 	User              *meView `json:"user,omitempty"`
 	CSRF              string  `json:"csrf,omitempty"`
 }
@@ -157,6 +158,7 @@ type credentials struct {
 	Password     string `json:"password"`
 	TOTP         string `json:"totp"`
 	RecoveryCode string `json:"recoveryCode"`
+	EmailCode    string `json:"emailCode"`
 }
 
 func (s *Server) login(w http.ResponseWriter, r *http.Request, c *call) error {
@@ -197,9 +199,18 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request, c *call) error {
 		s.audit(ctx, c, u.ID, store.AuditLoginFailure, "", nil)
 		return errInvalidCredentials
 	}
-	if u.TOTPEnabled {
-		if in.TOTP == "" && in.RecoveryCode == "" {
-			return ok(w, sessionView{TwoFactorRequired: true})
+	if u.TOTPEnabled || u.EmailOTPEnabled {
+		if in.TOTP == "" && in.RecoveryCode == "" && in.EmailCode == "" {
+			if !u.EmailOTPEnabled {
+				return ok(w, sessionView{TwoFactorRequired: true, Method: "totp"})
+			}
+			// The password was right: email the code (again, on a repeat).
+			if wait, err := s.sendLoginCode(ctx, c, u, true); err != nil {
+				return err
+			} else if wait > 0 {
+				return tooMany(w, wait)
+			}
+			return ok(w, sessionView{TwoFactorRequired: true, Method: "email"})
 		}
 		if s.acctDelay(w, "2fa:"+u.ID) {
 			return nil
@@ -224,13 +235,31 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request, c *call) error {
 	return nil
 }
 
-// secondFactor checks a TOTP code (replay-protected) or consumes a
-// single-use recovery code.
+// secondFactor checks the user's second factor: a TOTP code (replay-protected),
+// an emailed code (single-use, attempt-limited) or a single-use recovery code.
 func (s *Server) secondFactor(ctx context.Context, c *call, u store.User, cr credentials) error {
-	if !u.TOTPEnabled {
+	if !u.TOTPEnabled && !u.EmailOTPEnabled {
 		return nil
 	}
-	if cr.TOTP != "" {
+	switch {
+	case cr.EmailCode != "":
+		if !u.EmailOTPEnabled {
+			return errInvalidCode
+		}
+		good, err := s.st.ConsumeEmailOTP(ctx, u.ID, func(challenge string) string {
+			return auth.HashEmailOTP(challenge, cr.EmailCode)
+		})
+		if err != nil {
+			return err
+		}
+		if !good {
+			return errInvalidCode
+		}
+		return nil
+	case cr.TOTP != "":
+		if !u.TOTPEnabled {
+			return errInvalidCode
+		}
 		secret, err := s.totpSecret(u)
 		if err != nil {
 			return err
@@ -290,8 +319,15 @@ func (s *Server) stepUp(w http.ResponseWriter, r *http.Request, c *call) error {
 		s.acct.fail(pwKey)
 		return errInvalidCredentials
 	}
-	if c.user.TOTPEnabled {
-		if in.TOTP == "" && in.RecoveryCode == "" {
+	if c.user.TOTPEnabled || c.user.EmailOTPEnabled {
+		if in.TOTP == "" && in.RecoveryCode == "" && in.EmailCode == "" {
+			if c.user.EmailOTPEnabled {
+				if wait, err := s.sendLoginCode(ctx, c, c.user, false); err != nil {
+					return err
+				} else if wait > 0 {
+					return tooMany(w, wait)
+				}
+			}
 			return errf(http.StatusUnauthorized, "two_factor_required")
 		}
 		if s.acctDelay(w, tfKey) {

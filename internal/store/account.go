@@ -16,19 +16,21 @@ import (
 // to the user, all in one transaction: a failure leaves the old password and
 // sessions intact rather than a half-applied change.
 func (s *Store) SetPassword(ctx context.Context, userID, hash, keepSessionID string) error {
+	return s.inTx(ctx, true, func(t *tx) error { return t.setPassword(ctx, userID, hash, keepSessionID, s.nowMS()) })
+}
+
+func (t *tx) setPassword(ctx context.Context, userID, hash, keepSessionID string, now int64) error {
 	if hash == "" {
 		return ErrInvalid
 	}
-	return s.inTx(ctx, true, func(t *tx) error {
-		if err := t.execOne(ctx, "UPDATE users SET password_hash = ?, password_changed_at = ? WHERE id = ?", hash, s.nowMS(), userID); err != nil {
-			return err
-		}
-		if err := t.revokeSessionsExcept(ctx, userID, keepSessionID); err != nil {
-			return err
-		}
-		_, err := t.exec(ctx, "DELETE FROM mark_done_tokens WHERE user_id = ?", userID)
+	if err := t.execOne(ctx, "UPDATE users SET password_hash = ?, password_changed_at = ? WHERE id = ?", hash, now, userID); err != nil {
 		return err
-	})
+	}
+	if err := t.revokeSessionsExcept(ctx, userID, keepSessionID); err != nil {
+		return err
+	}
+	_, err := t.exec(ctx, "DELETE FROM mark_done_tokens WHERE user_id = ?", userID)
+	return err
 }
 
 // RehashPassword upgrades a hash made with old parameters after a successful
@@ -106,7 +108,7 @@ func (s *Store) SetPendingTOTP(ctx context.Context, userID, ciphertext string) e
 // is pending.
 func (s *Store) EnableTOTP(ctx context.Context, userID, keepSessionID string, step int64, codeHashes []string) error {
 	return s.inTx(ctx, true, func(t *tx) error {
-		res, err := t.exec(ctx, `UPDATE users SET totp_enabled = TRUE, totp_last_step = ?
+		res, err := t.exec(ctx, `UPDATE users SET totp_enabled = TRUE, email_otp_enabled = FALSE, totp_last_step = ?
 			WHERE id = ? AND totp_enabled = FALSE AND totp_secret_ciphertext IS NOT NULL`, step, userID)
 		if err != nil {
 			return err
@@ -146,16 +148,31 @@ func (t *tx) replaceRecoveryCodes(ctx context.Context, userID string, hashes []s
 // account settings and by `gunkly admin reset-2fa`. Every session except
 // keepSessionID (empty revokes all) is revoked in the same transaction.
 func (s *Store) DisableTOTP(ctx context.Context, userID, keepSessionID string) error {
-	return s.inTx(ctx, true, func(t *tx) error {
-		if err := t.execOne(ctx, `UPDATE users SET totp_secret_ciphertext = NULL, totp_enabled = FALSE, totp_last_step = 0
-			WHERE id = ?`, userID); err != nil {
-			return err
-		}
-		if err := t.replaceRecoveryCodes(ctx, userID, nil, 0); err != nil {
-			return err
-		}
-		return t.revokeSessionsExcept(ctx, userID, keepSessionID)
-	})
+	return s.inTx(ctx, true, func(t *tx) error { return t.clearSecondFactor(ctx, userID, keepSessionID, false) })
+}
+
+// DisableTwoFactor removes every second factor (TOTP and email codes) and the
+// recovery codes: `gunkly admin reset-2fa`. All sessions except keepSessionID
+// are revoked.
+func (s *Store) DisableTwoFactor(ctx context.Context, userID, keepSessionID string) error {
+	return s.inTx(ctx, true, func(t *tx) error { return t.clearSecondFactor(ctx, userID, keepSessionID, true) })
+}
+
+func (t *tx) clearSecondFactor(ctx context.Context, userID, keepSessionID string, emailOTP bool) error {
+	q := "UPDATE users SET totp_secret_ciphertext = NULL, totp_enabled = FALSE, totp_last_step = 0"
+	if emailOTP {
+		q += ", email_otp_enabled = FALSE"
+	}
+	if err := t.execOne(ctx, q+" WHERE id = ?", userID); err != nil {
+		return err
+	}
+	if _, err := t.exec(ctx, "DELETE FROM user_tokens WHERE user_id = ? AND purpose = ?", userID, tokenEmailOTP); err != nil {
+		return err
+	}
+	if err := t.replaceRecoveryCodes(ctx, userID, nil, 0); err != nil {
+		return err
+	}
+	return t.revokeSessionsExcept(ctx, userID, keepSessionID)
 }
 
 func (t *tx) revokeSessionsExcept(ctx context.Context, userID, keepSessionID string) error {

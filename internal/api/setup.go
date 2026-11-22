@@ -44,5 +44,6 @@ func (s *Server) postSetup(w http.ResponseWriter, r *http.Request, c *call) erro
 		return err
 	}
 	s.audit(ctx, c, u.ID, store.AuditSetup, "", nil)
+	s.verifyNewAccount(ctx, c, u)
 	return nil
 }

@@ -2,9 +2,12 @@
   import Toast from './components/Toast.svelte';
   import Lazy from './components/Lazy.svelte';
   import StepUp from './components/StepUp.svelte';
+  import { api } from './lib/api';
+  import { failure } from './lib/errors';
   import { t } from './lib/i18n';
   import { navigate, route } from './lib/router';
   import { app, bootstrap, currentHousehold, selectHousehold, signOut } from './lib/session.svelte';
+  import { toast } from './lib/toast.svelte';
   import Home from './screens/Home.svelte';
   import Invite from './screens/Invite.svelte';
   import NotFound from './screens/NotFound.svelte';
@@ -17,7 +20,9 @@
   const choreId = $derived($route.match(/^\/chores\/([^/]+)$/)?.[1]);
   const editId = $derived($route.match(/^\/chores\/([^/]+)\/edit$/)?.[1]);
   const hhId = $derived($route.match(/^\/households\/([^/]+)$/)?.[1]);
-  const isPublic = $derived($route === '/signin' || $route === '/setup' || !!invite);
+  // Public screens: signed-out users may see them (the last two also signed in: emailed links).
+  const PUBLIC = ['/signin', '/setup', '/signup', '/forgot-password', '/reset-password', '/verify-email'];
+  const isPublic = $derived(PUBLIC.includes($route) || !!invite);
 
   // Route guard: signed-out users only see public screens.
   $effect(() => {
@@ -27,7 +32,7 @@
       else navigate(`/signin?next=${encodeURIComponent($route + location.search)}`, true);
     } else if (!app.user && app.setupNeeded && $route === '/signin') {
       navigate('/setup', true);
-    } else if (app.user && ($route === '/signin' || $route === '/setup')) {
+    } else if (app.user && ['/signin', '/setup', '/signup', '/forgot-password'].includes($route)) {
       navigate('/', true);
     }
   });
@@ -37,6 +42,21 @@
     navigate('/signin');
   }
   const here = (p: string) => ($route === p ? 'page' : undefined);
+
+  // Signed in with an address that isn't confirmed yet.
+  const unverified = $derived(!!app.user && app.instance.emailEnabled && !!app.user.email && !app.user.emailVerified);
+  let resending = $state(false);
+  async function resend(): Promise<void> {
+    resending = true;
+    try {
+      await api<unknown>('POST', '/account/email/resend');
+      toast(t('banner.sent'));
+    } catch (x) {
+      toast(failure(x).message);
+    } finally {
+      resending = false;
+    }
+  }
 </script>
 
 <header class="bar">
@@ -63,6 +83,13 @@
   </nav>
 </header>
 
+{#if unverified && app.user}
+  <div class="notice" role="status">
+    <p>{app.instance.hostedMode ? t('banner.unverifiedHosted', { email: app.user.email ?? '' }) : t('banner.unverified', { email: app.user.email ?? '' })}</p>
+    <button type="button" class="btn btn-quiet" disabled={resending} onclick={resend}>{t('banner.resend')}</button>
+  </div>
+{/if}
+
 {#if app.user && app.hhId && !isPublic}
   <nav class="tabs" aria-label={t('nav.primary')}>
     <ul>
@@ -83,6 +110,14 @@
     {#if !app.user}<SignIn />{/if}
   {:else if $route === '/setup'}
     {#if !app.user && app.setupNeeded}<Setup />{:else if !app.user}<NotFound />{/if}
+  {:else if $route === '/signup'}
+    {#if !app.user}<Lazy load={() => import('./screens/Signup.svelte')} />{/if}
+  {:else if $route === '/forgot-password'}
+    {#if !app.user}<Lazy load={() => import('./screens/ForgotPassword.svelte')} />{/if}
+  {:else if $route === '/reset-password'}
+    <Lazy load={() => import('./screens/ResetPassword.svelte')} />
+  {:else if $route === '/verify-email'}
+    <Lazy load={() => import('./screens/VerifyEmail.svelte')} />
   {:else if invite}
     {#key invite}<Invite token={invite} />{/key}
   {:else if app.user}
@@ -114,6 +149,22 @@
 <Toast />
 
 <style>
+  .notice {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px 12px;
+    max-inline-size: 960px;
+    margin-inline: auto;
+    padding-block: 8px;
+    padding-inline: var(--space);
+    background: var(--surface-2);
+    border-block-end: 1px solid var(--border);
+  }
+  .notice p {
+    margin: 0;
+  }
   .bar {
     position: sticky;
     inset-block-start: 0;

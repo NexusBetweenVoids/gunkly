@@ -59,9 +59,10 @@ paths:
                 login: {type: string, description: Username or email}
                 password: {type: string}
                 totp: {type: string}
+                emailCode: {type: string, description: "Code emailed to the user (second factor: email)"}
                 recoveryCode: {type: string}
       responses:
-        "200": {description: Signed in, or twoFactorRequired, content: {application/json: {schema: {$ref: "#/components/schemas/Session"}}}}
+        "200": {description: "Signed in, or twoFactorRequired with method totp or email (for email the code is sent by this call; repeat it without a code to resend)", content: {application/json: {schema: {$ref: "#/components/schemas/Session"}}}}
         "401": {description: invalid_credentials or invalid_code}
         "429": {$ref: "#/components/responses/RateLimited"}
     delete:
@@ -164,10 +165,116 @@ paths:
   /account/totp:
     delete:
       tags: [account]
-      summary: Disable TOTP (step-up required)
+      summary: Disable TOTP (step-up required); refused in hosted mode (two_factor_mandatory)
       responses:
         "204": {description: Disabled}
         "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409": {description: two_factor_mandatory}
+  /account/email-otp:
+    post:
+      tags: [account]
+      summary: Use emailed codes as the second factor instead of TOTP (step-up required, verified email needed); returns new recovery codes once
+      responses:
+        "200": {description: OK, content: {application/json: {schema: {type: object, properties: {recoveryCodes: {type: array, items: {type: string}}}}}}}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409": {description: email_not_verified or email_otp_already_enabled}
+        "429": {$ref: "#/components/responses/RateLimited"}
+    delete:
+      tags: [account]
+      summary: Turn emailed codes off (step-up required); refused in hosted mode (two_factor_mandatory)
+      responses:
+        "204": {description: Disabled}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409": {description: two_factor_mandatory}
+  /account/email/verify:
+    post:
+      tags: [account]
+      summary: Confirm an email address with the token from the emailed link (single use, valid 24 hours). In hosted mode a user without a second factor is enrolled in emailed codes and receives recovery codes once
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [token], properties: {token: {type: string}}}}}}
+      responses:
+        "200": {description: Verified, content: {application/json: {schema: {type: object, properties: {verified: {type: boolean}, recoveryCodes: {type: array, items: {type: string}}}}}}}
+        "400": {description: invalid_token (unknown, used or expired), content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409": {description: email_unavailable}
+        "429": {$ref: "#/components/responses/RateLimited"}
+  /account/email/resend:
+    post:
+      tags: [account]
+      summary: Send the verification link again (to the pending new address, or the current unverified one)
+      responses:
+        "202": {description: Queued}
+        "401": {$ref: "#/components/responses/Unauthenticated"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409": {description: already_verified}
+        "429": {$ref: "#/components/responses/RateLimited"}
+  /account/email:
+    patch:
+      tags: [account]
+      summary: Change the email address (step-up required). A verification link goes to the new address and the old one is notified; the address changes when the link is opened. Answers 202 even if the address belongs to another account
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [email], properties: {email: {type: string}}}}}}
+      responses:
+        "202": {description: Queued}
+        "400": {$ref: "#/components/responses/Invalid"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+  /password-reset/request:
+    post:
+      tags: [session]
+      summary: Email a password reset link (valid 1 hour). Always answers 202, whether or not the account exists
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [login], properties: {login: {type: string, description: Username or email}}}}}}
+      responses:
+        "202": {description: Accepted}
+        "400": {$ref: "#/components/responses/Invalid"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+  /password-reset/confirm:
+    post:
+      tags: [session]
+      summary: Set a new password with a reset token (single use). Signs the account out everywhere
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [token, password], properties: {token: {type: string}, password: {type: string}}}}}}
+      responses:
+        "204": {description: Password changed}
+        "400": {description: invalid_token or a password error, content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+  /instance:
+    get:
+      tags: [setup]
+      summary: What this instance offers (public)
+      responses:
+        "200": {description: OK, content: {application/json: {schema: {type: object, properties: {openSignup: {type: boolean}, emailEnabled: {type: boolean}, hostedMode: {type: boolean}, requirePow: {type: boolean, description: "Sign-up needs a proof of work"}}}}}}
+  /signup/challenge:
+    get:
+      tags: [setup]
+      summary: A proof-of-work challenge for sign-up (ALTCHA-compatible, SHA-256; valid 10 minutes, single use)
+      responses:
+        "200": {description: OK, content: {application/json: {schema: {$ref: "#/components/schemas/PoWChallenge"}}}}
+        "404": {description: Sign-up is closed or needs no proof of work, content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
+        "429": {$ref: "#/components/responses/RateLimited"}
+  /signup:
+    post:
+      tags: [setup]
+      summary: Create an account without an invite (only when open sign-up is on) and sign in. The email is required when the instance sends email and is verified by link
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "#/components/schemas/NewAccount"
+                - type: object
+                  properties:
+                    locale: {type: string}
+                    pow: {$ref: "#/components/schemas/PoWSolution"}
+      responses:
+        "201": {description: Account created and signed in, content: {application/json: {schema: {$ref: "#/components/schemas/Session"}}}}
+        "400": {description: Invalid input, pow_invalid (bad, expired or reused solution) or registration_failed (username or email taken), content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
+        "403": {description: registration_disabled}
+        "429": {$ref: "#/components/responses/RateLimited"}
   /account/audit:
     get:
       tags: [account]
@@ -816,6 +923,7 @@ paths:
               type: object
               properties:
                 openSignup: {type: boolean}
+                requirePow: {type: boolean, description: "Sign-up proof of work (default on in hosted mode)"}
                 inviteRegistration: {type: boolean}
                 minPasswordLength: {type: integer, minimum: 8, maximum: 128}
                 sessionIdleDays: {type: integer, minimum: 1, maximum: 365, description: "Sign out after this many days without use (default 30); must not exceed sessionMaxDays"}
@@ -872,6 +980,7 @@ components:
       properties:
         authenticated: {type: boolean}
         twoFactorRequired: {type: boolean}
+        method: {type: string, enum: [totp, email], description: "Second factor asked for when twoFactorRequired"}
         user: {$ref: "#/components/schemas/Me"}
         csrf: {type: string}
     Me:
@@ -885,6 +994,25 @@ components:
         weekStart: {type: integer, nullable: true}
         isAdmin: {type: boolean}
         totpEnabled: {type: boolean}
+        emailVerified: {type: boolean}
+        emailOtpEnabled: {type: boolean}
+        twoFactor: {type: string, enum: ["", totp, email]}
+    PoWChallenge:
+      type: object
+      properties:
+        algorithm: {type: string, enum: [SHA-256]}
+        challenge: {type: string, description: "hex SHA-256 of salt followed by the secret number"}
+        salt: {type: string, description: "Random; carries the expiry (?expires=unix&)"}
+        maxnumber: {type: integer}
+        signature: {type: string, description: "hex HMAC-SHA-256 of the challenge"}
+    PoWSolution:
+      type: object
+      properties:
+        algorithm: {type: string}
+        challenge: {type: string}
+        salt: {type: string}
+        signature: {type: string}
+        number: {type: integer, description: "The number n with SHA-256(salt + n) = challenge"}
     Device:
       type: object
       properties:
@@ -1004,6 +1132,7 @@ components:
       type: object
       properties:
         openSignup: {type: boolean}
+        requirePow: {type: boolean}
         inviteRegistration: {type: boolean}
         minPasswordLength: {type: integer}
         sessionIdleDays: {type: integer}

@@ -24,7 +24,7 @@ Commands:
   backup [path|-]             write a consistent SQLite snapshot to path (default inside the
                               data directory) or to stdout with -
   admin reset-password <user> set a new random password (printed once), sign out everywhere
-  admin reset-2fa <user>      remove the user's TOTP secret and recovery codes
+  admin reset-2fa <user>      remove the user's TOTP secret, email-code 2FA and recovery codes
   rotate-key                  re-encrypt stored secrets with the current secret key
   version                     print the version
 `

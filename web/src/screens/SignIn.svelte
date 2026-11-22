@@ -8,7 +8,8 @@
   import { failure } from '../lib/errors';
   import { t } from '../lib/i18n';
   import { navigate } from '../lib/router';
-  import { adopt } from '../lib/session.svelte';
+  import { adopt, app } from '../lib/session.svelte';
+  import { toast } from '../lib/toast.svelte';
   import type { SessionView } from '../lib/types';
 
   const next = safeNext(new URLSearchParams(location.search).get('next'));
@@ -17,19 +18,23 @@
   let code = $state('');
   let recovery = $state(false);
   let needSecond = $state(false);
+  let method = $state<'totp' | 'email'>('totp');
   let busy = $state(false);
   let err = $state({ code: '', message: '' });
 
-  async function submit(e: SubmitEvent): Promise<void> {
-    e.preventDefault();
+  async function submit(e?: SubmitEvent, resend = false): Promise<void> {
+    e?.preventDefault();
     busy = true;
     err = { code: '', message: '' };
     try {
       const body: Record<string, string> = { login, password };
-      if (needSecond) body[recovery ? 'recoveryCode' : 'totp'] = code.trim();
+      // Posting the password again without a code makes the server email a new one.
+      if (needSecond && !resend) body[recovery ? 'recoveryCode' : method === 'email' ? 'emailCode' : 'totp'] = code.trim();
       const s = await api<SessionView>('POST', '/session', body);
       if (s.twoFactorRequired) {
         needSecond = true;
+        method = s.method ?? 'totp';
+        if (resend) toast(t('twofa.resent'));
       } else {
         await adopt(s);
         password = '';
@@ -47,8 +52,14 @@
   <h1>{t('signIn.title')}</h1>
   <form class="stack" onsubmit={submit}>
     {#if needSecond}
-      <p class="muted">{t('signIn.twoFactor')}</p>
-      <SecondFactor bind:code bind:recovery error={err.code === 'invalid_code' ? err.message : ''} />
+      <p class="muted">{method === 'email' && !recovery ? t('signIn.emailCodeSent') : t('signIn.twoFactor')}</p>
+      <SecondFactor
+        bind:code
+        bind:recovery
+        {method}
+        onresend={() => submit(undefined, true)}
+        error={err.code === 'invalid_code' ? err.message : ''}
+      />
     {:else}
       <Field
         label={t('signIn.username')}
@@ -80,4 +91,10 @@
       >
     {/if}
   </form>
+  {#if !needSecond}
+    <div class="row">
+      {#if app.instance.emailEnabled}<a href="/forgot-password">{t('signIn.forgot')}</a>{/if}
+      {#if app.instance.openSignup}<a href="/signup">{t('signIn.createAccount')}</a>{/if}
+    </div>
+  {/if}
 </section>

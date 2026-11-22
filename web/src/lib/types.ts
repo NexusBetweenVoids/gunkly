@@ -9,8 +9,17 @@ export type Me = {
   weekStart: number | null;
   isAdmin: boolean;
   totpEnabled: boolean;
+  emailVerified: boolean;
+  emailOtpEnabled: boolean;
+  twoFactor: '' | 'totp' | 'email';
 };
-export type SessionView = { authenticated: boolean; twoFactorRequired?: boolean; user?: Me };
+export type SessionView = {
+  authenticated: boolean;
+  twoFactorRequired?: boolean;
+  method?: 'totp' | 'email';
+  user?: Me;
+};
+export type Instance = { openSignup: boolean; emailEnabled: boolean; hostedMode: boolean; requirePow: boolean };
 export type Household = {
   id: string;
   name: string;

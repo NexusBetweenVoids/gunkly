@@ -10,6 +10,7 @@
 
   type S = {
     openSignup: boolean;
+    requirePow: boolean;
     inviteRegistration: boolean;
     minPasswordLength: number;
     sessionIdleDays: number;
@@ -94,6 +95,7 @@
         await withStepUp(() =>
           api<S>('PATCH', '/admin/settings', {
             openSignup: s!.openSignup,
+            requirePow: s!.requirePow,
             inviteRegistration: s!.inviteRegistration,
             minPasswordLength: Number(minLen),
             sessionIdleDays: Number(idleDays),
@@ -121,6 +123,7 @@
   {#if s}
     <form class="stack" onsubmit={save}>
       <label class="check"><input type="checkbox" bind:checked={s.openSignup} />{t('admin.openSignup')}</label>
+      <label class="check"><input type="checkbox" bind:checked={s.requirePow} />{t('admin.requirePow')}</label>
       <label class="check"><input type="checkbox" bind:checked={s.inviteRegistration} />{t('admin.inviteRegistration')}</label>
       <Field label={t('admin.minPassword')} type="number" bind:value={minLen} min="8" max="128" required />
       <h3>{t('admin.sessions')}</h3>

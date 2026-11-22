@@ -102,6 +102,9 @@ func TestErrors(t *testing.T) {
 		"bad port":         {"GUNKLY_SMTP_PORT": "70000"},
 		"bad tls":          {"GUNKLY_SMTP_TLS": "ssl3"},
 		"email no smtp":    {"GUNKLY_EMAIL_ENABLED": "true"},
+		"email no base":    {"GUNKLY_EMAIL_ENABLED": "true", "GUNKLY_SMTP_HOST": "h", "GUNKLY_SMTP_FROM": "a@example.com"},
+		"bad from":         {"GUNKLY_EMAIL_ENABLED": "true", "GUNKLY_SMTP_HOST": "h", "GUNKLY_SMTP_FROM": "not an address", "GUNKLY_BASE_URL": "https://x.example"},
+		"bad pow":          {"GUNKLY_SIGNUP_POW_MAX": "5"},
 		"hosted no email":  {"GUNKLY_HOSTED_MODE": "true", "GUNKLY_BASE_URL": "https://x.example"},
 		"hosted http base": {"GUNKLY_HOSTED_MODE": "true", "GUNKLY_EMAIL_ENABLED": "true", "GUNKLY_SMTP_HOST": "h", "GUNKLY_SMTP_FROM": "f", "GUNKLY_BASE_URL": "http://x.example"},
 	}
