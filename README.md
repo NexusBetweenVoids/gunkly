@@ -73,27 +73,43 @@ All screenshots show synthetic demo data.
 
 ## Quick start
 
-Needs Docker with Compose. The compose files pull `ghcr.io/nexusbetweenvoids/gunkly`; until a release is published, add `--build` to build it from this checkout. See [docs/getting-started.md](docs/getting-started.md) for a first-run walkthrough.
+Needs Docker with Compose. No checkout needed: make an empty folder, save this as `compose.yml`, and replace the two placeholder values.
+
+```yaml
+services:
+  gunkly:
+    image: ghcr.io/nexusbetweenvoids/gunkly:0.1   # pin a version; see Releases
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      # Generate with: openssl rand -base64 32   (keep it safe and backed up)
+      GUNKLY_SECRET_KEYS: "1:REPLACE_WITH_GENERATED_KEY"
+      # The address you open Gunkly at (scheme://host[:port], no path)
+      GUNKLY_BASE_URL: "http://localhost:8080"
+    volumes:
+      - gunkly-data:/data
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    stop_grace_period: 40s   # Gunkly drains for up to 30 s on shutdown
+
+volumes:
+  gunkly-data:
+```
 
 ```sh
-cp .env.example .env
-# Generate an encryption key and put it in .env as GUNKLY_SECRET_KEYS=1:<key>
-echo "GUNKLY_SECRET_KEYS=1:$(openssl rand -base64 32)"
-# Set GUNKLY_BASE_URL to the address you will open Gunkly at (scheme://host[:port], no path).
-
-# SQLite (one container)
-docker compose -f compose.sqlite.yml up -d
+docker compose up -d
+docker compose logs gunkly | grep setup_code   # one-time code to create the admin account
 ```
+
+Open http://localhost:8080, enter the setup code and create your admin account. That's it — no email server needed; see [docs/getting-started.md](docs/getting-started.md) for the next steps. Every other setting is optional and listed in [`.env.example`](.env.example); add them under `environment:`.
+
+Prefer working from a checkout? `compose.sqlite.yml` and `compose.postgres.yml` in this repo do the same with an `.env` file (`cp .env.example .env`).
 
 Keep `GUNKLY_SECRET_KEYS` safe and backed up: it protects stored two-factor secrets and notification URLs, and Gunkly refuses to start without it.
 
-On first start Gunkly logs a one-time setup code (the `setup_code` field of a `FIRST-RUN SETUP` line). Find it, then open the app (port 8080) and enter it to create the admin account:
-
-```sh
-docker compose -f compose.sqlite.yml logs gunkly | grep setup_code
-```
-
-The code only works until the first account exists; if you miss it, restart the container for a new one. Put a TLS-terminating reverse proxy in front for anything beyond localhost (Web Push and installing the PWA need HTTPS) and list its address in `GUNKLY_TRUSTED_PROXIES`.
+The setup code only works until the first account exists; if you miss it, restart the container for a new one. Put a TLS-terminating reverse proxy in front for anything beyond localhost (Web Push and installing the PWA need HTTPS) and list its address in `GUNKLY_TRUSTED_PROXIES`.
 
 ### Postgres
 

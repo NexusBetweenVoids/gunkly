@@ -1,0 +1,59 @@
+name: Copy release to Docker Hub
+
+# Copies an already-published release image from ghcr.io to Docker Hub (same
+# digest, multi-arch) and signs it there. New releases are pushed to Docker Hub
+# by release.yml directly; use this for releases made before the Docker Hub
+# secrets (DOCKERHUB_USERNAME, DOCKERHUB_TOKEN) existed.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to copy (e.g. v0.1.0)
+        required: true
+      latest:
+        description: Also tag it as latest
+        type: boolean
+        default: true
+
+permissions: {}
+
+jobs:
+  copy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+      id-token: write # cosign keyless signing
+    env:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      TAG: ${{ inputs.tag }}
+    steps:
+      - name: Check inputs and secrets
+        run: |
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]] || { echo "::error::tag must look like vX.Y.Z"; exit 1; }
+          [ -n "$DOCKERHUB_USERNAME" ] || { echo "::error::set the DOCKERHUB_USERNAME and DOCKERHUB_TOKEN secrets first"; exit 1; }
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
+      - name: Copy and sign
+        env:
+          LATEST: ${{ inputs.latest }}
+        run: |
+          set -eu
+          src="ghcr.io/nexusbetweenvoids/gunkly:${TAG#v}"
+          dst="docker.io/${DOCKERHUB_USERNAME}/gunkly"
+          v="${TAG#v}"
+          tags=(-t "$dst:$v" -t "$dst:${v%.*}")
+          if [ "$LATEST" = "true" ]; then tags+=(-t "$dst:latest"); fi
+          docker buildx imagetools create "${tags[@]}" "$src"
+          digest=$(docker buildx imagetools inspect "$dst:$v" --format '{{json .Manifest}}' | jq -r .digest)
+          cosign sign --yes "$dst@$digest"
+          echo "Copied $src to $dst ($digest)"
