@@ -1,6 +1,9 @@
 package i18n
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestT(t *testing.T) {
 	for _, c := range []struct{ locale, key, want string }{
@@ -32,6 +35,19 @@ func TestCatalogsComplete(t *testing.T) {
 		for k := range m {
 			if _, ok := catalogs[Default][k]; !ok {
 				t.Errorf("%s: unknown key %s", l, k)
+			}
+		}
+	}
+}
+
+// Emails are sent from the instance's own domain, so they must never carry
+// text another person can choose (a display name typed at sign-up could
+// otherwise put an attacker's message into a genuine verification email).
+func TestMailTemplatesCarryNoUserChosenText(t *testing.T) {
+	for locale, msgs := range catalogs {
+		for key, msg := range msgs {
+			if strings.HasPrefix(key, "mail.") && (strings.Contains(msg, "{name}") || strings.Contains(msg, "{household}")) {
+				t.Errorf("%s %s: user-chosen text in an email", locale, key)
 			}
 		}
 	}
