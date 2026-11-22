@@ -4,6 +4,8 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-11-22
+
 ### Added
 
 - Two-factor setup shows a QR code (with the Gunkly mark in the middle) to scan with an authenticator app; the secret, now grouped in fours, and the otpauth link stay available to copy. The encoder is small and dependency-free.
