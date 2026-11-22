@@ -184,9 +184,18 @@ func (s *Server) csrfError(r *http.Request) error {
 	}
 	if now := time.Now().Unix(); s.baseURLWarned.Swap(now) < now-60 {
 		s.log.Warn("request from an address that does not match GUNKLY_BASE_URL; set GUNKLY_BASE_URL to the exact address you open Gunkly at",
-			"opened_at", used, "base_url", s.baseURL)
+			"opened_at", logSafe(used), "base_url", s.baseURL)
 	}
 	return errBaseURL
+}
+
+// logSafe renders a client-supplied value for logs: ASCII-quoted (control
+// characters escaped) and capped, so it can never forge or flood log lines.
+func logSafe(v string) string {
+	if len(v) > 200 {
+		v = v[:200]
+	}
+	return strconv.QuoteToASCII(v)
 }
 
 // requestOK is the CSRF gate for unsafe methods. Session routes need the
