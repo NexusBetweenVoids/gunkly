@@ -12,7 +12,7 @@
   import Select from './Select.svelte';
 
   // `base` is /account/channels or /households/{id}/channels.
-  let { base, title, id: sid }: { base: `/${string}`; title: string; id: string } = $props();
+  let { base, title, id: sid, intro = '', bare = false }: { base: `/${string}`; title: string; id: string; intro?: string; bare?: boolean } = $props();
   let items = $state<Channel[]>([]);
   let err = $state('');
   let result = $state('');
@@ -93,8 +93,9 @@
   }
 </script>
 
-<section class="card" aria-labelledby="ch-{sid}">
+<section class:card={!bare} aria-labelledby="ch-{sid}">
   <h2 id="ch-{sid}">{title}</h2>
+  {#if intro}<p class="muted">{intro}</p>{/if}
   <p class="hint">{t('channels.privacy')}</p>
   <div aria-live="polite">
     <Alert message={editing ? '' : err} />

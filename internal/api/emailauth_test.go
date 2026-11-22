@@ -732,3 +732,46 @@ func TestEmailRoutesRequireCSRF(t *testing.T) {
 		}
 	}
 }
+
+func TestEmailReminderToggle(t *testing.T) {
+	e := newMailEnv(t)
+	e.user("ann", false)
+	c := e.signedIn("ann")
+	// Needs a verified address.
+	st, v := c.do("PATCH", "/api/v1/me", map[string]any{"emailReminders": true})
+	expect(t, st, v, 400, "invalid")
+	e.verified("ann")
+	st, v = c.do("PATCH", "/api/v1/me", map[string]any{"emailReminders": true})
+	if st != 200 || field(v, "emailReminders") != true {
+		t.Fatalf("on: %d %v", st, v)
+	}
+	if _, v = c.do("GET", "/api/v1/me", nil); field(v, "emailReminders") != true {
+		t.Fatalf("me: %v", v)
+	}
+	// Changing the address switches it off.
+	e.stepUp(c, "ann")
+	c.do("PATCH", "/api/v1/account/email", map[string]string{"email": "new@example.com"})
+	var msg mail.Message
+	for _, m := range e.mails() {
+		if m.To == "new@example.com" {
+			msg = m
+		}
+	}
+	st, v = c.do("POST", "/api/v1/account/email/verify", map[string]string{"token": tokenIn(t, msg)})
+	expect(t, st, v, 200, "")
+	if _, v = c.do("GET", "/api/v1/me", nil); field(v, "emailReminders") != false {
+		t.Fatalf("still on after the address changed: %v", v)
+	}
+	st, v = c.do("PATCH", "/api/v1/me", map[string]any{"emailReminders": false})
+	if st != 200 || field(v, "emailReminders") != false {
+		t.Fatalf("off: %d %v", st, v)
+	}
+}
+
+func TestEmailReminderToggleNeedsEmailOnInstance(t *testing.T) {
+	e := newEnv(t)
+	e.user("ann", false)
+	c := e.signedIn("ann")
+	st, v := c.do("PATCH", "/api/v1/me", map[string]any{"emailReminders": true})
+	expect(t, st, v, 400, "invalid")
+}

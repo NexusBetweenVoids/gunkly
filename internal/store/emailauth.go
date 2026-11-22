@@ -109,7 +109,7 @@ func (s *Store) VerifyEmail(ctx context.Context, tokenHash string, autoEmailOTP 
 			return err
 		}
 		if newEmail != "" {
-			_, err = t.exec(ctx, "UPDATE users SET email = ?, email_lower = ?, email_verified = TRUE WHERE id = ?",
+			_, err = t.exec(ctx, "UPDATE users SET email = ?, email_lower = ?, email_verified = TRUE, email_reminders = FALSE WHERE id = ?",
 				newEmail, normLogin(newEmail), id)
 			if err = conflict(err); err != nil {
 				return err

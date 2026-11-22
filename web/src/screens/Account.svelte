@@ -5,6 +5,7 @@
   import { t } from '../lib/i18n';
   import Audit from './account/Audit.svelte';
   import Email from './account/Email.svelte';
+  import EmailReminders from './account/EmailReminders.svelte';
   import EmailCodes from './account/EmailCodes.svelte';
   import Password from './account/Password.svelte';
   import PushNotifications from './account/PushNotifications.svelte';
@@ -20,8 +21,13 @@
   <Password />
   <Totp />
   <EmailCodes />
-  <Channels base="/account/channels" title={t('channels.personalTitle')} id="me" />
   <PushNotifications />
+  <EmailReminders />
+  <details class="card advanced">
+    <summary>{t('channels.advancedTitle')}</summary>
+    <p class="hint">{t('channels.advancedHint')}</p>
+    <Channels base="/account/channels" title={t('channels.personalTitle')} id="me" bare />
+  </details>
   <Deliveries path="/account/deliveries" title={t('delivery.personalTitle')} id="me" />
   <Sessions />
   <Lazy load={() => import('./account/Integrations.svelte')} />

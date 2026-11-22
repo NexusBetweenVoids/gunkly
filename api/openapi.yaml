@@ -143,6 +143,7 @@ paths:
                 displayName: {type: string}
                 locale: {type: string, description: "BCP 47 tag; empty follows the browser"}
                 weekStart: {type: integer, nullable: true, minimum: 0, maximum: 6, description: "0 = Sunday; null = language default"}
+                emailReminders: {type: boolean, description: "Send reminders by email; needs email on the instance and a verified address (else 400). Cleared when the address changes."}
       responses:
         "200": {description: OK, content: {application/json: {schema: {$ref: "#/components/schemas/Me"}}}}
         "400": {$ref: "#/components/responses/Invalid"}
@@ -1381,6 +1382,7 @@ components:
         emailVerified: {type: boolean}
         emailOtpEnabled: {type: boolean}
         twoFactor: {type: string, enum: ["", totp, email]}
+        emailReminders: {type: boolean, description: "Reminders are sent by email to the verified address"}
     PoWChallenge:
       type: object
       properties:

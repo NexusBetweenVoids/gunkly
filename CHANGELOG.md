@@ -11,8 +11,14 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 - README section "Behind a reverse proxy" with Caddy, nginx, Traefik and Nginx Proxy Manager examples.
 - Updates page: "Check now" button (`POST /api/v1/admin/updates/check`) and a "Checking for updates…" state. `GET /api/v1/admin/updates` gains `checking` and `ahead`.
 
+- Email as a reminder channel: where the server sends email, Account, Notifications has an "Email me reminders" switch (needs a confirmed address; turned off when the address changes). `PATCH /api/v1/me` accepts `emailReminders`; `GET /api/v1/me` returns it. Reminders by email carry the same text and mark-done link, and follow the same recipients, mutes, quiet hours, quotas and delivery log as other channels.
+- Home offers reminders on this device in one tap ("Get reminders on this device?", with "Not now" remembered per device) to people with no other personal reminder route; guests and browsers without push never see it. On iPhone and iPad, Account explains the Add to Home Screen steps.
+- Household settings explain what a household channel (for example a family Telegram or Discord group) does.
+
 ### Changed
 
+- New households default to the "Gentle" reminder preset (it was none). Existing households are unchanged.
+- Account, Notifications is reordered for non-technical members: "This device" first with a clear on/off, then "Email me reminders", then "Messaging apps (advanced)", collapsed by default.
 - The client address is also read from the standard `Forwarded` header (RFC 7239), only from trusted proxies and with the same right-to-left walk as `X-Forwarded-For`; `Forwarded` wins when both are present, and an obfuscated, `unknown` or malformed hop ends the walk at the last trusted hop.
 - Creating another household moved out of the header and menu into Settings (Households section); the header shows the household name as plain text when you belong to one household and a switcher only with two or more. With no household, Home shows a prominent "Create your first household" button.
 

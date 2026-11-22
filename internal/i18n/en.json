@@ -4,6 +4,7 @@
   "notify.on": "{chore} is due today.",
   "notify.overdue": "{chore} is overdue (was due on {date}).",
   "notify.mark_done": "Mark as done: {url}",
+  "notify.email_footer": "You get this email because reminders by email are on in your Gunkly account (Account, Notifications). You can turn them off there.",
   "area.kitchen": "Kitchen",
   "area.bathroom": "Bathroom",
   "area.garden": "Garden",

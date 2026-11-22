@@ -229,7 +229,7 @@
     {#if hh.role !== 'guest' && hh.areasEnabled}<Areas {id} owner={isOwner} />{/if}
     <Feeds {id} />
     {#if hh.role !== 'guest'}
-      <Channels base="/households/{id}/channels" title={t('channels.householdTitle')} id="hh" />
+      <Channels base="/households/{id}/channels" title={t('channels.householdTitle')} intro={t('channels.householdIntro')} id="hh" />
       <Deliveries path="/households/{id}/deliveries" title={t('delivery.householdTitle')} id="hh" />
     {/if}
     {#if isOwner}<Invites {id} />{/if}

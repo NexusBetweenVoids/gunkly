@@ -22,7 +22,9 @@ import (
 
 	"github.com/NexusBetweenVoids/gunkly/internal/auth"
 	"github.com/NexusBetweenVoids/gunkly/internal/db"
+	"github.com/NexusBetweenVoids/gunkly/internal/i18n"
 	"github.com/NexusBetweenVoids/gunkly/internal/limits"
+	"github.com/NexusBetweenVoids/gunkly/internal/mail"
 	"github.com/NexusBetweenVoids/gunkly/internal/notify"
 	"github.com/NexusBetweenVoids/gunkly/internal/schedule"
 	"github.com/NexusBetweenVoids/gunkly/internal/store"
@@ -337,13 +339,19 @@ func (w *Worker) enqueueChore(ctx context.Context, c store.ReminderChore, from, 
 			keyAt = release
 		}
 		for _, tg := range targets {
+			if tg.Email && w.cfg.Mailer == nil {
+				continue // this instance sends no email
+			}
 			target := tg.ChannelID
-			if tg.PushID != "" {
+			switch {
+			case tg.PushID != "":
 				target = "push:" + tg.PushID // a subscription is a target like a channel
+			case tg.Email:
+				target = "email" // with the user ID in the key: the user's own address
 			}
 			ds = append(ds, store.NewDelivery{
 				Key:         DeliveryKey(c.ID, c.DueDate, f.Kind, keyAt, deferred, target, tg.UserID),
-				HouseholdID: c.HouseholdID, ChoreID: c.ID, UserID: tg.UserID, ChannelID: tg.ChannelID, PushID: tg.PushID,
+				HouseholdID: c.HouseholdID, ChoreID: c.ID, UserID: tg.UserID, ChannelID: tg.ChannelID, PushID: tg.PushID, ViaEmail: tg.Email,
 				Kind: f.Kind, DueDate: c.DueDate, FireAt: f.At, NextAttemptAt: release, Coalesce: deferred,
 			})
 		}
@@ -432,7 +440,8 @@ func Backoff(attempt int) time.Duration {
 func (w *Worker) deliver(ctx context.Context, d store.ClaimedDelivery, enabled map[string]bool) {
 	st := w.cfg.Store
 	log := w.log.With("delivery", d.ID)
-	if d.ChoreID == "" || !d.ChoreActive || d.ChoreDueDate != d.DueDate || !d.RecipientOK || (d.Service == "" && d.PushEndpoint == "") {
+	if d.ChoreID == "" || !d.ChoreActive || d.ChoreDueDate != d.DueDate || !d.RecipientOK ||
+		(d.Service == "" && d.PushEndpoint == "" && !d.ViaEmail) || (d.ViaEmail && d.EmailTo == "") {
 		if err := st.DropDelivery(ctx, d.ID); err != nil {
 			log.Error("scheduler: drop delivery", "err", err)
 		}
@@ -449,6 +458,10 @@ func (w *Worker) deliver(ctx context.Context, d store.ClaimedDelivery, enabled m
 	}
 	if d.PushEndpoint != "" {
 		w.deliverPush(ctx, d, fail)
+		return
+	}
+	if d.ViaEmail {
+		w.deliverEmail(ctx, d, fail)
 		return
 	}
 	if !enabled[d.Service] {
@@ -504,6 +517,73 @@ func (w *Worker) deliver(ctx context.Context, d store.ClaimedDelivery, enabled m
 func (w *Worker) observe(kind string, ok bool) {
 	if w.cfg.OnDelivery != nil {
 		w.cfg.OnDelivery(kind, ok)
+	}
+}
+
+// emailKind is the delivery-log and metrics kind of an email reminder.
+const emailKind = "email"
+
+// deliverEmail sends a reminder to the user's own verified address with the
+// same text and mark-done link as a messaging channel. It respects the
+// instance-wide hourly email cap (limits.EmailsGlobalHour): over it the
+// delivery is retried later like any failed send.
+func (w *Worker) deliverEmail(ctx context.Context, d store.ClaimedDelivery, fail func(string, bool)) {
+	st := w.cfg.Store
+	log := w.log.With("delivery", d.ID)
+	if w.cfg.Mailer == nil {
+		fail("email not configured", false)
+		return
+	}
+	due, err := schedule.ParseDate(d.DueDate)
+	if err != nil {
+		fail("invalid due date", false)
+		return
+	}
+	now := w.cfg.Now()
+	capPerHour := limits.Defaults[limits.EmailsGlobalHour]
+	if w.cfg.Limits != nil {
+		if m, err := w.cfg.Limits.Limit(ctx, limits.EmailsGlobalHour, ""); err == nil {
+			capPerHour = m
+		}
+	}
+	if capPerHour > 0 {
+		n, err := st.EmailDeliveriesSince(ctx, now.Add(-time.Hour))
+		if err != nil {
+			log.Error("scheduler: count emails", "err", err)
+			fail("internal error", true)
+			return
+		}
+		if n >= capPerHour {
+			fail("email rate limit", true)
+			return
+		}
+	}
+	var token string
+	if w.cfg.BaseURL != "" {
+		l := store.MarkDoneLink{ChoreID: d.ChoreID, OccurrenceDue: d.ChoreNextDue, IssuedAt: now, ExpiresAt: now.Add(store.MarkDoneMaxTTL), UserID: d.UserID}
+		if token, err = st.CreateMarkDone(ctx, l); err != nil {
+			log.Warn("scheduler: no mark-done link", "err", err)
+			token = ""
+		}
+	}
+	msg := notify.Render(notify.Reminder{Locale: d.Locale, ChoreName: d.ChoreName, Kind: d.Kind, Due: due,
+		MarkDoneURL: notify.MarkDoneURL(w.cfg.BaseURL, token)})
+	sctx, cancel := context.WithTimeout(ctx, sendTimeout)
+	err = w.cfg.Mailer.Send(sctx, mail.Message{To: d.EmailTo, Subject: msg.Title,
+		Body: msg.Body + "\n\n" + i18n.T(d.Locale, "notify.email_footer", nil)})
+	cancel()
+	if err != nil {
+		if token != "" {
+			_ = st.RevokeMarkDone(ctx, token)
+		}
+		log.Warn("scheduler: email failed", "attempt", d.Attempts+1, "err", err)
+		w.observe(emailKind, false)
+		fail("email send failed", true) // the SMTP error may carry the address
+		return
+	}
+	w.observe(emailKind, true)
+	if err := st.MarkDeliverySent(ctx, d.ID, w.cfg.Now()); err != nil {
+		log.Error("scheduler: mark sent", "err", err)
 	}
 }
 

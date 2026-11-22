@@ -192,5 +192,11 @@
   "err.owner_required": "Choose a new owner first.",
   "err.last_admin": "You are the only instance admin, so this account cannot be deleted.",
   "err.confirmation_mismatch": "That is not your username.",
-  "err.household_would_be_deleted": "You are the last member: leaving would delete this household. Invite someone first, or delete your account."
+  "err.household_would_be_deleted": "You are the last member: leaving would delete this household. Invite someone first, or delete your account.",
+  "push.failed": "Could not turn on notifications in this browser.",
+  "home.push.title": "Get reminders on this device?",
+  "home.push.body": "Gunkly can nudge you when a chore is due. Nothing is sent until you allow it.",
+  "home.push.turnOn": "Turn on",
+  "home.push.notNow": "Not now",
+  "home.push.on": "Reminders are on for this device."
 }

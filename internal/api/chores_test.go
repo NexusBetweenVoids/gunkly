@@ -650,11 +650,19 @@ func TestReminders(t *testing.T) {
 	if st != 200 || str(v, "preset") != "nag" || len(list(t, field(v, "reminders"))) != 3 {
 		t.Fatalf("nag: %d %v", st, v)
 	}
-	// Household default applies to chores without a preset.
+	// A new household defaults to "gentle"; it applies to chores without a preset.
 	id2 := f.mk(t, f.a, intervalBody("Floors", "2026-11-21"))
 	st, v = f.a.do("GET", f.chore(id2)+"/reminders", nil)
-	if st != 200 || str(v, "effectivePreset") != "" || len(list(t, field(v, "reminders"))) != 0 {
-		t.Fatalf("no default: %d %v", st, v)
+	if st != 200 || str(v, "effectivePreset") != "gentle" || len(list(t, field(v, "reminders"))) != 1 {
+		t.Fatalf("new household default: %d %v", st, v)
+	}
+	st, v = f.a.do("PATCH", f.base(), map[string]string{"defaultReminderPreset": "none"})
+	if st != 200 {
+		t.Fatalf("none: %d %v", st, v)
+	}
+	_, v = f.a.do("GET", f.chore(id2)+"/reminders", nil)
+	if str(v, "effectivePreset") != "none" || len(list(t, field(v, "reminders"))) != 0 {
+		t.Fatalf("none default: %v", v)
 	}
 	st, v = f.m.do("PATCH", f.base(), map[string]string{"defaultReminderPreset": "gentle"})
 	expect(t, st, v, 403, "forbidden")

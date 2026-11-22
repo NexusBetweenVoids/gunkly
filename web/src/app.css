@@ -243,6 +243,17 @@ input[aria-invalid="true"] {
   gap: 10px;
   min-block-size: var(--tap);
 }
+.advanced > summary {
+  cursor: pointer;
+  min-block-size: var(--tap);
+  display: flex;
+  align-items: center;
+  font-weight: 600;
+  font-size: 1.125rem;
+}
+.advanced[open] > summary {
+  margin-block-end: 8px;
+}
 .check input {
   inline-size: 22px;
   block-size: 22px;

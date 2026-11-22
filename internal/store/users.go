@@ -24,6 +24,7 @@ type User struct {
 	TOTPEnabled     bool
 	EmailVerified   bool
 	EmailOTPEnabled bool // email codes as the second factor (exclusive with TOTP)
+	EmailReminders  bool // reminders by email to the verified address
 	CreatedAt       time.Time
 	LastActiveAt    time.Time
 }
@@ -76,14 +77,14 @@ func (t *tx) insertUser(ctx context.Context, in NewUser, now int64) (User, error
 }
 
 const userCols = `id, COALESCE(email, ''), username, display_name, password_hash, locale, week_start, is_admin,
-	COALESCE(totp_secret_ciphertext, ''), totp_enabled, email_verified, email_otp_enabled, created_at, last_active_at`
+	COALESCE(totp_secret_ciphertext, ''), totp_enabled, email_verified, email_otp_enabled, email_reminders, created_at, last_active_at`
 
 func scanUser(row interface{ Scan(...any) error }) (User, error) {
 	var u User
 	var ws sql.NullInt64
 	var created, active int64
 	err := row.Scan(&u.ID, &u.Email, &u.Username, &u.DisplayName, &u.PasswordHash, &u.Locale, &ws, &u.IsAdmin,
-		&u.TOTPSecret, &u.TOTPEnabled, &u.EmailVerified, &u.EmailOTPEnabled, &created, &active)
+		&u.TOTPSecret, &u.TOTPEnabled, &u.EmailVerified, &u.EmailOTPEnabled, &u.EmailReminders, &created, &active)
 	if err != nil {
 		return User{}, notFound(err)
 	}
