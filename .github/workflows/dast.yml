@@ -82,6 +82,12 @@ jobs:
       - name: Let ZAP write its reports
         run: chmod a+w "$GITHUB_WORKSPACE"
       - name: ZAP baseline scan
+        # Send the signed-in session with every request so authenticated pages
+        # are spidered (ZAP's built-in auth header support).
+        env:
+          ZAP_AUTH_HEADER: Cookie
+          ZAP_AUTH_HEADER_VALUE: ${{ env.ZAP_COOKIE }}
+          ZAP_AUTH_HEADER_SITE: localhost
         uses: zaproxy/action-baseline@de8ad967d3548d44ef623df22cf95c3b0baf8b25 # v0.15.0
         with:
           target: http://localhost:8080
@@ -89,14 +95,6 @@ jobs:
           fail_action: false
           allow_issue_writing: false
           artifact_name: zap-report
-          # Send the signed-in session with every request so authenticated pages are spidered.
-          cmd_options: >-
-            -z "-config replacer.full_list(0).description=session
-            -config replacer.full_list(0).enabled=true
-            -config replacer.full_list(0).matchtype=REQ_HEADER
-            -config replacer.full_list(0).matchstr=Cookie
-            -config replacer.full_list(0).regex=false
-            -config replacer.full_list(0).replacement=${{ env.ZAP_COOKIE }}"
       - name: Fail on High alerts
         run: |
           high=$(jq '[.site[].alerts[] | select(.riskcode == "3")] | length' report_json.json)
