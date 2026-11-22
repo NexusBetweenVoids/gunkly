@@ -4,6 +4,13 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ## [Unreleased]
 
+### Added
+
+- OAuth 2.1 sign-in for MCP clients (ADR 0016), so ChatGPT custom connectors and Claude's "Add custom connector" connect by address and "sign in with Gunkly". Optional and off by default: the new instance setting `oauthEnabled` (`GET/PATCH /api/v1/admin/settings`, Administration, Instance settings) turns it on and needs `GUNKLY_BASE_URL` to be https (or http://localhost for development), otherwise `400 oauth_requires_https`. While it is off, every OAuth endpoint and metadata document answers 404, nothing is advertised and `/mcp` keeps its plain `Bearer` challenge.
+- When on: RFC 9728 and RFC 8414 metadata (`/.well-known/oauth-protected-resource`, `/.well-known/oauth-authorization-server`), dynamic client registration for public clients (`POST /oauth/register`; https or loopback redirect URIs, exact match, capped and rate limited, unused clients purged after 24 hours), a server-rendered consent page (`/oauth/authorize`, no scripts, PKCE S256 required, RFC 8707 `resource`, apps labelled unverified) where the user picks households and actions, `POST /oauth/token` (authorization code and rotating refresh tokens; reuse revokes the grant) and `POST /oauth/revoke` (RFC 7009). Access tokens (`gko_`, one hour) work on `/mcp` only, with the scopes, household binding, live roles and rate limits of API tokens; completions are recorded as `api_token` with the grant id.
+- Account, Integrations lists **Connected apps** with Disconnect (`GET /api/v1/account/oauth-grants`, `DELETE /api/v1/account/oauth-grants/{id}`); the assistant guide gains ChatGPT and Claude (connector). Password changes and second-factor removal disconnect all apps; audit events `oauth_grant`, `oauth_token_reuse`, `oauth_revoke`.
+- New limits `oauth_clients` (instance, default 1000) and `oauth_grants_per_user` (default 20); migration 0013.
+
 ## [0.2.1] - 2026-11-22
 
 ### Added

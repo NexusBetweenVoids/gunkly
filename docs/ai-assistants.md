@@ -8,7 +8,7 @@ The assistant only gets what you give it: the households you pick, and the actio
 
 1. Sign in to Gunkly and open **Account**, then **Integrations**.
 2. In the card **Connect an AI assistant**, press **Connect an assistant**.
-3. Choose your assistant: Claude Code, Claude Desktop, Gemini CLI or Other MCP app.
+3. Choose your assistant: Claude Code, Claude Desktop, Gemini CLI, Other MCP app, ChatGPT or Claude (connector). The last two are explained in [ChatGPT and Claude connectors](#chatgpt-and-claude-connectors); they need no access key.
 4. Choose which households it may use (all of yours are ticked at first).
 5. Choose what it may do. Seeing your chores is always on. "Mark chores as done, snooze or skip" is on by default; "Create chores" is off by default.
 6. Press **Create access** and confirm your password.
@@ -40,7 +40,18 @@ Add the copied settings to `.gemini/settings.json` in your home folder and resta
 
 Add an MCP server with the address shown (ending in `/mcp`), transport "Streamable HTTP", and the header `Authorization` with the value `Bearer gk_...`. VS Code (Copilot) and Cursor work this way too.
 
-ChatGPT is not supported for now: its custom connectors need an OAuth sign-in, which Gunkly does not offer yet (it is planned).
+### ChatGPT and Claude connectors
+
+ChatGPT custom connectors and the "Add custom connector" option of Claude (claude.ai and the desktop apps) do not take an access key. They connect by address and ask you to sign in, using OAuth. Gunkly supports this, but it is **off by default** and an instance admin has to turn it on:
+
+1. **Admin:** open Administration, **Instance settings**, tick **Let apps such as ChatGPT sign in with Gunkly (OAuth)** and save. This needs `GUNKLY_BASE_URL` to be an `https://` address (for development `http://localhost` also works), and because these services connect from their own servers, Gunkly must be reachable on the public internet at that address. Without it the option cannot be turned on. While it is off, every `/oauth/...` address and the `/.well-known/oauth-...` documents answer 404 and nothing about OAuth is advertised.
+2. **You:** in Account, Integrations, press **Connect an assistant**, choose **ChatGPT** or **Claude (connector)** and copy the address shown (ending in `/mcp`).
+3. In ChatGPT (Settings, Connectors, with Developer mode on if asked) or Claude (Settings, Connectors, Add custom connector), add a connector with that address. Leave any client ID or secret fields empty: the app registers itself.
+4. The app sends you to Gunkly. Sign in if asked, read who is asking, choose the households and actions it may use (seeing chores is always on; "Mark chores done" and "Create chores" are separate boxes), and press **Allow**.
+
+The consent page says **Unverified app**: any app can register under any name, and Gunkly cannot check who made it, so only approve a connection you just started yourself, and check the address it will send you back to. The app then holds a token that lasts an hour and renews itself while you use it (a connection unused for 30 days, or older than 90 days, asks you to approve again). It works for the `/mcp` address only, never for the rest of Gunkly's API, and it follows your current role in each household.
+
+Apps you approved are listed under **Connected apps** in Account, Integrations, with **Disconnect**. Changing your password or removing a second factor disconnects all of them.
 
 ## Things to try
 
@@ -57,7 +68,7 @@ ChatGPT is not supported for now: its custom connectors need an OAuth sign-in, w
 
 ## Take access away
 
-Open **Account**, **Integrations**, find the entry (for example "Claude Code (MCP)") and press **Revoke**. It stops working at once. Changing your password or removing a second factor also revokes all access keys.
+Open **Account**, **Integrations**, find the entry (for example "Claude Code (MCP)") and press **Revoke**. It stops working at once. Changing your password or removing a second factor also revokes all access keys and disconnects all connected apps.
 
 ## Troubleshooting
 

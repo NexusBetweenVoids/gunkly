@@ -2,43 +2,13 @@
   import Alert from '../../components/Alert.svelte';
   import { api } from '../../lib/api';
   import { failure } from '../../lib/errors';
-  import { formatDate, t, type Key } from '../../lib/i18n';
+  import { formatDate, has, t, type Key } from '../../lib/i18n';
 
   type Ev = { event: string; ip: string; createdAt: string };
   let events = $state<Ev[]>([]);
   let err = $state('');
 
-  const LABELS: readonly string[] = [
-    'audit.setup',
-    'audit.login_success',
-    'audit.login_failure',
-    'audit.logout',
-    'audit.password_change',
-    'audit.password_reset',
-    'audit.totp_enable',
-    'audit.totp_disable',
-    'audit.recovery_code_use',
-    'audit.session_revoke',
-    'audit.member_role_change',
-    'audit.member_remove',
-    'audit.invite_create',
-    'audit.invite_accept',
-    'audit.invite_revoke',
-    'audit.household_create',
-    'audit.household_settings',
-    'audit.admin_user_create',
-    'audit.admin_settings',
-    'audit.register_invite',
-    'audit.account_export',
-    'audit.household_export',
-    'audit.household_import',
-    'audit.inactive_warn',
-    'audit.token_create',
-    'audit.token_revoke',
-    'audit.token_complete',
-  ];
-
-  const label = (ev: string) => (LABELS.includes(`audit.${ev}`) ? t(('audit.' + ev) as Key) : ev);
+  const label = (ev: string) => (has(`audit.${ev}`) ? t(`audit.${ev}` as Key) : ev);
 
   api<Ev[]>('GET', '/account/audit')
     .then((r) => (events = r))

@@ -259,7 +259,7 @@ paths:
       tags: [setup]
       summary: What this instance offers (public)
       responses:
-        "200": {description: OK, content: {application/json: {schema: {type: object, properties: {openSignup: {type: boolean}, emailEnabled: {type: boolean}, hostedMode: {type: boolean}, requirePow: {type: boolean, description: "Sign-up needs a proof of work"}, baseUrl: {type: string, description: "Configured public address (GUNKLY_BASE_URL), empty when not set"}, mcpEnabled: {type: boolean, description: "The MCP endpoint /mcp is served"}}}}}}
+        "200": {description: OK, content: {application/json: {schema: {type: object, properties: {openSignup: {type: boolean}, emailEnabled: {type: boolean}, hostedMode: {type: boolean}, requirePow: {type: boolean, description: "Sign-up needs a proof of work"}, baseUrl: {type: string, description: "Configured public address (GUNKLY_BASE_URL), empty when not set"}, mcpEnabled: {type: boolean, description: "The MCP endpoint /mcp is served"}, oauthEnabled: {type: boolean, description: "Present (true) only while OAuth sign-in for MCP clients is on; absent otherwise"}}}}}}
   /signup/challenge:
     get:
       tags: [setup]
@@ -335,6 +335,22 @@ paths:
       summary: Revoke an API token; it stops working at once
       responses:
         "204": {description: Revoked}
+        "404": {$ref: "#/components/responses/NotFound"}
+  /account/oauth-grants:
+    get:
+      tags: [tokens]
+      summary: Apps connected through OAuth ("Connected apps"; session only)
+      description: The caller's active grants (ADR 0016), newest first; never any secret. Empty while nothing is connected.
+      responses:
+        "200": {description: OK, content: {application/json: {schema: {type: array, items: {$ref: "#/components/schemas/OAuthGrant"}}}}}
+        "401": {$ref: "#/components/responses/Unauthenticated"}
+  /account/oauth-grants/{id}:
+    parameters: [{$ref: "#/components/parameters/id"}]
+    delete:
+      tags: [tokens]
+      summary: Disconnect an app; its tokens stop working at once
+      responses:
+        "204": {description: Disconnected}
         "404": {$ref: "#/components/responses/NotFound"}
   /account/audit:
     get:
@@ -1205,6 +1221,7 @@ paths:
                 egressGuard: {type: boolean, description: "Block outbound requests to private addresses; rejected while egressGuardLocked"}
                 updateCheck: {type: boolean, description: "Check for new releases in the background (default true)"}
                 mcpEnabled: {type: boolean, description: "Serve the MCP endpoint /mcp for AI assistants (default true); off answers 404"}
+                oauthEnabled: {type: boolean, description: "Let MCP clients such as ChatGPT sign in with OAuth (ADR 0016); default false. Turning it on needs GUNKLY_BASE_URL to be https (or http on localhost), else 400 oauth_requires_https. While off every /oauth endpoint and /.well-known/oauth-* document answers 404."}
                 inactiveEnabled: {type: boolean, description: "Warn and then delete inactive accounts (default off)"}
                 inactiveWarnAfterDays: {type: integer, minimum: 30, maximum: 3650, description: "Warn after this many days without activity (default 365)"}
                 inactiveDeleteAfterDays: {type: integer, minimum: 60, maximum: 3650, description: "Delete after this many days without activity (default 548); at least 30 days after inactiveWarnAfterDays"}
@@ -1268,6 +1285,15 @@ components:
         lastUsedAt: {type: string, format: date-time, nullable: true, description: Updated at most once a minute}
         expiresAt: {type: string, format: date-time, nullable: true}
         token: {type: string, description: The secret, only in the creation response}
+    OAuthGrant:
+      type: object
+      properties:
+        id: {type: string}
+        name: {type: string, description: "The app's self-chosen name (unverified)"}
+        scopes: {type: array, items: {type: string, enum: ["chores:read", "chores:complete", "chores:write"]}}
+        households: {type: array, items: {$ref: "#/components/schemas/TokenHousehold"}}
+        createdAt: {type: string, format: date-time}
+        lastUsedAt: {type: string, format: date-time, nullable: true}
     TokenSelf:
       type: object
       properties:
@@ -1534,6 +1560,8 @@ components:
         egressGuardLocked: {type: boolean, description: "Hosted mode: the guard cannot be turned off"}
         updateCheck: {type: boolean}
         mcpEnabled: {type: boolean, description: "The MCP endpoint /mcp is served"}
+        oauthEnabled: {type: boolean, description: "OAuth sign-in for MCP clients is switched on (default false)"}
+        oauthPossible: {type: boolean, description: "GUNKLY_BASE_URL is https (or loopback http), so oauthEnabled may be turned on"}
         inactiveEnabled: {type: boolean}
         inactiveWarnAfterDays: {type: integer}
         inactiveDeleteAfterDays: {type: integer}
@@ -1702,7 +1730,9 @@ x-outside-api-v1:
     "POST /mcp": |
       MCP (Model Context Protocol) server for AI assistants, Streamable HTTP transport (ADR 0015), stateless: JSON-RPC
       over POST, no session id, no server push. Requires "Authorization: Bearer gk_..." with any API token (cookies are
-      never read and no CSRF token is needed); a missing or invalid token answers 401 with "WWW-Authenticate: Bearer".
+      never read and no CSRF token is needed); a missing or invalid token answers 401 with "WWW-Authenticate: Bearer"
+      (with OAuth on, `Bearer resource_metadata="<base>/.well-known/oauth-protected-resource"`). With OAuth on an OAuth access
+      token ("gko_...", ADR 0016) is accepted as well, with the scopes, households and live role checks of an API token.
       A request whose Origin header is present and is not this instance's origin (GUNKLY_BASE_URL, else the Host) answers
       403 origin_not_allowed. 404 when the instance admin turned mcpEnabled off. Request bodies are capped at 1 MiB.
       Per-token (120/min) and per-IP (300/min) rate limits as for the REST API. tools/list shows only the tools the
@@ -1710,6 +1740,43 @@ x-outside-api-v1:
       undo_completion, snooze_chore, skip_chore (chores:complete); create_chore (chores:write). Every tool applies the
       token's household binding and its owner's current role, like the REST routes; a missing scope or role is a tool
       error. Results are JSON text; chore names and notes in them are untrusted user data.
+    "GET /.well-known/oauth-protected-resource": |
+      RFC 9728 protected resource metadata of /mcp (ADR 0016): resource, authorization_servers, scopes_supported,
+      bearer_methods_supported ["header"]. 404 unless the instance admin turned oauthEnabled on (and GUNKLY_BASE_URL is https).
+    "GET /.well-known/oauth-protected-resource/mcp": The same document at the path-suffixed well-known URI for the resource /mcp (RFC 9728 section 3.1). 404 while OAuth is off.
+    "GET /.well-known/oauth-authorization-server": |
+      RFC 8414 authorization server metadata: issuer (the base URL), authorization_endpoint /oauth/authorize, token_endpoint
+      /oauth/token, registration_endpoint /oauth/register, revocation_endpoint /oauth/revoke, response_types ["code"],
+      grant_types ["authorization_code","refresh_token"], code_challenge_methods ["S256"] only, token_endpoint_auth_methods
+      ["none"] (public clients), scopes_supported, authorization_response_iss_parameter_supported. 404 while OAuth is off.
+    "POST /oauth/register": |
+      RFC 7591 dynamic client registration for public clients (JSON; no authentication). redirect_uris: 1 to 5 exact URIs,
+      https or http on localhost/127.0.0.1/[::1] (any port), no fragment or wildcard. client_name: at most 100 characters,
+      shown on the consent page escaped and labelled unverified. 201 with client_id (no secret; token_endpoint_auth_method is
+      always "none"); 400 invalid_redirect_uri or invalid_client_metadata; 503 temporarily_unavailable at the instance cap
+      of registered clients (oauth_clients, default 1000). Rate limit 10/min per IP. Clients never used are deleted after 24 h.
+      404 while OAuth is off.
+    "GET /oauth/authorize": |
+      Authorization endpoint (HTML). Query: response_type=code, client_id, redirect_uri (exact match with a registered one),
+      code_challenge and code_challenge_method=S256 (required), state, scope (subset of chores:read chores:complete chores:write),
+      resource (must equal <base>/mcp when given, RFC 8707). A bad client_id or redirect_uri shows an error page (never a
+      redirect); other faults redirect to the client with error=invalid_request, unsupported_response_type, invalid_scope or
+      invalid_target plus state and iss. Without a session it redirects (303) to /signin?next=... and back. Otherwise it renders
+      a server-side consent page (no scripts) where the user picks households and actions. Never cached. Rate limit 60/min per IP.
+      404 while OAuth is off.
+    "POST /oauth/authorize": |
+      The consent form post (HTML form; CSRF: the gunkly_csrf cookie must equal the hidden csrf field, plus the cross-site
+      check). decision=allow issues a single-use authorization code (60 s, hashed at rest) and redirects (303) to the redirect
+      URI with code, state and iss; anything else redirects with error=access_denied. Rate limit 60/min per IP. 404 while OAuth is off.
+    "POST /oauth/token": |
+      Token endpoint (form encoded, public clients: client_id, no secret). grant_type=authorization_code with code,
+      redirect_uri, code_verifier (PKCE S256) and optional resource; or grant_type=refresh_token with refresh_token. Answers
+      {access_token "gko_...", token_type Bearer, expires_in 3600, refresh_token "gkr_...", scope}. Refresh tokens rotate on
+      every use (30 days idle, 90 days absolute per grant); presenting a used code or rotated refresh token revokes the whole
+      grant. Errors are RFC 6749 JSON {"error": ...}: invalid_request, invalid_client, invalid_grant, invalid_target,
+      unsupported_grant_type. No-store. Rate limit 60/min per IP. 404 while OAuth is off. Access tokens are accepted by
+      POST /mcp only, never by the REST API.
+    "POST /oauth/revoke": RFC 7009 revocation (form encoded token, client_id). Revoking an access or refresh token revokes its grant. Always 200 {} (no oracle). Rate limit 60/min per IP. 404 while OAuth is off.
     "GET /mcp": 405 (stateless server: no server-to-client stream). Authenticated like POST /mcp.
     "DELETE /mcp": 405 (stateless server: nothing to terminate). Authenticated like POST /mcp.
     "GET /metrics": |

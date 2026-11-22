@@ -243,6 +243,9 @@ func (s *Store) TouchAPIToken(ctx context.Context, tokenID, userID string) error
 // them). When any were revoked it audits token_revoke with via, the count and
 // the token ids (never secrets).
 func (t *tx) revokeUserTokens(ctx context.Context, userID, via string, now int64) error {
+	if err := t.revokeUserOAuth(ctx, userID, via, now); err != nil {
+		return err
+	}
 	idList, err := t.activeTokenIDs(ctx, userID)
 	if err != nil || len(idList) == 0 {
 		return err

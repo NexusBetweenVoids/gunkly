@@ -12,12 +12,14 @@
 
   let { households, oncreated }: { households: Household[]; oncreated: () => void } = $props();
 
-  type Kind = 'code' | 'desktop' | 'gemini' | 'other';
+  type Kind = 'code' | 'desktop' | 'gemini' | 'other' | 'chatgpt' | 'claude';
   const kinds: { id: Kind; label: Key; name: string }[] = [
     { id: 'code', label: 'mcp.kindCode', name: 'Claude Code' },
     { id: 'desktop', label: 'mcp.kindDesktop', name: 'Claude Desktop' },
     { id: 'gemini', label: 'mcp.kindGemini', name: 'Gemini CLI' },
     { id: 'other', label: 'mcp.kindOther', name: 'MCP app' },
+    { id: 'chatgpt', label: 'mcp.kindChatgpt', name: 'ChatGPT' },
+    { id: 'claude', label: 'mcp.kindClaudeConnector', name: 'Claude' },
   ];
 
   let open = $state(false);
@@ -32,6 +34,8 @@
 
   const base = $derived((app.instance.baseUrl || location.origin).replace(/\/+$/, ''));
   const url = $derived(`${base}/mcp`);
+  // ChatGPT and Claude connectors sign in with OAuth: no access key, so no token is created.
+  const connector = $derived(kind === 'chatgpt' || kind === 'claude');
   const plainHttp = $derived(url.startsWith('http://') && !/^http:\/\/(localhost|127\.0\.0\.1|\[::1\])(:|\/)/.test(url));
   const codeCmd = $derived(`claude mcp add --transport http gunkly ${url} --header "Authorization: Bearer ${secret}"`);
   // mcp-remote: a space inside a --header argument is mangled by some shells
@@ -183,6 +187,17 @@
           <label class="check"><input type="radio" name="mcp-kind" value={k.id} bind:group={kind} />{t(k.label)}</label>
         {/each}
       </fieldset>
+      {#if connector}
+        {#if app.instance.oauthEnabled}
+          <p>{t('mcp.connSteps', { app: kinds.find((k) => k.id === kind)!.name })}</p>
+          <p><span class="label">{t('mcp.connUrl')}</span> <span class="mono">{url}</span> <Button variant="quiet" onclick={() => copy(url, t('mcp.connUrl'))}>{t('common.copy')}</Button></p>
+          <p class="hint">{t('mcp.connExpect')} {t('mcp.connPublic')}</p>
+          <div class="visually-hidden" aria-live="polite">{copied}</div>
+        {:else}
+          <p class="hint">{t('mcp.connOff')}</p>
+        {/if}
+        <div class="row"><Button onclick={close}>{t('common.done')}</Button></div>
+      {:else}
       <fieldset class="plain-fieldset stack-sm">
         <legend class="label">{t('mcp.households')}</legend>
         {#each households as h (h.id)}
@@ -200,6 +215,7 @@
         <Button type="submit" {busy}>{t('mcp.create')}</Button>
         <Button variant="quiet" onclick={close}>{t('common.cancel')}</Button>
       </div>
+      {/if}
     </form>
   {/if}
 </Dialog>

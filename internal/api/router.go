@@ -22,7 +22,8 @@ const (
 	authAdmin               // signed-in instance admin
 	authMetrics             // bearer token from GUNKLY_METRICS_TOKEN (the /metrics scrape endpoint)
 	authBearer              // an API token (ADR 0014), any scope; no session (GET /api/v1/token)
-	authMCP                 // an API token, any scope, any method; no cookies, no CSRF; the MCP endpoint (ADR 0015) checks scopes per tool
+	authMCP                 // an API token or OAuth access token, any scope, any method; no cookies, no CSRF; the MCP endpoint (ADR 0015) checks scopes per tool
+	authClient              // an OAuth client (register, token, revoke; ADR 0016): POST only, no cookies read, no CSRF (nothing ambient), per-IP rate limit; credentials are in the body
 )
 
 // tokenNone is the explicit declaration that API tokens may not call a route.
@@ -49,6 +50,15 @@ type policy struct {
 	// bodyLimit overrides the default request body cap (maxBodyBytes) for
 	// routes that take uploads; 0 = default.
 	bodyLimit int64
+	// oauth marks a route that exists only while the OAuth setting is on (ADR
+	// 0016): otherwise it answers 404 like an unknown path, before anything
+	// else is looked at.
+	oauth bool
+	// formCSRF is the CSRF check of an HTML form post: the gunkly_csrf cookie
+	// must equal the hidden "csrf" form field (a form cannot set the header
+	// the SPA uses), plus the cross-site request check. The handler reads the
+	// session cookie itself (public routes only).
+	formCSRF bool
 }
 
 var (
@@ -80,6 +90,12 @@ func (p policy) noToken() policy { p.token = tokenNone; return p }
 // withTokenAuth declares the route authenticated by a URL token (see policy).
 func (p policy) withTokenAuth() policy { p.tokenAuth = true; return p }
 
+// oauthOnly makes the route exist only while OAuth is enabled.
+func (p policy) oauthOnly() policy { p.oauth = true; return p }
+
+// withFormCSRF declares an HTML form post protected by the form-field CSRF check.
+func (p policy) withFormCSRF() policy { p.formCSRF = true; return p }
+
 // Rate-limit buckets (login-attempt rate from internal/limits unless overridden in
 // bucketRates).
 const (
@@ -99,6 +115,9 @@ const (
 	rateEmail    = "email"    // authenticated actions that send email
 	rateTokenIP  = "tokenip"  // bearer requests, per client IP (also bounds token guessing)
 	rateToken    = "token"    // bearer requests, per token
+	rateOAuthReg = "oauthreg" // OAuth dynamic client registration (ADR 0016)
+	rateOAuthTok = "oauthtok" // OAuth token and revocation endpoints
+	rateOAuthAut = "oauthaut" // OAuth authorization (consent) pages
 
 	rateUserWrite      = "uwrite" // authenticated non-GET requests, per user
 	rateHouseholdWrite = "hwrite" // household write requests, per household
@@ -112,6 +131,7 @@ var bucketRates = map[string]int{
 	rateVerify: 20, rateReset: 10, rateSignup: 20, rateEmail: 10,
 	rateUserWrite: limits.UserWritesPerMinute, rateHouseholdWrite: limits.HouseholdWritesPerMinute,
 	rateToken: limits.TokenRequestsPerMinute, rateTokenIP: limits.TokenIPPerMinute,
+	rateOAuthReg: limits.OAuthRegisterPerMinute, rateOAuthTok: limits.OAuthTokenPerMinute, rateOAuthAut: limits.OAuthAuthorizePerMinute,
 }
 
 // bucketBursts overrides the bucket capacity where it differs from one minute of tokens.
@@ -153,7 +173,7 @@ func (s *Server) handle(pattern string, p policy, h handlerFunc) {
 func (p policy) validate(pattern string) error {
 	hasHH := strings.Contains(pattern, "{hh}")
 	switch {
-	case p.auth <= authUnset || p.auth > authMCP:
+	case p.auth <= authUnset || p.auth > authClient:
 		return fmt.Errorf("api: route %q has no auth policy", pattern)
 	case p.auth == authHousehold && (!hasHH || !p.minRole.Valid()):
 		return fmt.Errorf("api: household route %q needs {hh} and a minimum role", pattern)
@@ -173,6 +193,14 @@ func (p policy) validate(pattern string) error {
 		return fmt.Errorf("api: bearer route %q must be a GET without step-up or its own rate bucket", pattern)
 	case p.auth == authMCP && (p.rate != "" || p.stepUp || p.tokenAuth || p.bodyLimit != 0 || !mcpMethod(pattern)):
 		return fmt.Errorf("api: MCP route %q must be a POST, GET or DELETE without step-up, its own rate bucket or a raised body cap", pattern)
+	case p.auth == authClient && (p.rate == "" || p.stepUp || p.tokenAuth || p.formCSRF || p.bodyLimit != 0 || !strings.HasPrefix(pattern, "POST ")):
+		return fmt.Errorf("api: OAuth client route %q must be a rate-limited POST without step-up", pattern)
+	case p.auth == authClient && !p.oauth:
+		return fmt.Errorf("api: OAuth client route %q must be oauthOnly", pattern)
+	case p.oauth && p.auth != authPublic && p.auth != authClient:
+		return fmt.Errorf("api: oauthOnly route %q must be public or an OAuth client route", pattern)
+	case p.formCSRF && (p.auth != authPublic || p.rate == "" || p.tokenAuth || safeMethod(strings.SplitN(pattern, " ", 2)[0])):
+		return fmt.Errorf("api: form route %q must be a rate-limited public unsafe route", pattern)
 	case p.tokenAuth && (p.auth != authPublic || p.rate == ""):
 		return fmt.Errorf("api: token route %q must be public and rate limited", pattern)
 	}
@@ -195,7 +223,11 @@ func (s *Server) enforce(p policy, h handlerFunc) http.Handler {
 		// the token alone, reads and sets no cookies and, since the token is not
 		// ambient credential a cross-site page could ride, needs no CSRF check.
 		secret, bearer := bearerFrom(r)
-		bearer = bearer && p.auth >= authSession && p.auth != authMetrics
+		bearer = bearer && p.auth >= authSession && p.auth != authMetrics && p.auth != authClient
+		if p.oauth && !s.oauthEnabled(r.Context()) {
+			s.fail(w, r, errNotFound) // off: the route does not exist
+			return
+		}
 		if p.auth == authMCP {
 			// Off: the endpoint does not exist. A browser request (Origin present)
 			// must come from this instance's own origin: the MCP spec's DNS
@@ -209,7 +241,7 @@ func (s *Server) enforce(p policy, h handlerFunc) http.Handler {
 				return
 			}
 		}
-		if !safeMethod(r.Method) && !bearer && p.auth != authMCP && !s.requestOK(p, r) {
+		if !safeMethod(r.Method) && !bearer && p.auth != authMCP && p.auth != authClient && !s.requestOK(p, r) {
 			s.fail(w, r, s.csrfError(r))
 			return
 		}
@@ -224,6 +256,7 @@ func (s *Server) enforce(p policy, h handlerFunc) http.Handler {
 		case p.auth == authBearer || p.auth == authMCP:
 			s.failBearer(w, r)
 			return
+		case p.auth == authClient:
 		case p.auth == authMetrics:
 			if !s.metricsAuthorized(r) {
 				w.Header().Set("WWW-Authenticate", `Bearer realm="gunkly-metrics"`)

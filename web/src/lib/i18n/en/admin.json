@@ -78,5 +78,10 @@
   "proxy.fix": "If that address is your reverse proxy, add this to the Gunkly environment and restart:",
   "proxy.copy": "Copy setting",
   "proxy.docs": "Read how to set up a reverse proxy",
-  "proxy.shared": "Only add addresses you control. Anything listed there is believed when it says who the visitor is."
+  "proxy.shared": "Only add addresses you control. Anything listed there is believed when it says who the visitor is.",
+  "admin.oauthEnabled": "Let apps such as ChatGPT sign in with Gunkly (OAuth)",
+  "admin.oauthHint": "Lets apps that cannot take an access key (ChatGPT, Claude connectors) sign in to /mcp. Off by default; answers 404 while off. Needs public HTTPS at GUNKLY_BASE_URL.",
+  "admin.oauthNeedsHttps": "Unavailable: GUNKLY_BASE_URL is not https.",
+  "limit.oauth_clients": "Registered OAuth apps (instance)",
+  "limit.oauth_grants_per_user": "Connected apps per user"
 }

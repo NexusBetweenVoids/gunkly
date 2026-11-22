@@ -198,5 +198,6 @@
   "home.push.body": "Gunkly can nudge you when a chore is due. Nothing is sent until you allow it.",
   "home.push.turnOn": "Turn on",
   "home.push.notNow": "Not now",
-  "home.push.on": "Reminders are on for this device."
+  "home.push.on": "Reminders are on for this device.",
+  "err.oauth_requires_https": "Sign-in for apps needs GUNKLY_BASE_URL to be an https address (or http://localhost for development)."
 }

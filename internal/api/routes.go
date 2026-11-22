@@ -110,6 +110,22 @@ func (s *Server) registerRoutes() {
 		s.handle(m+" /mcp", policy{auth: authMCP}, s.mcpEndpoint())
 	}
 
+	// OAuth 2.1 sign-in for MCP clients (ADR 0016): optional, every route here
+	// is 404 until the admin turns it on. Metadata, client registration, the
+	// consent page (a session is read by the handler, which redirects to
+	// sign-in), tokens and revocation; the user's list of connected apps.
+	oauthMeta := public.oauthOnly()
+	s.handle("GET /.well-known/oauth-protected-resource", oauthMeta, s.protectedResource)
+	s.handle("GET /.well-known/oauth-protected-resource/mcp", oauthMeta, s.protectedResource)
+	s.handle("GET /.well-known/oauth-authorization-server", oauthMeta, s.authorizationServer)
+	s.handle("POST /oauth/register", policy{auth: authClient, rate: rateOAuthReg}.oauthOnly(), s.registerClient)
+	s.handle("GET /oauth/authorize", publicRateLimited(rateOAuthAut).oauthOnly(), s.authorizeGet)
+	s.handle("POST /oauth/authorize", publicRateLimited(rateOAuthAut).oauthOnly().withFormCSRF(), s.authorizePost)
+	s.handle("POST /oauth/token", policy{auth: authClient, rate: rateOAuthTok}.oauthOnly(), s.oauthToken)
+	s.handle("POST /oauth/revoke", policy{auth: authClient, rate: rateOAuthTok}.oauthOnly(), s.oauthRevoke)
+	s.handle("GET /api/v1/account/oauth-grants", session.noToken(), s.listOAuthGrants)
+	s.handle("DELETE /api/v1/account/oauth-grants/{id}", session.noToken(), s.revokeOAuthGrant)
+
 	// Instance administration: accounts and settings only, never household content.
 	s.handle("GET /api/v1/admin/users", admin.noToken(), s.adminListUsers)
 	s.handle("POST /api/v1/admin/users", admin.noToken().withStepUp(), s.adminCreateUser)

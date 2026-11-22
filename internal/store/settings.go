@@ -24,6 +24,7 @@ const (
 	settingDeliveryRetention  = "delivery_retention_days"
 	settingUpdateCheck        = "update_check"
 	settingMCPEnabled         = "mcp_enabled"
+	settingOAuthEnabled       = "oauth_enabled"
 	settingInactiveEnabled    = "inactive_enabled"
 	settingInactiveWarnDays   = "inactive_warn_after_days"
 	settingInactiveDeleteDays = "inactive_delete_after_days"
@@ -55,6 +56,9 @@ type InstanceSettings struct {
 	UpdateCheck bool
 	// MCPEnabled serves the MCP endpoint (/mcp, ADR 0015). Default true.
 	MCPEnabled bool
+	// OAuthEnabled serves the OAuth endpoints MCP clients sign in with (ADR
+	// 0016). Default false, also when hosted.
+	OAuthEnabled bool
 	// Inactive-account lifecycle (PRD "Inactive accounts"; default off):
 	// warn after InactiveWarnAfterDays without activity, delete after
 	// InactiveDeleteAfterDays.
@@ -93,6 +97,7 @@ type SettingsUpdate struct {
 	EgressGuard       *bool
 	UpdateCheck       *bool
 	MCPEnabled        *bool
+	OAuthEnabled      *bool
 	InactiveEnabled   *bool
 	// Inactive-account periods; the delete period must exceed the warn period
 	// by at least MinInactiveGapDays (checked against the stored value for
@@ -139,6 +144,8 @@ func (s *Store) InstanceSettings(ctx context.Context) (InstanceSettings, error) 
 				out.UpdateCheck = v != "false"
 			case k == settingMCPEnabled:
 				out.MCPEnabled = v != "false"
+			case k == settingOAuthEnabled:
+				out.OAuthEnabled = v == "true"
 			case k == settingInactiveEnabled:
 				out.InactiveEnabled = v == "true"
 			case k == settingInactiveWarnDays:
@@ -255,6 +262,9 @@ func (s *Store) UpdateInstanceSettings(ctx context.Context, u SettingsUpdate) er
 		}
 		if err == nil && u.MCPEnabled != nil {
 			err = set(settingMCPEnabled, strconv.FormatBool(*u.MCPEnabled))
+		}
+		if err == nil && u.OAuthEnabled != nil {
+			err = set(settingOAuthEnabled, strconv.FormatBool(*u.OAuthEnabled))
 		}
 		if err == nil && u.InactiveEnabled != nil {
 			err = set(settingInactiveEnabled, strconv.FormatBool(*u.InactiveEnabled))

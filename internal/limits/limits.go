@@ -33,6 +33,8 @@ const (
 	AreasPerHousehold          Kind = "areas_per_household"
 	CompletionsPerChore        Kind = "completions_per_chore"
 	APITokensPerUser           Kind = "api_tokens_per_user" //nolint:gosec // G101: a limit name, not a credential
+	OAuthClients               Kind = "oauth_clients"       // registered OAuth clients, instance-wide
+	OAuthGrantsPerUser         Kind = "oauth_grants_per_user"
 )
 
 // Defaults is the PRD limits table.
@@ -58,6 +60,8 @@ var Defaults = map[Kind]int{
 	AreasPerHousehold:          100,
 	CompletionsPerChore:        1000,
 	APITokensPerUser:           20,
+	OAuthClients:               1000,
+	OAuthGrantsPerUser:         20,
 }
 
 // Per-IP request rates of the unauthenticated link endpoints. Fixed, not
@@ -88,6 +92,11 @@ const (
 	TokenBurst             = 60
 	TokenIPPerMinute       = 300
 	TokenIPBurst           = 100
+	// OAuth client endpoints, per client IP: dynamic registration is the
+	// strictest (it creates rows for anonymous callers).
+	OAuthRegisterPerMinute  = 10
+	OAuthTokenPerMinute     = 60
+	OAuthAuthorizePerMinute = 60
 )
 
 // ErrExceeded is returned by Check when current has reached the limit.

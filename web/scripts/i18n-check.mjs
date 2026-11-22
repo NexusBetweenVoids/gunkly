@@ -57,8 +57,8 @@ function* walk(d) {
   }
 }
 
-// Keys looked up with a run-time suffix (API error codes, server template names, limit kinds).
-const DYNAMIC = ['err.', 'area.', 'template.', 'limit.'];
+// Keys looked up with a run-time suffix (API error codes, server template names, limit kinds, audit events).
+const DYNAMIC = ['err.', 'area.', 'template.', 'limit.', 'audit.'];
 const literals = new Set();
 for (const file of walk(join(root, 'src'))) {
   const src = readFileSync(file, 'utf8');

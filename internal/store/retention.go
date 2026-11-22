@@ -62,6 +62,17 @@ func (s *Store) PurgeExpired(ctx context.Context, p RetentionPolicy, now time.Ti
 		{"undo_tokens", "token_hash", "expires_at < ?", n, false},
 		{"rate_limits", "key", "expires_at < ?", n, false},
 		{"api_tokens", "id", "expires_at < ? OR revoked_at IS NOT NULL", n, false},
+		// OAuth (ADR 0016): spent and expired codes and tokens, revoked, expired
+		// and never-redeemed grants, then clients nobody used (grants first:
+		// a client with a grant is kept).
+		{"oauth_codes", "code_hash", "expires_at < ?", n, false},
+		{"oauth_tokens", "token_hash", "expires_at < ?", n, false},
+		{"oauth_grants", "id", "expires_at < ? OR revoked_at IS NOT NULL", n, false},
+		{"oauth_grants", "id", "activated_at IS NULL AND created_at < ?", now.Add(-time.Hour).UnixMilli(), false},
+		{"oauth_clients", "id", "last_used_at IS NULL AND created_at < ? AND NOT EXISTS (SELECT 1 FROM oauth_grants g WHERE g.client_id = oauth_clients.id)",
+			now.Add(-OAuthUnusedClientAge).UnixMilli(), false},
+		{"oauth_clients", "id", "last_used_at < ? AND NOT EXISTS (SELECT 1 FROM oauth_grants g WHERE g.client_id = oauth_clients.id)",
+			now.Add(-OAuthIdleClientAge).UnixMilli(), false},
 		{"calendar_feeds", "id", "revoked_at IS NOT NULL AND revoked_at < ?", n, false},
 	}
 	var total int64

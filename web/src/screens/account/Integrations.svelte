@@ -1,5 +1,6 @@
 <script lang="ts">
   import AssistantConnect from './AssistantConnect.svelte';
+  import ConnectedApps from './ConnectedApps.svelte';
   import Alert from '../../components/Alert.svelte';
   import Button from '../../components/Button.svelte';
   import Confirm from '../../components/Confirm.svelte';
@@ -109,6 +110,8 @@
 </script>
 
 <AssistantConnect {households} oncreated={load} />
+
+<ConnectedApps />
 
 <section class="card" aria-labelledby="a-tokens">
   <h2 id="a-tokens">{t('tokens.title')}</h2>

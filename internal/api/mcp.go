@@ -37,21 +37,9 @@ const (
 type mcpKey struct{}
 
 // mcpEnabled reports the mcp_enabled instance setting (default on), cached
-// briefly like the session lifetimes; changing it through the admin API takes
-// effect at once on this instance.
-func (s *Server) mcpEnabled(ctx context.Context) bool {
-	s.mcpMu.Lock()
-	defer s.mcpMu.Unlock()
-	if s.mcpAt.IsZero() || time.Since(s.mcpAt) > settingsCacheTTL {
-		st, err := s.st.InstanceSettings(ctx)
-		if err != nil {
-			s.log.Error("mcp setting", "err", err)
-			return s.mcpOn // the last known value; off until first read succeeds
-		}
-		s.mcpOn, s.mcpAt = st.MCPEnabled, time.Now()
-	}
-	return s.mcpOn
-}
+// briefly like the session lifetimes (see features); changing it through the
+// admin API takes effect at once on this instance.
+func (s *Server) mcpEnabled(ctx context.Context) bool { return s.features(ctx).mcp }
 
 func (s *Server) forgetMCP() {
 	s.mcpMu.Lock()

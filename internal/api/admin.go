@@ -123,6 +123,8 @@ type settingsView struct {
 	EgressGuardLocked          bool     `json:"egressGuardLocked"` // hosted mode: cannot be turned off
 	UpdateCheck                bool     `json:"updateCheck"`       // ask GitHub for the latest release (Updates page)
 	MCPEnabled                 bool     `json:"mcpEnabled"`        // serve the MCP endpoint /mcp (ADR 0015)
+	OAuthEnabled               bool     `json:"oauthEnabled"`      // let MCP clients sign in with OAuth (ADR 0016); off by default
+	OAuthPossible              bool     `json:"oauthPossible"`     // GUNKLY_BASE_URL is https (or loopback), so it can be turned on
 	// Inactive-account lifecycle (default off): warn, then delete.
 	InactiveEnabled         bool `json:"inactiveEnabled"`
 	InactiveWarnAfterDays   int  `json:"inactiveWarnAfterDays"`
@@ -145,6 +147,7 @@ func (s *Server) adminGetSettings(w http.ResponseWriter, r *http.Request, _ *cal
 		Limits: map[limits.Kind]int{}, LimitDefaults: limits.Defaults,
 		EnabledNotificationKinds: append([]string{}, slices.Sorted(maps.Keys(kindSet(st)))...), AvailableNotificationKinds: notify.AllKinds(),
 		EgressGuard: s.hosted || st.EgressGuard, EgressGuardLocked: s.hosted, UpdateCheck: st.UpdateCheck, MCPEnabled: st.MCPEnabled,
+		OAuthEnabled: st.OAuthEnabled, OAuthPossible: oauthBaseURLOK(s.baseURL),
 		InactiveEnabled: st.InactiveEnabled, InactiveWarnAfterDays: st.InactiveWarnAfterDays, InactiveDeleteAfterDays: st.InactiveDeleteAfterDays}
 	for k, d := range limits.Defaults {
 		v.Limits[k] = d
@@ -171,6 +174,7 @@ func (s *Server) adminPatchSettings(w http.ResponseWriter, r *http.Request, c *c
 		EgressGuard              *bool              `json:"egressGuard"`
 		UpdateCheck              *bool              `json:"updateCheck"`
 		MCPEnabled               *bool              `json:"mcpEnabled"`
+		OAuthEnabled             *bool              `json:"oauthEnabled"`
 		InactiveEnabled          *bool              `json:"inactiveEnabled"`
 		InactiveWarnAfterDays    *int               `json:"inactiveWarnAfterDays"`
 		InactiveDeleteAfterDays  *int               `json:"inactiveDeleteAfterDays"`
@@ -187,10 +191,13 @@ func (s *Server) adminPatchSettings(w http.ResponseWriter, r *http.Request, c *c
 		}
 	}
 	upd := store.SettingsUpdate{OpenSignup: in.OpenSignup, RequirePoW: in.RequirePoW,
-		InviteRegistration: in.InviteRegistration, MinPasswordLength: in.MinPasswordLength, Limits: in.Limits, EgressGuard: in.EgressGuard, UpdateCheck: in.UpdateCheck, MCPEnabled: in.MCPEnabled,
+		InviteRegistration: in.InviteRegistration, MinPasswordLength: in.MinPasswordLength, Limits: in.Limits, EgressGuard: in.EgressGuard, UpdateCheck: in.UpdateCheck, MCPEnabled: in.MCPEnabled, OAuthEnabled: in.OAuthEnabled,
 		SessionIdleDays: in.SessionIdleDays, SessionMaxDays: in.SessionMaxDays,
 		AuditRetentionDays: in.AuditRetentionDays, DeliveryRetentionDays: in.DeliveryRetentionDays,
 		InactiveEnabled: in.InactiveEnabled, InactiveWarnAfterDays: in.InactiveWarnAfterDays, InactiveDeleteAfterDays: in.InactiveDeleteAfterDays}
+	if in.OAuthEnabled != nil && *in.OAuthEnabled && !oauthBaseURLOK(s.baseURL) {
+		return errf(http.StatusBadRequest, "oauth_requires_https") // OAuth needs a public https GUNKLY_BASE_URL
+	}
 	if in.EgressGuard != nil && !*in.EgressGuard && s.hosted {
 		return errf(http.StatusBadRequest, "egress_guard_locked")
 	}

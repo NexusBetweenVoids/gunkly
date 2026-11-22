@@ -172,7 +172,23 @@ func (s *Server) requestOK(p policy, r *http.Request) bool {
 	if p.tokenAuth {
 		return s.tokenRequestOK(r)
 	}
+	if p.formCSRF {
+		return s.formCSRFOK(r)
+	}
 	return s.csrfOK(r)
+}
+
+// formCSRFOK is the double-submit check for an HTML form: the cookie must equal
+// the hidden "csrf" field, and the request must not come from another site.
+func (s *Server) formCSRFOK(r *http.Request) bool {
+	if !s.tokenRequestOK(r) {
+		return false
+	}
+	c, err := r.Cookie(csrfCookie)
+	if err != nil || len(c.Value) < 32 {
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(c.Value), []byte(r.PostFormValue("csrf"))) == 1
 }
 
 // tokenRequestOK rejects browser requests initiated from another site.

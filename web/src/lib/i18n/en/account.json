@@ -198,5 +198,22 @@
   "emailReminders.addLink": "Go to your email address",
   "emailReminders.changed": "Email reminders turn off if you change your email address; turn them on again afterwards.",
   "channels.advancedTitle": "Messaging apps (advanced)",
-  "channels.advancedHint": "Telegram, Discord, Slack, ntfy and more. Only needed if you prefer a messaging app."
+  "channels.advancedHint": "Telegram, Discord, Slack, ntfy and more. Only needed if you prefer a messaging app.",
+  "audit.oauth_grant": "App connected",
+  "audit.oauth_revoke": "App disconnected",
+  "audit.oauth_token_reuse": "App disconnected after a reused credential",
+  "apps.title": "Connected apps",
+  "apps.intro": "Apps you signed in to Gunkly with. Disconnect one to cut off its access at once.",
+  "apps.none": "No apps are connected.",
+  "apps.disconnect": "Disconnect",
+  "apps.disconnectTitle": "Disconnect {name}?",
+  "apps.disconnectWarn": "It stops working at once. You can connect it again later.",
+  "apps.disconnected": "Disconnected.",
+  "mcp.kindChatgpt": "ChatGPT",
+  "mcp.kindClaudeConnector": "Claude (connector)",
+  "mcp.connUrl": "Address to paste",
+  "mcp.connExpect": "You will sign in to Gunkly and choose what it may use. No access key is needed; leave any client ID or secret empty.",
+  "mcp.connPublic": "Gunkly must be reachable at a public HTTPS address.",
+  "mcp.connOff": "Sign-in for apps such as ChatGPT is off on this server. Ask its administrator to turn it on (Administration, Instance settings).",
+  "mcp.connSteps": "In {app}, open Settings, then Connectors, add a custom connector and paste this address."
 }

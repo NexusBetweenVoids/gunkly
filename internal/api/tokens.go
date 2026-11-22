@@ -43,7 +43,13 @@ func bearerFrom(r *http.Request) (string, bool) {
 // failBearer answers a missing, malformed, unknown, expired or revoked token
 // (all alike: no oracle) with 401.
 func (s *Server) failBearer(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("WWW-Authenticate", "Bearer")
+	challenge := "Bearer"
+	// With OAuth on, point MCP clients at the protected resource metadata
+	// (RFC 9728) so they can discover how to sign in. Off: nothing is advertised.
+	if infoFrom(r).pattern != "" && strings.HasSuffix(infoFrom(r).pattern, " /mcp") && s.oauthEnabled(r.Context()) {
+		challenge += ` resource_metadata="` + s.metadataURL() + `"`
+	}
+	w.Header().Set("WWW-Authenticate", challenge)
 	s.fail(w, r, errUnauthenticated)
 }
 
@@ -54,11 +60,20 @@ func (s *Server) authenticateBearer(w http.ResponseWriter, r *http.Request, c *c
 	if !s.allow(w, rateTokenIP+":ip:"+c.rip) {
 		return false
 	}
-	if len(secret) != tokenLen || !strings.HasPrefix(secret, tokenPrefix) {
+	// OAuth access tokens ("gko_", ADR 0016) are good for /mcp only, and only
+	// while OAuth is on; anywhere else they are an unknown credential.
+	viaOAuth := strings.HasPrefix(secret, oauthAccessPrefix)
+	switch {
+	case viaOAuth && (len(secret) != oauthSecretLen || p.auth != authMCP || !s.oauthEnabled(r.Context())),
+		!viaOAuth && (len(secret) != tokenLen || !strings.HasPrefix(secret, tokenPrefix)):
 		s.failBearer(w, r)
 		return false
 	}
-	tok, u, err := s.st.APITokenByHash(r.Context(), ids.Hash(secret))
+	lookup := s.st.APITokenByHash
+	if viaOAuth {
+		lookup = s.st.OAuthAccessByHash
+	}
+	tok, u, err := lookup(r.Context(), ids.Hash(secret))
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			s.failBearer(w, r)
@@ -80,7 +95,11 @@ func (s *Server) authenticateBearer(w http.ResponseWriter, r *http.Request, c *c
 		return false
 	}
 	if s.now().Sub(tok.LastUsedAt) >= store.TokenLastUsedEvery {
-		if err := s.st.TouchAPIToken(r.Context(), tok.ID, tok.UserID); err != nil {
+		touch := s.st.TouchAPIToken
+		if viaOAuth {
+			touch = s.st.TouchOAuthGrant
+		}
+		if err := touch(r.Context(), tok.ID, tok.UserID); err != nil {
 			s.log.Error("token touch", "err", err)
 		}
 	}

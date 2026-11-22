@@ -286,7 +286,10 @@ func (t *tx) dropMemberTokens(ctx context.Context, householdID, userID string) e
 func (t *tx) dropTokenBindings(ctx context.Context, householdID, userID string) error {
 	_, err := t.exec(ctx, "DELETE FROM api_token_households WHERE household_id = ? AND token_id IN (SELECT id FROM api_tokens WHERE user_id = ?)",
 		householdID, userID)
-	return err
+	if err != nil {
+		return err
+	}
+	return t.dropGrantBindings(ctx, householdID, userID)
 }
 
 func intPtr(v sql.NullInt64) *int {

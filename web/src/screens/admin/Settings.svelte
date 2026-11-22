@@ -24,6 +24,8 @@
     egressGuard: boolean;
     egressGuardLocked: boolean;
     mcpEnabled: boolean;
+    oauthEnabled: boolean;
+    oauthPossible: boolean;
     inactiveEnabled: boolean;
     inactiveWarnAfterDays: number;
     inactiveDeleteAfterDays: number;
@@ -85,6 +87,7 @@
             requirePow: s!.requirePow,
             inviteRegistration: s!.inviteRegistration,
             mcpEnabled: s!.mcpEnabled,
+            oauthEnabled: s!.oauthEnabled,
             minPasswordLength: Number(minLen),
             sessionIdleDays: Number(idleDays),
             sessionMaxDays: Number(maxDays),
@@ -119,6 +122,10 @@
       <div class="stack-sm">
         <label class="check"><input type="checkbox" bind:checked={s.mcpEnabled} aria-describedby="mcp-hint" />{t('admin.mcpEnabled')}</label>
         <p class="hint" id="mcp-hint">{t('admin.mcpHint')}</p>
+      </div>
+      <div class="stack-sm">
+        <label class="check"><input type="checkbox" bind:checked={s.oauthEnabled} disabled={!s.oauthPossible && !s.oauthEnabled} aria-describedby="oauth-hint" />{t('admin.oauthEnabled')}</label>
+        <p class="hint" id="oauth-hint">{t('admin.oauthHint')} {s.oauthPossible ? '' : t('admin.oauthNeedsHttps')}</p>
       </div>
       <Field label={t('admin.minPassword')} type="number" bind:value={minLen} min="8" max="128" required />
       <h3>{t('admin.sessions')}</h3>

@@ -40,10 +40,13 @@ const (
 	AuditCompletionRevert  = "completion_revert"
 	AuditTokenCreate       = "token_create"
 	AuditTokenRevoke       = "token_revoke"
-	AuditTokenComplete     = "token_complete" // a chore completed with an API token; meta token = its ID
-	AuditAccountDelete     = "account_delete" // actor-less: the account is gone
-	AuditOwnerTransfer     = "owner_transfer" // household_id, meta owner = new owner
-	AuditInactiveWarn      = "inactive_warn"  // system, meta user = account
+	AuditTokenComplete     = "token_complete"    // a chore completed with an API token; meta token = its ID
+	AuditOAuthGrant        = "oauth_grant"       // an OAuth client was given tokens; meta grant, client
+	AuditOAuthTokenReuse   = "oauth_token_reuse" //nolint:gosec // G101: an event name, not a credential; a used code or rotated refresh token came back: the grant was revoked
+	AuditOAuthRevoke       = "oauth_revoke"      // grants revoked (disconnect, revocation endpoint, password change...)
+	AuditAccountDelete     = "account_delete"    // actor-less: the account is gone
+	AuditOwnerTransfer     = "owner_transfer"    // household_id, meta owner = new owner
+	AuditInactiveWarn      = "inactive_warn"     // system, meta user = account
 )
 
 // AuditEvent is one audit-log entry. Meta must never contain secrets.

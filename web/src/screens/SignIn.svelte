@@ -39,7 +39,8 @@
       } else {
         await adopt(s);
         password = '';
-        navigate(next, true);
+        if (next.startsWith('/oauth/')) location.assign(next); // server-rendered consent page, not a SPA route
+        else navigate(next, true);
       }
     } catch (x) {
       err = failure(x);

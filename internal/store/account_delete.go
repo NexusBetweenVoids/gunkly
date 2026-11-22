@@ -305,6 +305,7 @@ var userOwnedStatements = []string{
 	"DELETE FROM mark_done_tokens WHERE user_id = ?",
 	"DELETE FROM calendar_feeds WHERE user_id = ?",
 	"DELETE FROM api_tokens WHERE user_id = ?",
+	"DELETE FROM oauth_grants WHERE user_id = ?",
 	"DELETE FROM push_subscriptions WHERE user_id = ?",
 	"DELETE FROM notification_channels WHERE scope = 'user' AND user_id = ?",
 	"DELETE FROM deliveries WHERE user_id = ?",

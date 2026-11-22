@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="{{.Lang}}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<title>{{.Title}}</title>
+<link rel="stylesheet" href="/done.css">
+</head>
+<body>
+<main class="consent">
+<picture><source srcset="/icons/mark-dark.png" media="(prefers-color-scheme: dark)"><img class="mark" src="/icons/mark-light.png" alt="" width="72" height="72"></picture>
+<h1>{{.Heading}}</h1>
+<p class="warn" role="note"><strong>{{.UnverifiedLabel}}</strong> {{.UnverifiedNote}}</p>
+<p>{{.RedirectNote}}</p>
+<p class="hint">{{.SignedIn}}</p>
+{{if .Error}}<p class="err" role="alert">{{.Error}}</p>{{end}}
+{{if .NoHouseholds}}<p>{{.NoHouseholdsNote}}</p>{{else}}
+<form method="post" action="/oauth/authorize">
+{{range .Hidden}}<input type="hidden" name="{{.Name}}" value="{{.Value}}">
+{{end}}
+<fieldset>
+<legend>{{.HouseholdsLegend}}</legend>
+{{range .Households}}<label><input type="checkbox" name="hh" value="{{.ID}}"{{if .Checked}} checked{{end}}>{{.Name}} <span class="hint">({{.Role}})</span></label>
+{{end}}
+</fieldset>
+<fieldset>
+<legend>{{.ActionsLegend}}</legend>
+<label><input type="checkbox" checked disabled>{{.ActionRead}}</label>
+{{if .OfferComplete}}<label><input type="checkbox" name="complete" value="1"{{if .CompleteChecked}} checked{{end}}>{{.ActionComplete}}</label>
+{{end}}{{if .OfferWrite}}<label><input type="checkbox" name="write" value="1"{{if .WriteChecked}} checked{{end}}>{{.ActionWrite}}</label>
+{{end}}<p class="hint">{{.GuestNote}}</p>
+</fieldset>
+<p class="hint">{{.NeverNote}}</p>
+<div class="buttons">
+<button type="submit" name="decision" value="allow" class="primary">{{.Allow}}</button>
+<button type="submit" name="decision" value="deny">{{.Deny}}</button>
+</div>
+</form>
+{{end}}
+</main>
+</body>
+</html>

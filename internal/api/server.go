@@ -109,9 +109,9 @@ type Server struct {
 	lifeIdle, lifeMax time.Duration
 	lifeAt            time.Time
 
-	// Cached mcp_enabled instance setting (see mcpEnabled).
+	// Cached mcp_enabled and oauth_enabled instance settings (see features).
 	mcpMu sync.Mutex
-	mcpOn bool
+	feat  features
 	mcpAt time.Time
 
 	setupMu   sync.Mutex
