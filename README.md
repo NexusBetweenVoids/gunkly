@@ -210,6 +210,32 @@ curl -X POST -H "Authorization: Bearer gk_..." https://gunkly.example.com/api/v1
 
 Requests with a token need no cookies or CSRF header. See [api/openapi.yaml](api/openapi.yaml) (`bearerAuth`) and [ADR 0014](docs/adr/0014-api-tokens.md). Treat a token like a password.
 
+## Use with AI assistants (MCP)
+
+Gunkly has a built-in [MCP](https://modelcontextprotocol.io) server, so an AI assistant can list, complete, snooze, skip and add chores for you. It is the Streamable HTTP endpoint `https://<host>/mcp` and uses an [access token](#integrations--api-tokens) from Account, "Integrations": give the token only the households and permissions the assistant needs.
+
+Claude Code:
+
+```sh
+claude mcp add --transport http gunkly https://<host>/mcp --header "Authorization: Bearer gk_..."
+```
+
+Any client that takes a JSON configuration (Claude Desktop through a remote-server connector, Cursor, and others):
+
+```json
+{
+  "mcpServers": {
+    "gunkly": {
+      "type": "http",
+      "url": "https://<host>/mcp",
+      "headers": { "Authorization": "Bearer gk_..." }
+    }
+  }
+}
+```
+
+Tools, by the permission they need (the assistant only sees the ones its token allows): `list_households`, `list_chores`, `get_chore` and `upcoming` (`chores:read`); `complete_chore`, `undo_completion`, `snooze_chore` and `skip_chore` (`chores:complete`); `create_chore` (`chores:write`). Everything goes through the same household and role checks as the app, completions are recorded as made by the token and appear in the audit log, and the usual per-token rate limits apply. Chore names and notes are text your household typed: a client should treat them as data, never as instructions. An instance admin can switch the endpoint off under Administration, "Instance settings". See [ADR 0015](docs/adr/0015-mcp-server.md).
+
 ## Export and import
 
 Every user can download their own data (Account, "Export my data"; asks for the password again) and members and owners can export a household (household settings, "Export household") as JSON. The files never contain notification URLs, tokens, calendar feed links or member email addresses. A household file can be imported as a new household or merged into one you are a member of (areas with the same name are combined, chores are added as new ones, assignees are matched to members by username). Uploads are limited to 5 MiB and an import is all-or-nothing.

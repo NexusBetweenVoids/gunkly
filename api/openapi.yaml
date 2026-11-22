@@ -1178,6 +1178,7 @@ paths:
                 enabledNotificationKinds: {type: array, items: {type: string}, description: "Allowed notification services; must be a subset of availableNotificationKinds"}
                 egressGuard: {type: boolean, description: "Block outbound requests to private addresses; rejected while egressGuardLocked"}
                 updateCheck: {type: boolean, description: "Check for new releases in the background (default true)"}
+                mcpEnabled: {type: boolean, description: "Serve the MCP endpoint /mcp for AI assistants (default true); off answers 404"}
                 inactiveEnabled: {type: boolean, description: "Warn and then delete inactive accounts (default off)"}
                 inactiveWarnAfterDays: {type: integer, minimum: 30, maximum: 3650, description: "Warn after this many days without activity (default 365)"}
                 inactiveDeleteAfterDays: {type: integer, minimum: 60, maximum: 3650, description: "Delete after this many days without activity (default 548); at least 30 days after inactiveWarnAfterDays"}
@@ -1505,6 +1506,7 @@ components:
         egressGuard: {type: boolean}
         egressGuardLocked: {type: boolean, description: "Hosted mode: the guard cannot be turned off"}
         updateCheck: {type: boolean}
+        mcpEnabled: {type: boolean, description: "The MCP endpoint /mcp is served"}
         inactiveEnabled: {type: boolean}
         inactiveWarnAfterDays: {type: integer}
         inactiveDeleteAfterDays: {type: integer}
@@ -1658,6 +1660,19 @@ x-outside-api-v1:
     "POST /done/undo/{token}": Reverts that completion within 5 minutes (HTML). Rate limit 30/min per IP.
     "GET /done.css": Stylesheet of the mark-done pages.
     "GET /ical/{file}": Read-only iCalendar feed; {file} is "<token>.ics". Rate limit 60/min per IP.
+    "POST /mcp": |
+      MCP (Model Context Protocol) server for AI assistants, Streamable HTTP transport (ADR 0015), stateless: JSON-RPC
+      over POST, no session id, no server push. Requires "Authorization: Bearer gk_..." with any API token (cookies are
+      never read and no CSRF token is needed); a missing or invalid token answers 401 with "WWW-Authenticate: Bearer".
+      A request whose Origin header is present and is not this instance's origin (GUNKLY_BASE_URL, else the Host) answers
+      403 origin_not_allowed. 404 when the instance admin turned mcpEnabled off. Request bodies are capped at 1 MiB.
+      Per-token (120/min) and per-IP (300/min) rate limits as for the REST API. tools/list shows only the tools the
+      token's scopes allow: list_households, list_chores, get_chore, upcoming (chores:read); complete_chore,
+      undo_completion, snooze_chore, skip_chore (chores:complete); create_chore (chores:write). Every tool applies the
+      token's household binding and its owner's current role, like the REST routes; a missing scope or role is a tool
+      error. Results are JSON text; chore names and notes in them are untrusted user data.
+    "GET /mcp": 405 (stateless server: no server-to-client stream). Authenticated like POST /mcp.
+    "DELETE /mcp": 405 (stateless server: nothing to terminate). Authenticated like POST /mcp.
     "GET /metrics": |
       Prometheus text exposition (format 0.0.4). Registered only when GUNKLY_METRICS_TOKEN is set; requires
       "Authorization: Bearer <token>" (constant-time compare, otherwise 401). Rate limit 30/min per IP. Series:

@@ -122,6 +122,7 @@ type settingsView struct {
 	EgressGuard                bool     `json:"egressGuard"`
 	EgressGuardLocked          bool     `json:"egressGuardLocked"` // hosted mode: cannot be turned off
 	UpdateCheck                bool     `json:"updateCheck"`       // ask GitHub for the latest release (Updates page)
+	MCPEnabled                 bool     `json:"mcpEnabled"`        // serve the MCP endpoint /mcp (ADR 0015)
 	// Inactive-account lifecycle (default off): warn, then delete.
 	InactiveEnabled         bool `json:"inactiveEnabled"`
 	InactiveWarnAfterDays   int  `json:"inactiveWarnAfterDays"`
@@ -143,7 +144,7 @@ func (s *Server) adminGetSettings(w http.ResponseWriter, r *http.Request, _ *cal
 		AuditRetentionDays: st.AuditRetentionDays, DeliveryRetentionDays: st.DeliveryRetentionDays,
 		Limits: map[limits.Kind]int{}, LimitDefaults: limits.Defaults,
 		EnabledNotificationKinds: append([]string{}, slices.Sorted(maps.Keys(kindSet(st)))...), AvailableNotificationKinds: notify.AllKinds(),
-		EgressGuard: s.hosted || st.EgressGuard, EgressGuardLocked: s.hosted, UpdateCheck: st.UpdateCheck,
+		EgressGuard: s.hosted || st.EgressGuard, EgressGuardLocked: s.hosted, UpdateCheck: st.UpdateCheck, MCPEnabled: st.MCPEnabled,
 		InactiveEnabled: st.InactiveEnabled, InactiveWarnAfterDays: st.InactiveWarnAfterDays, InactiveDeleteAfterDays: st.InactiveDeleteAfterDays}
 	for k, d := range limits.Defaults {
 		v.Limits[k] = d
@@ -169,6 +170,7 @@ func (s *Server) adminPatchSettings(w http.ResponseWriter, r *http.Request, c *c
 		EnabledNotificationKinds optional[[]string] `json:"enabledNotificationKinds"`
 		EgressGuard              *bool              `json:"egressGuard"`
 		UpdateCheck              *bool              `json:"updateCheck"`
+		MCPEnabled               *bool              `json:"mcpEnabled"`
 		InactiveEnabled          *bool              `json:"inactiveEnabled"`
 		InactiveWarnAfterDays    *int               `json:"inactiveWarnAfterDays"`
 		InactiveDeleteAfterDays  *int               `json:"inactiveDeleteAfterDays"`
@@ -185,7 +187,7 @@ func (s *Server) adminPatchSettings(w http.ResponseWriter, r *http.Request, c *c
 		}
 	}
 	upd := store.SettingsUpdate{OpenSignup: in.OpenSignup, RequirePoW: in.RequirePoW,
-		InviteRegistration: in.InviteRegistration, MinPasswordLength: in.MinPasswordLength, Limits: in.Limits, EgressGuard: in.EgressGuard, UpdateCheck: in.UpdateCheck,
+		InviteRegistration: in.InviteRegistration, MinPasswordLength: in.MinPasswordLength, Limits: in.Limits, EgressGuard: in.EgressGuard, UpdateCheck: in.UpdateCheck, MCPEnabled: in.MCPEnabled,
 		SessionIdleDays: in.SessionIdleDays, SessionMaxDays: in.SessionMaxDays,
 		AuditRetentionDays: in.AuditRetentionDays, DeliveryRetentionDays: in.DeliveryRetentionDays,
 		InactiveEnabled: in.InactiveEnabled, InactiveWarnAfterDays: in.InactiveWarnAfterDays, InactiveDeleteAfterDays: in.InactiveDeleteAfterDays}
@@ -210,6 +212,7 @@ func (s *Server) adminPatchSettings(w http.ResponseWriter, r *http.Request, c *c
 	}
 	err := s.st.UpdateInstanceSettings(r.Context(), upd)
 	s.forgetLifetimes()
+	s.forgetMCP()
 	if err != nil {
 		return err
 	}

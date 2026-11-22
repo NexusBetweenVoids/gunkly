@@ -14,6 +14,8 @@
   "admin.settings": "Instance settings",
   "admin.openSignup": "Allow anyone to sign up",
   "admin.inviteRegistration": "Allow registration with an invite link",
+  "admin.mcpEnabled": "Allow AI assistants to connect (MCP)",
+  "admin.mcpHint": "Endpoint /mcp. Needs a user's access token and only reaches what that token allows. Off answers 404.",
   "admin.minPassword": "Minimum password length",
   "admin.sessions": "Sessions",
   "admin.sessionIdle": "Sign out after inactivity (days)",

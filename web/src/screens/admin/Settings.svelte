@@ -23,6 +23,7 @@
     availableNotificationKinds: string[];
     egressGuard: boolean;
     egressGuardLocked: boolean;
+    mcpEnabled: boolean;
     inactiveEnabled: boolean;
     inactiveWarnAfterDays: number;
     inactiveDeleteAfterDays: number;
@@ -83,6 +84,7 @@
             openSignup: s!.openSignup,
             requirePow: s!.requirePow,
             inviteRegistration: s!.inviteRegistration,
+            mcpEnabled: s!.mcpEnabled,
             minPasswordLength: Number(minLen),
             sessionIdleDays: Number(idleDays),
             sessionMaxDays: Number(maxDays),
@@ -114,6 +116,10 @@
       <label class="check"><input type="checkbox" bind:checked={s.openSignup} />{t('admin.openSignup')}</label>
       <label class="check"><input type="checkbox" bind:checked={s.requirePow} />{t('admin.requirePow')}</label>
       <label class="check"><input type="checkbox" bind:checked={s.inviteRegistration} />{t('admin.inviteRegistration')}</label>
+      <div class="stack-sm">
+        <label class="check"><input type="checkbox" bind:checked={s.mcpEnabled} aria-describedby="mcp-hint" />{t('admin.mcpEnabled')}</label>
+        <p class="hint" id="mcp-hint">{t('admin.mcpHint')}</p>
+      </div>
       <Field label={t('admin.minPassword')} type="number" bind:value={minLen} min="8" max="128" required />
       <h3>{t('admin.sessions')}</h3>
       <Field label={t('admin.sessionIdle')} hint={t('admin.sessionIdleHint')} type="number" bind:value={idleDays} min="1" max="365" required />

@@ -22,6 +22,7 @@ const (
 	authAdmin               // signed-in instance admin
 	authMetrics             // bearer token from GUNKLY_METRICS_TOKEN (the /metrics scrape endpoint)
 	authBearer              // an API token (ADR 0014), any scope; no session (GET /api/v1/token)
+	authMCP                 // an API token, any scope, any method; no cookies, no CSRF; the MCP endpoint (ADR 0015) checks scopes per tool
 )
 
 // tokenNone is the explicit declaration that API tokens may not call a route.
@@ -152,7 +153,7 @@ func (s *Server) handle(pattern string, p policy, h handlerFunc) {
 func (p policy) validate(pattern string) error {
 	hasHH := strings.Contains(pattern, "{hh}")
 	switch {
-	case p.auth <= authUnset || p.auth > authBearer:
+	case p.auth <= authUnset || p.auth > authMCP:
 		return fmt.Errorf("api: route %q has no auth policy", pattern)
 	case p.auth == authHousehold && (!hasHH || !p.minRole.Valid()):
 		return fmt.Errorf("api: household route %q needs {hh} and a minimum role", pattern)
@@ -170,10 +171,17 @@ func (p policy) validate(pattern string) error {
 		return fmt.Errorf("api: route %q has an invalid API token scope", pattern)
 	case p.auth == authBearer && (p.rate != "" || p.stepUp || !strings.HasPrefix(pattern, "GET ")):
 		return fmt.Errorf("api: bearer route %q must be a GET without step-up or its own rate bucket", pattern)
+	case p.auth == authMCP && (p.rate != "" || p.stepUp || p.tokenAuth || p.bodyLimit != 0 || !mcpMethod(pattern)):
+		return fmt.Errorf("api: MCP route %q must be a POST, GET or DELETE without step-up, its own rate bucket or a raised body cap", pattern)
 	case p.tokenAuth && (p.auth != authPublic || p.rate == ""):
 		return fmt.Errorf("api: token route %q must be public and rate limited", pattern)
 	}
 	return nil
+}
+
+func mcpMethod(pattern string) bool {
+	m, _, _ := strings.Cut(pattern, " ")
+	return m == http.MethodPost || m == http.MethodGet || m == http.MethodDelete
 }
 
 // enforce applies CSRF, rate limiting, authentication, step-up and
@@ -188,7 +196,20 @@ func (s *Server) enforce(p policy, h handlerFunc) http.Handler {
 		// ambient credential a cross-site page could ride, needs no CSRF check.
 		secret, bearer := bearerFrom(r)
 		bearer = bearer && p.auth >= authSession && p.auth != authMetrics
-		if !safeMethod(r.Method) && !bearer && !s.requestOK(p, r) {
+		if p.auth == authMCP {
+			// Off: the endpoint does not exist. A browser request (Origin present)
+			// must come from this instance's own origin: the MCP spec's DNS
+			// rebinding guidance. Clients that are not browsers send no Origin.
+			if !s.mcpEnabled(r.Context()) {
+				s.fail(w, r, errNotFound)
+				return
+			}
+			if o := r.Header.Get("Origin"); o != "" && !s.sameOrigin(o, r) {
+				s.fail(w, r, errf(http.StatusForbidden, "origin_not_allowed"))
+				return
+			}
+		}
+		if !safeMethod(r.Method) && !bearer && p.auth != authMCP && !s.requestOK(p, r) {
 			s.fail(w, r, s.csrfError(r))
 			return
 		}
@@ -200,7 +221,7 @@ func (s *Server) enforce(p policy, h handlerFunc) http.Handler {
 			if !s.authenticateBearer(w, r, c, p, secret) {
 				return
 			}
-		case p.auth == authBearer:
+		case p.auth == authBearer || p.auth == authMCP:
 			s.failBearer(w, r)
 			return
 		case p.auth == authMetrics:

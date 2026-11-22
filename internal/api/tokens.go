@@ -71,7 +71,7 @@ func (s *Server) authenticateBearer(w http.ResponseWriter, r *http.Request, c *c
 		return false
 	}
 	switch {
-	case p.auth == authBearer:
+	case p.auth == authBearer, p.auth == authMCP: // any scope; MCP tools check theirs
 	case p.token == tokenNone:
 		s.fail(w, r, errTokenNotAllowed)
 		return false
@@ -85,7 +85,8 @@ func (s *Server) authenticateBearer(w http.ResponseWriter, r *http.Request, c *c
 		}
 	}
 	c.user, c.tok = u, &tok
-	if !safeMethod(r.Method) && !s.allow(w, rateUserWrite+":user:"+u.ID) {
+	// MCP write tools take the write buckets themselves, per tool call.
+	if !safeMethod(r.Method) && p.auth != authMCP && !s.allow(w, rateUserWrite+":user:"+u.ID) {
 		return false
 	}
 	return true

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"net/http"
 	"net/url"
 	"slices"
@@ -85,7 +86,7 @@ func defaultWeekStart(locale string) int {
 	return 1
 }
 
-func (s *Server) newViewCtx(r *http.Request, c *call, tz string, withMutes bool) (viewCtx, error) {
+func (s *Server) newViewCtx(ctx context.Context, c *call, tz string, withMutes bool) (viewCtx, error) {
 	loc, err := time.LoadLocation(tz)
 	if err != nil {
 		return viewCtx{}, err
@@ -96,7 +97,7 @@ func (s *Server) newViewCtx(r *http.Request, c *call, tz string, withMutes bool)
 		v.weekStart = *c.user.WeekStart
 	}
 	if withMutes {
-		ids, err := s.st.MutedChores(r.Context(), c.actor(), c.hh)
+		ids, err := s.st.MutedChores(ctx, c.actor(), c.hh)
 		if err != nil {
 			return viewCtx{}, err
 		}
@@ -284,7 +285,7 @@ func (s *Server) listChores(w http.ResponseWriter, r *http.Request, c *call) err
 	if err != nil {
 		return err
 	}
-	vc, err := s.newViewCtx(r, c, h.Timezone, true)
+	vc, err := s.newViewCtx(ctx, c, h.Timezone, true)
 	if err != nil {
 		return err
 	}
@@ -309,7 +310,7 @@ func (s *Server) listChores(w http.ResponseWriter, r *http.Request, c *call) err
 
 // choreView loads one chore as the caller sees it.
 func (s *Server) loadChoreView(r *http.Request, c *call, ch store.Chore, tz string) (choreView, error) {
-	vc, err := s.newViewCtx(r, c, tz, true)
+	vc, err := s.newViewCtx(r.Context(), c, tz, true)
 	if err != nil {
 		return choreView{}, err
 	}

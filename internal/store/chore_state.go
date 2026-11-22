@@ -218,6 +218,17 @@ func (s *Store) RevertChoreCompletion(ctx context.Context, a Actor, householdID,
 	return ch, err
 }
 
+// CompletionChore returns the ID of the chore a completion belongs to, within
+// the household (ErrNotFound otherwise). Any member, guests included.
+func (s *Store) CompletionChore(ctx context.Context, a Actor, householdID, completionID string) (string, error) {
+	var id string
+	err := s.read(ctx, a, householdID, func(t *tx, _ Role) error {
+		return notFound(t.queryRow(ctx, `SELECT c.chore_id FROM completions c JOIN chores ch ON ch.id = c.chore_id
+			WHERE c.id = ? AND ch.household_id = ?`, completionID, householdID).Scan(&id))
+	})
+	return id, err
+}
+
 // CompletionsPage returns a chore's history, newest first, at most limit
 // entries (1..200, default 50) after the cursor (the last entry of the
 // previous page; zero = first page). next is the cursor of the following page,

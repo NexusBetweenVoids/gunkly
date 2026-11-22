@@ -103,6 +103,11 @@ type Server struct {
 	lifeIdle, lifeMax time.Duration
 	lifeAt            time.Time
 
+	// Cached mcp_enabled instance setting (see mcpEnabled).
+	mcpMu sync.Mutex
+	mcpOn bool
+	mcpAt time.Time
+
 	setupMu   sync.Mutex
 	setupHash string // hash of the first-run setup code; empty when not in setup
 

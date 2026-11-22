@@ -8,6 +8,7 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 - API tokens for integrations such as Home Assistant and AI assistants (MCP): create them under Account, Integrations. Each token is bound to the households you pick and to the permissions you choose (`chores:read`, `chores:complete`, `chores:write`), never exceeds your own role, is shown once, can expire and can be revoked at once. Send it as `Authorization: Bearer gk_...`; `GET /api/v1/token` describes it. Completions made with a token are recorded as such. See ADR 0014 and the `bearerAuth` operations in the OpenAPI document.
 - New limit `api_tokens_per_user` (default 20).
+- Built-in MCP server for AI assistants (Claude Code, Claude Desktop and other MCP clients) at `/mcp` (Streamable HTTP, stateless), authenticated by an API token. Tools: `list_households`, `list_chores`, `get_chore`, `upcoming` (`chores:read`), `complete_chore`, `undo_completion`, `snooze_chore`, `skip_chore` (`chores:complete`) and `create_chore` (`chores:write`), each limited to the token's households, scopes and your role. New admin setting `mcpEnabled` (default on; off answers 404) in Administration and `/api/v1/admin/settings`. Adds the official Go SDK `github.com/modelcontextprotocol/go-sdk` (binary about 2 MB larger). See ADR 0015 and the README.
 
 ### Changed
 

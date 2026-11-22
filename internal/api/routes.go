@@ -105,6 +105,11 @@ func (s *Server) registerRoutes() {
 	s.handle("POST /api/v1/account/tokens", session.noToken().withStepUp(), s.createToken)
 	s.handle("DELETE /api/v1/account/tokens/{id}", session.noToken(), s.revokeToken)
 
+	// MCP server for AI assistants (ADR 0015): Streamable HTTP, stateless, a bearer token only.
+	for _, m := range []string{"POST", "GET", "DELETE"} {
+		s.handle(m+" /mcp", policy{auth: authMCP}, s.mcpEndpoint())
+	}
+
 	// Instance administration: accounts and settings only, never household content.
 	s.handle("GET /api/v1/admin/users", admin.noToken(), s.adminListUsers)
 	s.handle("POST /api/v1/admin/users", admin.noToken().withStepUp(), s.adminCreateUser)

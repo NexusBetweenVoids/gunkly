@@ -233,8 +233,13 @@ func TestRoutePolicies(t *testing.T) {
 		{"GET /api/v1/x", public.withToken(store.ScopeRead)},
 		{"GET /api/v1/x", policy{auth: authBearer}.withRate("x")},
 		{"POST /api/v1/x", policy{auth: authBearer}},
-		{"POST /x/{token}", public.withTokenAuth()},                // token routes must be rate limited
-		{"POST /x/{token}", session.withRate("x").withTokenAuth()}, // and public
+		{"POST /mcp", policy{auth: authMCP}.withRate("x")}, // no bucket of its own: the token buckets apply
+		{"POST /mcp", policy{auth: authMCP}.withStepUp()},
+		{"POST /mcp", policy{auth: authMCP}.withBodyLimit(1 << 30)},
+		{"PUT /mcp", policy{auth: authMCP}},                             // POST, GET or DELETE only
+		{"POST /mcp", policy{auth: authMCP}.withToken(store.ScopeRead)}, // MCP tools check scopes themselves
+		{"POST /x/{token}", public.withTokenAuth()},                     // token routes must be rate limited
+		{"POST /x/{token}", session.withRate("x").withTokenAuth()},      // and public
 	} {
 		if bad.p.validate(bad.pattern) == nil {
 			t.Errorf("%s %+v accepted", bad.pattern, bad.p)

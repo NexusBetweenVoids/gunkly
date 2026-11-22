@@ -1,0 +1,28 @@
+# 0015. MCP server
+
+Status: Accepted
+
+## Context
+AI assistants (Claude Code, Claude Desktop, other MCP clients) are a natural way to look after chores: "what is overdue?", "I emptied the bins". ADR 0014 built the credential for that: household-bound, least-privilege API tokens. What remained was the protocol.
+
+## Decision
+- **Built in, not a sidecar.** The server lives in the Gunkly binary at `/mcp`, so there is nothing more to deploy, no second credential and no second copy of the tenancy rules: each tool calls the same `internal/store` methods the REST handlers call and reuses their view and validation code. A separate proxy would have to re-implement all of that over the REST API.
+- **SDK:** the official Go SDK, `github.com/modelcontextprotocol/go-sdk` (v1.8.0), approved as the one new direct dependency (direct Go requires 4 to 5, budget 6). It brings `google/jsonschema-go`, `segmentio/encoding` (+`asm`), `yosida95/uritemplate`, `golang-jwt/jwt` and `golang.org/x/time` as modules (all MIT, BSD or Apache-2.0, accepted by the license check) and makes the binary about 2 MB (9%) larger. Hand-writing JSON-RPC, protocol negotiation and tool schemas would be less code to audit than it looks, but would drift from the spec; the SDK tracks it.
+- **Transport:** Streamable HTTP, stateless (`StreamableHTTPOptions.Stateless`, JSON responses): each POST is a complete exchange with no server-side session, no session id and no server-initiated stream. `GET` and `DELETE /mcp` answer `405`. A server instance is built per request around the authenticated token.
+- **Auth:** the route policy `authMCP`: bearer API token only. Cookies are never read, there is no CSRF token (nothing ambient to ride), a missing or invalid token is `401` with `WWW-Authenticate: Bearer`, and the per-IP and per-token buckets of ADR 0014 apply. The body cap is the API default (1 MiB). Registration validates the policy (no raised cap, rate bucket or step-up) and the route-table fitness tests cover it; the routes are documented under `x-outside-api-v1`.
+- **Origin check** (MCP spec, DNS rebinding): a request with an `Origin` header that is not this instance's origin (`GUNKLY_BASE_URL`, else the Host) is refused with `403`, before authentication. MCP clients are not browsers and send none. The SDK's own loopback Host check is off, since a reverse proxy on the same host would trip it.
+- **Switch:** the instance setting `mcp_enabled` (default on), in `GET/PATCH /api/v1/admin/settings` and the admin page; off answers `404` to everyone. Read through a short cache that a settings change clears.
+- **Tools** (`tools/list` shows only what the token's scopes allow; calling a hidden one still returns a tool error naming the scope):
+  - `chores:read`: `list_households`, `list_chores` (status, mine), `get_chore` (with recent completions), `upcoming` (1 to 62 days, using the calendar logic, overdue flagged, paused left out).
+  - `chores:complete`: `complete_chore` (optional note), `undo_completion`, `snooze_chore`, `skip_chore`.
+  - `chores:write`: `create_chore` (`repeat` such as "every 2 weeks", "monthly", "every year" or an RRULE; one-off when omitted).
+  - Update, archive and delete are not offered: the set stays small and a model that can delete chores is a bigger risk than one that can add them. They can be added behind `chores:write` later.
+- **Tenancy:** households are named by id or case-insensitive name, chores by id or exact name, only among the households the token is bound to (unbound and unknown answer alike). The owner's current role is read from the database for every call: a guest token cannot complete or create, and a demotion applies at once. Hosted accounts pass the same email and 2FA gate. A chore or completion of another household simply does not resolve. The store gained `CompletionChore` so `undo_completion` needs only the completion id.
+- **Effects:** completions are recorded with source `api_token` and the token id, and audited as `token_complete`; undo and skip are audited as in REST. Write tools take the per-user and per-household write buckets per call (the REST router takes them per request; here a request is a JSON-RPC message).
+- **Results** are compact JSON text: ids, names, status, due date, repeat, whether it is assigned to the token owner, assignee ids as the REST API shows them. No email addresses, no other member's name, no secrets. Errors are short explanations for the model; internals go to the log.
+
+## Consequences
+- **Prompt injection is a given.** Chore names, notes and completion notes are typed by household members (or by an earlier assistant) and flow into the model's context. The server cannot stop a model from obeying such text; it says in the server instructions and tool descriptions that these fields are untrusted data, and bounds the damage by the token (households, scopes, role), by what the tools can do (no delete, no members, settings, channels, export or tokens) and by the audit trail. Clients should treat tool results as untrusted, and users should give an assistant read-only tokens unless it needs more. A guest in a household can write notes a member's assistant will read: the same trust as sharing the household.
+- A leaked token can do over MCP exactly what it could over REST, no more.
+- Stateless means no resumable streams and no server push (none are needed); clients that insist on a GET stream get `405`, which the spec allows.
+- OAuth 2.1 authorization for remote hosted MCP stays future work; bearer tokens are what Claude Code and most clients support today.
