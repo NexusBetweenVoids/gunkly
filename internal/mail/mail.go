@@ -18,9 +18,11 @@ import (
 	"net"
 	"net/mail"
 	"net/smtp"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/NexusBetweenVoids/gunkly/internal/egress"
 )
@@ -74,13 +76,61 @@ func (s *Sender) Send(ctx context.Context, m Message) error {
 		return fmt.Errorf("mail: invalid recipient: %w", err)
 	}
 	to = &mail.Address{Address: to.Address} // never echo a display name taken from user input
-	msg, err := build(from, to, m.Subject, m.Body, s.now())
+	if !plainAddress(from.Address) || !plainAddress(to.Address) {
+		return errors.New("mail: address must be a plain local@domain")
+	}
+	if err := noCRLF("subject", m.Subject); err != nil { // a line break here is a bug or an attack: refuse
+		return err
+	}
+	msg, err := build(from, to, cleanLine(m.Subject), cleanBody(m.Body), s.now())
 	if err != nil {
 		return err
 	}
 	ctx, cancel := context.WithTimeout(ctx, SendTimeout)
 	defer cancel()
 	return s.deliver(ctx, from.Address, to.Address, msg)
+}
+
+// addrRE is a deliberately strict ASCII address: no spaces, quotes, angle
+// brackets, comments or control characters can reach a header or SMTP command.
+var addrRE = regexp.MustCompile(`^[A-Za-z0-9.!#$%&'*+/=?^_{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)+$`)
+
+func plainAddress(a string) bool { return len(a) <= 254 && addrRE.MatchString(a) }
+
+// unsafeRune reports characters that must never appear in mail text: control
+// characters (except newline and tab in bodies) and Unicode direction
+// overrides, which can make text read differently from what it is.
+func unsafeRune(r rune, keepNewlines bool) bool {
+	switch {
+	case keepNewlines && (r == '\n' || r == '\t'):
+		return false
+	case unicode.IsControl(r):
+		return true
+	case r >= 0x202A && r <= 0x202E, r >= 0x2066 && r <= 0x2069, r == 0x200E, r == 0x200F:
+		return true
+	}
+	return false
+}
+
+// cleanLine makes a single-line header value safe (unsafe runes become spaces).
+func cleanLine(v string) string {
+	return strings.Map(func(r rune) rune {
+		if unsafeRune(r, false) {
+			return ' '
+		}
+		return r
+	}, v)
+}
+
+// cleanBody normalises line ends to \n and drops every other unsafe rune.
+func cleanBody(v string) string {
+	v = strings.ReplaceAll(strings.ReplaceAll(v, "\r\n", "\n"), "\r", "\n")
+	return strings.Map(func(r rune) rune {
+		if unsafeRune(r, true) {
+			return -1
+		}
+		return r
+	}, v)
 }
 
 // noCRLF rejects values that could break out of a header or an SMTP command.
@@ -118,7 +168,7 @@ func build(from, to *mail.Address, subject, body string, now time.Time) ([]byte,
 	h("Auto-Submitted", "auto-generated")
 	b.WriteString("\r\n")
 	qp := quotedprintable.NewWriter(&b)
-	if _, err := io.WriteString(qp, strings.ReplaceAll(strings.ReplaceAll(body, "\r\n", "\n"), "\n", "\r\n")); err != nil {
+	if _, err := io.WriteString(qp, strings.ReplaceAll(body, "\n", "\r\n")); err != nil {
 		return nil, err
 	}
 	if err := qp.Close(); err != nil {

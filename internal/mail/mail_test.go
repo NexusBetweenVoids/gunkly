@@ -248,3 +248,22 @@ func TestSendGoesThroughEgressGuard(t *testing.T) {
 		t.Fatalf("nil guard: %v", err)
 	}
 }
+
+func TestSanitising(t *testing.T) {
+	for _, a := range []string{"ann@example.com", "a.b+tag@mail.example.org"} {
+		if !plainAddress(a) {
+			t.Errorf("%q should be accepted", a)
+		}
+	}
+	for _, a := range []string{"", "ann", "a b@example.com", "<a@example.com>", "a@b", "a@exa mple.com", "\"x\"@example.com", "a@example.com\r\nBcc: x@y.z", "a@-example.com"} {
+		if plainAddress(a) {
+			t.Errorf("%q should be refused", a)
+		}
+	}
+	if got := cleanLine("Hi\tBcc: x\x00\u202eevil"); got != "Hi Bcc: x  evil" {
+		t.Errorf("cleanLine = %q", got)
+	}
+	if got := cleanBody("a\r\nb\rc\x07d\u2066e\tf\n"); got != "a\nb\ncde\tf\n" {
+		t.Errorf("cleanBody = %q", got)
+	}
+}
