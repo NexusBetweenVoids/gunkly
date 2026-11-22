@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"strconv"
 	"strings"
 	"time"
 
@@ -234,4 +235,38 @@ func (s *Store) TouchAPIToken(ctx context.Context, tokenID, userID string) error
 		}
 		return t.markActive(ctx, userID, now)
 	})
+}
+
+// revokeUserTokens revokes every active API token of the user (a password
+// change or reset, or a second factor being removed: whoever caused it may
+// have held the old credentials, so tokens minted with them must not outlive
+// them). When any were revoked it audits token_revoke with via, the count and
+// the token ids (never secrets).
+func (t *tx) revokeUserTokens(ctx context.Context, userID, via string, now int64) error {
+	idList, err := t.activeTokenIDs(ctx, userID)
+	if err != nil || len(idList) == 0 {
+		return err
+	}
+	if _, err := t.exec(ctx, "UPDATE api_tokens SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL", now, userID); err != nil {
+		return err
+	}
+	return t.insertAudit(ctx, AuditEvent{ActorUserID: userID, Event: AuditTokenRevoke,
+		Meta: map[string]string{"via": via, "count": strconv.Itoa(len(idList)), "tokens": strings.Join(idList, ",")}}, now)
+}
+
+func (t *tx) activeTokenIDs(ctx context.Context, userID string) ([]string, error) {
+	rows, err := t.query(ctx, "SELECT id FROM api_tokens WHERE user_id = ? AND revoked_at IS NULL ORDER BY id", userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		out = append(out, id)
+	}
+	return out, rows.Err()
 }

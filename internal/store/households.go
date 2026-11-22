@@ -252,7 +252,10 @@ func (s *Store) RemoveMember(ctx context.Context, a Actor, householdID, userID s
 				return err
 			}
 		}
-		return t.dropMemberTokens(ctx, householdID, userID)
+		if err := t.dropMemberTokens(ctx, householdID, userID); err != nil {
+			return err
+		}
+		return t.dropTokenBindings(ctx, householdID, userID)
 	})
 }
 
@@ -271,6 +274,14 @@ func (t *tx) ensureOtherOwner(ctx context.Context, householdID, userID string) e
 func (t *tx) dropMemberTokens(ctx context.Context, householdID, userID string) error {
 	_, err := t.exec(ctx, "DELETE FROM mark_done_tokens WHERE user_id = ? AND chore_id IN (SELECT id FROM chores WHERE household_id = ?)",
 		userID, householdID)
+	return err
+}
+
+// dropTokenBindings removes the user's API tokens' binding to a household they
+// no longer belong to, so rejoining later does not revive old tokens.
+func (t *tx) dropTokenBindings(ctx context.Context, householdID, userID string) error {
+	_, err := t.exec(ctx, "DELETE FROM api_token_households WHERE household_id = ? AND token_id IN (SELECT id FROM api_tokens WHERE user_id = ?)",
+		householdID, userID)
 	return err
 }
 

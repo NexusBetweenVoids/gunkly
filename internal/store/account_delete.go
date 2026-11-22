@@ -242,7 +242,10 @@ func (t *tx) applyLeave(ctx context.Context, h HouseholdRef, userID, chosen stri
 			return false, "", nil, err
 		}
 	}
-	return false, newOwner, nil, t.dropMemberTokens(ctx, h.ID, userID)
+	if err = t.dropMemberTokens(ctx, h.ID, userID); err != nil {
+		return false, "", nil, err
+	}
+	return false, newOwner, nil, t.dropTokenBindings(ctx, h.ID, userID)
 }
 
 // LeaveOptions tunes LeaveHousehold.

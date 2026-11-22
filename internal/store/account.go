@@ -13,7 +13,7 @@ import (
 
 // SetPassword replaces the user's password hash, revokes every session except
 // keepSessionID (empty revokes all) and deletes the mark-done links addressed
-// to the user, all in one transaction: a failure leaves the old password and
+// to the user and every API token of the user, all in one transaction: a failure leaves the old password and
 // sessions intact rather than a half-applied change.
 func (s *Store) SetPassword(ctx context.Context, userID, hash, keepSessionID string) error {
 	return s.inTx(ctx, true, func(t *tx) error { return t.setPassword(ctx, userID, hash, keepSessionID, s.nowMS()) })
@@ -29,8 +29,10 @@ func (t *tx) setPassword(ctx context.Context, userID, hash, keepSessionID string
 	if err := t.revokeSessionsExcept(ctx, userID, keepSessionID); err != nil {
 		return err
 	}
-	_, err := t.exec(ctx, "DELETE FROM mark_done_tokens WHERE user_id = ?", userID)
-	return err
+	if _, err := t.exec(ctx, "DELETE FROM mark_done_tokens WHERE user_id = ?", userID); err != nil {
+		return err
+	}
+	return t.revokeUserTokens(ctx, userID, "password_change", now)
 }
 
 // RehashPassword upgrades a hash made with old parameters after a successful
@@ -146,19 +148,20 @@ func (t *tx) replaceRecoveryCodes(ctx context.Context, userID string, hashes []s
 
 // DisableTOTP removes the user's TOTP secret and recovery codes. Used by the
 // account settings and by `gunkly admin reset-2fa`. Every session except
-// keepSessionID (empty revokes all) is revoked in the same transaction.
+// keepSessionID (empty revokes all) is revoked in the same transaction, and so
+// are the user's API tokens.
 func (s *Store) DisableTOTP(ctx context.Context, userID, keepSessionID string) error {
-	return s.inTx(ctx, true, func(t *tx) error { return t.clearSecondFactor(ctx, userID, keepSessionID, false) })
+	return s.inTx(ctx, true, func(t *tx) error { return t.clearSecondFactor(ctx, userID, keepSessionID, false, s.nowMS()) })
 }
 
 // DisableTwoFactor removes every second factor (TOTP and email codes) and the
 // recovery codes: `gunkly admin reset-2fa`. All sessions except keepSessionID
 // are revoked.
 func (s *Store) DisableTwoFactor(ctx context.Context, userID, keepSessionID string) error {
-	return s.inTx(ctx, true, func(t *tx) error { return t.clearSecondFactor(ctx, userID, keepSessionID, true) })
+	return s.inTx(ctx, true, func(t *tx) error { return t.clearSecondFactor(ctx, userID, keepSessionID, true, s.nowMS()) })
 }
 
-func (t *tx) clearSecondFactor(ctx context.Context, userID, keepSessionID string, emailOTP bool) error {
+func (t *tx) clearSecondFactor(ctx context.Context, userID, keepSessionID string, emailOTP bool, now int64) error {
 	q := "UPDATE users SET totp_secret_ciphertext = NULL, totp_enabled = FALSE, totp_last_step = 0"
 	if emailOTP {
 		q += ", email_otp_enabled = FALSE"
@@ -172,7 +175,10 @@ func (t *tx) clearSecondFactor(ctx context.Context, userID, keepSessionID string
 	if err := t.replaceRecoveryCodes(ctx, userID, nil, 0); err != nil {
 		return err
 	}
-	return t.revokeSessionsExcept(ctx, userID, keepSessionID)
+	if err := t.revokeSessionsExcept(ctx, userID, keepSessionID); err != nil {
+		return err
+	}
+	return t.revokeUserTokens(ctx, userID, "2fa_disable", now)
 }
 
 func (t *tx) revokeSessionsExcept(ctx context.Context, userID, keepSessionID string) error {

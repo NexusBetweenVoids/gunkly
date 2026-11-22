@@ -253,7 +253,10 @@ func (s *Store) DisableEmailOTP(ctx context.Context, userID, keepSessionID strin
 		if err := t.replaceRecoveryCodes(ctx, userID, nil, 0); err != nil {
 			return err
 		}
-		return t.revokeSessionsExcept(ctx, userID, keepSessionID)
+		if err := t.revokeSessionsExcept(ctx, userID, keepSessionID); err != nil {
+			return err
+		}
+		return t.revokeUserTokens(ctx, userID, "2fa_disable", s.nowMS())
 	})
 }
 

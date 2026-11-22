@@ -10,6 +10,13 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 - New limit `api_tokens_per_user` (default 20).
 - Built-in MCP server for AI assistants (Claude Code, Claude Desktop and other MCP clients) at `/mcp` (Streamable HTTP, stateless), authenticated by an API token. Tools: `list_households`, `list_chores`, `get_chore`, `upcoming` (`chores:read`), `complete_chore`, `undo_completion`, `snooze_chore`, `skip_chore` (`chores:complete`) and `create_chore` (`chores:write`), each limited to the token's households, scopes and your role. New admin setting `mcpEnabled` (default on; off answers 404) in Administration and `/api/v1/admin/settings`. Adds the official Go SDK `github.com/modelcontextprotocol/go-sdk` (binary about 2 MB larger). See ADR 0015 and the README.
 
+### Security
+
+- API tokens are now revoked when the account's password is changed or reset (account, administrator, `gunkly admin reset-password` or email) and when a second factor is removed (including `gunkly admin reset-2fa`); the audit log notes how many.
+- `/mcp` refuses JSON-RPC batches, which could run many tool calls for one rate-limit charge.
+- A token's household binding is deleted when its owner leaves or is removed from the household, so rejoining no longer revives old tokens.
+- The MCP instructions and tool descriptions now call all names and text fields (not only chore names and notes) untrusted data.
+
 ### Changed
 
 - Opening Gunkly at an address other than `GUNKLY_BASE_URL` (or over http when it is https) now says so in the app and logs a warning naming both addresses, instead of a generic "session expired".

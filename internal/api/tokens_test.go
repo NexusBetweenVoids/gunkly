@@ -589,3 +589,36 @@ func TestTokenCannotManageTokens(t *testing.T) {
 		expect(t, st, v, 403, "token_not_allowed")
 	}
 }
+
+// Leaving a household and rejoining it does not bring an old token back.
+func TestTokenDoesNotSurviveRejoin(t *testing.T) {
+	f := newTokenEnv(t)
+	ctx := context.Background()
+	secret, _ := mkToken(t, f.mStep, []string{scRead}, f.hA)
+	chores := "/api/v1/households/" + f.hA + "/chores"
+	st, _, v := f.e.bearerDo("GET", chores, secret, nil)
+	expect(t, st, v, 200, "")
+	m := store.Actor{UserID: f.userID("m")}
+	if err := f.e.st.RemoveMember(ctx, m, f.hA, m.UserID); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.e.st.AddMember(ctx, store.Actor{UserID: f.userID("a")}, f.hA, m.UserID, store.RoleMember); err != nil {
+		t.Fatal(err)
+	}
+	st, _, v = f.e.bearerDo("GET", chores, secret, nil)
+	expect(t, st, v, 404, "not_found")
+}
+
+// Changing the password revokes the account's tokens (ADR 0014).
+func TestPasswordChangeRevokesTokens(t *testing.T) {
+	f := newTokenEnv(t)
+	secret, _ := mkToken(t, f.mStep, []string{scRead}, f.hA)
+	if st, _, v := f.e.bearerDo("GET", "/api/v1/token", secret, nil); st != 200 {
+		t.Fatalf("before: %d %v", st, v)
+	}
+	if err := f.e.st.SetPassword(context.Background(), f.userID("m"), "newhash", ""); err != nil {
+		t.Fatal(err)
+	}
+	st, _, v := f.e.bearerDo("GET", "/api/v1/token", secret, nil)
+	expect(t, st, v, 401, "unauthenticated")
+}

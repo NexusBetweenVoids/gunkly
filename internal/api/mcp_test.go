@@ -598,3 +598,28 @@ func TestParseRepeat(t *testing.T) {
 }
 
 func itoa(n int) string { b, _ := json.Marshal(n); return string(b) }
+
+// A JSON-RPC batch would take many tool calls for one rate-limit charge, so it
+// is refused up front (also with leading whitespace); single messages still work.
+func TestMCPRefusesBatches(t *testing.T) {
+	f := mcpTestEnv(t)
+	secret, _ := mkToken(t, f.aStep, []string{scRead}, f.hA)
+	batch := `[` + listToolsRPC + `,{"jsonrpc":"2.0","id":2,"method":"tools/list"}]`
+	for _, b := range []string{batch, " \r\n\t" + batch} {
+		if st, _, body := f.e.rawMCP("POST", secret, b); st != 400 {
+			t.Fatalf("batch: %d %s", st, body)
+		}
+	}
+	if st, _, body := f.e.rawMCP("POST", secret, listToolsRPC); st != 200 {
+		t.Fatalf("single: %d %s", st, body)
+	}
+}
+
+// Every text field is flagged as untrusted, not just chore names.
+func TestMCPInstructionsCallAllTextUntrusted(t *testing.T) {
+	for _, w := range []string{"household names", "chore names", "completion notes", "repeat text", "untrusted"} {
+		if !strings.Contains(mcpInstructions, w) {
+			t.Errorf("instructions lack %q", w)
+		}
+	}
+}
