@@ -224,6 +224,19 @@
   .chips {
     margin-block-end: var(--space);
   }
+  /* Phones: one horizontally scrolling row instead of several wrapped rows. */
+  @media (max-width: 767px) {
+    .chips {
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      scrollbar-width: none;
+      padding-block: 2px; /* keep focus rings visible */
+      padding-inline: 2px;
+    }
+    .chips :global(.chip) {
+      flex: none;
+    }
+  }
   .chore {
     flex-wrap: nowrap;
   }

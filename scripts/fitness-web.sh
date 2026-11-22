@@ -33,7 +33,7 @@ physical=$(grep -rnE --include='*.svelte' --include='*.css' \
 report "physical CSS properties (use logical: inline-start/end, margin-inline, ...)" "$physical"
 
 # README badges with hard-coded versions must match the code.
-root="$(dirname "$0")/.."
+root=.
 svelte_major=$(sed -n 's/.*"svelte": "\([0-9]*\)\..*/\1/p' "$root/web/package.json")
 if ! grep -q "badge/Svelte-${svelte_major}-" "$root/README.md"; then
   echo "README Svelte badge does not match web/package.json (major ${svelte_major})"
