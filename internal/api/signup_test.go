@@ -91,7 +91,11 @@ func TestSignupWithProofOfWork(t *testing.T) {
 	bad["number"] = (sol["number"].(int) + 1) % 1001
 	st, v = c.do("POST", "/api/v1/signup", signupBody("ann", map[string]any{"pow": bad}))
 	expect(t, st, v, 400, "pow_invalid")
-	bad["number"], bad["signature"] = sol["number"], "00"+sol["signature"].(string)[2:]
+	forged := "00" // change the first byte; it must differ from the real one
+	if strings.HasPrefix(sol["signature"].(string), "00") {
+		forged = "ff"
+	}
+	bad["number"], bad["signature"] = sol["number"], forged+sol["signature"].(string)[2:]
 	st, v = c.do("POST", "/api/v1/signup", signupBody("ann", map[string]any{"pow": bad}))
 	expect(t, st, v, 400, "pow_invalid")
 
