@@ -87,6 +87,7 @@ func (s *Server) registerRoutes() {
 	s.handle("PATCH /api/v1/admin/settings", admin.withStepUp(), s.adminPatchSettings)
 
 	s.registerLinkAndNotifyRoutes()
+	s.registerTransferRoutes()
 }
 
 // registerLinkAndNotifyRoutes: unauthenticated links (mark-done pages, iCal),

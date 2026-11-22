@@ -59,6 +59,11 @@ var Defaults = map[Kind]int{
 const (
 	MarkDonePerMinute = 30
 	ICalPerMinute     = 60
+	// TransfersPerMinute caps data exports and imports per client IP.
+	TransfersPerMinute = 6
+	// ImportMaxBytes is the upload cap of the import routes (the default
+	// request cap is 1 MiB).
+	ImportMaxBytes = 5 << 20
 	// Authenticated write throttles: a token bucket per user over all unsafe
 	// /api/v1 requests, and one per household over its write routes.
 	UserWritesPerMinute      = 120

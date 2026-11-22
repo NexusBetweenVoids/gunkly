@@ -77,6 +77,8 @@ type Server struct {
 
 	mux    *http.ServeMux
 	routes []route
+	// bodyLimits maps a route pattern to its raised request body cap.
+	bodyLimits map[string]int64
 }
 
 // New builds the server and registers every route.
@@ -86,7 +88,7 @@ func New(o Options) *Server {
 		baseURL: o.BaseURL, secure: strings.HasPrefix(o.BaseURL, "https://"),
 		proxies: o.TrustedProxies, log: o.Logger, ready: o.Ready, static: o.Static, now: o.Now,
 		hashPassword: auth.HashPassword, verifyPassword: auth.VerifyPassword,
-		mux: http.NewServeMux(),
+		mux: http.NewServeMux(), bodyLimits: map[string]int64{},
 	}
 	s.hosted, s.sender = o.HostedMode, o.Sender
 	if s.sender == nil {

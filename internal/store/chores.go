@@ -180,14 +180,7 @@ func (s *Store) CreateChore(ctx context.Context, a Actor, householdID string, in
 				return ErrLimit
 			}
 		}
-		now := s.nowMS()
-		if _, err := t.exec(ctx, `INSERT INTO chores (id, household_id, area_id, name, notes, link, kind, schedule_type,
-			interval_n, interval_unit, rrule, anchor, first_due, due_date, next_due, paused_until, paused_indefinitely,
-			reminder_preset, created_by, created_at, updated_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			id, householdID, nullStr(in.AreaID), in.Name, in.Notes, in.Link, in.Kind, in.ScheduleType,
-			nullInt(in.IntervalN), nullStr(in.IntervalUnit), in.RRule, in.Anchor, in.FirstDue, in.DueDate,
-			ms(in.NextDue), ms(in.PausedUntil), in.PausedIndefinitely, in.ReminderPreset, a.UserID, now, now); err != nil {
+		if err := t.insertChore(ctx, id, householdID, a.UserID, in, s.nowMS()); err != nil {
 			return err
 		}
 		if err := t.setAssignees(ctx, id, in.Assignees); err != nil {
@@ -198,6 +191,18 @@ func (s *Store) CreateChore(ctx context.Context, a Actor, householdID string, in
 		return err
 	})
 	return c, err
+}
+
+// insertChore writes the chore row (not its assignees).
+func (t *tx) insertChore(ctx context.Context, id, householdID, createdBy string, in ChoreInput, now int64) error {
+	_, err := t.exec(ctx, `INSERT INTO chores (id, household_id, area_id, name, notes, link, kind, schedule_type,
+		interval_n, interval_unit, rrule, anchor, first_due, due_date, next_due, paused_until, paused_indefinitely,
+		reminder_preset, created_by, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		id, householdID, nullStr(in.AreaID), in.Name, in.Notes, in.Link, in.Kind, in.ScheduleType,
+		nullInt(in.IntervalN), nullStr(in.IntervalUnit), in.RRule, in.Anchor, in.FirstDue, in.DueDate,
+		ms(in.NextDue), ms(in.PausedUntil), in.PausedIndefinitely, in.ReminderPreset, createdBy, now, now)
+	return err
 }
 
 const choreCols = `id, household_id, COALESCE(area_id, ''), name, notes, link, kind, schedule_type,

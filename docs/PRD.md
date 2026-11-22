@@ -83,6 +83,9 @@ Gunkly tracks recurring household chores and home maintenance (gutters, washing-
 - Accessibility: WCAG 2.2 AA.
 - **Export:** every user can export their data (JSON). Owners and members can export a whole household as JSON (chores, areas, settings, history); encrypted notification URLs and secrets are never included.
 - **Import:** create a new household or merge into one where the user is owner/member. Merge combines same-name areas, adds chores as new, turns non-member assignees into "anyone". Upload size cap; limits validated and the whole import runs in one transaction (all or nothing).
+  - Formats are versioned (`gunkly-user-export` / `gunkly-household-export`, version 1); unknown formats, versions and fields are rejected. Household files carry assignee and completer display names and usernames as matching hints (usernames are visible to every household member in the file; no emails, URLs, tokens or feeds).
+  - Upload cap 5 MiB (import routes only). Every field is validated like the normal create paths (names, http/https links, RRULE, intervals, time zone, reminders); chores, areas, reminders per chore and completions per chore are checked against the target's limits.
+  - Merge details: areas match by case-insensitive name; chores always get new IDs; assignees match by username among non-guest members, else the chore stays "anyone"; a completer is attributed only when the username matches a member, otherwise the history entry is anonymous; the due date comes from the file (recomputed from the schedule if absent, and the instant always in the target's time zone); the target's own settings are never changed. Creating a new household applies the file's settings and makes the importer the only member (owner).
 
 ### Instance operations
 
