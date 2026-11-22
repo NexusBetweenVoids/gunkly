@@ -3,7 +3,7 @@ import { axe, expect, headerItem, mailMark, nextMail, PASSWORD, setTheme, test, 
 // These run against a server whose SMTP goes to the fake server started in global setup
 // (e2e/smtp.ts); nothing leaves the machine.
 
-test('open sign-up solves the proof of work in a worker, then the emailed link confirms the address', async ({ world }) => {
+test('open sign-up solves the proof of work in a worker, signs in at once, and the emailed link confirms the address', async ({ world }) => {
   await world.admin.call('PATCH', '/admin/settings', { openSignup: true, requirePow: true });
   try {
     const page = await (await world.newContext()).newPage();
@@ -17,12 +17,17 @@ test('open sign-up solves the proof of work in a worker, then the emailed link c
     const mark = mailMark();
     await page.getByLabel('Display name').fill('New Person');
     await page.getByLabel('Username', { exact: true }).fill(name);
-    await page.getByLabel('Email', { exact: true }).fill(email);
+    await expect(page.getByText('Only needed to reset your password by email.')).toBeVisible();
+    await page.getByLabel('Email (optional)').fill(email);
     await page.getByLabel('Password', { exact: true }).fill(PASSWORD);
     await page.getByRole('button', { name: 'Create account' }).click();
 
-    // Nobody is signed in yet, and a taken address would have looked the same.
-    await expect(page.getByText('Check your email to finish signing up.')).toBeVisible();
+    // Self-hosted: signed in right away, no banner, and households work without confirming.
+    await expect(page.getByRole('heading', { name: 'Chores' })).toBeVisible();
+    await expect(page.getByText(/Confirm your email address: we sent a link/)).toHaveCount(0);
+    await page.goto('/account');
+    await expect(page.getByText('Not confirmed')).toBeVisible();
+    await expect(page.getByText(/Confirm it with the link we emailed/)).toBeVisible();
 
     const m = await nextMail(email, /Confirm your email address/, mark);
     expect(m.link).toMatch(/^\/verify-email\?token=/);
@@ -34,12 +39,8 @@ test('open sign-up solves the proof of work in a worker, then the emailed link c
     await page.goto(m.link);
     await expect(page.getByText(/This link is not valid any more/)).toBeVisible();
 
-    await page.goto('/signin');
-    await page.getByLabel('Email or username').fill(name);
-    await page.getByLabel('Password', { exact: true }).fill(PASSWORD);
-    await page.getByRole('button', { name: 'Sign in' }).click();
-    await expect(page.getByRole('heading', { name: 'Chores' })).toBeVisible();
-    await expect(page.getByText(/Confirm your email address: we sent a link/)).toHaveCount(0);
+    await page.goto('/account');
+    await expect(page.getByText('Confirmed', { exact: true })).toBeVisible();
   } finally {
     await world.admin.call('PATCH', '/admin/settings', { openSignup: false, requirePow: false });
   }
@@ -106,7 +107,7 @@ test('email codes: turn them on in the account screen, then sign in with an emai
   await page.getByLabel('Password', { exact: true }).fill(PASSWORD);
   await page.getByRole('button', { name: 'Sign in' }).click();
   await expect(page).toHaveURL(/\/$/);
-  await expect(page.getByText(`Confirm your email address: we sent a link to ${email}.`)).toBeVisible();
+  await expect(page.getByText(/Confirm your email address: we sent a link/)).toHaveCount(0); // self-hosted: no banner
 
   const section = () => page.getByRole('region', { name: 'Email codes' });
   await page.goto('/account');

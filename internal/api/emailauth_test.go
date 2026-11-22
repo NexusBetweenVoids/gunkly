@@ -607,7 +607,7 @@ func TestSelfHostedUnverifiedUsersAreNotBlocked(t *testing.T) {
 	expect(t, st, v, 201, "")
 }
 
-func TestOpenSignupInstancesRequireVerifiedEmailForHouseholds(t *testing.T) {
+func TestSelfHostedOpenSignupDoesNotRequireVerifiedEmail(t *testing.T) {
 	e := newMailEnv(t)
 	e.user("root", true)
 	e.user("ann", false)
@@ -615,9 +615,6 @@ func TestOpenSignupInstancesRequireVerifiedEmailForHouseholds(t *testing.T) {
 	st, v := root.do("PATCH", "/api/v1/admin/settings", map[string]any{"openSignup": true})
 	expect(t, st, v, 200, "")
 	c := e.signedIn("ann")
-	st, v = c.do("POST", "/api/v1/households", map[string]string{"name": "A", "timezone": "Europe/Amsterdam"})
-	expect(t, st, v, 403, "email_not_verified")
-	e.verified("ann")
 	st, v = c.do("POST", "/api/v1/households", map[string]string{"name": "A", "timezone": "Europe/Amsterdam"})
 	expect(t, st, v, 201, "")
 }

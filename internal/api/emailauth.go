@@ -310,29 +310,19 @@ func (s *Server) disableEmailOTP(w http.ResponseWriter, r *http.Request, c *call
 	return noContent(w)
 }
 
-// requireAccess is the gate for creating or joining a household. With email
-// on, an account with an unverified email may sign in but not do that: always
-// in hosted mode, and on instances with open sign-up (where addresses are
-// self-asserted). Hosted mode also requires a second factor (2FA is mandatory
-// there; verification enrols email codes automatically).
-func (s *Server) requireAccess(ctx context.Context, u store.User) error {
-	if !s.emailEnabled() { // hosted mode always has email (config enforces it)
+// requireAccess is the gate for creating or joining a household. Self-hosted
+// instances never require an email address or verification (accounts are
+// username and password, ADR 0008). Hosted mode requires a verified email and
+// a second factor (2FA is mandatory there; verification enrols email codes
+// automatically).
+func (s *Server) requireAccess(_ context.Context, u store.User) error {
+	if !s.hosted || !s.emailEnabled() { // hosted config enforces email; the check is defensive
 		return nil
 	}
-	if u.EmailVerified {
-		return s.requireTwoFactor(u)
-	}
-	if s.hosted {
+	if !u.EmailVerified {
 		return errf(http.StatusForbidden, "email_not_verified")
 	}
-	st, err := s.st.InstanceSettings(ctx)
-	if err != nil {
-		return err
-	}
-	if open, _ := s.signupSettings(st); open && u.Email != "" {
-		return errf(http.StatusForbidden, "email_not_verified")
-	}
-	return nil
+	return s.requireTwoFactor(u)
 }
 
 func (s *Server) requireTwoFactor(u store.User) error {

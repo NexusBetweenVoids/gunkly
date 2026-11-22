@@ -362,3 +362,21 @@ func TestInactiveWarningRetried(t *testing.T) {
 		t.Fatal("not retried")
 	}
 }
+
+// Unverified, household-less accounts are purged only in hosted mode, where
+// sign-up requires an address; self-hosted accounts never expire this way.
+func TestRetentionPurgesUnverifiedOnlyWhenHosted(t *testing.T) {
+	for _, hosted := range []bool{false, true} {
+		f := newInactiveFixture(t)
+		f.w.cfg.Hosted = hosted
+		u := f.user("ann", false)
+		if _, err := f.db.ExecContext(f.ctx, f.db.Dialect.Rebind("UPDATE users SET email_verified = ? WHERE id = ?"), false, u.ID); err != nil {
+			t.Fatal(err)
+		}
+		f.w.retention(f.ctx, f.t0.Add(8*day))
+		_, err := f.st.UserByLogin(f.ctx, "ann")
+		if (err != nil) != hosted {
+			t.Errorf("hosted=%v: ann lookup err=%v", hosted, err)
+		}
+	}
+}

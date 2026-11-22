@@ -61,7 +61,10 @@ The first public release.
 - Secrets (tokens, mark-done links, recovery codes) are stored only as hashes; sealed values (TOTP, channel URLs, push keys) use a versioned keyring and `rotate-key`.
 
 ### Changed
+- Home shows the "Everyone / Mine" switch only when a chore is assigned to someone else; otherwise every chore is shown.
+- New chores start with the assignees chosen on your previous new chore in that household (remembered on the device).
 - README, quick start, upgrade and backup steps rewritten to match the code; `docs/PRD.md` names `GUNKLY_DISABLE_SCHEDULER` (there is no `--disable-scheduler` flag).
 - Areas are now an optional per-household setting, off by default (`areasEnabled` on the household; Settings, "Group chores by area"). When off, the UI hides areas and calendar feeds omit categories; areas and chore links are kept. The API stays compatible (additive field; `areaId` is kept on update when omitted).
 - Compose files recommend pinning the image version.
 - Registration answers `registration_failed` for a duplicate username or email.
+- Self-hosted instances never require an email address or verification, with or without SMTP: sign-up takes an optional email, signs the user in at once and sends a verification mail only if an address is given (it matters for password reset by email and opt-in email-code 2FA). The verified-email gate, the "check your email" sign-up, mandatory 2FA, the unverified-email banner and the 7-day purge of unverified accounts apply to hosted mode only.

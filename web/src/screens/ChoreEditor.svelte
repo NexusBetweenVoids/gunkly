@@ -29,6 +29,7 @@
     interval: 'repeat.interval', rule: 'repeat.rule',
   };
   const hh = app.hhId;
+  const LAST_KEY = `gunkly.lastAssignees.${hh}`;
   const base = `/households/${hh}`;
 
   // With areas off the editor has no area field and never sends areaId, so a chore keeps its area.
@@ -66,6 +67,16 @@
     }
   };
 
+  // Per-viewer convenience: the assignees of the last chore created here; storage may be unavailable.
+  function rememberedAssignees(): string[] {
+    try {
+      const v: unknown = JSON.parse(localStorage.getItem(LAST_KEY) ?? '[]');
+      return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
+    } catch {
+      return [];
+    }
+  }
+
   function setRepeat(v: string): void {
     repeat = v;
     anchor = v === 'rule' ? 'from_scheduled' : 'from_completion';
@@ -102,6 +113,7 @@
         id ? api<Chore>('GET', `${base}/chores/${id}`) : Promise.resolve(null),
       ]);
       [areas, members, templates] = [a, m.filter((x) => x.role !== 'guest'), tp];
+      if (!c) assignees = rememberedAssignees().filter((u) => members.some((x) => x.userId === u));
       if (c) {
         applyChore(c);
         if (c.reminderPreset === 'custom') {
@@ -160,6 +172,13 @@
       if (custom) {
         const reminders = customRem.map((r) => ({ ...r, days: r.kind === 'on' ? 0 : Math.max(1, r.days) }));
         await api('PUT', `${base}/chores/${c.id}/reminders`, { reminders });
+      }
+      if (!id) {
+        try {
+          localStorage.setItem(LAST_KEY, JSON.stringify(assignees));
+        } catch {
+          // storage unavailable: the next new chore starts as anyone
+        }
       }
       toast(t('common.saved'));
       navigate(`/chores/${c.id}`);

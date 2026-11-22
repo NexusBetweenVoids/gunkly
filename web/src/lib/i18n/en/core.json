@@ -170,7 +170,6 @@
   "twofa.resend": "Email me a new code",
   "twofa.resent": "A new code is on its way.",
   "twofa.useEmail": "Use the emailed code instead",
-  "banner.unverified": "Confirm your email address: we sent a link to {email}.",
   "banner.unverifiedHosted": "Confirm your email address: we sent a link to {email}. Until then you can't create or join households.",
   "banner.resend": "Send the link again",
   "banner.sent": "Confirmation link sent.",

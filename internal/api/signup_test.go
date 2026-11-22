@@ -57,7 +57,7 @@ func TestSignupClosedByDefault(t *testing.T) {
 }
 
 func TestSignupWithProofOfWork(t *testing.T) {
-	e := newMailEnv(t)
+	e := newMailEnv(t, func(o *Options) { o.HostedMode = true })
 	e.openSignup(true)
 	root := e.signedInStepUp("root")
 	st, v := root.do("PATCH", "/api/v1/admin/settings", map[string]any{"limits": map[string]int{"signups_per_ip_hour": 50}})
@@ -144,16 +144,61 @@ func TestSignupChallengeExpires(t *testing.T) {
 }
 
 func TestSignupWithoutProofOfWorkWhenAdminTurnsItOff(t *testing.T) {
-	e := newMailEnv(t)
+	e := newMailEnv(t, func(o *Options) { o.HostedMode = true })
 	e.openSignup(false)
 	c := e.client()
 	st, v := c.do("GET", "/api/v1/signup/challenge", nil)
 	expect(t, st, v, 404, "not_found")
 	st, v = c.do("POST", "/api/v1/signup", signupBody("ann", nil))
 	expect(t, st, v, 202, "")
-	// Email is required when the instance sends email.
+	// Hosted mode requires an email.
 	st, v = e.client().do("POST", "/api/v1/signup", signupBody("bob", map[string]any{"email": ""}))
 	expect(t, st, v, 400, "invalid")
+}
+
+// Self-hosted never requires an email, even with SMTP configured: sign-up
+// signs the user in at once and household access needs no verification.
+func TestSelfHostedSignupWithSMTPEmailOptional(t *testing.T) {
+	e := newMailEnv(t)
+	e.openSignup(false)
+
+	// No email: 201 + session, can create a household, no mail.
+	c := e.client()
+	st, v := c.do("POST", "/api/v1/signup", signupBody("ann", map[string]any{"email": ""}))
+	expect(t, st, v, 201, "")
+	if field(v, "authenticated") != true {
+		t.Fatalf("signup: %v", v)
+	}
+	if st, v = c.do("POST", "/api/v1/households", map[string]string{"name": "A", "timezone": "Europe/Amsterdam"}); st != 201 {
+		t.Fatalf("household without email: %d %v", st, v)
+	}
+	if ms := e.mails(); len(ms) != 0 {
+		t.Fatalf("mail without an address: %+v", ms)
+	}
+
+	// With an email: 201, a verification mail goes out, and the account has
+	// household access without verifying.
+	c = e.client()
+	st, v = c.do("POST", "/api/v1/signup", signupBody("bob", nil))
+	expect(t, st, v, 201, "")
+	if tokenIn(t, e.oneMail("bob@example.org")) == "" {
+		t.Fatal("no verification link")
+	}
+	if st, v = c.do("POST", "/api/v1/households", map[string]string{"name": "B", "timezone": "Europe/Amsterdam"}); st != 201 {
+		t.Fatalf("household unverified: %d %v", st, v)
+	}
+
+	// A taken email or username is the generic failure; no notice is mailed.
+	st, v = e.client().do("POST", "/api/v1/signup", signupBody("cat", map[string]any{"email": "bob@example.org"}))
+	expect(t, st, v, 400, "registration_failed")
+	st, v = e.client().do("POST", "/api/v1/signup", signupBody("bob", map[string]any{"email": "fresh@example.org"}))
+	expect(t, st, v, 400, "registration_failed")
+	if ms := e.mails(); len(ms) != 0 {
+		t.Fatalf("mail for a duplicate: %+v", ms)
+	}
+	if _, err := e.st.UserByLogin(context.Background(), "cat"); err == nil {
+		t.Fatal("account created for a taken email")
+	}
 }
 
 func TestSignupWithoutEmailInstance(t *testing.T) {
@@ -164,7 +209,7 @@ func TestSignupWithoutEmailInstance(t *testing.T) {
 }
 
 func TestSignupPerIPLimit(t *testing.T) {
-	e := newMailEnv(t)
+	e := newMailEnv(t, func(o *Options) { o.HostedMode = true })
 	e.openSignup(false)
 	root := e.signedInStepUp("root")
 	st, v := root.do("PATCH", "/api/v1/admin/settings", map[string]any{"limits": map[string]int{"signups_per_ip_hour": 2}})
@@ -204,7 +249,7 @@ func TestHostedModeDefaultsToOpenSignupWithProofOfWork(t *testing.T) {
 // A replayed or forged proof of work must cost one cheap check, never an
 // Argon2id hash, and the per-IP sign-up cap is checked before the proof.
 func TestSignupProofSpentAndCapCheckedBeforeHashing(t *testing.T) {
-	e := newMailEnv(t)
+	e := newMailEnv(t, func(o *Options) { o.HostedMode = true })
 	e.openSignup(true)
 	root := e.signedInStepUp("root")
 	st, v := root.do("PATCH", "/api/v1/admin/settings", map[string]any{"limits": map[string]int{"signups_per_ip_hour": 3}})

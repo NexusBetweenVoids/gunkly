@@ -15,7 +15,7 @@
   let email = $state('');
   let password = $state('');
   let busy = $state(false);
-  let sent = $state(false); // email instances: nobody is signed in until the address is confirmed
+  let sent = $state(false); // hosted: nobody is signed in until the address is confirmed
   let percent = $state(-1); // -1: not solving
   let err = $state({ code: '', message: '' });
   const pwCodes = ['password_too_short', 'password_too_long', 'password_invalid'];
@@ -69,12 +69,12 @@
         required
       />
       <Field
-        label={app.instance.emailEnabled ? t('field.email') : t('field.emailOptional')}
-        hint={app.instance.emailEnabled ? t('field.emailHint') : ''}
+        label={app.instance.hostedMode ? t('field.email') : t('field.emailOptional')}
+        hint={app.instance.hostedMode ? t('field.emailHint') : app.instance.emailEnabled ? t('field.emailOptionalHint') : ''}
         type="email"
         bind:value={email}
         autocomplete="email"
-        required={app.instance.emailEnabled}
+        required={app.instance.hostedMode}
       />
       <Field
         label={t('field.password')}

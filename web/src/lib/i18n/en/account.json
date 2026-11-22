@@ -75,6 +75,7 @@
   "emailSection.none": "No email address on this account.",
   "emailSection.verified": "Confirmed",
   "emailSection.unverified": "Not confirmed",
+  "emailSection.unverifiedNote": "Confirm it with the link we emailed to reset your password by email or use email codes.",
   "emailSection.new": "New email address",
   "emailSection.change": "Change email address",
   "emailSection.add": "Add an email address",

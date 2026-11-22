@@ -54,12 +54,14 @@ func (s *Server) signupChallenge(w http.ResponseWriter, r *http.Request, _ *call
 // attempt that got past the proof of work has spent it, so the client fetches
 // a new challenge each time.
 //
-// With email on, the answer is 202 whether the account was created or the
-// address already had one (that owner gets a "you already have an account"
-// mail instead): sign-up is not an oracle for registered addresses, and
-// nobody is signed in until the address is confirmed. A taken username still
-// answers registration_failed (usernames are visible inside households). With
-// email off the account is created and signed in at once (201).
+// Hosted mode requires an email and answers 202 whether the account was
+// created or the address already had one (that owner gets a "you already have
+// an account" mail instead): sign-up is not an oracle for registered
+// addresses, and nobody is signed in until the address is confirmed. A taken
+// username still answers registration_failed (usernames are visible inside
+// households). Self-hosted, the email is optional (with SMTP a verification
+// mail is sent if one is given); the account is created and signed in at once
+// (201), and a taken email or username answers registration_failed.
 func (s *Server) signup(w http.ResponseWriter, r *http.Request, c *call) error {
 	var in struct {
 		newAccount
@@ -79,7 +81,7 @@ func (s *Server) signup(w http.ResponseWriter, r *http.Request, c *call) error {
 		return errf(http.StatusForbidden, "registration_disabled")
 	}
 	in.Email = strings.TrimSpace(in.Email)
-	if !localeRE.MatchString(in.Locale) || (s.emailEnabled() && in.Email == "") {
+	if !localeRE.MatchString(in.Locale) || (s.hosted && in.Email == "") {
 		return errInvalid
 	}
 	perHour, err := s.limits.Limit(ctx, limits.SignupsPerIPHour, "")
@@ -107,7 +109,7 @@ func (s *Server) signup(w http.ResponseWriter, r *http.Request, c *call) error {
 		return err
 	}
 	nu.Locale = in.Locale
-	if s.emailEnabled() {
+	if s.hosted || in.Email != "" {
 		if taken, err := s.st.EmailTaken(ctx, in.Email, ""); err != nil {
 			return err
 		} else if taken {
@@ -116,7 +118,7 @@ func (s *Server) signup(w http.ResponseWriter, r *http.Request, c *call) error {
 	}
 	u, err := s.st.CreateUser(ctx, nu)
 	if errors.Is(err, store.ErrConflict) {
-		if s.emailEnabled() {
+		if s.hosted || in.Email != "" {
 			// Lost a race for the address (or it is the username).
 			if taken, terr := s.st.EmailTaken(ctx, in.Email, ""); terr == nil && taken {
 				return s.signupExists(ctx, w, c, in.Email)
@@ -128,7 +130,7 @@ func (s *Server) signup(w http.ResponseWriter, r *http.Request, c *call) error {
 	}
 	s.audit(ctx, c, u.ID, store.AuditSignup, "", nil)
 	s.verifyNewAccount(ctx, c, u)
-	if s.emailEnabled() {
+	if s.hosted {
 		return accepted(w)
 	}
 	return s.startSession(w, r, c, u, http.StatusCreated)
@@ -138,6 +140,9 @@ func (s *Server) signup(w http.ResponseWriter, r *http.Request, c *call) error {
 // account: the same 202 as a fresh sign-up, plus a notice to that address
 // (per-IP, global and per-address caps; never the account's own mail bucket).
 func (s *Server) signupExists(ctx context.Context, w http.ResponseWriter, c *call, email string) error {
+	if !s.hosted {
+		return errf(http.StatusBadRequest, "registration_failed")
+	}
 	if s.rl.allow(rateSignup+":email:"+strings.ToLower(email)) == 0 {
 		if u, err := s.st.UserByLogin(ctx, email); err == nil {
 			s.queueMail(ctx, c, mailRequest{user: u, kind: "signupexists", unauth: true, params: map[string]string{

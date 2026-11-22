@@ -202,3 +202,45 @@ test('calendar month and week show the chore; arrow keys move the selection', as
   await page.keyboard.press('PageDown');
   await expect(page.locator('#cal-title')).not.toHaveText(title ?? '');
 });
+
+test('a new chore pre-ticks the assignees of the last chore created; editing keeps its own', async ({ world }) => {
+  const owner = await world.newUser();
+  const bee = await world.newUser();
+  const { page } = await owner.open();
+  const h = await world.household(owner);
+  const inv = await owner.api.post<{ token: string }>(`/households/${h.id}/invites`, { role: 'member' });
+  await bee.api.post(`/invites/${inv.token}/accept`);
+  const box = (n: string) => page.getByRole('checkbox', { name: n });
+
+  await page.goto('/chores/new');
+  await expect(box(bee.displayName)).not.toBeChecked();
+  const a = uniq('A ');
+  await page.getByLabel('Name').fill(a);
+  await box(bee.displayName).check();
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: a })).toBeVisible();
+  const aUrl = page.url();
+
+  // Next new chore starts with Bee ticked, also from a template.
+  await page.goto('/chores/new');
+  await expect(box(bee.displayName)).toBeChecked();
+  await page.getByLabel('Start from a template').selectOption({ label: 'Wipe counters' });
+  await expect(box(bee.displayName)).toBeChecked();
+
+  // Untick everything and save: the next one starts as anyone.
+  await box(bee.displayName).uncheck();
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Wipe counters' })).toBeVisible();
+  await page.goto('/chores/new');
+  await expect(box(bee.displayName)).not.toBeChecked();
+  await expect(box(owner.displayName)).not.toBeChecked();
+
+  // Editing chore A still shows its own assignees.
+  await page.goto(`${aUrl}/edit`);
+  await expect(box(bee.displayName)).toBeChecked();
+
+  // A remembered user who is no longer a member is dropped.
+  await page.evaluate((k) => localStorage.setItem(k, JSON.stringify(['gone-user'])), `gunkly.lastAssignees.${h.id}`);
+  await page.goto('/chores/new');
+  await expect(box(bee.displayName)).not.toBeChecked();
+});

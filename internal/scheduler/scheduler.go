@@ -75,6 +75,9 @@ type Config struct {
 	Pusher notify.Pusher
 	// Mailer sends inactivity warnings by email; nil = no email.
 	Mailer Mailer
+	// Hosted enables the purge of unverified, household-less accounts (only
+	// meaningful where sign-up requires an email address).
+	Hosted bool
 	// OnDelivery, if set, is told each finished send attempt: the channel kind
 	// ("webpush" for push) and whether it succeeded (metrics).
 	OnDelivery  func(kind string, ok bool)
@@ -555,7 +558,7 @@ func (w *Worker) retention(ctx context.Context, now time.Time) {
 		return
 	}
 	p := st.Policy()
-	if w.cfg.Mailer != nil {
+	if w.cfg.Hosted && w.cfg.Mailer != nil {
 		p.UnverifiedAccounts = store.UnverifiedAccountMaxAge
 	}
 	n, err := w.cfg.Store.PurgeExpired(ctx, p, now)

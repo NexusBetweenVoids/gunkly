@@ -43,7 +43,7 @@
   async function load(): Promise<void> {
     err = '';
     try {
-      const q = (archived ? '?archived=1' : '') + (mine ? `${archived ? '&' : '?'}mine=1` : '');
+      const q = archived ? '?archived=1' : '';
       [chores, areas, members] = await Promise.all([
         api<Chore[]>('GET', `${base}/chores${q}`),
         areasOn ? api<Area[]>('GET', `${base}/areas`) : Promise.resolve([] as Area[]),
@@ -55,15 +55,27 @@
     loaded = true;
   }
   $effect(() => {
-    void [hh, mine, archived, areasOn];
+    void [hh, archived, areasOn];
     if (hh) void load();
+  });
+  $effect(() => {
+    void hh;
+    mine = false; // a new household starts on Everyone
+  });
+  // "Mine" (assigned to me or to anyone) only differs from Everyone when someone else has a chore of their own.
+  const mineOk = (c: Chore) => !c.assignees.length || c.assignees.includes(app.user?.id ?? '');
+  const mineUseful = $derived(chores.some((c) => !mineOk(c)));
+  const showMine = $derived(mine && mineUseful);
+  $effect(() => {
+    if (loaded && !mineUseful) mine = false;
   });
 
   const areaName = (id: string | null) => !areasOn ? '' : areas.find((a) => a.id === id)?.name ?? '';
   const who = (c: Chore) => c.assignees.map((id) => members.find((m) => m.userId === id)?.displayName ?? '').filter(Boolean);
   const needle = $derived(q.trim().toLocaleLowerCase());
   const matches = (c: Chore) => !needle || [c.name, areaName(c.areaId), ...who(c)].some((s) => s.toLocaleLowerCase().includes(needle));
-  const visible = $derived(chores.filter((c) => (!areasOn || !area || c.areaId === area) && matches(c)));
+  const scoped = $derived(showMine ? chores.filter(mineOk) : chores);
+  const visible = $derived(scoped.filter((c) => (!areasOn || !area || c.areaId === area) && matches(c)));
   const rest = $derived(visible.filter((c) => !groups.some((g) => g.id === c.status)));
   const swap = (c: Chore) => (chores = chores.map((x) => (x.id === c.id ? c : x)));
 
@@ -108,10 +120,12 @@
     {/if}
   </div>
   <div class="row toolbar">
-    <div role="group" aria-label={t('home.whose')} class="seg">
-      <button type="button" class="btn btn-quiet" aria-pressed={!mine} onclick={() => (mine = false)}>{t('home.everyone')}</button>
-      <button type="button" class="btn btn-quiet" aria-pressed={mine} onclick={() => (mine = true)}>{t('home.mine')}</button>
-    </div>
+    {#if mineUseful}
+      <div role="group" aria-label={t('home.whose')} class="seg">
+        <button type="button" class="btn btn-quiet" aria-pressed={!showMine} onclick={() => (mine = false)}>{t('home.everyone')}</button>
+        <button type="button" class="btn btn-quiet" aria-pressed={showMine} onclick={() => (mine = true)}>{t('home.mine')}</button>
+      </div>
+    {/if}
     <label class="check"><input type="checkbox" bind:checked={archived} />{t('home.archived')}</label>
   </div>
   {#if areasOn && areas.length}
@@ -148,9 +162,9 @@
       <h2>{t('home.archived')}</h2>
       {#if visible.length}<ul class="list">{#each visible as c (c.id)}{@render item(c)}{/each}</ul>{:else}<p class="muted">{t('home.empty.archived')}</p>{/if}
     </section>
-  {:else if !chores.length}
+  {:else if !scoped.length}
     <section class="card mt-md">
-      <p>{mine ? t('home.empty.mine') : t('home.empty.all')}</p>
+      <p>{showMine ? t('home.empty.mine') : t('home.empty.all')}</p>
       {#if canEdit}<a class="btn" href="/chores/new">{t('chore.add')}</a>{/if}
     </section>
   {:else if needle && !visible.length}

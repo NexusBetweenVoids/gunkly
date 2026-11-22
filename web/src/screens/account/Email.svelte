@@ -39,6 +39,7 @@
           <span class="mono">{app.user.email}</span>
           <span class="badge">{app.user.emailVerified ? t('emailSection.verified') : t('emailSection.unverified')}</span>
         </p>
+        {#if !app.user.emailVerified && !app.instance.hostedMode}<p class="muted">{t('emailSection.unverifiedNote')}</p>{/if}
       {:else}
         <p class="muted">{t('emailSection.none')}</p>
       {/if}

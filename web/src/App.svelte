@@ -43,8 +43,9 @@
   }
   const here = (p: string) => (route.path === p ? 'page' : undefined);
 
-  // Signed in with an address that isn't confirmed yet.
-  const unverified = $derived(!!app.user && app.instance.emailEnabled && !!app.user.email && !app.user.emailVerified);
+  // Hosted only: signed in with an address that isn't confirmed yet (self-hosted
+  // instances never require it; the Account screen has a quiet note instead).
+  const unverified = $derived(!!app.user && app.instance.hostedMode && !!app.user.email && !app.user.emailVerified);
   let resending = $state(false);
   async function resend(): Promise<void> {
     resending = true;
@@ -86,7 +87,7 @@
 
 {#if unverified && app.user}
   <div class="notice" role="status">
-    <p>{app.instance.hostedMode ? t('banner.unverifiedHosted', { email: app.user.email ?? '' }) : t('banner.unverified', { email: app.user.email ?? '' })}</p>
+    <p>{t('banner.unverifiedHosted', { email: app.user.email ?? '' })}</p>
     <button type="button" class="btn btn-quiet" disabled={resending} onclick={resend}>{t('banner.resend')}</button>
   </div>
 {/if}
