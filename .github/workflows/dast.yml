@@ -69,12 +69,18 @@ jobs:
           curl -fsS -b "$jar" -c "$jar" -H "X-CSRF-Token: $csrf" -H 'Content-Type: application/json' \
             -d "$body" "$base/setup" >/dev/null
           session=$(awk '$6=="gunkly_session"{print $7}' "$jar")
+          # Signing in issues a fresh CSRF token; use it from here on.
+          csrf=$(awk '$6=="gunkly_csrf"{print $7}' "$jar")
           [ -n "$session" ] || { echo "no session cookie"; exit 1; }
           echo "::add-mask::$session"
           echo "ZAP_COOKIE=gunkly_session=$session; gunkly_csrf=$csrf" >> "$GITHUB_ENV"
           # Seed a household so the authenticated API has something to expose.
           curl -fsS -b "$jar" -H "X-CSRF-Token: $csrf" -H 'Content-Type: application/json' \
-            -d '{"name":"DAST home","timezone":"UTC"}' "$base/households" >/dev/null || true
+            -d '{"name":"DAST home","timezone":"UTC"}' "$base/households" >/dev/null
+      # The ZAP container runs as its own user and writes its reports into the
+      # mounted workspace.
+      - name: Let ZAP write its reports
+        run: chmod a+w "$GITHUB_WORKSPACE"
       - name: ZAP baseline scan
         uses: zaproxy/action-baseline@de8ad967d3548d44ef623df22cf95c3b0baf8b25 # v0.15.0
         with:
