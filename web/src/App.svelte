@@ -2,7 +2,7 @@
   import Logo from './components/Logo.svelte';
   import Toast from './components/Toast.svelte';
   import Lazy from './components/Lazy.svelte';
-  import StepUp from './components/StepUp.svelte';
+  import { stepUp } from './lib/stepup.svelte';
   import { api } from './lib/api';
   import { failure } from './lib/errors';
   import { t } from './lib/i18n';
@@ -108,7 +108,7 @@
   {:else if $route === '/signin'}
     {#if !app.user}<SignIn />{/if}
   {:else if $route === '/setup'}
-    {#if !app.user && app.setupNeeded}<Setup />{:else if !app.user}<NotFound />{/if}
+    {#if !app.user && app.setupNeeded}<Lazy load={() => import('./screens/Setup.svelte')} />{:else if !app.user}<NotFound />{/if}
   {:else if $route === '/signup'}
     {#if !app.user}<Lazy load={() => import('./screens/Signup.svelte')} />{/if}
   {:else if $route === '/forgot-password'}
@@ -118,7 +118,7 @@
   {:else if $route === '/verify-email'}
     <Lazy load={() => import('./screens/VerifyEmail.svelte')} />
   {:else if invite}
-    {#key invite}<Invite token={invite} />{/key}
+    {#key invite}<Lazy load={() => import('./screens/Invite.svelte')} props={{ token: invite }} />{/key}
   {:else if app.user}
     {#if $route === '/'}
       <Home />
@@ -144,7 +144,7 @@
   {/if}
 </main>
 
-<StepUp />
+{#if stepUp.open}<Lazy load={() => import('./components/StepUp.svelte')} />{/if}
 <Toast />
 
 <style>
