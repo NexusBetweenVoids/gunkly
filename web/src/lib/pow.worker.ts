@@ -13,8 +13,21 @@ function fromHex(h: string): Uint8Array {
   return out;
 }
 
-addEventListener('message', (e: MessageEvent<Job>) => {
-  void solve(e.data);
+// A dedicated worker only receives messages from the page that created it;
+// still, accept nothing but a well-formed job.
+const isJob = (d: unknown): d is Job => {
+  const j = d as Job;
+  return (
+    typeof j === 'object' && j !== null &&
+    typeof j.salt === 'string' && j.salt.length <= 256 &&
+    typeof j.challenge === 'string' && /^[0-9a-f]{64}$/.test(j.challenge) &&
+    Number.isInteger(j.maxnumber) && j.maxnumber >= 0 && j.maxnumber <= 10_000_000
+  );
+};
+
+addEventListener('message', (e: MessageEvent<unknown>) => {
+  if (e.origin !== '' && e.origin !== self.location.origin) return;
+  if (isJob(e.data)) void solve(e.data);
 });
 
 async function solve({ salt, challenge, maxnumber }: Job): Promise<void> {

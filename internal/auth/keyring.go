@@ -82,7 +82,7 @@ func (k *Keyring) DeriveKey(label string) []byte {
 // to another row; the same ad must be passed to Decrypt.
 func (k *Keyring) Encrypt(plaintext, ad []byte) string {
 	aead := k.aeads[k.current]
-	nonce := make([]byte, aead.NonceSize(), aead.NonceSize()+len(plaintext)+aead.Overhead())
+	nonce := make([]byte, aead.NonceSize()) // Seal grows the slice as needed
 	rand.Read(nonce)
 	sealed := aead.Seal(nonce, nonce, plaintext, ad)
 	return "v" + strconv.FormatUint(uint64(k.current), 10) + ":" + base64.RawURLEncoding.EncodeToString(sealed)
