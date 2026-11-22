@@ -61,6 +61,7 @@ func (s *Store) PurgeExpired(ctx context.Context, p RetentionPolicy, now time.Ti
 		{"mark_done_tokens", "token_hash", "expires_at < ?", n, false},
 		{"undo_tokens", "token_hash", "expires_at < ?", n, false},
 		{"rate_limits", "key", "expires_at < ?", n, false},
+		{"api_tokens", "id", "expires_at < ? OR revoked_at IS NOT NULL", n, false},
 		{"calendar_feeds", "id", "revoked_at IS NOT NULL AND revoked_at < ?", n, false},
 	}
 	var total int64

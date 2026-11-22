@@ -49,7 +49,7 @@ func TestCompletionHistoryRetention(t *testing.T) {
 	ch := must(s.CreateChore(ctx, a, hh, choreIn("Dust")))
 	var ids []string
 	for i := 0; i < 6; i++ {
-		c, _, err := s.CompleteChoreAuto(ctx, a, hh, ch.ID, fmt.Sprintf("n%d", i))
+		c, _, err := s.CompleteChoreAuto(ctx, a, hh, ch.ID, fmt.Sprintf("n%d", i), "app", "")
 		noErr(t, err)
 		ids = append(ids, c.ID)
 	}

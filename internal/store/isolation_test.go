@@ -135,7 +135,7 @@ var ops = []op{
 		return ignore(s.UnarchiveChore(ctx, a, hh, f.choreA))
 	}},
 	{name: "CompleteChoreAuto", write: true, run: func(ctx context.Context, s *store.Store, a store.Actor, hh string, f *fixture) error {
-		return ignore3(s.CompleteChoreAuto(ctx, a, hh, f.choreA, "x"))
+		return ignore3(s.CompleteChoreAuto(ctx, a, hh, f.choreA, "x", "app", ""))
 	}},
 	{name: "RevertChoreCompletion", write: true, run: func(ctx context.Context, s *store.Store, a store.Actor, hh string, f *fixture) error {
 		return ignore(s.RevertChoreCompletion(ctx, a, hh, f.choreA, f.completionA))

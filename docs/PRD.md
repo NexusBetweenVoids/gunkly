@@ -121,8 +121,10 @@ Legal and compliance documents for the maintainer's hosted service are kept outs
 | Areas per household | 100 |
 | Completions kept per chore (oldest non-reverted pruned beyond this) | 1,000 |
 | Authenticated write requests | 120/minute per user (burst 60); 300/minute per household (burst 100); fixed, not admin-tunable |
+| API token requests | 120/minute per token (burst 60); 300/minute per client IP (burst 100); fixed, not admin-tunable |
 | Active invite links per household | 20 (each link: 1-100 uses, default 1) |
 | Calendar feeds per user | 10 |
+| API tokens per user (active) | 20 |
 | Push notification devices (Web Push subscriptions) per user | 10 |
 | Sign-ups per IP per hour (open sign-up on) | 5 |
 | Login attempts per IP (IPv6 by /64) and per IP + account | 5/minute (admin-tunable, applied live), then exponential backoff; never hard-lock |
@@ -134,14 +136,22 @@ Legal and compliance documents for the maintainer's hosted service are kept outs
 |-|-|
 | Audit log | 90 days |
 | Notification delivery log | 30 days |
-| Expired sessions, tokens, invite links | Deleted once expired |
+| Expired sessions, tokens, API tokens, invite links | Deleted once expired (API tokens also once revoked) |
 | Accounts with an unverified email address and no household (hosted mode only) | Deleted after 7 days |
 
 SQLite space is reclaimed with bounded `PRAGMA incremental_vacuum` batches, never a full `VACUUM`.
 
 ### API rules
 
-Every feature goes through `/api/v1` first; no business logic only in the front end; breaking `/api/v1` changes are forbidden. Auth supports browser sessions and household-scoped, least-privilege API tokens (e.g. `chores:read`, `chores:complete`, `chores:write`; no member, channel or deletion scopes by default).
+Every feature goes through `/api/v1` first; no business logic only in the front end; breaking `/api/v1` changes are forbidden. Auth supports browser sessions and household-scoped, least-privilege API tokens (ADR 0014):
+
+- **Token:** `gk_` + 43 base64url characters, sent as `Authorization: Bearer gk_...`, stored only as a SHA-256 hash and shown once. Created under Account, "Integrations" (step-up required): a name, the households it is bound to, scopes and an expiry (30 days to 10 years, or never). Listed with scopes, households, created, last used (written at most once a minute) and expiry; revoked at once with a confirmation. At most 20 active per user.
+- **Scopes** (no implication between them): `chores:read` (households, chores, completion history, calendar, areas, templates, reminders and presets), `chores:complete` (complete, snooze, skip, pause, resume, revert a completion), `chores:write` (create, update, archive, unarchive, delete chores, set reminders, mute). Never available to a token: account, sessions, 2FA, password, email, members, invites, household settings or deletion, areas writes, notification channels, push, calendar feeds, export and import, admin and token management.
+- **Effective permission** is the scope AND the owner's current role in that household (a guest owner can only read). A household the token is not bound to, or that its owner has left, answers `404` like an outsider.
+- **Bearer requests** ignore cookies, set none and need no CSRF header; a request that carries both a cookie and a token is authenticated by the token alone. Missing, malformed, unknown, expired or revoked tokens answer `401` with `WWW-Authenticate: Bearer` (no distinction). `GET /api/v1/token` describes the calling token and its households.
+- **Limits:** 120 requests/minute per token (burst 60) and 300/minute per client IP over all bearer requests (burst 100); not admin-tunable.
+- **Audit:** `token_create`, `token_revoke`, and `token_complete` for each completion made with a token (token ID in the metadata, never the secret). Such completions have source `api_token`.
+- Intended clients: the Home Assistant integration and an MCP server for AI assistants.
 
 ### Non-functional
 
@@ -156,6 +166,6 @@ Every feature goes through `/api/v1` first; no business logic only in the front 
 | **0. Foundations** | Repo files (`LICENSE`, `SECURITY.md`, `AGENTS.md`); `make check`; CI (dual-DB `-race`, lint, deadcode, govulncheck, gitleaks, CodeQL, license check, fitness tests, size budgets, Playwright + axe-core, OpenAPI diff, fuzzing, DAST); Dockerfile and both compose files; scoped data-access layer with isolation tests; limits service; translation setup; egress guard with CI tests; ADRs |
 | **1A. Self-Hosted Alpha** | Accounts, roles, invites, TOTP; multiple households; recurring and one-off chores with interval and RRULE rules; assignees; snooze, skip, pause, undo, archive; simple/advanced editors; templates and starter areas; reminders, presets, quiet hours; Shoutrrr + egress guard + service allowlist; mark-done + 5-minute undo links; delivery log; home and calendar screens, iCal feeds; PWA; English with i18n/RTL wiring; basic admin panel and CLI (`backup`, `rotate-key`, `reset-password`, `reset-2fa`); first-run setup; session overview; health endpoints; trusted-proxy setting; scheduler lock and graceful shutdown; retention cleanup; full security baseline |
 | **1B. Public Hosted Launch** | Web Push; transactional JSON export/import; `migrate-db`; ALTCHA; email-OTP 2FA; inactive-account lifecycle; Updates page with optional auto-migrations; Prometheus `/metrics`; production canary rollout; external security review; GDPR documentation |
-| **Later** | Passkeys and SSO, rotating assignees, personal quiet hours, sub-path hosting, Home Assistant integration, outgoing webhooks, native mobile apps, more languages (CJK, RTL) via reviewed translations, MCP server (token-based first; OAuth 2.1 when remote hosted MCP is enabled) |
+| **Later** | Passkeys and SSO, rotating assignees, personal quiet hours, sub-path hosting, Home Assistant integration (the API tokens it needs exist), outgoing webhooks, native mobile apps, more languages (CJK, RTL) via reviewed translations, MCP server (token-based first, on the API tokens; OAuth 2.1 when remote hosted MCP is enabled) |
 
 **Definition of done (1A / 1B):** a chore can be completed in under 3 taps from the home screen on a phone, in either theme, in every enabled language, passing WCAG 2.2 AA checks, with every item in the applicable security sections in place.

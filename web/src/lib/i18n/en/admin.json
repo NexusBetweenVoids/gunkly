@@ -60,6 +60,7 @@
   "limit.login_attempts_per_minute": "Login attempts per minute",
   "limit.areas_per_household": "Areas per household",
   "limit.completions_per_chore": "Completions kept per chore",
+  "limit.api_tokens_per_user": "API tokens per user",
   "admin.inactive": "Inactive accounts",
   "admin.inactiveHint": "Warn people who have not signed in for a long time, then delete their account. Off by default.",
   "admin.inactiveEnabled": "Warn and delete inactive accounts",

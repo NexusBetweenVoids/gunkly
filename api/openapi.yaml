@@ -9,6 +9,16 @@ info:
     the server never sends user-facing text. Household routes answer 404 to
     non-members (no existence oracle) and 403 when the role is too low
     (guest < member < owner). Breaking changes to /api/v1 are forbidden.
+
+    Integrations (Home Assistant, MCP servers, scripts) authenticate with an API
+    token: `Authorization: Bearer gk_...`, created under Account > Integrations.
+    Operations that list `bearerAuth` accept a token carrying the named scope;
+    every other operation refuses tokens (403 token_not_allowed). A bearer
+    request ignores cookies and needs no CSRF header. A token is bound to
+    households and acts with its owner's current role there: an unbound
+    household answers 404, a missing scope 403 insufficient_scope, and a missing,
+    unknown, expired or revoked token 401 with `WWW-Authenticate: Bearer`.
+    Tokens are limited to 120 requests/minute (burst 60).
 servers:
   - url: /api/v1
 tags:
@@ -22,6 +32,7 @@ tags:
   - {name: feeds}
   - {name: channels}
   - {name: push}
+  - {name: tokens}
   - {name: admin}
 paths:
   /setup:
@@ -277,6 +288,53 @@ paths:
         "400": {description: Invalid input, pow_invalid (bad, expired or reused solution; the solution is spent as soon as it is checked) or registration_failed (username or, self-hosted, email taken), content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
         "403": {description: registration_disabled}
         "429": {$ref: "#/components/responses/RateLimited"}
+  /token:
+    get:
+      tags: [tokens]
+      summary: Describe the calling API token (bearer only)
+      description: Any valid token may call this, whatever its scopes. Households lists only those the token is bound to and its owner still belongs to, with the owner's current role.
+      security: [{bearerAuth: []}]
+      responses:
+        "200": {description: OK, content: {application/json: {schema: {$ref: "#/components/schemas/TokenSelf"}}}}
+        "401": {$ref: "#/components/responses/UnauthenticatedBearer"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+  /account/tokens:
+    get:
+      tags: [tokens]
+      summary: The caller's active API tokens (session only; never the secrets)
+      responses:
+        "200": {description: OK, content: {application/json: {schema: {type: array, items: {$ref: "#/components/schemas/Token"}}}}}
+        "401": {$ref: "#/components/responses/Unauthenticated"}
+    post:
+      tags: [tokens]
+      summary: Create an API token (session only; needs step-up)
+      description: The secret is in the response once, as `token`, and cannot be shown again. Scopes do not imply one another. Whatever the scopes, a token acts with the owner's current role in each bound household (a guest owner can only read).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, scopes, households]
+              properties:
+                name: {type: string, maxLength: 100}
+                scopes: {type: array, minItems: 1, items: {type: string, enum: ["chores:read", "chores:complete", "chores:write"]}}
+                households: {type: array, minItems: 1, maxItems: 50, items: {type: string}, description: Household IDs the caller belongs to}
+                expiresInDays: {type: integer, nullable: true, minimum: 1, maximum: 3650, description: Omit or null for a token that never expires}
+      responses:
+        "201": {description: Created, content: {application/json: {schema: {$ref: "#/components/schemas/Token"}}}}
+        "400": {$ref: "#/components/responses/Invalid"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409": {$ref: "#/components/responses/LimitReached"}
+  /account/tokens/{id}:
+    parameters: [{$ref: "#/components/parameters/id"}]
+    delete:
+      tags: [tokens]
+      summary: Revoke an API token; it stops working at once
+      responses:
+        "204": {description: Revoked}
+        "404": {$ref: "#/components/responses/NotFound"}
   /account/audit:
     get:
       tags: [account]
@@ -382,6 +440,7 @@ paths:
         "429": {$ref: "#/components/responses/RateLimited"}
   /templates:
     get:
+      security: [{cookieAuth: []}, {bearerAuth: [chores:read]}]
       tags: [chores]
       summary: Starter chore templates (the editor prefills from these)
       description: Names translate as template.<key>, areas as area.<area> in the front-end catalog.
@@ -390,6 +449,7 @@ paths:
         "401": {$ref: "#/components/responses/Unauthenticated"}
   /households:
     get:
+      security: [{cookieAuth: []}, {bearerAuth: [chores:read]}]
       tags: [households]
       summary: The user's households
       responses:
@@ -417,6 +477,7 @@ paths:
   /households/{hh}:
     parameters: [{$ref: "#/components/parameters/hh"}]
     get:
+      security: [{cookieAuth: []}, {bearerAuth: [chores:read]}]
       tags: [households]
       summary: Household details (guest)
       responses:
@@ -546,6 +607,7 @@ paths:
   /households/{hh}/areas:
     parameters: [{$ref: "#/components/parameters/hh"}]
     get:
+      security: [{cookieAuth: []}, {bearerAuth: [chores:read]}]
       tags: [areas]
       summary: Areas by name (guest)
       responses:
@@ -583,6 +645,7 @@ paths:
   /households/{hh}/chores:
     parameters: [{$ref: "#/components/parameters/hh"}]
     get:
+      security: [{cookieAuth: []}, {bearerAuth: [chores:read]}]
       tags: [chores]
       summary: Chores with computed due status (guest)
       description: Ordered by due time. status is relative to today in the household zone and the user's week start.
@@ -594,6 +657,7 @@ paths:
         "200": {description: OK, content: {application/json: {schema: {type: array, items: {$ref: "#/components/schemas/Chore"}}}}}
         "404": {$ref: "#/components/responses/NotFound"}
     post:
+      security: [{cookieAuth: []}, {bearerAuth: [chores:write]}]
       tags: [chores]
       summary: Create a chore (member)
       requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/ChoreInput"}}}}
@@ -606,12 +670,14 @@ paths:
   /households/{hh}/chores/{chore}:
     parameters: [{$ref: "#/components/parameters/hh"}, {$ref: "#/components/parameters/chore"}]
     get:
+      security: [{cookieAuth: []}, {bearerAuth: [chores:read]}]
       tags: [chores]
       summary: One chore (guest)
       responses:
         "200": {description: OK, content: {application/json: {schema: {$ref: "#/components/schemas/Chore"}}}}
         "404": {$ref: "#/components/responses/NotFound"}
     put:
+      security: [{cookieAuth: []}, {bearerAuth: [chores:write]}]
       tags: [chores]
       summary: Replace the editable fields (member); simple and advanced editors share this
       description: The current occurrence is kept unless schedule.firstDue or kind changes. Pause state and a custom reminder preset are kept.
@@ -622,6 +688,7 @@ paths:
         "403": {$ref: "#/components/responses/Forbidden"}
         "404": {$ref: "#/components/responses/NotFound"}
     delete:
+      security: [{cookieAuth: []}, {bearerAuth: [chores:write]}]
       tags: [chores]
       summary: Delete a chore and its history (member); audited
       responses:
@@ -631,6 +698,7 @@ paths:
   /households/{hh}/chores/{chore}/archive:
     parameters: [{$ref: "#/components/parameters/hh"}, {$ref: "#/components/parameters/chore"}]
     post:
+      security: [{cookieAuth: []}, {bearerAuth: [chores:write]}]
       tags: [chores]
       summary: Archive (keeps history, stops reminders; member)
       responses:
@@ -640,6 +708,7 @@ paths:
   /households/{hh}/chores/{chore}/unarchive:
     parameters: [{$ref: "#/components/parameters/hh"}, {$ref: "#/components/parameters/chore"}]
     post:
+      security: [{cookieAuth: []}, {bearerAuth: [chores:write]}]
       tags: [chores]
       summary: Unarchive (member)
       responses:
@@ -649,6 +718,7 @@ paths:
   /households/{hh}/chores/{chore}/complete:
     parameters: [{$ref: "#/components/parameters/hh"}, {$ref: "#/components/parameters/chore"}]
     post:
+      security: [{cookieAuth: []}, {bearerAuth: [chores:complete]}]
       tags: [chores]
       summary: Mark done from the app (member)
       description: Advances a recurring chore to its next occurrence; a one-off chore is archived. undoPath is the revert endpoint for this completion.
@@ -673,6 +743,7 @@ paths:
   /households/{hh}/chores/{chore}/completions:
     parameters: [{$ref: "#/components/parameters/hh"}, {$ref: "#/components/parameters/chore"}]
     get:
+      security: [{cookieAuth: []}, {bearerAuth: [chores:read]}]
       tags: [chores]
       summary: Completion history, newest first (guest)
       parameters:
@@ -693,6 +764,7 @@ paths:
   /households/{hh}/chores/{chore}/completions/{completion}/revert:
     parameters: [{$ref: "#/components/parameters/hh"}, {$ref: "#/components/parameters/chore"}, {name: completion, in: path, required: true, schema: {type: string}}]
     post:
+      security: [{cookieAuth: []}, {bearerAuth: [chores:complete]}]
       tags: [chores]
       summary: Revert a completion (member); restores the previous due date; audited
       responses:
@@ -703,6 +775,7 @@ paths:
   /households/{hh}/chores/{chore}/snooze:
     parameters: [{$ref: "#/components/parameters/hh"}, {$ref: "#/components/parameters/chore"}]
     post:
+      security: [{cookieAuth: []}, {bearerAuth: [chores:complete]}]
       tags: [chores]
       summary: Move this occurrence to a date (member); invalidates mark-done links
       requestBody: {required: true, content: {application/json: {schema: {type: object, required: [until], properties: {until: {type: string, format: date, description: "Local date, today or later"}}}}}}
@@ -715,6 +788,7 @@ paths:
   /households/{hh}/chores/{chore}/skip:
     parameters: [{$ref: "#/components/parameters/hh"}, {$ref: "#/components/parameters/chore"}]
     post:
+      security: [{cookieAuth: []}, {bearerAuth: [chores:complete]}]
       tags: [chores]
       summary: Skip once - advance to the next occurrence without a completion (member); audited
       responses:
@@ -726,6 +800,7 @@ paths:
   /households/{hh}/chores/{chore}/pause:
     parameters: [{$ref: "#/components/parameters/hh"}, {$ref: "#/components/parameters/chore"}]
     post:
+      security: [{cookieAuth: []}, {bearerAuth: [chores:complete]}]
       tags: [chores]
       summary: Pause until a date, or indefinitely without one (member)
       requestBody:
@@ -740,6 +815,7 @@ paths:
   /households/{hh}/chores/{chore}/resume:
     parameters: [{$ref: "#/components/parameters/hh"}, {$ref: "#/components/parameters/chore"}]
     post:
+      security: [{cookieAuth: []}, {bearerAuth: [chores:complete]}]
       tags: [chores]
       summary: Resume a paused chore (member)
       responses:
@@ -750,12 +826,14 @@ paths:
   /households/{hh}/chores/{chore}/reminders:
     parameters: [{$ref: "#/components/parameters/hh"}, {$ref: "#/components/parameters/chore"}]
     get:
+      security: [{cookieAuth: []}, {bearerAuth: [chores:read]}]
       tags: [reminders]
       summary: The chore's reminder setup (guest)
       responses:
         "200": {description: OK, content: {application/json: {schema: {$ref: "#/components/schemas/RemindersView"}}}}
         "404": {$ref: "#/components/responses/NotFound"}
     put:
+      security: [{cookieAuth: []}, {bearerAuth: [chores:write]}]
       tags: [reminders]
       summary: Replace the reminder setup (member)
       description: Send a preset ("" = household default, gentle, nag, none) or a reminders list (custom; at most the household's reminders-per-chore limit).
@@ -777,6 +855,7 @@ paths:
   /households/{hh}/chores/{chore}/mute:
     parameters: [{$ref: "#/components/parameters/hh"}, {$ref: "#/components/parameters/chore"}]
     put:
+      security: [{cookieAuth: []}, {bearerAuth: [chores:write]}]
       tags: [reminders]
       summary: Mute this chore's reminders for me (member)
       responses:
@@ -784,6 +863,7 @@ paths:
         "403": {$ref: "#/components/responses/Forbidden"}
         "404": {$ref: "#/components/responses/NotFound"}
     delete:
+      security: [{cookieAuth: []}, {bearerAuth: [chores:write]}]
       tags: [reminders]
       summary: Unmute (member)
       responses:
@@ -793,6 +873,7 @@ paths:
   /households/{hh}/reminder-presets:
     parameters: [{$ref: "#/components/parameters/hh"}]
     get:
+      security: [{cookieAuth: []}, {bearerAuth: [chores:read]}]
       tags: [reminders]
       summary: Built-in reminder presets and the household default (guest)
       responses:
@@ -815,6 +896,7 @@ paths:
   /households/{hh}/calendar:
     parameters: [{$ref: "#/components/parameters/hh"}]
     get:
+      security: [{cookieAuth: []}, {bearerAuth: [chores:read]}]
       tags: [chores]
       summary: Occurrences per chore in a date range (guest)
       description: Calendar-rule (from-scheduled) chores list every occurrence; one-off and from-completion chores only their next due date. At most 62 days inclusive.
@@ -1104,6 +1186,12 @@ paths:
         "400": {$ref: "#/components/responses/Invalid"}
         "403": {$ref: "#/components/responses/Forbidden"}
 components:
+  securitySchemes:
+    cookieAuth: {type: apiKey, in: cookie, name: gunkly_session, description: Browser session; unsafe methods also send X-CSRF-Token}
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: "API token (gk_...). Scopes: chores:read, chores:complete, chores:write; no scope implies another."
   parameters:
     hh: {name: hh, in: path, required: true, schema: {type: string}, description: Household ID}
     chore: {name: chore, in: path, required: true, schema: {type: string}, description: Chore ID}
@@ -1116,8 +1204,9 @@ components:
       description: Test outcome; error text is redacted
       content: {application/json: {schema: {type: object, properties: {sent: {type: boolean}, error: {type: string}}}}}
     Invalid: {description: Validation failed (invalid, invalid_json), content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
+    UnauthenticatedBearer: {description: Missing, unknown, expired or revoked token (unauthenticated), headers: {WWW-Authenticate: {schema: {type: string, example: Bearer}}}, content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
     Unauthenticated: {description: Not signed in (unauthenticated), content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
-    Forbidden: {description: Role too low, CSRF failure or step-up needed (forbidden, csrf_failed, step_up_required), content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
+    Forbidden: {description: Role too low, CSRF failure or step-up needed (forbidden, csrf_failed, step_up_required, token_not_allowed, insufficient_scope), content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
     NotFound: {description: Not found, or not a member of the household (not_found), content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
     ImportInvalid:
       description: The file was rejected (code import_invalid; limit_reached when the household is already full)
@@ -1135,6 +1224,36 @@ components:
     LimitReached: {description: A usage limit was reached (limit_reached), content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
     RateLimited: {description: Too many attempts (rate_limited), headers: {Retry-After: {schema: {type: integer}}}, content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
   schemas:
+    TokenHousehold:
+      type: object
+      properties:
+        id: {type: string}
+        name: {type: string}
+        role: {type: string, enum: [guest, member, owner], description: The token owner's current role}
+    Token:
+      type: object
+      properties:
+        id: {type: string}
+        name: {type: string}
+        scopes: {type: array, items: {type: string, enum: ["chores:read", "chores:complete", "chores:write"]}}
+        households: {type: array, items: {$ref: "#/components/schemas/TokenHousehold"}}
+        createdAt: {type: string, format: date-time}
+        lastUsedAt: {type: string, format: date-time, nullable: true, description: Updated at most once a minute}
+        expiresAt: {type: string, format: date-time, nullable: true}
+        token: {type: string, description: The secret, only in the creation response}
+    TokenSelf:
+      type: object
+      properties:
+        id: {type: string}
+        name: {type: string}
+        scopes: {type: array, items: {type: string, enum: ["chores:read", "chores:complete", "chores:write"]}}
+        households: {type: array, items: {$ref: "#/components/schemas/TokenHousehold"}}
+        user:
+          type: object
+          properties:
+            id: {type: string}
+            displayName: {type: string}
+        expiresAt: {type: string, format: date-time, nullable: true}
     Error:
       type: object
       properties:

@@ -21,7 +21,13 @@ const (
 	authHousehold           // signed-in member of {hh} with at least minRole
 	authAdmin               // signed-in instance admin
 	authMetrics             // bearer token from GUNKLY_METRICS_TOKEN (the /metrics scrape endpoint)
+	authBearer              // an API token (ADR 0014), any scope; no session (GET /api/v1/token)
 )
+
+// tokenNone is the explicit declaration that API tokens may not call a route.
+// Session, household and admin routes must declare either it or the one scope
+// a token needs (policy.token); an empty declaration fails at start-up.
+const tokenNone = "none"
 
 // policy is the access declaration every route carries. The router enforces
 // it before the handler runs; a fitness test walks the route table.
@@ -30,6 +36,10 @@ type policy struct {
 	minRole store.Role // authHousehold only
 	stepUp  bool       // requires re-verification within stepUpWindow
 	rate    string     // rate-limit bucket keyed by client IP; "" = none
+	// token is the API token scope a bearer request needs on this route, or
+	// tokenNone. Effective permission is the scope AND the token owner's
+	// current role in the household (minRole).
+	token string
 	// tokenAuth marks a public route whose credential is an unguessable token
 	// in the URL (mark-done links). Unsafe methods skip the cookie CSRF
 	// double-submit, which cannot apply without a session, and get the
@@ -60,6 +70,12 @@ func (p policy) withRate(bucket string) policy { p.rate = bucket; return p }
 // withBodyLimit raises the request body cap for this route (uploads).
 func (p policy) withBodyLimit(n int64) policy { p.bodyLimit = n; return p }
 
+// withToken lets API tokens carrying scope call the route.
+func (p policy) withToken(scope string) policy { p.token = scope; return p }
+
+// noToken declares that API tokens may never call the route.
+func (p policy) noToken() policy { p.token = tokenNone; return p }
+
 // withTokenAuth declares the route authenticated by a URL token (see policy).
 func (p policy) withTokenAuth() policy { p.tokenAuth = true; return p }
 
@@ -80,6 +96,8 @@ const (
 	rateReset    = "reset"    // password reset request and confirm
 	rateSignup   = "signup"   // sign-up and its proof-of-work challenge
 	rateEmail    = "email"    // authenticated actions that send email
+	rateTokenIP  = "tokenip"  // bearer requests, per client IP (also bounds token guessing)
+	rateToken    = "token"    // bearer requests, per token
 
 	rateUserWrite      = "uwrite" // authenticated non-GET requests, per user
 	rateHouseholdWrite = "hwrite" // household write requests, per household
@@ -92,10 +110,12 @@ var bucketRates = map[string]int{
 	rateMarkDone: limits.MarkDonePerMinute, rateMetrics: limits.MetricsPerMinute, rateTransfer: limits.TransfersPerMinute, rateICal: limits.ICalPerMinute,
 	rateVerify: 20, rateReset: 10, rateSignup: 20, rateEmail: 10,
 	rateUserWrite: limits.UserWritesPerMinute, rateHouseholdWrite: limits.HouseholdWritesPerMinute,
+	rateToken: limits.TokenRequestsPerMinute, rateTokenIP: limits.TokenIPPerMinute,
 }
 
 // bucketBursts overrides the bucket capacity where it differs from one minute of tokens.
-var bucketBursts = map[string]int{rateUserWrite: limits.UserWriteBurst, rateHouseholdWrite: limits.HouseholdWriteBurst}
+var bucketBursts = map[string]int{rateUserWrite: limits.UserWriteBurst, rateHouseholdWrite: limits.HouseholdWriteBurst,
+	rateToken: limits.TokenBurst, rateTokenIP: limits.TokenIPBurst}
 
 type route struct {
 	pattern string
@@ -104,11 +124,12 @@ type route struct {
 
 // call is the per-request context handed to handlers.
 type call struct {
-	user store.User    // zero unless the policy requires a session
-	sess store.Session // zero unless the policy requires a session
-	hh   string        // {hh} path value for household routes
-	ip   string        // client address, for audit
-	rip  string        // rate-limit identity (IPv6 collapsed to /64)
+	user store.User      // zero unless the policy requires a session or API token (then the token's owner)
+	sess store.Session   // zero unless the policy requires a session
+	tok  *store.APIToken // set when authenticated by an API token, else nil
+	hh   string          // {hh} path value for household routes
+	ip   string          // client address, for audit
+	rip  string          // rate-limit identity (IPv6 collapsed to /64)
 }
 
 func (c *call) actor() store.Actor { return store.Actor{UserID: c.user.ID} }
@@ -131,7 +152,7 @@ func (s *Server) handle(pattern string, p policy, h handlerFunc) {
 func (p policy) validate(pattern string) error {
 	hasHH := strings.Contains(pattern, "{hh}")
 	switch {
-	case p.auth <= authUnset || p.auth > authMetrics:
+	case p.auth <= authUnset || p.auth > authBearer:
 		return fmt.Errorf("api: route %q has no auth policy", pattern)
 	case p.auth == authHousehold && (!hasHH || !p.minRole.Valid()):
 		return fmt.Errorf("api: household route %q needs {hh} and a minimum role", pattern)
@@ -141,6 +162,14 @@ func (p policy) validate(pattern string) error {
 		return fmt.Errorf("api: public route %q cannot require step-up", pattern)
 	case p.auth == authMetrics && (p.rate == "" || p.stepUp || p.tokenAuth || !strings.HasPrefix(pattern, "GET ")):
 		return fmt.Errorf("api: metrics route %q must be a rate-limited GET without step-up", pattern)
+	case p.auth >= authSession && p.auth <= authAdmin && p.token == "":
+		return fmt.Errorf("api: route %q must declare its API token scope or noToken", pattern)
+	case p.token != "" && (p.auth < authSession || p.auth > authAdmin):
+		return fmt.Errorf("api: route %q cannot declare an API token scope", pattern)
+	case p.token != "" && p.token != tokenNone && (!store.ValidScope(p.token) || p.stepUp || p.auth == authAdmin):
+		return fmt.Errorf("api: route %q has an invalid API token scope", pattern)
+	case p.auth == authBearer && (p.rate != "" || p.stepUp || !strings.HasPrefix(pattern, "GET ")):
+		return fmt.Errorf("api: bearer route %q must be a GET without step-up or its own rate bucket", pattern)
 	case p.tokenAuth && (p.auth != authPublic || p.rate == ""):
 		return fmt.Errorf("api: token route %q must be public and rate limited", pattern)
 	}
@@ -154,20 +183,33 @@ func (s *Server) enforce(p policy, h handlerFunc) http.Handler {
 		info := infoFrom(r)
 		info.pattern = r.Pattern
 		c := &call{ip: info.ip.String(), rip: ipKey(info.ip)}
-		if !safeMethod(r.Method) && !s.requestOK(p, r) {
+		// A bearer token wins over any cookie: the request is authenticated by
+		// the token alone, reads and sets no cookies and, since the token is not
+		// ambient credential a cross-site page could ride, needs no CSRF check.
+		secret, bearer := bearerFrom(r)
+		bearer = bearer && p.auth >= authSession && p.auth != authMetrics
+		if !safeMethod(r.Method) && !bearer && !s.requestOK(p, r) {
 			s.fail(w, r, s.csrfError(r))
 			return
 		}
 		if p.rate != "" && !s.allow(w, p.rate+":ip:"+c.rip) {
 			return
 		}
-		if p.auth == authMetrics {
+		switch {
+		case bearer:
+			if !s.authenticateBearer(w, r, c, p, secret) {
+				return
+			}
+		case p.auth == authBearer:
+			s.failBearer(w, r)
+			return
+		case p.auth == authMetrics:
 			if !s.metricsAuthorized(r) {
 				w.Header().Set("WWW-Authenticate", `Bearer realm="gunkly-metrics"`)
 				s.fail(w, r, errUnauthenticated)
 				return
 			}
-		} else if p.auth >= authSession {
+		case p.auth >= authSession:
 			ss, u, ok := s.authenticate(w, r)
 			if !ok {
 				s.fail(w, r, errUnauthenticated)
@@ -190,6 +232,12 @@ func (s *Server) enforce(p policy, h handlerFunc) http.Handler {
 		}
 		if p.auth == authHousehold {
 			c.hh = r.PathValue("hh")
+			if c.tok != nil {
+				if _, ok := c.tok.Household(c.hh); !ok {
+					s.fail(w, r, errNotFound) // not bound, or the owner left: like an outsider
+					return
+				}
+			}
 			// Defence in depth: the store re-checks membership in the same
 			// transaction as the data access.
 			if !safeMethod(r.Method) && !s.allow(w, rateHouseholdWrite+":hh:"+c.hh) {

@@ -40,9 +40,16 @@ func (s *Server) completeChore(w http.ResponseWriter, r *http.Request, c *call) 
 	if len(in.Note) > 2000 {
 		return errInvalid
 	}
-	comp, ch, err := s.st.CompleteChoreAuto(r.Context(), c.actor(), c.hh, r.PathValue("chore"), in.Note)
+	source, tokenID := store.SourceApp, ""
+	if c.tok != nil {
+		source, tokenID = store.SourceAPIToken, c.tok.ID
+	}
+	comp, ch, err := s.st.CompleteChoreAuto(r.Context(), c.actor(), c.hh, r.PathValue("chore"), in.Note, source, tokenID)
 	if err != nil {
 		return err
+	}
+	if c.tok != nil {
+		s.audit(r.Context(), c, c.user.ID, store.AuditTokenComplete, c.hh, map[string]string{"chore": ch.ID, "completion": comp.ID})
 	}
 	h, err := s.st.Household(r.Context(), c.actor(), c.hh)
 	if err != nil {

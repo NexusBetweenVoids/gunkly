@@ -112,7 +112,7 @@ func TestDeleteAccount(t *testing.T) {
 	c2 := must(s.CreateChore(ctx, w.b, w.h, withAssignees(choreIn("a-and-b"), w.a.UserID, w.b.UserID)))
 	c3 := must(s.CreateChore(ctx, w.b, w.h, withAssignees(choreIn("only-b"), w.b.UserID)))
 	for _, id := range []string{c1.ID, c2.ID} {
-		if _, _, err := s.CompleteChoreAuto(ctx, w.a, w.h, id, ""); err != nil {
+		if _, _, err := s.CompleteChoreAuto(ctx, w.a, w.h, id, "", "app", ""); err != nil {
 			t.Fatal(err)
 		}
 	}

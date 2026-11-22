@@ -19,10 +19,10 @@ func (s *Server) registerTransferRoutes() {
 	member := household(store.RoleMember)
 	upload := int64(limits.ImportMaxBytes)
 
-	s.handle("GET /api/v1/account/export", session.withStepUp().withRate(rateTransfer), s.exportUser)
-	s.handle("GET /api/v1/households/{hh}/export", member.withRate(rateTransfer), s.exportHousehold)
-	s.handle("POST /api/v1/households/import", session.withRate(rateTransfer).withBodyLimit(upload), s.importNewHousehold)
-	s.handle("POST /api/v1/households/{hh}/import", member.withRate(rateTransfer).withBodyLimit(upload), s.importMerge)
+	s.handle("GET /api/v1/account/export", session.noToken().withStepUp().withRate(rateTransfer), s.exportUser)
+	s.handle("GET /api/v1/households/{hh}/export", member.noToken().withRate(rateTransfer), s.exportHousehold)
+	s.handle("POST /api/v1/households/import", session.noToken().withRate(rateTransfer).withBodyLimit(upload), s.importNewHousehold)
+	s.handle("POST /api/v1/households/{hh}/import", member.noToken().withRate(rateTransfer).withBodyLimit(upload), s.importMerge)
 }
 
 // download writes v as a pretty-printed JSON attachment.

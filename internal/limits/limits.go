@@ -32,6 +32,7 @@ const (
 	LoginAttemptsPerMinute     Kind = "login_attempts_per_minute"
 	AreasPerHousehold          Kind = "areas_per_household"
 	CompletionsPerChore        Kind = "completions_per_chore"
+	APITokensPerUser           Kind = "api_tokens_per_user" //nolint:gosec // G101: a limit name, not a credential
 )
 
 // Defaults is the PRD limits table.
@@ -56,6 +57,7 @@ var Defaults = map[Kind]int{
 	LoginAttemptsPerMinute:     5,
 	AreasPerHousehold:          100,
 	CompletionsPerChore:        1000,
+	APITokensPerUser:           20,
 }
 
 // Per-IP request rates of the unauthenticated link endpoints. Fixed, not
@@ -80,6 +82,12 @@ const (
 	UserWriteBurst           = 60
 	HouseholdWritesPerMinute = 300
 	HouseholdWriteBurst      = 100
+	// API tokens: a bucket per token, and one per client IP over all bearer
+	// requests (it also bounds token guessing).
+	TokenRequestsPerMinute = 120
+	TokenBurst             = 60
+	TokenIPPerMinute       = 300
+	TokenIPBurst           = 100
 )
 
 // ErrExceeded is returned by Check when current has reached the limit.

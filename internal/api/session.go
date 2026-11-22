@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"errors"
+	"maps"
 	"net/http"
 	"strings"
 	"time"
@@ -413,6 +414,13 @@ func deviceLabel(ua string) string {
 
 // audit records an event; failures are logged, never shown to the client.
 func (s *Server) audit(ctx context.Context, c *call, actor, event, hh string, meta map[string]string) {
+	if c.tok != nil && meta["token"] == "" { // name the token behind an action it performed (never its secret)
+		meta = maps.Clone(meta)
+		if meta == nil {
+			meta = map[string]string{}
+		}
+		meta["token"] = c.tok.ID
+	}
 	if err := s.st.Audit(ctx, store.AuditEvent{ActorUserID: actor, HouseholdID: hh, Event: event, IP: c.ip, Meta: meta}); err != nil {
 		s.log.Error("audit", "event", event, "err", err)
 	}

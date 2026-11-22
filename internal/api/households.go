@@ -45,6 +45,11 @@ func (s *Server) listHouseholds(w http.ResponseWriter, r *http.Request, c *call)
 	}
 	out := make([]householdView, 0, len(hs))
 	for _, h := range hs {
+		if c.tok != nil { // a token sees only the households it is bound to
+			if _, bound := c.tok.Household(h.ID); !bound {
+				continue
+			}
+		}
 		out = append(out, viewHousehold(h))
 	}
 	return ok(w, out)

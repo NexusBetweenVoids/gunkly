@@ -148,12 +148,12 @@ func (t *tx) finishState(ctx context.Context, householdID, choreID string, out *
 	return err
 }
 
-// CompleteChoreAuto completes a chore from the app, now, and computes the next
+// CompleteChoreAuto completes a chore now, recorded with the given source (SourceApp or SourceAPIToken; tokenID names the token for the latter), and computes the next
 // occurrence inside the transaction with internal/schedule (so concurrent
 // completions cannot work from a stale due date). Member or owner. Archived
 // chores are ErrConflict. It returns the completion and the updated chore.
-func (s *Store) CompleteChoreAuto(ctx context.Context, a Actor, householdID, choreID, note string) (Completion, Chore, error) {
-	if len(note) > 2000 {
+func (s *Store) CompleteChoreAuto(ctx context.Context, a Actor, householdID, choreID, note, source, tokenID string) (Completion, Chore, error) {
+	if len(note) > 2000 || source != SourceApp && source != SourceAPIToken {
 		return Completion{}, Chore{}, ErrInvalid
 	}
 	var comp Completion
@@ -172,7 +172,7 @@ func (s *Store) CompleteChoreAuto(ctx context.Context, a Actor, householdID, cho
 			return err
 		}
 		now := s.now()
-		in := CompletionInput{CompletedAt: now, Source: SourceApp, Note: note, DueDate: c.DueDate}
+		in := CompletionInput{CompletedAt: now, Source: source, TokenID: tokenID, Note: note, DueDate: c.DueDate}
 		if c.Kind != KindOneOff {
 			due, next, ok, err := NextOccurrence(c, loc, now)
 			if err != nil {

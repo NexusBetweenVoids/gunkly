@@ -225,6 +225,14 @@ func TestRoutePolicies(t *testing.T) {
 		{"GET /api/v1/households/{hh}/x", policy{auth: authHousehold}},
 		{"GET /api/v1/x", household(store.RoleGuest)},
 		{"GET /api/v1/x", public.withStepUp()},
+		{"GET /api/v1/x", session}, // session, household and admin routes must declare their token scope
+		{"GET /api/v1/households/{hh}/x", household(store.RoleGuest)},
+		{"GET /api/v1/x", admin.withToken(store.ScopeRead)}, // never admin
+		{"POST /api/v1/x", session.withStepUp().withToken(store.ScopeRead)},
+		{"GET /api/v1/x", session.withToken("chores:everything")},
+		{"GET /api/v1/x", public.withToken(store.ScopeRead)},
+		{"GET /api/v1/x", policy{auth: authBearer}.withRate("x")},
+		{"POST /api/v1/x", policy{auth: authBearer}},
 		{"POST /x/{token}", public.withTokenAuth()},                // token routes must be rate limited
 		{"POST /x/{token}", session.withRate("x").withTokenAuth()}, // and public
 	} {

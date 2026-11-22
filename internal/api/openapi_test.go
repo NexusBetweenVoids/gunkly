@@ -78,3 +78,44 @@ func TestOpenAPICoversRoutes(t *testing.T) {
 		t.Fatalf("parsed only %d operations", len(spec))
 	}
 }
+
+var specSecurityRE = regexp.MustCompile(`^      security: .*bearerAuth: \[([a-z:]*)\]`)
+
+// TestOpenAPIDocumentsTokenScopes: the operations that list bearerAuth are
+// exactly the routes that accept API tokens, with the same scope.
+func TestOpenAPIDocumentsTokenScopes(t *testing.T) {
+	f, err := os.Open("../../api/openapi.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	got, inPaths, path, method := map[string]string{}, false, "", ""
+	sc := bufio.NewScanner(f)
+	for sc.Scan() {
+		line := sc.Text()
+		if !strings.HasPrefix(line, " ") && line != "" {
+			inPaths = line == "paths:"
+		}
+		if m := specPathRE.FindStringSubmatch(line); inPaths && m != nil {
+			path = m[1]
+		} else if m := specMethodRE.FindStringSubmatch(line); inPaths && m != nil {
+			method = strings.ToUpper(m[1])
+		} else if m := specSecurityRE.FindStringSubmatch(line); inPaths && m != nil {
+			got[method+" /api/v1"+path] = m[1]
+		}
+	}
+	want := map[string]string{"GET /api/v1/token": ""}
+	for p, sc := range tokenRoutes {
+		want[p] = sc
+	}
+	for p, sc := range want {
+		if g, ok := got[p]; !ok || g != sc {
+			t.Errorf("%s: spec scope %q (documented %v), want %q", p, g, ok, sc)
+		}
+	}
+	for p := range got {
+		if _, ok := want[p]; !ok {
+			t.Errorf("%s lists bearerAuth but accepts no token", p)
+		}
+	}
+}

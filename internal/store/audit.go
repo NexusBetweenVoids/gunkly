@@ -38,6 +38,9 @@ const (
 	AuditChoreDelete       = "chore_delete"
 	AuditChoreSkip         = "chore_skip"
 	AuditCompletionRevert  = "completion_revert"
+	AuditTokenCreate       = "token_create"
+	AuditTokenRevoke       = "token_revoke"
+	AuditTokenComplete     = "token_complete" // a chore completed with an API token; meta token = its ID
 	AuditAccountDelete     = "account_delete" // actor-less: the account is gone
 	AuditOwnerTransfer     = "owner_transfer" // household_id, meta owner = new owner
 	AuditInactiveWarn      = "inactive_warn"  // system, meta user = account

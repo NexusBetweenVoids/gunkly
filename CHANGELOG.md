@@ -4,6 +4,11 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ## [Unreleased]
 
+### Added
+
+- API tokens for integrations such as Home Assistant and AI assistants (MCP): create them under Account, Integrations. Each token is bound to the households you pick and to the permissions you choose (`chores:read`, `chores:complete`, `chores:write`), never exceeds your own role, is shown once, can expire and can be revoked at once. Send it as `Authorization: Bearer gk_...`; `GET /api/v1/token` describes it. Completions made with a token are recorded as such. See ADR 0014 and the `bearerAuth` operations in the OpenAPI document.
+- New limit `api_tokens_per_user` (default 20).
+
 ### Changed
 
 - Opening Gunkly at an address other than `GUNKLY_BASE_URL` (or over http when it is https) now says so in the app and logs a warning naming both addresses, instead of a generic "session expired".

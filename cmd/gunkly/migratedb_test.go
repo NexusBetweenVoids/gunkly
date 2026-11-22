@@ -58,7 +58,7 @@ func populatedSQLite(t *testing.T) (url, path string) {
 		t.Fatal(err)
 	}
 	for _, n := range []string{"one", "two"} {
-		if _, _, err := st.CompleteChoreAuto(ctx, store.Actor{UserID: bob.ID}, h.ID, c.ID, n); err != nil {
+		if _, _, err := st.CompleteChoreAuto(ctx, store.Actor{UserID: bob.ID}, h.ID, c.ID, n, store.SourceApp, ""); err != nil {
 			t.Fatal(err)
 		}
 	}

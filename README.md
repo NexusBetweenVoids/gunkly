@@ -47,6 +47,7 @@ All screenshots show synthetic demo data.
 - Per chore: before due, on the due date, repeating while overdue (at most once per 24 h); household presets and quiet hours (deferred, not dropped); per-user mutes.
 - Channels per user and per household through [Shoutrrr](https://containrrr.dev/shoutrrr/) service URLs: Discord, Slack, Telegram, Pushover, Pushbullet, Google Chat and ntfy.sh on by default; self-hosted ntfy, generic webhook, SMTP, MQTT, Matrix, Gotify and more can be enabled by the admin.
 - Built-in Web Push to browsers and installed PWAs; no third-party account needed.
+- Scoped API tokens for Home Assistant, scripts and AI assistants (see Integrations / API tokens).
 - Reminders carry a mark-done link (confirmation page, single use, 5-minute undo); delivery log with retries and backoff.
 
 **Calendar and iCal feeds**
@@ -197,6 +198,17 @@ Administration shows the running version and the latest release with its changel
 ## Browser notifications
 
 Under Account, "Enable notifications on this device" subscribes the browser to Web Push (HTTPS or localhost, and a browser with push support). Messages are encrypted to the browser and delivered through the browser vendor's push service, which sees that a message was sent and when. Push follows the same recipients, mutes and quiet hours as your other channels.
+
+## Integrations / API tokens
+
+Under Account, "Integrations", create an access token for Home Assistant, a script or an AI assistant (via an MCP server). A token is bound to the households you choose and to the permissions you give it: see and read chores (`chores:read`), mark them done, snooze, skip and pause them (`chores:complete`), and add, change or delete them (`chores:write`). It never exceeds your own role in a household (a guest's token can only read), can expire, is shown once and can be revoked at any time. It can never change members, settings, notification channels or your account.
+
+```sh
+curl -H "Authorization: Bearer gk_..." https://gunkly.example.com/api/v1/token
+curl -X POST -H "Authorization: Bearer gk_..." https://gunkly.example.com/api/v1/households/<id>/chores/<id>/complete
+```
+
+Requests with a token need no cookies or CSRF header. See [api/openapi.yaml](api/openapi.yaml) (`bearerAuth`) and [ADR 0014](docs/adr/0014-api-tokens.md). Treat a token like a password.
 
 ## Export and import
 

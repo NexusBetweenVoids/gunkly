@@ -33,6 +33,9 @@
     'audit.household_export',
     'audit.household_import',
     'audit.inactive_warn',
+    'audit.token_create',
+    'audit.token_revoke',
+    'audit.token_complete',
   ];
 
   const label = (ev: string) => (LABELS.includes(`audit.${ev}`) ? t(('audit.' + ev) as Key) : ev);

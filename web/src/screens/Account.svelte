@@ -24,6 +24,7 @@
   <PushNotifications />
   <Deliveries path="/account/deliveries" title={t('delivery.personalTitle')} id="me" />
   <Sessions />
+  <Lazy load={() => import('./account/Integrations.svelte')} />
   <Lazy load={() => import('./account/ExportData.svelte')} />
   <Lazy load={() => import('./account/DeleteAccount.svelte')} />
   <Audit />
