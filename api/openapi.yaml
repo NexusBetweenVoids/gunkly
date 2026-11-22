@@ -283,6 +283,43 @@ paths:
       responses:
         "200": {description: OK, content: {application/json: {schema: {type: array, items: {$ref: "#/components/schemas/AuditEvent"}}}}}
         "401": {$ref: "#/components/responses/Unauthenticated"}
+  /account/deletion-preview:
+    get:
+      tags: [account]
+      summary: What deleting the account would do
+      description: |
+        deleteHouseholds are the households deleted with the account (no non-guest member would remain);
+        needOwner are those where the caller is the last owner and others remain: the caller must name a new
+        owner (a non-guest member, never a guest) for each when deleting.
+      responses:
+        "200": {description: OK, content: {application/json: {schema: {$ref: "#/components/schemas/DeletionPreview"}}}}
+        "401": {$ref: "#/components/responses/Unauthenticated"}
+  /account:
+    delete:
+      tags: [account]
+      summary: Delete the account permanently (step-up required)
+      description: |
+        One transaction: ownership passes to the chosen members, households without a non-guest member are
+        deleted, chores assigned only to the caller become unassigned, completions are anonymised ("Deleted user"),
+        sessions, tokens, notification channels, push subscriptions and feeds are removed and audit rows lose their
+        actor, IP and metadata. Cannot be undone. 409 owner_required lists the households still needing a new
+        owner (field households); 409 last_admin when the caller is the only instance admin.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [confirmUsername]
+              properties:
+                confirmUsername: {type: string, description: "The caller's own username, case-insensitive; the explicit confirmation"}
+                newOwners: {type: object, additionalProperties: {type: string}, description: "Household id to the user id of its new owner"}
+      responses:
+        "204": {description: Deleted; the session cookies are cleared}
+        "400": {description: invalid, confirmation_mismatch}
+        "401": {$ref: "#/components/responses/Unauthenticated"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "409": {description: "owner_required (with households: the same shape as needOwner) or last_admin", content: {application/json: {schema: {$ref: "#/components/schemas/OwnerRequired"}}}}
   /account/export:
     get:
       tags: [account]
@@ -424,10 +461,24 @@ paths:
     delete:
       tags: [households]
       summary: Remove a member (owner) or leave (self)
+      description: |
+        Leaving takes an optional body. As last owner with other non-guest members, newOwner names the successor
+        (409 owner_required with the candidates otherwise). If nobody else (non-guest) remains the household is
+        deleted, which needs confirmDelete true (409 household_would_be_deleted otherwise).
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                newOwner: {type: string}
+                confirmDelete: {type: boolean}
       responses:
         "204": {description: Removed}
         "403": {$ref: "#/components/responses/Forbidden"}
         "404": {$ref: "#/components/responses/NotFound"}
+        "409": {description: "owner_required or household_would_be_deleted", content: {application/json: {schema: {$ref: "#/components/schemas/OwnerRequired"}}}}
   /households/{hh}/invites:
     parameters: [{$ref: "#/components/parameters/hh"}]
     get:
@@ -1041,6 +1092,9 @@ paths:
                 enabledNotificationKinds: {type: array, items: {type: string}, description: "Allowed notification services; must be a subset of availableNotificationKinds"}
                 egressGuard: {type: boolean, description: "Block outbound requests to private addresses; rejected while egressGuardLocked"}
                 updateCheck: {type: boolean, description: "Check for new releases in the background (default true)"}
+                inactiveEnabled: {type: boolean, description: "Warn and then delete inactive accounts (default off)"}
+                inactiveWarnAfterDays: {type: integer, minimum: 30, maximum: 3650, description: "Warn after this many days without activity (default 365)"}
+                inactiveDeleteAfterDays: {type: integer, minimum: 60, maximum: 3650, description: "Delete after this many days without activity (default 548); at least 30 days after inactiveWarnAfterDays"}
       responses:
         "200": {description: OK, content: {application/json: {schema: {$ref: "#/components/schemas/AdminSettings"}}}}
         "400": {$ref: "#/components/responses/Invalid"}
@@ -1326,6 +1380,29 @@ components:
         egressGuard: {type: boolean}
         egressGuardLocked: {type: boolean, description: "Hosted mode: the guard cannot be turned off"}
         updateCheck: {type: boolean}
+        inactiveEnabled: {type: boolean}
+        inactiveWarnAfterDays: {type: integer}
+        inactiveDeleteAfterDays: {type: integer}
+    OwnerChoice:
+      type: object
+      properties:
+        id: {type: string, description: "Household id"}
+        name: {type: string}
+        candidates:
+          type: array
+          description: "Non-guest members, longest-standing first"
+          items: {type: object, properties: {userId: {type: string}, displayName: {type: string}, role: {$ref: "#/components/schemas/Role"}}}
+    DeletionPreview:
+      type: object
+      properties:
+        deleteHouseholds: {type: array, items: {type: object, properties: {id: {type: string}, name: {type: string}}}}
+        needOwner: {type: array, items: {$ref: "#/components/schemas/OwnerChoice"}}
+        isAdmin: {type: boolean}
+    OwnerRequired:
+      type: object
+      properties:
+        error: {type: object, properties: {code: {type: string}}}
+        households: {type: array, items: {$ref: "#/components/schemas/OwnerChoice"}}
     Updates:
       type: object
       properties:

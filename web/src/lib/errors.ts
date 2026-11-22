@@ -38,6 +38,10 @@ const KEYS: readonly string[] = [
   'err.service_disabled',
   'err.no_next_occurrence',
   'err.egress_guard_locked',
+  'err.owner_required',
+  'err.last_admin',
+  'err.confirmation_mismatch',
+  'err.household_would_be_deleted',
   'err.internal',
 ];
 const ALIAS: Record<string, string> = { invalid_json: 'invalid', not_ready: 'internal', invalid_push_endpoint: 'invalid', invalid_push_keys: 'invalid' };

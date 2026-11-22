@@ -54,6 +54,8 @@ func (s *Server) registerRoutes() {
 	s.handle("POST /api/v1/account/totp/confirm", session.withRate(rateTwoFA), s.totpConfirm)
 	s.handle("DELETE /api/v1/account/totp", session.withStepUp(), s.totpDisable)
 	s.handle("GET /api/v1/account/audit", session, s.listAudit)
+	s.handle("GET /api/v1/account/deletion-preview", session, s.accountDeletionPreview)
+	s.handle("DELETE /api/v1/account", session.withStepUp(), s.deleteAccount)
 
 	// Households, members, invites.
 	s.handle("GET /api/v1/households", session, s.listHouseholds)

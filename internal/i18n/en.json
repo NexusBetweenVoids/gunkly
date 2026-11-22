@@ -34,5 +34,12 @@
   "done.undo_note": "Pressed by mistake? You can undo this for 5 minutes.",
   "done.undone_heading": "Undone. The chore is open again.",
   "done.invalid_heading": "This link is not valid any more.",
-  "done.invalid_note": "It may have been used, may have expired, or the chore may have changed. Open Gunkly to see what is due."
+  "done.invalid_note": "It may have been used, may have expired, or the chore may have changed. Open Gunkly to see what is due.",
+  "mail.inactive_warn.subject": "Your Gunkly account will be deleted if you stay away",
+  "mail.inactive_warn.body": "Hello {name},\n\nYou have not signed in to Gunkly for a long time. To keep our data small and your data safe, accounts that stay inactive are deleted. If you do nothing, your account and your personal data will be deleted on or after {date}. Households where you are the only member with access are deleted with it.\n\nTo keep your account, just sign in once:\n\n{url}\n\nIf you no longer need it, you do not have to do anything.\n",
+  "mail.inactive_final.subject": "Final notice: your Gunkly account will be deleted on {date}",
+  "mail.inactive_final.body": "Hello {name},\n\nThis is the final notice. You have still not signed in to Gunkly, so your account and your personal data will be deleted on or after {date}. Households where you are the only member with access are deleted with it. Deleted accounts cannot be restored.\n\nTo keep your account, sign in once before that date:\n\n{url}\n",
+  "notify.inactive_title": "Gunkly: your account is inactive",
+  "notify.inactive_warn": "Your Gunkly account will be deleted on or after {date} unless you sign in. Open {url} to keep it.",
+  "notify.inactive_final": "Final notice: your Gunkly account will be deleted on or after {date} unless you sign in. Open {url} to keep it."
 }

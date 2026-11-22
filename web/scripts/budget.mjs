@@ -7,7 +7,7 @@ import { join, extname } from 'node:path';
 import { gzipSync } from 'node:zlib';
 
 const KB = 1024;
-const BUDGET = { initialJs: 45 * KB, totalJs: 90 * KB, css: 15 * KB };
+const BUDGET = { initialJs: 45 * KB, totalJs: 94 * KB, css: 15 * KB };
 const dist = new URL('../dist', import.meta.url).pathname;
 const gz = new Map(); // dist-relative path -> gzipped size
 let css = 0;

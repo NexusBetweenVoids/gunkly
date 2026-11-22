@@ -23,6 +23,9 @@ const (
 	settingAuditRetentionDays = "audit_retention_days"
 	settingDeliveryRetention  = "delivery_retention_days"
 	settingUpdateCheck        = "update_check"
+	settingInactiveEnabled    = "inactive_enabled"
+	settingInactiveWarnDays   = "inactive_warn_after_days"
+	settingInactiveDeleteDays = "inactive_delete_after_days"
 	settingLimitPrefix        = "limit."
 )
 
@@ -49,6 +52,11 @@ type InstanceSettings struct {
 	// UpdateCheck lets the server ask GitHub for the latest release (the
 	// Updates page). Default true.
 	UpdateCheck bool
+	// Inactive-account lifecycle (PRD "Inactive accounts"; default off):
+	// warn after InactiveWarnAfterDays without activity, delete after
+	// InactiveDeleteAfterDays.
+	InactiveEnabled                                bool
+	InactiveWarnAfterDays, InactiveDeleteAfterDays int
 }
 
 // Bounds and defaults for the day-valued settings.
@@ -60,6 +68,11 @@ const (
 	DefaultAuditRetentionDays    = 90
 	DefaultDeliveryRetentionDays = 30
 	MaxRetentionDays             = 3650
+	DefaultInactiveWarnDays      = 365
+	DefaultInactiveDeleteDays    = 548 // about 18 months
+	MinInactiveWarnDays          = 30
+	MinInactiveGapDays           = 30 // the final warning comes this long before deletion
+	MaxInactiveDays              = 3650
 )
 
 // SettingsUpdate changes instance settings; nil fields are unchanged. A
@@ -76,6 +89,11 @@ type SettingsUpdate struct {
 	NotificationKinds *[]string
 	EgressGuard       *bool
 	UpdateCheck       *bool
+	InactiveEnabled   *bool
+	// Inactive-account periods; the delete period must exceed the warn period
+	// by at least MinInactiveGapDays (checked against the stored value for
+	// whichever is unset).
+	InactiveWarnAfterDays, InactiveDeleteAfterDays *int
 	// Day-valued settings; validated against the bounds above, and idle must
 	// not exceed max (checked against the stored value for whichever is unset).
 	SessionIdleDays, SessionMaxDays           *int
@@ -86,7 +104,8 @@ type SettingsUpdate struct {
 func (s *Store) InstanceSettings(ctx context.Context) (InstanceSettings, error) {
 	out := InstanceSettings{InviteRegistration: true, EgressGuard: true, UpdateCheck: true, Limits: map[string]int{},
 		SessionIdleDays: DefaultSessionIdleDays, SessionMaxDays: DefaultSessionMaxDays,
-		AuditRetentionDays: DefaultAuditRetentionDays, DeliveryRetentionDays: DefaultDeliveryRetentionDays}
+		AuditRetentionDays: DefaultAuditRetentionDays, DeliveryRetentionDays: DefaultDeliveryRetentionDays,
+		InactiveWarnAfterDays: DefaultInactiveWarnDays, InactiveDeleteAfterDays: DefaultInactiveDeleteDays}
 	err := s.inTx(ctx, false, func(t *tx) error {
 		rows, err := t.query(ctx, "SELECT key, value FROM settings")
 		if err != nil {
@@ -114,6 +133,12 @@ func (s *Store) InstanceSettings(ctx context.Context) (InstanceSettings, error) 
 				out.EgressGuard = v != "false"
 			case k == settingUpdateCheck:
 				out.UpdateCheck = v != "false"
+			case k == settingInactiveEnabled:
+				out.InactiveEnabled = v == "true"
+			case k == settingInactiveWarnDays:
+				out.InactiveWarnAfterDays = atoiOr(v, out.InactiveWarnAfterDays)
+			case k == settingInactiveDeleteDays:
+				out.InactiveDeleteAfterDays = atoiOr(v, out.InactiveDeleteAfterDays)
 			case k == settingSessionIdleDays:
 				out.SessionIdleDays = atoiOr(v, out.SessionIdleDays)
 			case k == settingSessionMaxDays:
@@ -150,6 +175,26 @@ func (s *Store) UpdateInstanceSettings(ctx context.Context, u SettingsUpdate) er
 		!inRange(u.SessionIdleDays, 1, MaxSessionIdleDays) || !inRange(u.SessionMaxDays, 1, MaxSessionMaxDays) ||
 		!inRange(u.AuditRetentionDays, 1, MaxRetentionDays) || !inRange(u.DeliveryRetentionDays, 1, MaxRetentionDays) {
 		return ErrInvalid
+	}
+	if u.InactiveWarnAfterDays != nil || u.InactiveDeleteAfterDays != nil {
+		if !inRange(u.InactiveWarnAfterDays, MinInactiveWarnDays, MaxInactiveDays) ||
+			!inRange(u.InactiveDeleteAfterDays, MinInactiveWarnDays+MinInactiveGapDays, MaxInactiveDays) {
+			return ErrInvalid
+		}
+		cur, err := s.InstanceSettings(ctx)
+		if err != nil {
+			return err
+		}
+		warn, del := cur.InactiveWarnAfterDays, cur.InactiveDeleteAfterDays
+		if u.InactiveWarnAfterDays != nil {
+			warn = *u.InactiveWarnAfterDays
+		}
+		if u.InactiveDeleteAfterDays != nil {
+			del = *u.InactiveDeleteAfterDays
+		}
+		if del-warn < MinInactiveGapDays {
+			return ErrInvalid
+		}
 	}
 	if u.SessionIdleDays != nil || u.SessionMaxDays != nil {
 		cur, err := s.InstanceSettings(ctx)
@@ -201,6 +246,15 @@ func (s *Store) UpdateInstanceSettings(ctx context.Context, u SettingsUpdate) er
 		}
 		if err == nil && u.UpdateCheck != nil {
 			err = set(settingUpdateCheck, strconv.FormatBool(*u.UpdateCheck))
+		}
+		if err == nil && u.InactiveEnabled != nil {
+			err = set(settingInactiveEnabled, strconv.FormatBool(*u.InactiveEnabled))
+		}
+		if err == nil && u.InactiveWarnAfterDays != nil {
+			err = set(settingInactiveWarnDays, strconv.Itoa(*u.InactiveWarnAfterDays))
+		}
+		if err == nil && u.InactiveDeleteAfterDays != nil {
+			err = set(settingInactiveDeleteDays, strconv.Itoa(*u.InactiveDeleteAfterDays))
 		}
 		if err == nil && u.NotificationKinds != nil {
 			if *u.NotificationKinds == nil {

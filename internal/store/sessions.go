@@ -40,7 +40,10 @@ func (s *Store) CreateSession(ctx context.Context, in NewSession) (Session, erro
 	err := s.inTx(ctx, true, func(t *tx) error {
 		_, err := t.exec(ctx, `INSERT INTO sessions (id, token_hash, user_id, user_agent, created_at, last_seen_at, expires_at)
 			VALUES (?, ?, ?, ?, ?, ?, ?)`, ss.ID, in.TokenHash, in.UserID, in.Label, now, now, in.ExpiresAt.UnixMilli())
-		return notFoundFK(err)
+		if err != nil {
+			return notFoundFK(err)
+		}
+		return t.markActive(ctx, in.UserID, now) // signing in clears inactivity warnings
 	})
 	if err != nil {
 		return Session{}, err
@@ -90,9 +93,15 @@ func (s *Store) TouchSession(ctx context.Context, sessionID string) error {
 		if _, err := t.exec(ctx, "UPDATE sessions SET last_seen_at = ? WHERE id = ?", now, sessionID); err != nil {
 			return err
 		}
-		_, err := t.exec(ctx, "UPDATE users SET last_active_at = ? WHERE id = ?", now, userID)
-		return err
+		return t.markActive(ctx, userID, now)
 	})
+}
+
+// markActive records activity and clears the inactivity warnings.
+func (t *tx) markActive(ctx context.Context, userID string, now int64) error {
+	_, err := t.exec(ctx, `UPDATE users SET last_active_at = ?, inactive_warned_at = NULL, inactive_final_warned_at = NULL
+		WHERE id = ?`, now, userID)
+	return err
 }
 
 // StepUpSession marks the session as freshly re-verified.

@@ -1,6 +1,6 @@
 // Package scheduler is the in-process reminder worker: each tick it turns due
 // reminders into deliveries (idempotent delivery keys), sends due deliveries
-// with retries and backoff, and runs the daily retention job.
+// with retries and backoff, and runs the daily retention and inactive-account jobs.
 //
 // Only one instance sends. On Postgres the leader holds a session-level
 // advisory lock on a dedicated connection; other instances stand by and take
@@ -73,6 +73,8 @@ type Config struct {
 	EnabledKinds func(context.Context) (map[string]bool, error)
 	// Pusher delivers Web Push reminders; nil fails them ("push not configured").
 	Pusher notify.Pusher
+	// Mailer sends inactivity warnings by email; nil = no email.
+	Mailer Mailer
 	// OnDelivery, if set, is told each finished send attempt: the channel kind
 	// ("webpush" for push) and whether it succeeded (metrics).
 	OnDelivery  func(kind string, ok bool)
@@ -89,6 +91,7 @@ type Worker struct {
 	log           *slog.Logger
 	leading       atomic.Bool
 	lastRetention time.Time
+	lastInactive  time.Time
 }
 
 // New returns a Worker for cfg.
@@ -228,6 +231,10 @@ func (w *Worker) tick(ctx context.Context) error {
 	if now.Sub(w.lastRetention) >= retentionEvery {
 		w.lastRetention = now
 		w.retention(ctx, now)
+	}
+	if now.Sub(w.lastInactive) >= inactiveEvery {
+		w.lastInactive = now
+		w.inactive(ctx, now)
 	}
 	return nil
 }

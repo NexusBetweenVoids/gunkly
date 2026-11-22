@@ -38,6 +38,9 @@ const (
 	AuditChoreDelete       = "chore_delete"
 	AuditChoreSkip         = "chore_skip"
 	AuditCompletionRevert  = "completion_revert"
+	AuditAccountDelete     = "account_delete" // actor-less: the account is gone
+	AuditOwnerTransfer     = "owner_transfer" // household_id, meta owner = new owner
+	AuditInactiveWarn      = "inactive_warn"  // system, meta user = account
 )
 
 // AuditEvent is one audit-log entry. Meta must never contain secrets.
@@ -53,6 +56,10 @@ type AuditEvent struct {
 
 // Audit appends an entry to the audit log.
 func (s *Store) Audit(ctx context.Context, e AuditEvent) error {
+	return s.inTx(ctx, true, func(t *tx) error { return t.insertAudit(ctx, e, s.nowMS()) })
+}
+
+func (t *tx) insertAudit(ctx context.Context, e AuditEvent, now int64) error {
 	meta := "{}"
 	if len(e.Meta) > 0 {
 		b, err := json.Marshal(e.Meta)
@@ -61,11 +68,9 @@ func (s *Store) Audit(ctx context.Context, e AuditEvent) error {
 		}
 		meta = string(b)
 	}
-	return s.inTx(ctx, true, func(t *tx) error {
-		_, err := t.exec(ctx, `INSERT INTO audit_log (id, actor_user_id, household_id, event, ip, meta, created_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?)`, ids.New(), nullStr(e.ActorUserID), nullStr(e.HouseholdID), e.Event, e.IP, meta, s.nowMS())
-		return err
-	})
+	_, err := t.exec(ctx, `INSERT INTO audit_log (id, actor_user_id, household_id, event, ip, meta, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?)`, ids.New(), nullStr(e.ActorUserID), nullStr(e.HouseholdID), e.Event, e.IP, meta, now)
+	return err
 }
 
 // ListAuditForUser returns the newest limit events performed by the user

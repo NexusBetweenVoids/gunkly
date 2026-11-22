@@ -98,6 +98,10 @@ func (w *windowCounter) sweep(cut time.Time) {
 	}
 }
 
+// Mailer returns the instance's mailer, nil when email is not configured
+// (the scheduler uses it for inactivity warnings).
+func (s *Server) Mailer() Mailer { return s.mailer }
+
 // emailEnabled reports whether this instance sends email.
 func (s *Server) emailEnabled() bool { return s.mailer != nil }
 
