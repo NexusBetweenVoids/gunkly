@@ -33,7 +33,7 @@ func main() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(io.LimitReader(r.Body, 64<<10))
 		c := captured{time.Now().UTC(), r.Method, r.URL.RequestURI(), r.Header, string(body)}
-		log.Printf("%s %s (%d bytes)", c.Method, c.Path, len(body))
+		log.Printf("%q %q (%d bytes)", c.Method, c.Path, len(body)) // quoted: no forged log lines
 		mu.Lock()
 		if last = append(last, c); len(last) > 100 {
 			last = last[1:]
