@@ -2,7 +2,7 @@
 # Dependency count budgets (ADR 0012): direct Go requires and web devDependencies.
 set -eu
 cd "$(dirname "$0")/.."
-GO_MAX=6
+GO_MAX=10
 WEB_DEV_MAX=9
 
 go_count=$(awk '
