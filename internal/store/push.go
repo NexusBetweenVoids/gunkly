@@ -128,45 +128,13 @@ func (s *Store) MarkPushUsed(ctx context.Context, id string, now time.Time) erro
 // PushSecrets pages through every subscription's sealed keys by ID (system
 // use: gunkly rotate-key).
 func (s *Store) PushSecrets(ctx context.Context, afterID string, limit int) ([]ChannelSecret, error) {
-	if limit <= 0 || limit > 1000 {
-		limit = 500
-	}
-	var out []ChannelSecret
-	err := s.inTx(ctx, false, func(t *tx) error {
-		rows, err := t.query(ctx, "SELECT id, keys_ciphertext FROM push_subscriptions WHERE id > ? ORDER BY id LIMIT ?", afterID, limit)
-		if err != nil {
-			return err
-		}
-		defer rows.Close()
-		for rows.Next() {
-			var c ChannelSecret
-			if err := rows.Scan(&c.ID, &c.Ciphertext); err != nil {
-				return err
-			}
-			out = append(out, c)
-		}
-		return rows.Err()
-	})
-	return out, err
+	return s.secretsPage(ctx, "push_subscriptions", "keys_ciphertext", afterID, limit)
 }
 
 // ReplacePushCiphertext swaps a subscription's sealed keys if they still equal
 // old (system use: rotate-key). ErrConflict if they changed meanwhile.
 func (s *Store) ReplacePushCiphertext(ctx context.Context, id, old, replacement string) error {
-	return s.inTx(ctx, true, func(t *tx) error {
-		res, err := t.exec(ctx, "UPDATE push_subscriptions SET keys_ciphertext = ? WHERE id = ? AND keys_ciphertext = ?", replacement, id, old)
-		if err != nil {
-			return err
-		}
-		if n, err := res.RowsAffected(); err != nil || n == 0 {
-			var x string
-			if qerr := t.queryRow(ctx, "SELECT id FROM push_subscriptions WHERE id = ?", id).Scan(&x); errors.Is(qerr, sql.ErrNoRows) {
-				return ErrNotFound
-			}
-			return ErrConflict
-		}
-		return nil
-	})
+	return s.replaceSecret(ctx, "push_subscriptions", "keys_ciphertext", id, old, replacement)
 }
 
 // --- VAPID key (instance-wide, sealed) ---

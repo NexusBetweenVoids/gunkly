@@ -23,11 +23,20 @@ Rules for any agent (human or AI) changing Gunkly. Read `docs/PRD.md` for scope 
 | `internal/api` | HTTP handlers under `/api/v1`. Never imports `database/sql`. |
 | `internal/ids` | UUIDv7 public IDs, random tokens |
 | `internal/limits` | All usage limits |
+| `internal/scheduler` | In-process reminder worker: due reminders, delivery with retries, daily retention |
+| `internal/notify` | Notification channel URL validation (Shoutrrr), sealing, rendering, sending |
+| `internal/webpush` | Web Push sending (VAPID, RFC 8291 encryption) |
+| `internal/mail` | Optional SMTP transactional email |
+| `internal/transfer` | Portable export/import file formats |
+| `internal/ical` | Read-only iCalendar feeds |
+| `internal/i18n` | Server-sent text (notifications, email, feeds) |
+| `internal/metrics` | Hand-written Prometheus text exporter |
+| `internal/updates` | Optional release check |
 | `web/` | Front end; talks only to `/api/v1` |
 
 ## Commands
 
-- `make check` — everything CI runs locally: fmt, vet, lint, deadcode, tests on SQLite **and** Postgres with `-race`, fitness tests, frontend checks/build. Must pass before a PR.
+- `make check` — everything CI runs locally: fmt, vet, lint, deadcode, dep-budget, fuzz-check, tests on SQLite **and** Postgres with `-race`, fitness tests, frontend checks/build/budget, e2e. CI additionally runs govulncheck, CodeQL and the Docker/upgrade jobs. Must pass before a PR.
 - `make test` — Go tests on SQLite only (fast loop).
 - `make test-pg` — Go tests on Postgres; needs `GUNKLY_TEST_POSTGRES_URL`.
 - `make web` — build the front end.

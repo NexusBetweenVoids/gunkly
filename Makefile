@@ -3,9 +3,9 @@ GO     ?= go
 PKGS   := ./...
 PG_URL ?= $(GUNKLY_TEST_POSTGRES_URL)
 
-.PHONY: check fmt vet lint deadcode test test-pg web web-check build fuzz fuzz-check fitness dep-budget e2e openapi-diff
+.PHONY: vuln check fmt vet lint deadcode test test-pg web web-check build fuzz fuzz-check fitness dep-budget e2e openapi-diff
 
-check: fmt vet lint deadcode dep-budget fuzz-check test test-pg fitness web-check e2e build
+check: fmt vet lint deadcode vuln dep-budget fuzz-check test test-pg fitness web-check e2e build
 
 fmt:
 	@test -z "$$(gofmt -l $$(git ls-files '*.go'))" || { gofmt -l $$(git ls-files '*.go'); exit 1; }
@@ -18,6 +18,9 @@ lint:
 
 deadcode:
 	@out="$$($(GO) run golang.org/x/tools/cmd/deadcode@v0.53.0 -test ./...)" || exit 1; test -z "$$out" || { echo "$$out"; exit 1; }
+
+vuln:
+	$(GO) run golang.org/x/vuln/cmd/govulncheck@v1.10.0 ./...
 
 test:
 	$(GO) test -race -count=1 $(PKGS)

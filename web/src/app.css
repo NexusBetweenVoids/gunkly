@@ -186,9 +186,6 @@ textarea {
   align-items: center;
   gap: 8px;
 }
-.row-between {
-  justify-content: space-between;
-}
 .narrow {
   max-inline-size: 460px;
   margin-inline: auto;
@@ -431,4 +428,10 @@ textarea {
   display: block;
   text-align: center;
   margin-block-end: var(--space);
+}
+
+/* Native checkboxes and radios follow the brand accent. */
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--accent);
 }

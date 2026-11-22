@@ -289,12 +289,25 @@ type ChannelSecret struct {
 // ChannelSecrets pages through every channel's ciphertext by ID (system use:
 // gunkly rotate-key). Pass the last ID of the previous page as afterID.
 func (s *Store) ChannelSecrets(ctx context.Context, afterID string, limit int) ([]ChannelSecret, error) {
+	return s.secretsPage(ctx, "notification_channels", "url_ciphertext", afterID, limit)
+}
+
+// ReplaceChannelCiphertext swaps a channel's ciphertext if it still equals
+// old (system use: rotate-key). It does not touch updated_at or mark-done
+// links: the URL is unchanged. ErrConflict if the channel changed meanwhile.
+func (s *Store) ReplaceChannelCiphertext(ctx context.Context, channelID, old, replacement string) error {
+	return s.replaceSecret(ctx, "notification_channels", "url_ciphertext", channelID, old, replacement)
+}
+
+// secretsPage pages through one table's sealed column by ID. table and col are
+// package constants, never input.
+func (s *Store) secretsPage(ctx context.Context, table, col, afterID string, limit int) ([]ChannelSecret, error) {
 	if limit <= 0 || limit > 1000 {
 		limit = 500
 	}
 	var out []ChannelSecret
 	err := s.inTx(ctx, false, func(t *tx) error {
-		rows, err := t.query(ctx, "SELECT id, url_ciphertext FROM notification_channels WHERE id > ? ORDER BY id LIMIT ?", afterID, limit)
+		rows, err := t.query(ctx, "SELECT id, "+col+" FROM "+table+" WHERE id > ? ORDER BY id LIMIT ?", afterID, limit)
 		if err != nil {
 			return err
 		}
@@ -311,18 +324,17 @@ func (s *Store) ChannelSecrets(ctx context.Context, afterID string, limit int) (
 	return out, err
 }
 
-// ReplaceChannelCiphertext swaps a channel's ciphertext if it still equals
-// old (system use: rotate-key). It does not touch updated_at or mark-done
-// links: the URL is unchanged. ErrConflict if the channel changed meanwhile.
-func (s *Store) ReplaceChannelCiphertext(ctx context.Context, channelID, old, replacement string) error {
+// replaceSecret swaps one sealed column if it still equals old: ErrConflict if
+// it changed meanwhile, ErrNotFound if the row is gone.
+func (s *Store) replaceSecret(ctx context.Context, table, col, id, old, replacement string) error {
 	return s.inTx(ctx, true, func(t *tx) error {
-		res, err := t.exec(ctx, "UPDATE notification_channels SET url_ciphertext = ? WHERE id = ? AND url_ciphertext = ?", replacement, channelID, old)
+		res, err := t.exec(ctx, "UPDATE "+table+" SET "+col+" = ? WHERE id = ? AND "+col+" = ?", replacement, id, old)
 		if err != nil {
 			return err
 		}
 		if n, err := res.RowsAffected(); err != nil || n == 0 {
 			var x string
-			if qerr := t.queryRow(ctx, "SELECT id FROM notification_channels WHERE id = ?", channelID).Scan(&x); errors.Is(qerr, sql.ErrNoRows) {
+			if qerr := t.queryRow(ctx, "SELECT id FROM "+table+" WHERE id = ?", id).Scan(&x); errors.Is(qerr, sql.ErrNoRows) {
 				return ErrNotFound
 			}
 			return ErrConflict

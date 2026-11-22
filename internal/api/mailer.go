@@ -144,18 +144,17 @@ type mailRequest struct {
 }
 
 // queueMail takes the quotas and sends the email in the background, so the
-// response does not wait on (or reveal anything about) the SMTP server. It
-// returns the wait when a quota is full (nothing is sent then).
-func (s *Server) queueMail(ctx context.Context, c *call, r mailRequest) time.Duration {
+// response does not wait on (or reveal anything about) the SMTP server.
+// Nothing is sent when a quota is full.
+func (s *Server) queueMail(ctx context.Context, c *call, r mailRequest) {
 	ip, acct := "", limits.EmailsAccountHour
 	if r.unauth {
 		ip, acct = c.rip, ""
 	}
-	if wait := s.mailQuota(ctx, r.user.ID, ip, acct); wait > 0 {
-		return wait
+	if s.mailQuota(ctx, r.user.ID, ip, acct) > 0 {
+		return
 	}
 	s.dispatchMail(ctx, r)
-	return 0
 }
 
 // dispatchMail sends r in the background without taking a quota (the caller

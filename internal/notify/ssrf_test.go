@@ -55,7 +55,7 @@ func fakeDNS(t *testing.T, answer *atomic.Pointer[net.IP]) string {
 			if qtype == 1 {
 				binary.BigEndian.PutUint16(resp[6:], 1)
 				resp = append(resp, 0xc0, 0x0c, 0, 1, 0, 1, 0, 0, 0, 60, 0, 4)
-				resp = append(resp, (*answer.Load()).To4()...)
+				resp = append(resp, answer.Load().To4()...)
 			}
 			_, _ = pc.WriteTo(resp, addr)
 		}
@@ -125,34 +125,39 @@ func TestSendersBlocked(t *testing.T) {
 		answer.Store(&ip)
 		t.Run(blocked, func(t *testing.T) {
 			g := egress.Guard{Enabled: true}
-			s := NewShoutrrrSender(g)
-			// Count raw dials (SMTP, MQTT): none may connect, and the guard
-			// must have blocked at least one. (A retry cut short by context
-			// cancellation fails without reaching the guard; that is safe.)
-			var blockedDials, connected atomic.Int64
-			s.dial = func(ctx context.Context, network, addr string) (net.Conn, error) {
-				c, err := g.DialContext(ctx, network, addr)
-				switch {
-				case errors.Is(err, egress.ErrBlocked):
-					blockedDials.Add(1)
-				case err == nil:
-					connected.Add(1)
-				}
-				return c, err
-			}
 			for kind, raw := range urls {
 				raw = strings.ReplaceAll(raw, "127.0.0.1", blocked)
 				t.Run(kind, func(t *testing.T) {
-					ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+					t.Parallel() // each kind has its own sender and counters
+					s := NewShoutrrrSender(g)
+					// Count raw dials (SMTP, MQTT): none may connect, and the
+					// guard must have blocked at least one. (A retry cut short
+					// by context cancellation fails without reaching the guard;
+					// that is safe.)
+					var blockedDials, connected atomic.Int64
+					s.dial = func(ctx context.Context, network, addr string) (net.Conn, error) {
+						c, err := g.DialContext(ctx, network, addr)
+						switch {
+						case errors.Is(err, egress.ErrBlocked):
+							blockedDials.Add(1)
+						case err == nil:
+							connected.Add(1)
+						}
+						return c, err
+					}
+					timeout := 30 * time.Second
+					if kind == KindMQTT {
+						timeout = 2 * time.Second // retries until its budget ends; one blocked dial is enough
+					}
+					ctx, cancel := context.WithTimeout(context.Background(), timeout)
 					defer cancel()
-					before := blockedDials.Load()
 					err := s.Send(ctx, raw, Message{Title: "t", Body: "b"})
 					if kind == KindMQTT {
 						// Shoutrrr's MQTT client retries a failed connect until
 						// its send budget ends and reports a timeout, not the
 						// dial error: assert the dials themselves were blocked.
-						if err == nil || blockedDials.Load() == before || connected.Load() != 0 {
-							t.Fatalf("err = %v, blocked %d, connected %d", err, blockedDials.Load()-before, connected.Load())
+						if err == nil || blockedDials.Load() == 0 || connected.Load() != 0 {
+							t.Fatalf("err = %v, blocked %d, connected %d", err, blockedDials.Load(), connected.Load())
 						}
 						return
 					}
