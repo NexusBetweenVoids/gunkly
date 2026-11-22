@@ -3,6 +3,17 @@
   <img alt="Gunkly — recurring household chores and home maintenance" src="docs/assets/banner-light.jpg" width="100%">
 </picture>
 
+<p align="center">
+  <a href="https://github.com/NexusBetweenVoids/gunkly/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/NexusBetweenVoids/gunkly/actions/workflows/ci.yml/badge.svg?branch=main"></a>
+  <a href="https://github.com/NexusBetweenVoids/gunkly/actions/workflows/codeql.yml"><img alt="CodeQL" src="https://github.com/NexusBetweenVoids/gunkly/actions/workflows/codeql.yml/badge.svg?branch=main"></a>
+  <a href="LICENSE"><img alt="License: AGPL-3.0" src="https://img.shields.io/badge/license-AGPL--3.0-345461"></a>
+  <a href="go.mod"><img alt="Go version" src="https://img.shields.io/github/go-mod/go-version/NexusBetweenVoids/gunkly?logo=go&color=345461"></a>
+  <a href="web/package.json"><img alt="Svelte 5" src="https://img.shields.io/badge/Svelte-5-345461?logo=svelte&logoColor=white"></a>
+  <img alt="SQLite or PostgreSQL" src="https://img.shields.io/badge/database-SQLite%20%7C%20PostgreSQL-345461?logo=postgresql&logoColor=white">
+  <a href="Dockerfile"><img alt="Distroless container" src="https://img.shields.io/badge/container-distroless%2C%20non--root-345461?logo=docker&logoColor=white"></a>
+  <img alt="No telemetry" src="https://img.shields.io/badge/telemetry-none-7ba99d">
+</p>
+
 A self-hostable chore tracker for recurring household chores and home maintenance (gutters, washing-machine filter, descaling the kettle). Flexible schedules, optional reminders on your own messaging services, and a calm interface on phone and desktop. One Go binary, one container, SQLite or Postgres. No telemetry.
 
 **Status: pre-alpha, under construction.** Nothing here is ready for use yet.
