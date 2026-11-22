@@ -227,9 +227,7 @@ jobs:
             echo "::error::image exceeds the 40 MB budget"
             exit 1
           fi
-      # TODO: drop continue-on-error once cmd/gunkly serves /healthz and implements `healthcheck`.
       - name: Boot and probe /healthz
-        continue-on-error: true
         run: |
           key="1:$(openssl rand -base64 32)"
           docker volume create gunkly-ci

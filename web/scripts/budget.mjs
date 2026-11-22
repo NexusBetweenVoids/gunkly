@@ -2,7 +2,7 @@
 // "Initial" JS is what a cold load fetches before the first screen: the entry chunk
 // plus everything it imports statically (from the Vite manifest). Screens loaded with
 // dynamic import() only count toward the total.
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join, extname } from 'node:path';
 import { gzipSync } from 'node:zlib';
 
@@ -13,9 +13,9 @@ const gz = new Map(); // dist-relative path -> gzipped size
 let css = 0;
 
 function walk(d) {
-  for (const name of readdirSync(d)) {
-    const p = join(d, name);
-    if (statSync(p).isDirectory()) walk(p);
+  for (const ent of readdirSync(d, { withFileTypes: true })) {
+    const p = join(d, ent.name);
+    if (ent.isDirectory()) walk(p);
     else if (extname(p) === '.js' || extname(p) === '.css') {
       const size = gzipSync(readFileSync(p), { level: 9 }).length;
       const rel = p.slice(dist.length + 1);

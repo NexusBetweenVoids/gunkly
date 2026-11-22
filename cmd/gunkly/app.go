@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"math"
 	"os"
 	"path/filepath"
 	"slices"
@@ -45,9 +46,15 @@ func newApp(ctx context.Context, logOut io.Writer) (*app, error) {
 	a := &app{cfg: cfg, log: slog.New(slog.NewJSONHandler(logOut, &slog.HandlerOptions{Level: cfg.LogLevel}))}
 	secrets := make(map[uint32]string, len(cfg.SecretKeys))
 	for v, k := range cfg.SecretKeys {
-		secrets[uint32(v)] = string(k) //nolint:gosec // G115: config validates versions >= 1
+		if v < 1 || v > math.MaxUint32 {
+			return nil, fmt.Errorf("secret keys: version %d out of range", v)
+		}
+		secrets[uint32(v)] = string(k)
 	}
-	if a.keyring, err = auth.NewKeyring(uint32(cfg.CurrentKey), secrets); err != nil { //nolint:gosec // G115: as above
+	if cfg.CurrentKey < 1 || cfg.CurrentKey > math.MaxUint32 {
+		return nil, fmt.Errorf("secret keys: current version %d out of range", cfg.CurrentKey)
+	}
+	if a.keyring, err = auth.NewKeyring(uint32(cfg.CurrentKey), secrets); err != nil {
 		return nil, fmt.Errorf("secret keys: %w", err)
 	}
 	if dir := os.Getenv("SQLITE_TMPDIR"); dir != "" {
