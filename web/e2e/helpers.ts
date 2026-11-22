@@ -118,6 +118,8 @@ function track(ctx: BrowserContext, bad: string[]): void {
   });
 }
 
+let instanceReady = false;
+
 export const test = base.extend<{ world: World; csp: string[] }>({
   csp: [
     async ({ context }, use) => {
@@ -146,7 +148,11 @@ export const test = base.extend<{ world: World; csp: string[] }>({
     const admin = await signIn(creds.username, creds.password);
     await admin.call('POST', '/session/step-up', { password: creds.password }, 204);
     // The e2e SMTP server listens on loopback, which the egress guard blocks by default.
-    await admin.call('PATCH', '/admin/settings', { egressGuard: false, updateCheck: false }); // and it must never ask GitHub for releases
+    // Once per worker: the shared admin has a per-user write budget that every extra call eats into.
+    if (!instanceReady) {
+      await admin.call('PATCH', '/admin/settings', { egressGuard: false, updateCheck: false }); // and it must never ask GitHub for releases
+      instanceReady = true;
+    }
 
     const newContext: World['newContext'] = async (opts = {}) => {
       const headers = { 'X-Forwarded-For': nextIP(), ...(opts.extraHTTPHeaders ?? {}) };

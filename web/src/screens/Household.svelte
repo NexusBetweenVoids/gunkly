@@ -7,7 +7,8 @@
   import Field from '../components/Field.svelte';
   import Select from '../components/Select.svelte';
   import TimeZone from '../components/TimeZone.svelte';
-  import { api } from '../lib/api';
+  import Dialog from '../components/Dialog.svelte';
+  import { api, ApiError } from '../lib/api';
   import { failure } from '../lib/errors';
   import { formatDate, t, type Key } from '../lib/i18n';
   import { navigate } from '../lib/router.svelte';
@@ -38,6 +39,11 @@
   let tzErr = $state('');
   let confirmLeave = $state(false);
   let removing = $state<Member | null>(null);
+  // Leaving can need a successor (owner_required) or a delete confirmation (household_would_be_deleted).
+  let candidates = $state<{ userId: string; displayName: string }[] | null>(null);
+  let newOwner = $state('');
+  let confirmDelete = $state(false);
+  let leaveErr = $state('');
 
   const isOwner = $derived(hh?.role === 'owner');
   const hm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
@@ -100,23 +106,44 @@
     await load();
   }
 
-  async function remove(m: Member, self: boolean): Promise<void> {
+  async function remove(m: Member): Promise<void> {
     busy = true;
     memberErr = '';
     try {
       await api('DELETE', `/households/${id}/members/${m.userId}`);
       removing = null;
-      confirmLeave = false;
-      if (self) {
-        await refreshHouseholds();
-        navigate('/');
-      } else {
-        await load();
-      }
+      await load();
     } catch (x) {
       memberErr = failure(x).message;
       removing = null;
+    } finally {
+      busy = false;
+    }
+  }
+  async function leave(extra: { newOwner?: string; confirmDelete?: boolean } = {}): Promise<void> {
+    busy = true;
+    leaveErr = '';
+    try {
+      await api('DELETE', `/households/${id}/members/${me?.userId}`, extra);
       confirmLeave = false;
+      candidates = null;
+      confirmDelete = false;
+      await refreshHouseholds();
+      navigate('/');
+    } catch (x) {
+      confirmLeave = false;
+      if (x instanceof ApiError && x.code === 'owner_required') {
+        const hs = (x.body as { households?: { id: string; candidates: { userId: string; displayName: string }[] }[] } | null)?.households ?? [];
+        candidates = (hs.find((h) => h.id === id) ?? hs[0])?.candidates ?? [];
+        newOwner = candidates[0]?.userId ?? '';
+      } else if (x instanceof ApiError && x.code === 'household_would_be_deleted') {
+        candidates = null;
+        confirmDelete = true;
+      } else {
+        leaveErr = failure(x).message;
+        candidates = null;
+        confirmDelete = false;
+      }
     } finally {
       busy = false;
     }
@@ -204,6 +231,7 @@
     <section class="card" aria-labelledby="h-leave">
       <h2 id="h-leave">{t('household.leave')}</h2>
       <p class="muted">{t('household.leaveWarn')}</p>
+      <div aria-live="polite"><Alert message={leaveErr} /></div>
       <Button variant="danger" onclick={() => (confirmLeave = true)}>{t('household.leave')}</Button>
     </section>
   </div>
@@ -214,8 +242,33 @@
     message={t('household.leaveWarn')}
     confirmLabel={t('household.leave')}
     {busy}
-    onconfirm={() => me && remove(me, true)}
+    onconfirm={() => leave()}
     oncancel={() => (confirmLeave = false)}
+  />
+  <Dialog open={!!candidates} title={t('household.leaveOwnerTitle', { name: hh.name })} onclose={() => (candidates = null)}>
+    <form
+      class="stack"
+      onsubmit={(e) => {
+        e.preventDefault();
+        void leave({ newOwner });
+      }}
+    >
+      <p>{t('household.leaveOwnerWarn')}</p>
+      <Select label={t('household.leaveNewOwner')} bind:value={newOwner} options={(candidates ?? []).map((c) => ({ value: c.userId, label: c.displayName }))} />
+      <div class="row">
+        <Button type="submit" variant="danger" {busy}>{t('household.leave')}</Button>
+        <Button variant="quiet" onclick={() => (candidates = null)}>{t('common.cancel')}</Button>
+      </div>
+    </form>
+  </Dialog>
+  <Confirm
+    open={confirmDelete}
+    title={t('household.leaveDeleteTitle', { name: hh.name })}
+    message={t('household.leaveDeleteWarn')}
+    confirmLabel={t('household.leaveDeleteConfirm')}
+    {busy}
+    onconfirm={() => leave({ confirmDelete: true })}
+    oncancel={() => (confirmDelete = false)}
   />
   <Confirm
     open={!!removing}
@@ -223,7 +276,7 @@
     message={t('household.removeWarn')}
     confirmLabel={t('household.remove')}
     {busy}
-    onconfirm={() => removing && remove(removing, false)}
+    onconfirm={() => removing && remove(removing)}
     oncancel={() => (removing = null)}
   />
 {:else}

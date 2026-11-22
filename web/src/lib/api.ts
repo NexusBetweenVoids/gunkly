@@ -8,7 +8,8 @@ export class ApiError extends Error {
   readonly retryAfter: number; // seconds, from Retry-After on 429; 0 if absent
   readonly reason: string; // validation detail (import files); '' if absent
   readonly path: string; // offending field for reason
-  constructor(status: number, code: string, retryAfter = 0, reason = '', path = '') {
+  readonly body: unknown; // the whole response body (owner_required lists the candidates)
+  constructor(status: number, code: string, retryAfter = 0, reason = '', path = '', body: unknown = null) {
     super(code);
     this.name = 'ApiError';
     this.status = status;
@@ -16,6 +17,7 @@ export class ApiError extends Error {
     this.retryAfter = retryAfter;
     this.reason = reason;
     this.path = path;
+    this.body = body;
   }
 }
 
@@ -55,7 +57,7 @@ export async function api<T>(method: Method, path: string, body?: unknown): Prom
 function failed(res: Response, data: unknown): ApiError {
   const e = (data as { error?: { code?: unknown; reason?: unknown; path?: unknown } } | null)?.error;
   const str = (v: unknown) => (typeof v === 'string' ? v : '');
-  return new ApiError(res.status, str(e?.code) || `http_${res.status}`, Number(res.headers.get('Retry-After')) || 0, str(e?.reason), str(e?.path));
+  return new ApiError(res.status, str(e?.code) || `http_${res.status}`, Number(res.headers.get('Retry-After')) || 0, str(e?.reason), str(e?.path), data);
 }
 
 /** GETs a file download (an attachment) and hands it to the browser's save dialog. */

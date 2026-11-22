@@ -37,7 +37,7 @@
   "household.removeWarn": "They will lose access to this household immediately.",
   "household.leave": "Leave household",
   "household.leaveTitle": "Leave {name}?",
-  "household.leaveWarn": "You will lose access to this household and its chores until someone invites you again. If you are the only owner, make another member an owner first.",
+  "household.leaveWarn": "You will lose access to this household and its chores until someone invites you again.",
   "areas.title": "Areas",
   "areas.none": "No areas yet.",
   "areas.new": "New area",
@@ -99,5 +99,11 @@
   "import.err.limit_chores": "The file has more chores than this household may have.",
   "import.err.limit_areas": "The file has more areas than this household may have.",
   "import.err.limit_reminders": "A chore in the file has more reminders than allowed.",
-  "import.err.limit_completions": "A chore in the file has more history entries than allowed."
+  "import.err.limit_completions": "A chore in the file has more history entries than allowed.",
+  "household.leaveOwnerTitle": "Choose a new owner for {name}",
+  "household.leaveOwnerWarn": "You are the only owner. Pick the member who takes over before you leave.",
+  "household.leaveNewOwner": "New owner",
+  "household.leaveDeleteTitle": "Delete {name}?",
+  "household.leaveDeleteWarn": "You are the last member who can use this household. Leaving will permanently delete it with all its chores.",
+  "household.leaveDeleteConfirm": "Leave and delete household"
 }
