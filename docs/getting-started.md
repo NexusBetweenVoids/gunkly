@@ -41,14 +41,17 @@ To share it, open the household's Settings and create an invite link (choose a r
 
 Use "Add" and either start from a template or fill in the form: name, assignees, first due date (and an area, if your household uses areas), how it repeats (every N days, weeks or months, or a calendar rule such as "every April and October") and a reminder preset. "More options" holds notes, a link and the advanced settings. Completing a chore from Home schedules the next due date; Undo is shown right after.
 
-## 5. Connect a notification channel
+## 5. Get reminders
 
-Reminders are optional and go to services you choose.
+New households remind on the due date at 09:00 ("Gentle"); change it per chore, or for the whole household in its Settings. Reminders are optional and each person chooses how to get theirs. Everyone, including non-technical family members, can do this in under a minute:
 
-- **Browser or phone (Web Push):** Account, "Notifications on this device", "Enable notifications on this device" (needs HTTPS and a browser with push support).
-- **A messaging service:** Account (personal) or the household's Settings (shared), "Add channel", pick a service (Discord, Slack, Telegram, Pushover, Pushbullet, Google Chat, ntfy.sh; the admin can enable more) and paste its [Shoutrrr](https://containrrr.dev/shoutrrr/) URL. Use "Send test" to check it. The URL is stored encrypted and never shown again.
+1. **On this phone or computer:** open Gunkly, and on Home tap "Turn on" in "Get reminders on this device?" (or Account, "This device", "Turn on reminders on this device"), then allow notifications. It needs HTTPS. On an iPhone or iPad, first open Gunkly in Safari, tap Share, choose "Add to Home Screen", then open Gunkly from the Home Screen and turn reminders on there.
+2. **By email** (when the server sends email): Account, add and confirm your email address, then switch on "Email me reminders". Each email has a link to mark the chore as done.
+3. **For the whole household:** an owner or member can add a household channel in the household's Settings, for example your family Telegram or Discord group; reminders then reach everyone without anyone setting anything up.
 
-Then set a reminder preset on a chore, or a household default and quiet hours in the household's Settings. Reminder messages contain chore names and dates, so only use services you trust.
+Advanced: Account, "Messaging apps (advanced)" holds personal channels. Choose "Add channel", pick a service (Discord, Slack, Telegram, Pushover, Pushbullet, Google Chat, ntfy.sh; the admin can enable more) and paste its [Shoutrrr](https://containrrr.dev/shoutrrr/) URL. Use "Send test" to check it. The URL is stored encrypted and never shown again.
+
+Set quiet hours, the household default preset and per-chore presets as needed. Reminder messages contain chore names and dates, so only use services you trust.
 
 Optional: email (verification, password reset, email codes). Set `GUNKLY_EMAIL_ENABLED=true` with the `GUNKLY_SMTP_*` settings and restart.
 

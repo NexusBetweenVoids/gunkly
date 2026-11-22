@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { Component } from 'svelte';
   import Alert from '../components/Alert.svelte';
   import Button from '../components/Button.svelte';
   import Initials from '../components/Initials.svelte';
@@ -32,6 +33,11 @@
     history.replaceState(null, '', u);
   }
   let loaded = $state(false);
+  // The offer of reminders on this device is its own small chunk, loaded once a household shows.
+  let Prompt = $state.raw<Component | null>(null);
+  $effect(() => {
+    if (hh && !Prompt) void import('../components/PushPrompt.svelte').then((m) => (Prompt = m.default));
+  });
   let err = $state('');
   let doneErr = $state('');
 
@@ -116,6 +122,7 @@
     <p><a class="btn" href="/households/new">{t('household.createFirst')}</a></p>
   </section>
 {:else}
+  {#if Prompt}<Prompt />{/if}
   <div class="search">
     <label class="visually-hidden" for="chore-search">{t('home.search')}</label>
     <input id="chore-search" type="search" autocomplete="off" placeholder={t('home.search')} value={q} oninput={(e) => setQ(e.currentTarget.value)} />

@@ -55,7 +55,7 @@ func (s *Store) CreateHousehold(ctx context.Context, a Actor, in NewHousehold) (
 		return Household{}, ErrInvalid
 	}
 	now := s.nowMS()
-	h := Household{ID: ids.New(), Name: name, Timezone: in.Timezone, AreasEnabled: in.AreasEnabled, CreatedAt: time.UnixMilli(now).UTC(), Role: RoleOwner}
+	h := Household{ID: ids.New(), Name: name, Timezone: in.Timezone, AreasEnabled: in.AreasEnabled, DefaultReminderPreset: DefaultReminderPreset, CreatedAt: time.UnixMilli(now).UTC(), Role: RoleOwner}
 	err := s.inTx(ctx, true, func(t *tx) error {
 		if in.MaxHouseholds > 0 {
 			if err := t.lockUser(ctx, a.UserID); err != nil {
@@ -69,8 +69,8 @@ func (s *Store) CreateHousehold(ctx context.Context, a Actor, in NewHousehold) (
 				return ErrLimit
 			}
 		}
-		if _, err := t.exec(ctx, "INSERT INTO households (id, name, timezone, areas_enabled, created_at) VALUES (?, ?, ?, ?, ?)",
-			h.ID, h.Name, h.Timezone, in.AreasEnabled, now); err != nil {
+		if _, err := t.exec(ctx, "INSERT INTO households (id, name, timezone, areas_enabled, default_reminder_preset, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+			h.ID, h.Name, h.Timezone, in.AreasEnabled, DefaultReminderPreset, now); err != nil {
 			return err
 		}
 		if _, err := t.exec(ctx, "INSERT INTO memberships (household_id, user_id, role, joined_at) VALUES (?, ?, ?, ?)",
@@ -84,6 +84,10 @@ func (s *Store) CreateHousehold(ctx context.Context, a Actor, in NewHousehold) (
 	}
 	return h, nil
 }
+
+// DefaultReminderPreset is the reminder preset of a new household (existing
+// households keep what they have).
+const DefaultReminderPreset = "gentle"
 
 // insertAreas creates areas with the given (translated) names.
 func (t *tx) insertAreas(ctx context.Context, householdID string, names []string, now int64) error {

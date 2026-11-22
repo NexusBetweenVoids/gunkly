@@ -27,12 +27,15 @@ type meView struct {
 	EmailVerified   bool   `json:"emailVerified"`
 	EmailOTPEnabled bool   `json:"emailOtpEnabled"`
 	TwoFactor       string `json:"twoFactor"`
+	// EmailReminders: reminders go to the verified address by email.
+	EmailReminders bool `json:"emailReminders"`
 }
 
 func viewMe(u store.User) *meView {
 	v := &meView{ID: u.ID, Username: u.Username, Email: u.Email, DisplayName: u.DisplayName, Locale: u.Locale,
 		WeekStart: u.WeekStart, IsAdmin: u.IsAdmin, TOTPEnabled: u.TOTPEnabled,
-		EmailVerified: u.EmailVerified, EmailOTPEnabled: u.EmailOTPEnabled}
+		EmailVerified: u.EmailVerified, EmailOTPEnabled: u.EmailOTPEnabled,
+		EmailReminders: u.EmailReminders && u.EmailVerified}
 	switch {
 	case u.TOTPEnabled:
 		v.TwoFactor = "totp"
@@ -43,7 +46,9 @@ func viewMe(u store.User) *meView {
 }
 
 func (s *Server) getMe(w http.ResponseWriter, _ *http.Request, c *call) error {
-	return ok(w, viewMe(c.user))
+	v := viewMe(c.user)
+	v.EmailReminders = v.EmailReminders && s.emailEnabled()
+	return ok(w, v)
 }
 
 // BCP 47-ish language tag, or empty for "follow the browser".
@@ -59,6 +64,8 @@ func (s *Server) patchMe(w http.ResponseWriter, r *http.Request, c *call) error 
 		DisplayName *string       `json:"displayName"`
 		Locale      *string       `json:"locale"`
 		WeekStart   optional[int] `json:"weekStart"`
+		// EmailReminders needs email on the instance and a verified address.
+		EmailReminders *bool `json:"emailReminders"`
 	}
 	if err := decode(r, &in); err != nil {
 		return err
@@ -79,11 +86,21 @@ func (s *Server) patchMe(w http.ResponseWriter, r *http.Request, c *call) error 
 	if in.WeekStart.set {
 		p.WeekStart = &in.WeekStart.Value
 	}
+	if in.EmailReminders != nil && *in.EmailReminders && (!s.emailEnabled() || !c.user.EmailVerified) {
+		return errInvalid
+	}
 	u, err := s.st.UpdateProfile(r.Context(), c.user.ID, p)
 	if err != nil {
 		return err
 	}
-	return ok(w, viewMe(u))
+	if in.EmailReminders != nil {
+		if u, err = s.st.SetEmailReminders(r.Context(), c.user.ID, *in.EmailReminders); err != nil {
+			return err
+		}
+	}
+	v := viewMe(u)
+	v.EmailReminders = v.EmailReminders && s.emailEnabled()
+	return ok(w, v)
 }
 
 // checkNewPassword validates against the instance's minimum length.

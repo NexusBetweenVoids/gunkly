@@ -109,5 +109,6 @@
   "household.leaveNewOwner": "New owner",
   "household.leaveDeleteTitle": "Delete {name}?",
   "household.leaveDeleteWarn": "You are the last member who can use this household. Leaving will permanently delete it with all its chores.",
-  "household.leaveDeleteConfirm": "Leave and delete household"
+  "household.leaveDeleteConfirm": "Leave and delete household",
+  "channels.householdIntro": "Add a household channel, such as your family Telegram or Discord group, and reminders go to everyone in the household without anyone having to set anything up."
 }

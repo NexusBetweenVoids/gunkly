@@ -111,16 +111,17 @@ func (s *Store) ReminderChores(ctx context.Context, now, horizon time.Time, afte
 }
 
 // ReminderTarget is one place a chore's reminder goes: a recipient's personal
-// channel or Web Push subscription (UserID set; exactly one of ChannelID and
-// PushID) or a household channel (UserID empty).
+// channel, Web Push subscription or email (UserID set; exactly one of
+// ChannelID, PushID and Email) or a household channel (UserID empty).
 type ReminderTarget struct {
 	UserID    string
 	ChannelID string
 	PushID    string
+	Email     bool // the user's own verified address
 }
 
 // ReminderTargets resolves where a chore's reminders go: the personal
-// channels and Web Push subscriptions of its non-guest assignees (or, with no
+// channels, Web Push subscriptions and (opted in, verified) email address of its non-guest assignees (or, with no
 // assignees, of every non-guest member) who have not muted it, plus the
 // household's channels. Guests never receive reminders.
 func (s *Store) ReminderTargets(ctx context.Context, householdID, choreID string) ([]ReminderTarget, error) {
@@ -130,25 +131,32 @@ func (s *Store) ReminderTargets(ctx context.Context, householdID, choreID string
 			AND NOT EXISTS (SELECT 1 FROM chore_mutes cm WHERE cm.user_id = m.user_id AND cm.chore_id = ?)
 			AND (NOT EXISTS (SELECT 1 FROM chore_assignees ca WHERE ca.chore_id = ?)
 				OR EXISTS (SELECT 1 FROM chore_assignees ca WHERE ca.chore_id = ? AND ca.user_id = m.user_id))`
-		rows, err := t.query(ctx, `SELECT m.user_id, nc.id, '' FROM memberships m
+		rows, err := t.query(ctx, `SELECT m.user_id, nc.id, '', 0 FROM memberships m
 			JOIN notification_channels nc ON nc.scope = 'user' AND nc.user_id = m.user_id
 			WHERE `+eligible+`
 			UNION ALL
-			SELECT m.user_id, '', ps.id FROM memberships m
+			SELECT m.user_id, '', ps.id, 0 FROM memberships m
 			JOIN push_subscriptions ps ON ps.user_id = m.user_id
 			WHERE `+eligible+`
 			UNION ALL
-			SELECT '', id, '' FROM notification_channels WHERE scope = 'household' AND household_id = ?
-			ORDER BY 1, 2, 3`, householdID, choreID, choreID, choreID, householdID, choreID, choreID, choreID, householdID)
+			SELECT m.user_id, '', '', 1 FROM memberships m
+			JOIN users u ON u.id = m.user_id AND u.email_reminders = TRUE AND u.email_verified = TRUE AND u.email IS NOT NULL
+			WHERE `+eligible+`
+			UNION ALL
+			SELECT '', id, '', 0 FROM notification_channels WHERE scope = 'household' AND household_id = ?
+			ORDER BY 1, 2, 3, 4`, householdID, choreID, choreID, choreID, householdID, choreID, choreID, choreID,
+			householdID, choreID, choreID, choreID, householdID)
 		if err != nil {
 			return err
 		}
 		defer rows.Close()
 		for rows.Next() {
 			var r ReminderTarget
-			if err := rows.Scan(&r.UserID, &r.ChannelID, &r.PushID); err != nil {
+			var email int
+			if err := rows.Scan(&r.UserID, &r.ChannelID, &r.PushID, &email); err != nil {
 				return err
 			}
+			r.Email = email == 1
 			out = append(out, r)
 		}
 		return rows.Err()
@@ -166,6 +174,7 @@ type NewDelivery struct {
 	UserID        string // "" for a household channel
 	ChannelID     string // "" for a push delivery
 	PushID        string // push subscription; "" for a channel delivery
+	ViaEmail      bool   // to the user's own verified address
 	Kind          schedule.ReminderKind
 	DueDate       string    // occurrence the reminder is for
 	FireAt        time.Time // when it fired
@@ -216,10 +225,10 @@ func (s *Store) EnqueueDeliveries(ctx context.Context, ds []NewDelivery, q Quota
 				n++
 			}
 			if _, err := t.exec(ctx, `INSERT INTO deliveries (id, delivery_key, household_id, chore_id, user_id, channel_id, push_subscription_id, status,
-				attempts, next_attempt_at, last_error, created_at, kind, due_date, fire_at)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?)`,
+				attempts, next_attempt_at, last_error, created_at, kind, due_date, fire_at, via_email)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?)`,
 				ids.New(), d.Key, d.HouseholdID, nullStr(d.ChoreID), nullStr(d.UserID), nullStr(d.ChannelID), nullStr(d.PushID), status,
-				next, lastErr, now.UnixMilli(), int(d.Kind), d.DueDate, ms(d.FireAt)); err != nil {
+				next, lastErr, now.UnixMilli(), int(d.Kind), d.DueDate, ms(d.FireAt), d.ViaEmail); err != nil {
 				return err
 			}
 		}
@@ -277,6 +286,9 @@ type ClaimedDelivery struct {
 	PushID         string // push subscription; "" for a channel delivery
 	PushEndpoint   string // "" = subscription deleted
 	PushCiphertext string // sealed keys
+
+	ViaEmail bool   // the user's own address
+	EmailTo  string // "" = the user no longer has email reminders on a verified address
 
 	ChoreName    string
 	ChoreDueDate string
@@ -341,12 +353,14 @@ func (t *tx) claimed(ctx context.Context, id string, now time.Time) (ClaimedDeli
 	var next, archived, pausedUntil sql.NullInt64
 	var pausedIndef sql.NullBool
 	var choreDue, choreName, role, tz sql.NullString
+	var viaEmail, emailOn, emailVerified sql.NullBool
+	var email string
 	var muted int
 	err := t.queryRow(ctx, `SELECT d.id, d.household_id, COALESCE(d.chore_id, ''), COALESCE(d.user_id, ''), COALESCE(d.channel_id, ''),
 		d.kind, d.due_date, d.attempts, COALESCE(nc.service, ''), COALESCE(nc.url_ciphertext, ''),
 		COALESCE(d.push_subscription_id, ''), COALESCE(ps.endpoint, ''), COALESCE(ps.keys_ciphertext, ''),
 		c.name, c.due_date, c.next_due, c.archived_at, c.paused_indefinitely, c.paused_until,
-		COALESCE(u.locale, ''), m.role, h.timezone,
+		COALESCE(u.locale, ''), m.role, h.timezone, d.via_email, u.email_reminders, u.email_verified, COALESCE(u.email, ''),
 		(SELECT count(*) FROM chore_mutes cm WHERE cm.user_id = d.user_id AND cm.chore_id = d.chore_id)
 		FROM deliveries d
 		LEFT JOIN notification_channels nc ON nc.id = d.channel_id
@@ -357,7 +371,7 @@ func (t *tx) claimed(ctx context.Context, id string, now time.Time) (ClaimedDeli
 		LEFT JOIN households h ON h.id = d.household_id
 		WHERE d.id = ?`, id).Scan(&c.ID, &c.HouseholdID, &c.ChoreID, &c.UserID, &c.ChannelID, &kind, &c.DueDate, &c.Attempts,
 		&c.Service, &c.Ciphertext, &c.PushID, &c.PushEndpoint, &c.PushCiphertext, &choreName, &choreDue, &next, &archived, &pausedIndef, &pausedUntil,
-		&c.Locale, &role, &tz, &muted)
+		&c.Locale, &role, &tz, &viaEmail, &emailOn, &emailVerified, &email, &muted)
 	if err != nil {
 		return ClaimedDelivery{}, err
 	}
@@ -367,6 +381,10 @@ func (t *tx) claimed(ctx context.Context, id string, now time.Time) (ClaimedDeli
 		(!pausedUntil.Valid || pausedUntil.Int64 <= now.UnixMilli())
 	c.RecipientOK = c.UserID == "" || (Role(role.String).AtLeast(RoleMember) && muted == 0)
 	c.HouseholdTZ = tz.String
+	c.ViaEmail = viaEmail.Bool
+	if c.ViaEmail && emailOn.Bool && emailVerified.Bool {
+		c.EmailTo = email
+	}
 	return c, nil
 }
 
@@ -423,7 +441,7 @@ type Delivery struct {
 }
 
 const deliveryLogQuery = `SELECT d.id, COALESCE(d.chore_id, ''), COALESCE(c.name, ''), COALESCE(d.user_id, ''), COALESCE(d.channel_id, ''),
-	COALESCE(nc.label, ''), CASE WHEN ps.id IS NOT NULL THEN 'webpush' ELSE COALESCE(nc.service, '') END, d.kind, d.status, d.attempts, d.last_error, d.created_at, d.sent_at, d.next_attempt_at
+	COALESCE(nc.label, ''), CASE WHEN ps.id IS NOT NULL THEN 'webpush' WHEN d.via_email THEN 'email' ELSE COALESCE(nc.service, '') END, d.kind, d.status, d.attempts, d.last_error, d.created_at, d.sent_at, d.next_attempt_at
 	FROM deliveries d
 	LEFT JOIN chores c ON c.id = d.chore_id
 	LEFT JOIN notification_channels nc ON nc.id = d.channel_id
@@ -570,4 +588,39 @@ func (s *Store) SetLastSchedulerTick(ctx context.Context, at time.Time) error {
 			lastTickKey, strconv.FormatInt(at.UnixMilli(), 10), s.nowMS())
 		return err
 	})
+}
+
+// EmailDeliveriesSince counts email reminders sent since t instance-wide, for
+// the global hourly email cap (limits.EmailsGlobalHour).
+func (s *Store) EmailDeliveriesSince(ctx context.Context, t time.Time) (int, error) {
+	var n int
+	err := s.db.QueryRowContext(ctx, s.d.Rebind("SELECT count(*) FROM deliveries WHERE via_email = TRUE AND status = 'sent' AND sent_at >= ?"),
+		t.UnixMilli()).Scan(&n)
+	return n, err
+}
+
+// SetEmailReminders turns reminders by email on or off for the user. Turning
+// them on needs a verified address (ErrInvalid otherwise).
+func (s *Store) SetEmailReminders(ctx context.Context, userID string, on bool) (User, error) {
+	var u User
+	err := s.inTx(ctx, true, func(t *tx) error {
+		q := "UPDATE users SET email_reminders = ? WHERE id = ?"
+		if on {
+			q += " AND email_verified = TRUE AND email IS NOT NULL"
+		}
+		res, err := t.exec(ctx, q, on, userID)
+		if err != nil {
+			return err
+		}
+		n, err := res.RowsAffected()
+		if err != nil {
+			return err
+		}
+		if n != 1 {
+			return ErrInvalid
+		}
+		u, err = scanUser(t.queryRow(ctx, "SELECT "+userCols+" FROM users WHERE id = ?", userID))
+		return err
+	})
+	return u, err
 }

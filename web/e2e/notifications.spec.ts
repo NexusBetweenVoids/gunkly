@@ -1,25 +1,162 @@
-import { expect, test } from './helpers';
+import { type Page } from '@playwright/test';
+import { expect, mailMark, nextMail, PASSWORD, test, uniq } from './helpers';
 
-test('account: enabling browser notifications is offered where the browser supports push', async ({ world }) => {
+/** Replaces the browser's subscribe call: records that the permission path ran, then fails like a denied prompt. */
+async function stubSubscribe(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    (window as unknown as { __subscribed: number }).__subscribed = 0;
+    PushManager.prototype.subscribe = () => {
+      (window as unknown as { __subscribed: number }).__subscribed++;
+      return Promise.reject(new DOMException('denied', 'NotAllowedError'));
+    };
+  });
+}
+
+/** Headless Chromium reports notifications as "denied"; a real browser starts at "default" (can ask). */
+const askable = (page: Page) => page.addInitScript(() => Object.defineProperty(Notification, 'permission', { get: () => 'default' }));
+
+const subscribeCalls = (page: Page) => page.evaluate(() => (window as unknown as { __subscribed: number }).__subscribed);
+
+
+// Few, broad tests on purpose: every test signs in the shared admin, whose per-minute budget is small.
+
+test('account: notifications are ordered this device, email, then messaging apps; each case explains itself', async ({ world }) => {
   const u = await world.newUser();
+  const h = await world.household(u);
   const { page } = await u.open();
   await page.goto('/account');
-  const card = page.getByRole('region', { name: 'Notifications on this device' });
-  await expect(card.getByRole('button', { name: 'Enable notifications on this device' })).toBeVisible();
-  await expect(card.getByText(/browser vendor's push service/)).toBeVisible();
-});
+  const device = page.getByRole('region', { name: 'This device' });
+  const email = page.getByRole('region', { name: 'Email me reminders' });
+  await expect(device.getByRole('button', { name: 'Turn on reminders on this device' })).toBeVisible();
+  await expect(device.getByText(/browser vendor's push service/)).toBeVisible();
+  await expect(email).toBeVisible();
+  const advanced = page.locator('details.advanced');
+  await expect(advanced.locator('summary')).toHaveText('Messaging apps (advanced)');
+  await expect(advanced).not.toHaveAttribute('open', '');
+  await expect(page.getByRole('button', { name: 'Add channel' })).toBeHidden();
+  const y = async (l: ReturnType<Page['locator']>) => (await l.boundingBox())!.y;
+  expect(await y(device)).toBeLessThan(await y(email));
+  expect(await y(email)).toBeLessThan(await y(advanced));
+  await advanced.locator('summary').click();
+  await expect(page.getByRole('button', { name: 'Add channel' })).toBeVisible();
 
-test('account: browsers without push get an explanation instead of a button', async ({ world }) => {
-  const u = await world.newUser();
-  const { page } = await u.open();
-  await page.addInitScript(() => {
+  // A browser without the Push API gets a one-line explanation instead of a button.
+  const plain = await u.open();
+  await plain.page.addInitScript(() => {
     // @ts-expect-error simulate a browser without the Push API
     delete window.PushManager;
   });
-  await page.goto('/account');
-  const card = page.getByRole('region', { name: 'Notifications on this device' });
-  await expect(card.getByTestId('push-unsupported')).toHaveText('This browser does not support push notifications. Use a channel above instead.');
+  await plain.page.goto('/account');
+  const card = plain.page.getByRole('region', { name: 'This device' });
+  await expect(card.getByTestId('push-unsupported')).toHaveText("This browser can't show reminders. Use email or a messaging app below instead.");
   await expect(card.getByRole('button')).toHaveCount(0);
+
+  // On an iPhone in Safari the Home Screen steps are shown.
+  const ios = await world.newContext({
+    storageState: await u.api.storageState(),
+    userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1',
+  });
+  const iosPage = await ios.newPage();
+  await iosPage.addInitScript(() => {
+    // @ts-expect-error Safari tabs have no Push API
+    delete window.PushManager;
+  });
+  await iosPage.goto('/account');
+  await expect(iosPage.getByTestId('push-unsupported')).toContainText('Add to Home Screen');
+  await expect(iosPage.getByTestId('push-unsupported')).toContainText('Safari');
+
+  // Household settings explain what a household channel does.
+  await page.goto(`/households/${h.id}`);
+  await expect(page.getByRole('region', { name: 'Household notification channels' }).getByText(/family Telegram or Discord group/)).toBeVisible();
+});
+
+test('account: the email reminders switch needs a confirmed address and then works', async ({ world }) => {
+  const name = uniq('mailer');
+  const email = `${name}@example.test`;
+  const mark = mailMark();
+  await world.admin.post('/admin/users', { username: name, password: PASSWORD, displayName: 'Mail Person', email });
+  const api = await world.signIn(name, PASSWORD);
+  const sent = await nextMail(email, /Confirm your email address/, mark);
+  const ctx = await world.newContext({ storageState: await api.storageState() });
+  const page = await ctx.newPage();
+  await page.goto('/account');
+  const card = page.getByRole('region', { name: 'Email me reminders' });
+  await expect(card.getByTestId('email-reminders-hint')).toContainText('add your email address and confirm it first');
+  await expect(card.getByRole('checkbox')).toHaveCount(0);
+
+  await api.post('/account/email/verify', { token: new URL(sent.link, 'http://x').searchParams.get('token') });
+  await page.reload();
+  const box = page.getByRole('region', { name: 'Email me reminders' }).getByRole('checkbox', { name: 'Email me reminders' });
+  await expect(box).not.toBeChecked();
+  await box.check();
+  await expect(box).toBeChecked();
+  await expect.poll(async () => (await api.get<{ emailReminders: boolean }>('/me')).emailReminders).toBe(true);
+  await page.reload();
+  await expect(page.getByRole('checkbox', { name: 'Email me reminders' })).toBeChecked();
+  await page.getByRole('checkbox', { name: 'Email me reminders' }).uncheck();
+  await expect.poll(async () => (await api.get<{ emailReminders: boolean }>('/me')).emailReminders).toBe(false);
+});
+
+test('home: the reminder offer asks once; "Not now" hides it for good on this device', async ({ world }) => {
+  const u = await world.newUser();
+  await world.household(u);
+  const { page } = await u.open();
+  await askable(page);
+  await page.goto('/');
+  const card = page.getByTestId('push-prompt');
+  await expect(card.getByRole('heading', { name: 'Get reminders on this device?' })).toBeVisible();
+  await card.getByRole('button', { name: 'Not now' }).click();
+  await expect(card).toBeHidden();
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Chores' })).toBeVisible();
+  await page.waitForLoadState('networkidle');
+  await expect(page.getByTestId('push-prompt')).toHaveCount(0);
+
+  // Another device (fresh storage): "Turn on" asks the browser for permission and explains a refusal.
+  const other = await u.open();
+  await askable(other.page);
+  await stubSubscribe(other.page);
+  await other.page.goto('/');
+  const card2 = other.page.getByTestId('push-prompt');
+  await card2.getByRole('button', { name: 'Turn on' }).click();
+  await expect.poll(() => subscribeCalls(other.page)).toBe(1);
+  await expect(card2.getByRole('alert')).toContainText(/Could not turn on notifications|blocked/);
+  await expect(card2.getByRole('button', { name: 'Not now' })).toBeVisible(); // still dismissible
+
+  // A device where the browser has blocked notifications is never asked.
+  const blocked = await u.open();
+  await blocked.page.addInitScript(() => Object.defineProperty(Notification, 'permission', { get: () => 'denied' }));
+  await blocked.page.goto('/');
+  await expect(blocked.page.getByRole('heading', { name: 'Chores' })).toBeVisible();
+  await blocked.page.waitForLoadState('networkidle');
+  await expect(blocked.page.getByTestId('push-prompt')).toHaveCount(0);
+});
+
+test('home: no offer for guests, or for anyone who already has another way to get reminders', async ({ world }) => {
+  const owner = await world.newUser();
+  const h = await world.household(owner);
+  const guest = await world.newUser();
+  const inv = await owner.api.post<{ token: string }>(`/households/${h.id}/invites`, { role: 'guest', expiresInHours: 24 });
+  await guest.api.post(`/invites/${inv.token}/accept`);
+  const g = await guest.open();
+  await askable(g.page);
+  await g.page.goto('/');
+  await expect(g.page.getByRole('heading', { name: 'Chores' })).toBeVisible();
+  await g.page.waitForLoadState('networkidle');
+  await expect(g.page.getByTestId('push-prompt')).toHaveCount(0);
+
+  // The owner is offered it, until a messaging channel exists.
+  const o = await owner.open();
+  await askable(o.page);
+  await o.page.goto('/');
+  await expect(o.page.getByTestId('push-prompt')).toBeVisible();
+  await owner.api.post('/account/channels', { url: 'ntfy://ntfy.sh/gunkly-e2e-topic', label: 'Phone' });
+  const c = await owner.open();
+  await askable(c.page);
+  await c.page.goto('/');
+  await expect(c.page.getByRole('heading', { name: 'Chores' })).toBeVisible();
+  await c.page.waitForLoadState('networkidle');
+  await expect(c.page.getByTestId('push-prompt')).toHaveCount(0);
 });
 
 test('admin: the Updates section shows the running version and the check can be switched off', async ({ world }) => {

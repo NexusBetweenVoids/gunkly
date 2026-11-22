@@ -12,6 +12,7 @@ export type Me = {
   emailVerified: boolean;
   emailOtpEnabled: boolean;
   twoFactor: '' | 'totp' | 'email';
+  emailReminders: boolean;
 };
 export type SessionView = {
   authenticated: boolean;
