@@ -2,16 +2,16 @@
    with <html data-theme="light|dark">. Logical properties only (RTL-ready). */
 :root {
   color-scheme: light;
-  --bg: #f5f5f7;
+  --bg: #f5eee3;
   --surface: #ffffff;
-  --surface-2: #f0f0f3;
-  --text: #1d1d1f;
-  --text-2: #5e5e63;
-  --border: #d2d2d7;
-  --accent: #0060c7;
+  --surface-2: #ece4d6;
+  --text: #1f2b31;
+  --text-2: #4a5a62;
+  --border: #d9cfbf;
+  --accent: #345461;
   --accent-text: #ffffff;
-  --danger: #c4221b;
-  --focus: #0071e3;
+  --danger: #b3261e;
+  --focus: #345461;
   --radius: 12px;
   --radius-lg: 18px;
   --space: 16px;
@@ -29,32 +29,32 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --bg: #000000;
-    --surface: #1c1c1e;
-    --surface-2: #2c2c2e;
-    --text: #f5f5f7;
-    --text-2: #a1a1a6;
-    --border: #3a3a3c;
-    --accent: #4da3ff;
-    --accent-text: #000000;
-    --danger: #ff6961;
-    --focus: #4da3ff;
+    --bg: #262e34;
+    --surface: #2f383f;
+    --surface-2: #38424a;
+    --text: #f1ede6;
+    --text-2: #b4bfc2;
+    --border: #46515a;
+    --accent: #8fcdb4;
+    --accent-text: #1f2b31;
+    --danger: #ff8f86;
+    --focus: #8fcdb4;
     --shadow: none;
   }
 }
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --bg: #000000;
-  --surface: #1c1c1e;
-  --surface-2: #2c2c2e;
-  --text: #f5f5f7;
-  --text-2: #a1a1a6;
-  --border: #3a3a3c;
-  --accent: #4da3ff;
-  --accent-text: #000000;
-  --danger: #ff6961;
-  --focus: #4da3ff;
+  --bg: #262e34;
+  --surface: #2f383f;
+  --surface-2: #38424a;
+  --text: #f1ede6;
+  --text-2: #b4bfc2;
+  --border: #46515a;
+  --accent: #8fcdb4;
+  --accent-text: #1f2b31;
+  --danger: #ff8f86;
+  --focus: #8fcdb4;
   --shadow: none;
 }
 
@@ -401,4 +401,28 @@ textarea {
   .toasts {
     inset-inline-start: calc(200px + var(--space));
   }
+}
+
+/* Brand mark: two images, shown according to the active theme. */
+.logo-dark {
+  display: none;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .logo-light {
+    display: none;
+  }
+  :root:not([data-theme="light"]) .logo-dark {
+    display: inline-block;
+  }
+}
+:root[data-theme="dark"] .logo-light {
+  display: none;
+}
+:root[data-theme="dark"] .logo-dark {
+  display: inline-block;
+}
+.logo-hero {
+  display: block;
+  text-align: center;
+  margin-block-end: var(--space);
 }

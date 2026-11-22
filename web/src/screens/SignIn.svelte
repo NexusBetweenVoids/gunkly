@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Logo from '../components/Logo.svelte';
   import Alert from '../components/Alert.svelte';
   import Button from '../components/Button.svelte';
   import Field from '../components/Field.svelte';
@@ -44,6 +45,7 @@
 </script>
 
 <section class="card narrow">
+  <p class="logo-hero"><Logo size={72} /></p>
   <h1>{t('signIn.title')}</h1>
   <form class="stack" onsubmit={submit}>
     {#if needSecond}

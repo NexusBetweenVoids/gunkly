@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Logo from './components/Logo.svelte';
   import Toast from './components/Toast.svelte';
   import Lazy from './components/Lazy.svelte';
   import StepUp from './components/StepUp.svelte';
@@ -41,7 +42,7 @@
 
 <header class="bar">
   <nav class="nav" aria-label={t('nav.label')}>
-    <a class="brand" href="/">{t('app.name')}</a>
+    <a class="brand" href="/"><Logo />{t('app.name')}</a>
     {#if app.user}
       {#if app.households.length}
         <div class="switcher">
@@ -141,6 +142,7 @@
     min-block-size: var(--tap);
     display: inline-flex;
     align-items: center;
+    gap: 8px;
   }
   ul {
     display: flex;

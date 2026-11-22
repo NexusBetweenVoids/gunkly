@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Logo from '../components/Logo.svelte';
   import Alert from '../components/Alert.svelte';
   import Button from '../components/Button.svelte';
   import Field from '../components/Field.svelte';
@@ -56,6 +57,7 @@
 </script>
 
 <section class="card narrow stack">
+  <p class="logo-hero"><Logo size={72} /></p>
   <h1>{t('invite.title')}</h1>
   {#if app.user}
     <p>{t('invite.acceptBody', { name: app.user.displayName })}</p>

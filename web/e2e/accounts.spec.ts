@@ -103,20 +103,20 @@ test('theme override: light, dark and following the system', async ({ world }) =
     await expect(page.getByText('Saved.').last()).toBeVisible(); // earlier toasts may still be fading out
   };
 
-  expect(await bg()).toBe('rgb(245, 245, 247)');
+  expect(await bg()).toBe('rgb(245, 238, 227)');
   await set('dark');
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
-  expect(await bg()).toBe('rgb(0, 0, 0)');
+  expect(await bg()).toBe('rgb(38, 46, 52)');
   await page.reload();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark'); // persisted on this device
-  expect(await bg()).toBe('rgb(0, 0, 0)');
+  expect(await bg()).toBe('rgb(38, 46, 52)');
 
   await set('light');
   await page.emulateMedia({ colorScheme: 'dark' }); // explicit light beats a dark system
-  expect(await bg()).toBe('rgb(245, 245, 247)');
+  expect(await bg()).toBe('rgb(245, 238, 227)');
   await set('system');
   await expect(page.locator('html')).not.toHaveAttribute('data-theme', /.+/);
-  expect(await bg()).toBe('rgb(0, 0, 0)'); // now follows the (dark) system
+  expect(await bg()).toBe('rgb(38, 46, 52)'); // now follows the (dark) system
 });
 
 test('signed-out visitors are sent to sign in and back; sign out ends the session', async ({ world }) => {
