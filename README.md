@@ -11,6 +11,8 @@
   <a href="web/package.json"><img alt="Svelte 5" src="https://img.shields.io/badge/Svelte-5-345461?logo=svelte&logoColor=white"></a>
   <img alt="SQLite or PostgreSQL" src="https://img.shields.io/badge/database-SQLite%20%7C%20PostgreSQL-345461?logo=postgresql&logoColor=white">
   <a href="Dockerfile"><img alt="Distroless container" src="https://img.shields.io/badge/container-distroless%2C%20non--root-345461?logo=docker&logoColor=white"></a>
+  <a href="https://github.com/NexusBetweenVoids/gunkly/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/NexusBetweenVoids/gunkly?color=345461"></a>
+  <a href="https://github.com/NexusBetweenVoids/gunkly/pkgs/container/gunkly"><img alt="Container image" src="https://img.shields.io/badge/image-ghcr.io%2Fnexusbetweenvoids%2Fgunkly-345461?logo=github"></a>
   <img alt="No telemetry" src="https://img.shields.io/badge/telemetry-none-7ba99d">
 </p>
 

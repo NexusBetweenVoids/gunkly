@@ -4,7 +4,9 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ## [Unreleased]
 
-Draft for 0.1.0, the first public release (self-hosted and hosted).
+## [0.1.0] - 2026-11-22
+
+The first public release.
 
 ### Added
 
