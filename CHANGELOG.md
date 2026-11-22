@@ -4,49 +4,61 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ## [Unreleased]
 
-### Security
-- Phase 1B security review fixes. Import (new household and merge) goes through the same access gate as creating a household. In hosted mode every household-scoped route now requires a verified email and a second factor, enforced once in the router, so an invited account has no data access until both are done (`403 email_not_verified` / `two_factor_setup_required`).
-- Mail quotas: sign-in and step-up codes have their own per-account limit (`email_codes_account_hour`, 20/h); unauthenticated reset, verification and sign-up mail count only against the per-IP and global caps, so spamming reset requests for someone can no longer lock them out of their sign-in codes. A password-reset request no longer invalidates the link already issued: up to 3 unexpired tokens per account, each single use, using one drops the rest.
-- Sign-up with email on answers `202` whether or not the address already has an account (the owner gets a "you already have an account" mail instead); nobody is signed in until the address is confirmed. A taken username still answers `registration_failed`. The reset request does its lookup, token and mail in the background for known and unknown logins alike (no timing oracle).
-- Sign-up checks the per-IP cap first, then marks the proof of work used before any hashing, so replays cost no Argon2 work. `GUNKLY_SIGNUP_POW_MAX` defaults to 250000; ADR 0008 states the proof of work is a nuisance filter and the per-IP and mail caps are the real controls.
-- Account deletion clears only meta and IP of other actors' audit rows that mention the deleted user (their actor stays).
-- Imported completions get the new source `import` (migration 0010; shown as "Imported") and are attributed to a named member only when the importer is an owner of the target household. An import file may hold at most 20,000 completions in all, and a merge import locks the household row on Postgres so the chore limit check is atomic.
-- Accounts with an email address that never verified it and belong to no household are deleted after 7 days by the retention job when email is enabled.
-- Hosted mode: creating or joining a household needs a verified email and a second factor; 2FA cannot be turned off there.
-- Rate limiter: IPv6 clients are keyed by /64; eviction only drops idle keys not in backoff and a full table refuses new keys (429); it follows the admin-set `login_attempts_per_minute`.
-- Authenticated write throttling: per-user and per-household token buckets; new limits `areas_per_household` (100) and `completions_per_chore` (1000, oldest non-reverted completions pruned).
-- Admin password reset: disabled in hosted mode, refused for admin targets, revokes sessions, recorded in the target's own audit log; ADR 0009 and the threat model state the self-hosted trade-off. Password changes are now one transaction (password, sessions, mark-done links).
-- `households_per_user` and invite use are enforced atomically; invites have `maxUses` (1-100, default 1, new migration 0005) and registration answers `registration_failed` for duplicate username/email.
-- Sign-in no longer grants step-up; enabling/disabling TOTP revokes other sessions; per-account failed password/2FA backoff across IPs.
-- Mark-done: two links for one occurrence cannot both complete the chore (chore row lock).
-- SQLite database, WAL/SHM and backup files are created 0600; compose files recommend pinning the image version.
-- Redirect hardening in `safeNext` and the service worker (same-origin paths only); channel hints no longer contain secret characters.
+Draft for 0.1.0, the first public release (self-hosted and hosted).
 
 ### Added
-- Account deletion: `GET /api/v1/account/deletion-preview` and `DELETE /api/v1/account` (step-up, explicit `confirmUsername`, `newOwners`); leaving a household as its last owner takes `newOwner` and answers `409 owner_required` with candidates, and `confirmDelete` when it would delete the household. One transaction: ownership hand-over to non-guests only, households without a non-guest member deleted, chores unassigned, completions anonymised, credentials/channels/push/feeds removed, audit rows stripped of actor, IP and metadata. Account screen "Delete account".
-- Inactive-account lifecycle (off by default; migration 0009): admin settings `inactiveEnabled`, `inactiveWarnAfterDays` (365), `inactiveDeleteAfterDays` (548); a daily leader-only scheduler job sends a warning and a final warning (email, personal channels, Web Push; text via `internal/i18n`) and deletes accounts that did not sign in, with automatic ownership transfer to the longest-standing non-guest member. Signing in clears warnings; instance admins are never touched.
-- `docs/legal/`: templates (not legal advice) for the hosted service: privacy policy, terms, GDPR Art. 30 register, breach procedure, incident response.
-- Web: the JS budget is now 94 KB gz (was 90) to fit the account-deletion screen and the inactive-account settings.
-- Web Push (ADR 0006): RFC 8291/8292 in the standard library (`internal/webpush`, tested against the RFC 8291 vector); VAPID key generated on first use, sealed with the keyring and covered by `gunkly rotate-key` (as are subscription keys); `GET /api/v1/push/vapid-public-key`, `GET/POST /api/v1/account/push-subscriptions`, `DELETE /api/v1/account/push-subscriptions/{id}`; new limit `push_subscriptions_per_user` (10); the scheduler delivers to subscriptions like channels (quiet hours, mutes, guests, quotas), pruning `404`/`410`; Account "Enable notifications on this device"; service worker shows the notification and focuses or opens its same-origin URL. Migration 0008 indexes `deliveries.push_subscription_id`.
-- Admin Updates: `GET /api/v1/admin/updates`; a background check (at most every 12 h, egress-guarded, generic user agent, no instance data) of the GitHub release API cached in settings; `updateCheck` setting (default on) in `PATCH /api/v1/admin/settings`; changelog shown as plain text.
-- Prometheus `/metrics` (hand-written text format) behind `GUNKLY_METRICS_TOKEN` and a bearer token; no user or household labels; documented under `x-outside-api-v1`.
-- Web: the JS budget is kept at 90 KB gz by deduplicating i18n keys, shortening some texts, and showing admin limit names as their identifiers.
-- Data export and import: `GET /api/v1/account/export` (personal data, step-up, attachment), `GET /api/v1/households/{hh}/export` (member+), `POST /api/v1/households/import` (new household) and `POST /api/v1/households/{hh}/import` (merge, member+). Versioned formats `gunkly-user-export` and `gunkly-household-export` (version 1); strict validation with the normal create-path rules, reported as `import_invalid` with a `reason` and field `path`; limits checked; one transaction; 5 MiB upload cap on the import routes only (1 MiB elsewhere); audit events; Account and household settings screens; `FuzzImport` in the nightly fuzz matrix.
-- `gunkly migrate-db --from sqlite:///... --to postgres://...`: copies SQLite into an empty Postgres database with per-table row-count and checksum verification, refuses a non-empty target or a source with pending migrations, rolls back on any mismatch, leaves the SQLite file untouched. README "Switching later" documents the steps.
-- Email (ADR 0008, migration 0006): `internal/mail` SMTP sender (STARTTLS/TLS/none, egress guard, header-injection checks, i18n text) with the PRD caps (10/h per account, 5/h per IP, 500/h global); email verification (`POST /account/email/verify`, `/account/email/resend`, `PATCH /account/email` with step-up and a notice to the old address); password reset by email (`POST /password-reset/request` always 202, `/confirm` single use, 1 h); email-OTP 2FA (`POST/DELETE /account/email-otp`, `emailCode` at sign-in and step-up, 5 attempts per code, hosted auto-enrolment and mandatory 2FA); `gunkly admin reset-2fa` clears email codes too.
-- Open sign-up: `POST /signup`, `GET /signup/challenge` (ALTCHA-compatible proof of work, stdlib only, `GUNKLY_SIGNUP_POW_MAX`), public `GET /instance`, admin settings `openSignup` (default on in hosted) and `requirePow`; sign-ups per IP per hour via `internal/limits`.
-- Web: sign-up (proof of work in a Web Worker), forgot/reset password, email verification landing page, unverified-email banner, account email and email-code sections, email codes at sign-in and step-up. e2e specs with a fake SMTP server.
-- Admin-configurable session lifetimes (`sessionIdleDays` 1-365, `sessionMaxDays` 1-730) and data retention (`auditRetentionDays`, `deliveryRetentionDays`) in `GET/PATCH /api/v1/admin/settings` and the admin settings screen; the retention job reads them on each run (the `scheduler.Config.Retention` field is gone). ADR 0013 (sessions, CSRF, rate limiting, setup code).
-- CLI tests for `healthcheck`, `admin reset-password`/`reset-2fa`, `rotate-key`, `backup -` and `migrate`; a test keeps `.env.example` in step with the config keys. README quick start, upgrade and backup steps corrected to match the code.
-- CI/release automation: Playwright e2e job; OpenAPI breaking-change check on PRs (`oasdiff`, `make openapi-diff`); image size budget (40 MB); frontend fitness checks (`make fitness`); dependency count budgets (`make dep-budget`); fuzz matrix coverage check; nightly OWASP ZAP baseline DAST (`dast.yml`); tag-driven release workflow with multi-arch image, cosign keyless signature, SPDX SBOM attestation, binaries and `SHA256SUMS`. CI uses Node 26.
-- HTTP server and `/api/v1` auth API: first-run setup code, sessions with CSRF protection, step-up, TOTP with recovery codes, rate limiting, households, members, invites, audit log, admin users/settings; `/healthz`, `/readyz`; embedded SPA with strict security headers.
-- Chore API (`/api/v1/households/{hh}/...`): areas (list/create/rename/delete; opt-in starter areas via `starterAreas` on household creation), chores (list with due status buckets `overdue`/`today`/`thisWeek`/`later` in the household zone and the user's week start, `mine`/`area`/`archived` filters, create/get/update/archive/unarchive/delete with server-side validation and `ChoresPerHousehold`), completions (complete with undo path, paginated history, revert), snooze, skip once, pause/resume (each invalidating mark-done links), per-chore reminders and presets (`RemindersPerChore`, household default preset), per-user mutes, calendar occurrences (max 62 days) and `GET /api/v1/templates`. Audit events for chore delete, skip and revert.
-- `api/openapi.yaml` documents every `/api/v1` operation; a test fails when a registered route is missing from it or the spec lists a route that does not exist.
-- CLI: `serve`, `healthcheck`, `migrate`, `backup`, `admin reset-password`, `admin reset-2fa`, `rotate-key`.
-- Reminder scheduler (`internal/scheduler`): per-tick reminder windows in the household zone, quiet-hours deferral and coalescing, mutes, guest exclusion, idempotent delivery keys, retries with exponential backoff, one catch-up per chore after downtime, notification quotas through `internal/limits`, daily retention cleanup with bounded SQLite `incremental_vacuum`, Postgres advisory-lock leadership with standby takeover; started by `serve` unless `GUNKLY_DISABLE_SCHEDULER`.
-- Notification channels (`internal/notify`, store): service allowlist (fixed public providers on by default, host overrides rejected), URLs sealed per channel ID, `rotate-key` support, plain-text messages from `internal/i18n`, delivery log. Delivery via Shoutrrr v0.25.0 through the egress guard (Go 1.27 required).
-- Mark-done links (store): hashed single-use tokens scoped to an occurrence and a recipient or household channel, 7-day maximum, side-effect-free peek, one-transaction completion with a 5-minute single-use undo token.
-- iCal feeds (`internal/ical`, store): per-user, per-household revocable/regenerable tokens; names, areas and dates only.
-- `internal/i18n` for server-sent text.
-- `internal/limits` service with the PRD defaults, instance and per-household plan overrides.
-- Project documentation: PRD, architecture decision records, threat model, security policy and contributing guide.
+
+**Chores and scheduling**
+- Chore API under `/api/v1/households/{hh}/...`: areas (with opt-in starter areas), chores (interval and RRULE-subset schedules, assignees, notes, link, archive, delete), completions with undo and revert, paginated history, snooze, skip once, pause and resume, per-user mutes, starter templates, and calendar occurrences (up to 62 days).
+- Home buckets chores as overdue, today, this week and later in the household time zone and the user's week start.
+- Limits through `internal/limits` with the PRD defaults and per-instance and per-household overrides, including `areas_per_household` (100) and `completions_per_chore` (1000, oldest non-reverted pruned).
+
+**Reminders and notifications**
+- Reminder scheduler: per-chore reminder windows in the household zone, presets, quiet-hours deferral and coalescing, mutes, guest exclusion, idempotent delivery keys, retries with backoff, one catch-up per chore after downtime, quotas, daily retention cleanup, Postgres advisory-lock leadership with standby takeover. `GUNKLY_DISABLE_SCHEDULER` runs a web-only instance.
+- Notification channels per user and per household through Shoutrrr (egress-guarded), with a service allowlist, sealed URLs (covered by `rotate-key`), plain-text messages from `internal/i18n` and a delivery log.
+- Web Push (ADR 0006): RFC 8291/8292 in the standard library, VAPID key generated on first use and sealed, subscription endpoints, limit `push_subscriptions_per_user` (10), stale subscriptions pruned; "Enable notifications on this device" in Account; the service worker shows the notification and opens its same-origin URL.
+- Mark-done links: hashed single-use tokens with a 7-day maximum, side-effect-free preview page and a 5-minute single-use undo.
+
+**Calendar**
+- Month and week calendar screen; per-user, per-household revocable iCal feeds with names, areas and dates only.
+
+**Accounts, households and invites**
+- First-run setup code, sessions with CSRF protection and step-up, TOTP with recovery codes, households, roles (owner, member, guest), expiring invites with `maxUses` (1-100), audit log, admin users and settings, session lifetimes and data retention settings (ADR 0013).
+- Email (ADR 0008): SMTP sender with caps, address verification, password reset, email-code 2FA; `gunkly admin reset-2fa` clears email codes too.
+- Open sign-up with an ALTCHA-compatible proof of work (`GUNKLY_SIGNUP_POW_MAX`), public `GET /instance`, admin settings `openSignup` and `requirePow`.
+- Account deletion with ownership hand-over (`GET /account/deletion-preview`, `DELETE /account`); optional inactive-account lifecycle (off by default) with warnings and deletion.
+
+**Export, import and migration**
+- Versioned user and household export (`gunkly-user-export`, `gunkly-household-export`), import as a new household or merge, strict validation, all-or-nothing, 5 MiB cap on import routes only, 20,000 completions per file.
+- `gunkly migrate-db --from sqlite:///... --to postgres://...`: copies SQLite into an empty Postgres database with per-table row-count and checksum verification; the SQLite file is untouched.
+
+**Admin and operations**
+- Admin Updates: running version and latest release with changelog from the GitHub release API (at most every 12 h, egress-guarded, generic user agent, no instance data; can be switched off).
+- Prometheus `/metrics` behind `GUNKLY_METRICS_TOKEN` and a bearer token, no user or household labels.
+- CLI: `serve`, `healthcheck`, `migrate`, `migrate-db`, `backup`, `admin reset-password`, `admin reset-2fa`, `rotate-key`, `version`. `/healthz` and `/readyz`.
+- Staging stack, synthetic canary, `scripts/deploy.sh` with automatic image rollback, and an upgrade test (see `docs/operations.md`).
+
+**Web app**
+- Svelte SPA embedded in the binary: home, calendar, chore editor, household settings, account, admin, sign-up, password reset and email verification; installable PWA; light and dark themes; English with i18n and RTL wiring; WCAG 2.2 AA checked in e2e. JS budget 94 KB gzipped.
+
+**Project**
+- `api/openapi.yaml` documents every `/api/v1` operation and a test keeps it in step with the routes; a test keeps `.env.example` in step with the config keys.
+- CI and release automation: dual-database tests, Playwright e2e, OpenAPI breaking-change check, size and dependency budgets, fuzzing, nightly ZAP baseline, tag-driven release with multi-arch image, cosign signature, SPDX SBOM, binaries and `SHA256SUMS`.
+- Documentation: README, getting-started guide, PRD, ADRs, threat model, security policy, contributing guide, operations guide, and hosted-service legal templates in `docs/legal/` (not legal advice).
+
+### Security
+- Hosted mode: every household-scoped route requires a verified email and a second factor, enforced once in the router (`403 email_not_verified` / `two_factor_setup_required`); creating or joining a household needs both; 2FA cannot be turned off. Import goes through the same gate as creating a household.
+- Mail quotas: sign-in and step-up codes have their own per-account limit (20/h); unauthenticated reset, verification and sign-up mail count only against per-IP and global caps, so nobody can lock another account out of its codes. Password reset keeps up to 3 unexpired single-use tokens.
+- Sign-up answers `202` whether or not the address has an account; reset requests do their work in the background (no timing oracle). Sign-up checks the per-IP cap first and marks the proof of work used before hashing; the proof of work is a nuisance filter, the per-IP and mail caps are the real controls (ADR 0008).
+- Rate limiting: IPv6 clients keyed by /64, bounded table that refuses new keys when full, per-account failed password and 2FA backoff across IPs, per-user and per-household write throttling. Sign-in does not grant step-up; enabling or disabling TOTP revokes other sessions.
+- Atomic enforcement of `households_per_user`, invite use and the chore limit during merge import (row lock on Postgres); two mark-done links for one occurrence cannot both complete a chore.
+- Admin password reset is disabled in hosted mode, refused for admin targets, revokes sessions and is recorded in the target's audit log (ADR 0009). Password changes are one transaction.
+- Imported completions use the source `import` and are attributed to a named member only when the importer owns the target household.
+- Account deletion strips actor, IP and metadata from audit rows, including other rows that mention the user. Unverified, household-less accounts are deleted after 7 days when email is enabled.
+- SQLite database, WAL/SHM and backup files are created `0600`; redirects (`safeNext`, service worker) are same-origin paths only; channel hints never contain secret characters.
+- Secrets (tokens, mark-done links, recovery codes) are stored only as hashes; sealed values (TOTP, channel URLs, push keys) use a versioned keyring and `rotate-key`.
+
+### Changed
+- README, quick start, upgrade and backup steps rewritten to match the code; `docs/PRD.md` names `GUNKLY_DISABLE_SCHEDULER` (there is no `--disable-scheduler` flag).
+- Compose files recommend pinning the image version.
+- Registration answers `registration_failed` for a duplicate username or email.

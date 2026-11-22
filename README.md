@@ -16,11 +16,62 @@
 
 A self-hostable chore tracker for recurring household chores and home maintenance (gutters, washing-machine filter, descaling the kettle). Flexible schedules, optional reminders on your own messaging services, and a calm interface on phone and desktop. One Go binary, one container, SQLite or Postgres. No telemetry.
 
-**Status: pre-alpha, under construction.** Nothing here is ready for use yet.
+**Status: early release.** Expect rough edges; please [report issues](https://github.com/NexusBetweenVoids/gunkly/issues). Pin a version tag in production and back up before upgrading.
+
+## Screenshots
+
+| Home, phone (light) | Home, phone (dark) |
+|-|-|
+| <img alt="Home screen on a phone, light theme: overdue and due-today chores with Done buttons" src="docs/assets/screens/home-phone-light.png" width="270"> | <img alt="Home screen on a phone, dark theme" src="docs/assets/screens/home-phone-dark.png" width="270"> |
+
+| Calendar, desktop (dark) | Chore editor, desktop (light) |
+|-|-|
+| <img alt="Month calendar with the chores due on the selected day" src="docs/assets/screens/calendar-desktop-dark.png" width="420"> | <img alt="Edit chore form: name, area, assignees, schedule and reminders" src="docs/assets/screens/chore-editor-desktop-light.png" width="420"> |
+
+<p align="center"><img alt="Household settings: members, areas, calendar feeds and notification channels" src="docs/assets/screens/household-desktop-light.png" width="420"><br><sub>Household settings (light): members, areas, calendar feeds, notification channels.</sub></p>
+
+All screenshots show synthetic demo data.
+
+## Features
+
+**Chores and schedules**
+- Recurring (every N days, weeks or months, or a calendar rule such as "every Saturday" or "every April and October") and one-off chores.
+- Next due date from completion or from the scheduled date; monthly rules on the 29th to 31st fall on the month's last day; time zone and DST aware.
+- Assignees (none, one or many); one completion by anyone completes it for everyone.
+- Snooze, skip once, pause, archive; undo right after completing, revert later from history; areas, notes, link, starter templates.
+- Home screen grouped Overdue / Today / This week / Later, with "Mine / Everyone" and area filters.
+
+**Reminders and notification channels**
+- Per chore: before due, on the due date, repeating while overdue (at most once per 24 h); household presets and quiet hours (deferred, not dropped); per-user mutes.
+- Channels per user and per household through [Shoutrrr](https://containrrr.dev/shoutrrr/) service URLs: Discord, Slack, Telegram, Pushover, Pushbullet, Google Chat and ntfy.sh on by default; self-hosted ntfy, generic webhook, SMTP, MQTT, Matrix, Gotify and more can be enabled by the admin.
+- Built-in Web Push to browsers and installed PWAs; no third-party account needed.
+- Reminders carry a mark-done link (confirmation page, single use, 5-minute undo); delivery log with retries and backoff.
+
+**Calendar and iCal feeds**
+- Month and week views by due date.
+- Read-only iCal feeds per user and household (Google Calendar, Apple Calendar, Outlook); revocable and regenerable; names, areas and dates only.
+
+**Households, roles and invites**
+- Several households per user, each fully isolated. Roles: owner, member, guest (view only, no reminders).
+- Expiring, revocable invite links (1 to 100 uses). Optional open sign-up with proof of work (off by default when self-hosted).
+
+**Security and privacy**
+- Argon2id passwords, optional TOTP with recovery codes, optional email codes; step-up checks for sensitive actions; sessions you can list and revoke.
+- Notification URLs, TOTP secrets and push keys are encrypted at rest with your own key (`GUNKLY_SECRET_KEYS`, rotatable); other secrets are stored only as hashes.
+- Outbound requests go through an SSRF guard with a service allowlist; strict CSP, CSRF protection, rate limits and usage limits.
+- No telemetry. The optional update check can be switched off. Account deletion and optional inactive-account clean-up.
+
+**Export and import**
+- Per-user data export and household export as JSON; import as a new household or merge into an existing one. See [Export and import](#export-and-import).
+
+**Admin and operations**
+- First-run setup code, users and instance settings (limits, sessions, retention, allowed services, sign-up), update notice, CLI recovery (`admin reset-password`, `admin reset-2fa`).
+- `/healthz`, `/readyz`, optional Prometheus `/metrics`, consistent backups, `migrate-db` to Postgres, graceful shutdown.
+- English only for now; translations and right-to-left layout are wired in. Installable PWA (no offline mode). WCAG 2.2 AA tested.
 
 ## Quick start
 
-Needs Docker with Compose. The compose files pull `ghcr.io/nexusbetweenvoids/gunkly` (published from the first release; until then `docker compose ... up -d --build` builds it from this checkout).
+Needs Docker with Compose. The compose files pull `ghcr.io/nexusbetweenvoids/gunkly`; until a release is published, add `--build` to build it from this checkout. See [docs/getting-started.md](docs/getting-started.md) for a first-run walkthrough.
 
 ```sh
 cp .env.example .env
@@ -30,12 +81,9 @@ echo "GUNKLY_SECRET_KEYS=1:$(openssl rand -base64 32)"
 
 # SQLite (one container)
 docker compose -f compose.sqlite.yml up -d
-
-# or Postgres (Gunkly plus Postgres): also set POSTGRES_PASSWORD in .env
-docker compose -f compose.postgres.yml up -d
 ```
 
-Keep `GUNKLY_SECRET_KEYS` safe and backed up: it protects stored two-factor secrets and notification URLs, and Gunkly refuses to start without it. Every setting is documented in `.env.example`.
+Keep `GUNKLY_SECRET_KEYS` safe and backed up: it protects stored two-factor secrets and notification URLs, and Gunkly refuses to start without it.
 
 On first start Gunkly logs a one-time setup code (the `setup_code` field of a `FIRST-RUN SETUP` line). Find it, then open the app (port 8080) and enter it to create the admin account:
 
@@ -43,7 +91,47 @@ On first start Gunkly logs a one-time setup code (the `setup_code` field of a `F
 docker compose -f compose.sqlite.yml logs gunkly | grep setup_code
 ```
 
-The code only works until the first account exists; if you miss it, restart the container for a new one.
+The code only works until the first account exists; if you miss it, restart the container for a new one. Put a TLS-terminating reverse proxy in front for anything beyond localhost (Web Push and installing the PWA need HTTPS) and list its address in `GUNKLY_TRUSTED_PROXIES`.
+
+### Postgres
+
+```sh
+# also set POSTGRES_PASSWORD in .env
+docker compose -f compose.postgres.yml up -d
+```
+
+| Choose | When |
+|-|-|
+| **SQLite** (default) | One household, family and friends, or a small community instance; one container and simple one-command backups |
+| **Postgres** | A larger or public instance; you already run and back up Postgres; you want the database on its own server |
+
+## Configuration
+
+Everything is set through environment variables, all documented with their defaults in [`.env.example`](.env.example). The ones you will touch first:
+
+| Variable | Purpose |
+|-|-|
+| `GUNKLY_SECRET_KEYS` | Required. Encryption keys, `<version>:<base64 32-byte key>` |
+| `GUNKLY_BASE_URL` | Public origin used in links (no path) |
+| `GUNKLY_DATABASE_URL` | `sqlite:///data/gunkly.db` or `postgres://...` (the compose files set it) |
+| `GUNKLY_TRUSTED_PROXIES` | Reverse-proxy CIDRs/IPs whose `X-Forwarded-For` is trusted |
+| `GUNKLY_EMAIL_ENABLED` and `GUNKLY_SMTP_*` | Email verification, password reset, email codes (optional) |
+| `GUNKLY_METRICS_TOKEN` | Enables `/metrics` |
+| `GUNKLY_AUTO_MIGRATE` | Apply migrations on start (default `true`) |
+
+Limits, sign-up, sessions, retention, allowed notification services and the egress guard are admin settings in the app (Admin).
+
+## Backups
+
+Never copy the data volume while Gunkly is running; SQLite's write-ahead log can make the copy corrupt. Use:
+
+```sh
+docker compose -f compose.sqlite.yml exec gunkly /gunkly backup - > backup.db
+```
+
+The snapshot is consistent while Gunkly runs. Without the `-` argument it is written inside the data volume (`/data/backups`) instead. For Postgres use `pg_dump`. Also keep `GUNKLY_SECRET_KEYS` with the backup: without it encrypted values cannot be read.
+
+**Restore:** stop Gunkly, place the snapshot as `gunkly.db` in the data volume, delete any `gunkly.db-wal` and `gunkly.db-shm` next to it, and start Gunkly. For Postgres use `pg_restore`. More in [docs/operations.md](docs/operations.md).
 
 ## Upgrading
 
@@ -52,16 +140,9 @@ docker compose -f compose.sqlite.yml pull
 docker compose -f compose.sqlite.yml up -d
 ```
 
-Pending database migrations are applied on start (`GUNKLY_AUTO_MIGRATE=true`, the default); with SQLite a snapshot is written to `/data/backups/pre-migrate-<timestamp>.db` first. Set it to `false` to apply them yourself with `docker compose -f compose.sqlite.yml run --rm gunkly migrate`. Back up before upgrading.
+Pending database migrations are applied on start (`GUNKLY_AUTO_MIGRATE=true`, the default); with SQLite a snapshot is written to `/data/backups/pre-migrate-<timestamp>.db` first. Set it to `false` to apply them yourself with `docker compose -f compose.sqlite.yml run --rm gunkly migrate`. Back up before upgrading. Administration shows the running version and the latest release (see [Updates](#updates)).
 
-## SQLite or Postgres
-
-| Choose | When |
-|-|-|
-| **SQLite** (default) | One household, family and friends, or a small community instance; one container and simple one-command backups |
-| **Postgres** | A larger or public instance; you already run and back up Postgres; you want the database on its own server, or more than one app container later |
-
-### Switching later (SQLite to Postgres)
+## Switching from SQLite to Postgres
 
 `gunkly migrate-db` copies a SQLite instance into an empty Postgres database and verifies the copy. It needs no secret key (sealed values are copied as stored) and never writes to the SQLite file.
 
@@ -102,16 +183,6 @@ Under Account, "Enable notifications on this device" subscribes the browser to W
 
 Every user can download their own data (Account, "Export my data"; asks for the password again) and members and owners can export a household (household settings, "Export household") as JSON. The files never contain notification URLs, tokens, calendar feed links or member email addresses. A household file can be imported as a new household or merged into one you are a member of (areas with the same name are combined, chores are added as new ones, assignees are matched to members by username). Uploads are limited to 5 MiB and an import is all-or-nothing.
 
-## Backups
-
-Never copy the data volume while Gunkly is running; SQLite's write-ahead log can make the copy corrupt. Use:
-
-```sh
-docker compose -f compose.sqlite.yml exec gunkly /gunkly backup - > backup.db
-```
-
-The snapshot is consistent while Gunkly runs. Without the `-` argument it is written inside the data volume (`/data/backups`) instead. For Postgres use `pg_dump`. Restore by stopping Gunkly and placing the file as `gunkly.db` in the data volume.
-
 ## Releases and verification
 
 Pushing a `vX.Y.Z` tag builds a multi-arch (linux/amd64, linux/arm64) image at `ghcr.io/nexusbetweenvoids/gunkly` (tags `X.Y.Z`, `X.Y`, `latest`), signs it with keyless cosign and attests an SPDX SBOM. The GitHub release carries the SBOM (`sbom.spdx.json`), plain static binaries and `SHA256SUMS`.
@@ -138,8 +209,18 @@ Every instance can delete accounts (Account, "Delete account") and can optionall
 
 ## Documentation
 
-`docs/PRD.md` (scope and requirements), `docs/adr/` (decisions), `docs/THREAT_MODEL.md`, `docs/legal/` (hosted-service templates), `docs/operations.md` (staging, production rollout, rollback and restore), `SECURITY.md`, `CONTRIBUTING.md`, `AGENTS.md`.
+| | |
+|-|-|
+| [docs/getting-started.md](docs/getting-started.md) | First-run walkthrough |
+| [docs/operations.md](docs/operations.md) | Staging, production rollout, rollback and restore |
+| [docs/PRD.md](docs/PRD.md) | Scope and requirements |
+| [docs/adr/](docs/adr/) | Architecture decisions |
+| [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) | Threat model |
+| [docs/legal/](docs/legal/) | Hosted-service legal templates |
+| [api/openapi.yaml](api/openapi.yaml) | The `/api/v1` HTTP API |
 
-## License
+## Contributing, security, license
 
-AGPL-3.0. See `LICENSE`.
+- Contributing: [CONTRIBUTING.md](CONTRIBUTING.md) (rules for agents and humans: [AGENTS.md](AGENTS.md)).
+- Security: report vulnerabilities as described in [SECURITY.md](SECURITY.md).
+- License: AGPL-3.0, see [LICENSE](LICENSE).
