@@ -3,6 +3,7 @@
   import Button from '../../components/Button.svelte';
   import Confirm from '../../components/Confirm.svelte';
   import RecoveryCodes from '../../components/RecoveryCodes.svelte';
+  import QrCode from '../../components/QrCode.svelte';
   import Field from '../../components/Field.svelte';
   import { api } from '../../lib/api';
   import { copyText } from '../../lib/clip';
@@ -70,11 +71,18 @@
     <form class="stack" onsubmit={confirm}>
       <p>{t('totp.setupIntro')}</p>
       <div class="stack-sm">
+        <QrCode text={setup.uri} label={t('totp.qrLabel')} />
+        <p class="muted">{t('totp.scan')}</p>
+      </div>
+      <div class="stack-sm">
         <p class="label" id="totp-secret">{t('totp.secret')}</p>
-        <p class="mono" aria-labelledby="totp-secret">{setup.secret}</p>
+        <p class="mono" aria-labelledby="totp-secret">{setup.secret.replace(/(.{4})(?=.)/g, '$1 ')}</p>
         <p class="label" id="totp-uri">{t('totp.uri')}</p>
         <p class="mono" aria-labelledby="totp-uri">{setup.uri}</p>
-        <div><Button variant="quiet" onclick={() => copyText(setup!.secret)}>{t('totp.copySecret')}</Button></div>
+        <div class="row">
+          <Button variant="quiet" onclick={() => copyText(setup!.secret)}>{t('totp.copySecret')}</Button>
+          <Button variant="quiet" onclick={() => copyText(setup!.uri)}>{t('totp.copyUri')}</Button>
+        </div>
       </div>
       <Field
         label={t('totp.confirmCode')}

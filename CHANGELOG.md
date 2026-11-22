@@ -6,6 +6,7 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ### Added
 
+- Two-factor setup shows a QR code (with the Gunkly mark in the middle) to scan with an authenticator app; the secret, now grouped in fours, and the otpauth link stay available to copy. The encoder is small and dependency-free.
 - Administration warns when requests arrive with `X-Forwarded-For`, `Forwarded` or `X-Real-IP` from a direct peer that is not in `GUNKLY_TRUSTED_PROXIES` (the usual sign of a reverse proxy that was never listed): a banner explains the effect on client IPs and rate limits and offers the exact `GUNKLY_TRUSTED_PROXIES=...` line to copy. New admin-only `GET /api/v1/admin/health` returns `untrustedProxies` (up to 5 peers seen in the last 24 hours, kept in memory, never logged, never trusted automatically).
 - README section "Behind a reverse proxy" with Caddy, nginx, Traefik and Nginx Proxy Manager examples.
 - Updates page: "Check now" button (`POST /api/v1/admin/updates/check`) and a "Checking for updates…" state. `GET /api/v1/admin/updates` gains `checking` and `ahead`.

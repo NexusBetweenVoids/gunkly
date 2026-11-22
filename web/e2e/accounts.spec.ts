@@ -1,4 +1,4 @@
-import { expect, headerItem, PASSWORD, test, totp, uniq } from './helpers';
+import { axe, expect, headerItem, setTheme, PASSWORD, test, totp, uniq } from './helpers';
 
 test('invite link: owner creates it, a second user registers in a new context, the guest has no Done button', async ({ world }) => {
   const owner = await world.newUser();
@@ -67,7 +67,14 @@ test('TOTP: enrol in the account screen, then sign in with a code', async ({ wor
     await dialog.getByLabel('Password').fill(u.password);
     await dialog.getByRole('button', { name: 'Confirm' }).click();
   }
-  const secret = (await secretLine.textContent())!.trim();
+  await expect(section.getByRole('img', { name: 'QR code for your authenticator app' })).toBeVisible();
+  await expect(section.getByText('Scan with your authenticator app')).toBeVisible();
+  for (const theme of ['light', 'dark'] as const) {
+    await setTheme(page, theme);
+    await axe(page, `two-factor setup (${theme})`);
+  }
+  await setTheme(page, 'light');
+  const secret = (await secretLine.textContent())!.replace(/\s/g, ''); // shown in groups of four
   await section.getByLabel('Code from your app').fill(totp(secret));
   await section.getByRole('button', { name: 'Turn on' }).click();
   await expect(section.getByRole('list', { name: 'Recovery codes' }).getByRole('listitem')).not.toHaveCount(0);
