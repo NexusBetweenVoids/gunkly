@@ -81,12 +81,12 @@ services:
     image: gunkly/gunkly:0.1   # pin a version; also on ghcr.io/nexusbetweenvoids/gunkly
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "4865:4865"
     environment:
       # Generate with: openssl rand -base64 32   (keep it safe and backed up)
       GUNKLY_SECRET_KEYS: "1:REPLACE_WITH_GENERATED_KEY"
       # The address you open Gunkly at (scheme://host[:port], no path)
-      GUNKLY_BASE_URL: "http://localhost:8080"
+      GUNKLY_BASE_URL: "http://localhost:4865"
     volumes:
       - gunkly-data:/data
     read_only: true
@@ -103,7 +103,7 @@ docker compose up -d
 docker compose logs gunkly | grep setup_code   # one-time code to create the admin account
 ```
 
-Open http://localhost:8080, enter the setup code and create your admin account. That's it — no email server needed; see [docs/getting-started.md](docs/getting-started.md) for the next steps. Every other setting is optional and listed in [`.env.example`](.env.example); add them under `environment:`.
+Open http://localhost:4865, enter the setup code and create your admin account. That's it — no email server needed; see [docs/getting-started.md](docs/getting-started.md) for the next steps. Every other setting is optional and listed in [`.env.example`](.env.example); add them under `environment:`.
 
 Prefer working from a checkout? `compose.sqlite.yml` and `compose.postgres.yml` in this repo do the same with an `.env` file (`cp .env.example .env`).
 
@@ -184,7 +184,7 @@ Set `GUNKLY_METRICS_TOKEN` (16 or more characters, for example `openssl rand -he
 scrape_configs:
   - job_name: gunkly
     authorization: {type: Bearer, credentials: <your token>}
-    static_configs: [{targets: ['gunkly:8080']}]
+    static_configs: [{targets: ['gunkly:4865']}]
 ```
 
 The series are build info, HTTP requests by route and status class, a request duration histogram, deliveries by channel kind, scheduler tick age, delivery queue depth and open database connections. Nothing is labelled by user or household. Keep `/metrics` off the public internet if you can: block it at your reverse proxy.

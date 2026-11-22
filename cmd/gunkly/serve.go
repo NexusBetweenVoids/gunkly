@@ -96,7 +96,7 @@ func serve(ctx context.Context, logOut io.Writer) error {
 }
 
 // healthcheck probes /healthz on the local listener (the distroless image
-// has no curl). listen is GUNKLY_LISTEN_ADDR (default :8080).
+// has no curl). listen is GUNKLY_LISTEN_ADDR (default :4865).
 func healthcheck(ctx context.Context, listen string) error {
 	url, err := healthURL(listen)
 	if err != nil {
@@ -121,7 +121,7 @@ func healthcheck(ctx context.Context, listen string) error {
 
 func healthURL(listen string) (string, error) {
 	if strings.TrimSpace(listen) == "" {
-		listen = ":8080"
+		listen = ":4865"
 	}
 	host, port, err := splitHostPort(listen)
 	if err != nil {

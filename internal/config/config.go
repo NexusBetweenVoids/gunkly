@@ -78,7 +78,7 @@ func Load(lookup func(string) string) (*Config, error) {
 
 	c := &Config{
 		DatabaseURL:      or(get("DATABASE_URL"), "sqlite:///data/gunkly.db"),
-		ListenAddr:       or(get("LISTEN_ADDR"), ":8080"),
+		ListenAddr:       or(get("LISTEN_ADDR"), ":4865"),
 		HostedMode:       boolean("HOSTED_MODE", false),
 		EmailEnabled:     boolean("EMAIL_ENABLED", false),
 		AutoMigrate:      boolean("AUTO_MIGRATE", true),

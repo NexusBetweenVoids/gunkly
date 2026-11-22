@@ -30,7 +30,7 @@ func TestDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c.DatabaseURL != "sqlite:///data/gunkly.db" || c.ListenAddr != ":8080" || !c.AutoMigrate ||
+	if c.DatabaseURL != "sqlite:///data/gunkly.db" || c.ListenAddr != ":4865" || !c.AutoMigrate ||
 		c.EmailEnabled || c.HostedMode || c.DisableScheduler || c.ShutdownTimeout != 30*time.Second ||
 		c.LogLevel != slog.LevelInfo || c.CurrentKey != 1 || len(c.SecretKeys[1]) != KeySize || c.SMTP.Port != 587 || c.SMTP.TLS != "starttls" {
 		t.Fatalf("unexpected defaults: %+v", c)

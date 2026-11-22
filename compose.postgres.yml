@@ -16,7 +16,7 @@ services:
       GUNKLY_DATABASE_URL: postgres://gunkly:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/gunkly?sslmode=disable
       SQLITE_TMPDIR: /data/tmp
     ports:
-      - "8080:8080"
+      - "4865:4865"
     volumes:
       - gunkly-data:/data
     read_only: true

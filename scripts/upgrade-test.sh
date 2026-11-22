@@ -43,7 +43,7 @@ trap cleanup EXIT
 
 start() { # start IMAGE
   docker run -d --name "$name" --read-only --cap-drop ALL --security-opt no-new-privileges \
-    -p "127.0.0.1:$port:8080" -v "$vol:/data" \
+    -p "127.0.0.1:$port:4865" -v "$vol:/data" \
     -e GUNKLY_SECRET_KEYS="$key" -e GUNKLY_BASE_URL="$base" "$1" >/dev/null
   for _ in $(seq 1 60); do
     [ "$(curl -s -o /dev/null -w '%{http_code}' "$base/readyz" || true)" = 200 ] && return 0

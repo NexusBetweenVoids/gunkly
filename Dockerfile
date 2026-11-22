@@ -32,7 +32,7 @@ COPY --from=build /out/gunkly /gunkly
 COPY --from=build --chown=65532:65532 /out/data /data
 USER nonroot:nonroot
 ENV SQLITE_TMPDIR=/data/tmp
-EXPOSE 8080
+EXPOSE 4865
 VOLUME /data
 # Distroless has no shell or curl: the binary probes its own /healthz.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 CMD ["/gunkly", "healthcheck"]

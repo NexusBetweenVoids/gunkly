@@ -4,6 +4,17 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-22
+
+### Changed
+
+- **Breaking:** the default port is now 4865 (was 8080). If you used the 0.1.0 compose example, change the port mapping to `"4865:4865"` (or keep your host port: `"8080:4865"`) and update `GUNKLY_BASE_URL`. To keep the old port inside the container, set `GUNKLY_LISTEN_ADDR=:8080`.
+- Images are also published on Docker Hub as `gunkly/gunkly`.
+
+### Security
+
+- Outgoing mail is sanitised at the point of sending: plain ASCII addresses only, control characters and Unicode direction overrides removed from subject and body, line breaks in subjects refused.
+
 ## [0.1.0] - 2026-11-22
 
 The first public release.

@@ -232,10 +232,10 @@ jobs:
           key="1:$(openssl rand -base64 32)"
           docker volume create gunkly-ci
           docker run -d --name gunkly --read-only --cap-drop ALL --security-opt no-new-privileges \
-            -p 8080:8080 -v gunkly-ci:/data \
-            -e GUNKLY_SECRET_KEYS="$key" -e GUNKLY_BASE_URL=http://localhost:8080 gunkly:ci
+            -p 4865:4865 -v gunkly-ci:/data \
+            -e GUNKLY_SECRET_KEYS="$key" -e GUNKLY_BASE_URL=http://localhost:4865 gunkly:ci
           for i in $(seq 1 30); do
-            curl -fsS http://localhost:8080/healthz && exit 0
+            curl -fsS http://localhost:4865/healthz && exit 0
             sleep 1
           done
           docker logs gunkly

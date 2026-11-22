@@ -114,7 +114,7 @@ func TestHealthcheck(t *testing.T) {
 
 func TestHealthURLWildcardHosts(t *testing.T) {
 	for in, want := range map[string]string{
-		"":          "http://127.0.0.1:8080/healthz",
+		"":          "http://127.0.0.1:4865/healthz",
 		":9000":     "http://127.0.0.1:9000/healthz",
 		"0.0.0.0:1": "http://127.0.0.1:1/healthz",
 		"[::]:2":    "http://127.0.0.1:2/healthz",
