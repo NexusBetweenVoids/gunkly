@@ -4,6 +4,7 @@
   import Button from './Button.svelte';
   import Field from './Field.svelte';
   import Select from './Select.svelte';
+  import { hm, toMinute } from '../lib/reminders';
 
   let { items = $bindable() }: { items: Reminder[] } = $props();
   const kinds = [
@@ -11,7 +12,6 @@
     { value: 'on', label: t('reminder.on') },
     { value: 'overdue', label: t('reminder.overdue') },
   ];
-  const hm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
 </script>
 
 <fieldset class="stack">
@@ -32,7 +32,7 @@
       <Field
         label={t('reminder.time')}
         type="time"
-        bind:value={() => hm(r.minute), (v) => (r.minute = Number(v.slice(0, 2)) * 60 + Number(v.slice(3, 5)))}
+        bind:value={() => hm(r.minute), (v) => (r.minute = toMinute(v))}
         required
       />
       <Button variant="danger" onclick={() => (items = items.filter((_, j) => j !== i))}>{t('household.remove')}</Button>

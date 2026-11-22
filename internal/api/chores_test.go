@@ -891,3 +891,94 @@ func TestChoreRoutesRejectForeignIDs(t *testing.T) {
 		t.Fatal("areas of A changed")
 	}
 }
+
+func minutes(t *testing.T, v any) []float64 {
+	t.Helper()
+	var out []float64
+	for _, r := range list(t, field(v, "reminders")) {
+		out = append(out, field(r, "minute").(float64))
+	}
+	return out
+}
+
+func TestChoreReminderTime(t *testing.T) {
+	f := newHH(t)
+	at := func(body map[string]any, hm string) map[string]any { return with(body, "reminderTime", hm) }
+
+	// Preset + time: the preset's reminders, all at the chosen time.
+	id := f.mk(t, f.a, at(with(intervalBody("Dishes", "2026-11-21"), "reminderPreset", "nag"), "07:30"))
+	st, v := f.g.do("GET", f.chore(id)+"/reminders", nil)
+	if st != 200 || str(v, "preset") != "custom" || len(list(t, field(v, "reminders"))) != 3 {
+		t.Fatalf("nag at 07:30: %d %v", st, v)
+	}
+	for _, m := range minutes(t, v) {
+		if m != 450 {
+			t.Fatalf("minutes %v", minutes(t, v))
+		}
+	}
+	// Editing other fields (no reminderTime) keeps rows and time.
+	st, v = f.a.do("PUT", f.chore(id), intervalBody("Dishes 2", "2026-11-21"))
+	if st != 200 || str(v, "reminderPreset") != "custom" {
+		t.Fatalf("rename: %d %v", st, v)
+	}
+	_, v = f.a.do("GET", f.chore(id)+"/reminders", nil)
+	if got := minutes(t, v); len(got) != 3 || got[0] != 450 {
+		t.Fatalf("rename reset the time: %v", got)
+	}
+	// Changing the time later re-times the custom rows, keeping their shape.
+	st, v = f.a.do("PUT", f.chore(id), at(intervalBody("Dishes 2", "2026-11-21"), "18:05"))
+	if st != 200 {
+		t.Fatalf("retime: %d %v", st, v)
+	}
+	_, v = f.a.do("GET", f.chore(id)+"/reminders", nil)
+	r := list(t, field(v, "reminders"))
+	if len(r) != 3 || str(r[0], "kind") != "before" || minutes(t, v)[2] != 1085 {
+		t.Fatalf("retime: %v", v)
+	}
+	// Custom rows with different times are untouched unless a time is sent.
+	custom := map[string]any{"reminders": []map[string]any{{"kind": "before", "days": 3, "minute": 480}, {"kind": "on", "minute": 540}}}
+	st, v = f.a.do("PUT", f.chore(id)+"/reminders", custom)
+	expect(t, st, v, 200, "")
+	f.a.do("PUT", f.chore(id), intervalBody("Dishes 3", "2026-11-21"))
+	_, v = f.a.do("GET", f.chore(id)+"/reminders", nil)
+	if got := minutes(t, v); len(got) != 2 || got[0] != 480 || got[1] != 540 {
+		t.Fatalf("custom touched: %v", got)
+	}
+	f.a.do("PUT", f.chore(id), at(intervalBody("Dishes 3", "2026-11-21"), "06:00"))
+	_, v = f.a.do("GET", f.chore(id)+"/reminders", nil)
+	if got := minutes(t, v); len(got) != 2 || got[0] != 360 || got[1] != 360 {
+		t.Fatalf("custom retime: %v", got)
+	}
+
+	// Household default (gentle) + time; preset none ignores the time.
+	id2 := f.mk(t, f.a, at(intervalBody("Floors", "2026-11-21"), "21:15"))
+	_, v = f.a.do("GET", f.chore(id2)+"/reminders", nil)
+	if got := minutes(t, v); len(got) != 1 || got[0] != 1275 || str(v, "preset") != "custom" {
+		t.Fatalf("default + time: %v", v)
+	}
+	id3 := f.mk(t, f.a, at(with(intervalBody("Bins", "2026-11-21"), "reminderPreset", "none"), "07:30"))
+	_, v = f.a.do("GET", f.chore(id3)+"/reminders", nil)
+	if str(v, "preset") != "none" || len(list(t, field(v, "reminders"))) != 0 {
+		t.Fatalf("none + time: %v", v)
+	}
+	// No time: today's behaviour, preset kept.
+	id4 := f.mk(t, f.a, with(intervalBody("Windows", "2026-11-21"), "reminderPreset", "nag"))
+	_, v = f.a.do("GET", f.chore(id4)+"/reminders", nil)
+	if str(v, "preset") != "nag" || len(list(t, field(v, "reminders"))) != 3 {
+		t.Fatalf("no time: %v", v)
+	}
+
+	// Validation and permissions.
+	for _, bad := range []string{"24:00", "7:30", "07:60", "0730", "07:30:00", "noon", " 07:30"} {
+		st, v = f.a.do("POST", f.base()+"/chores", at(intervalBody("Bad", "2026-11-21"), bad))
+		expect(t, st, v, 400, "invalid")
+	}
+	for _, ok := range []string{"00:00", "23:59", ""} {
+		st, v = f.a.do("POST", f.base()+"/chores", at(intervalBody("Ok "+ok, "2026-11-21"), ok))
+		expect(t, st, v, 201, "")
+	}
+	st, v = f.g.do("PUT", f.chore(id), at(intervalBody("Dishes", "2026-11-21"), "07:30"))
+	if st != 403 {
+		t.Fatalf("guest: %d %v", st, v)
+	}
+}

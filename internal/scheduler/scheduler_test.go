@@ -494,3 +494,41 @@ func TestRunStopsOnCancel(t *testing.T) {
 		t.Fatal("incomplete config accepted")
 	}
 }
+
+// A chore saved with a chosen reminder time (explicit rows built from a preset
+// with every minute replaced) fires at that local time, also on the day the
+// clocks change.
+func TestChosenReminderTimeIncludingDST(t *testing.T) {
+	f := newFixture(t)
+	f.channel(f.owner, "owner")
+	for _, due := range []string{"2026-03-29", "2026-03-30"} {
+		d, _ := schedule.ParseDate(due)
+		_, err := f.st.CreateChore(f.ctx, f.owner, f.hid, store.ChoreInput{
+			Name: "Timed " + due, Kind: store.KindRecurring, ScheduleType: store.ScheduleInterval, IntervalN: 1, IntervalUnit: "week",
+			Anchor: store.AnchorFromCompletion, FirstDue: due, DueDate: due, NextDue: store.OccurrenceInstant(d, ams),
+			ReminderPreset: PresetCustom, Reminders: []schedule.Reminder{{Kind: schedule.OnDue, Minute: 7*60 + 30}},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	w := f.worker()
+	f.tickAt(w, "2026-03-29 07:29:00")
+	f.sender.take()
+	f.tickAt(w, "2026-03-29 07:29:59") // 07:29:59 CEST: the day has shifted by an hour
+	if n := len(f.sender.take()); n != 0 {
+		t.Fatalf("sent %d before 07:30", n)
+	}
+	f.tickAt(w, "2026-03-29 07:30:01")
+	if n := len(f.sender.take()); n != 1 {
+		t.Fatalf("sent %d at 07:30 on the DST day", n)
+	}
+	f.tickAt(w, "2026-03-29 09:00:01") // the preset's own 09:00 does not fire
+	if n := len(f.sender.take()); n != 0 {
+		t.Fatalf("sent %d at 09:00", n)
+	}
+	f.tickAt(w, "2026-03-30 07:30:01")
+	if n := len(f.sender.take()); n != 1 {
+		t.Fatalf("sent %d at 07:30 the day after", n)
+	}
+}

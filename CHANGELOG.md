@@ -23,6 +23,13 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 - OAuth completions are attributable: they carry the source `oauth` and the grant id instead of `api_token`.
 - Documented that browser-based (CORS) MCP clients are not supported (ADR 0016, `docs/ai-assistants.md`).
 
+## [0.2.3] - 2026-11-22
+
+### Added
+
+- Set the reminder time for each chore: the chore editor has a "Remind me at" time field next to the first due date. Every reminder of the chosen preset (day before, on the day, overdue repeats) then fires at that time in the household's time zone; leave it alone to keep the preset's usual times. Reopening the chore shows the chosen time and the preset; chores with custom reminders at different times show "Different times: see More options" and keep them. No database change: the time is stored as the chore's own reminders.
+- API: `POST` and `PUT /api/v1/households/{id}/chores` accept an optional `reminderTime` (`HH:MM`, household time zone; `00:00` to `23:59`). The preset's reminders (or the chore's custom ones) are stored with that time and `reminderPreset` reads `custom`; nothing changes when it is left out or the chore has no reminders. The MCP `create_chore` tool takes the same as `remind_at`.
+
 ## [0.2.2] - 2026-11-22
 
 ### Fixed

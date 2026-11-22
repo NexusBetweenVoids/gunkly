@@ -70,7 +70,10 @@ type ChoreInput struct {
 	PausedUntil        time.Time
 	PausedIndefinitely bool
 	ReminderPreset     string
-	Assignees          []string
+	// Reminders, when non-nil, replaces the chore's reminder rows in the same
+	// transaction; ReminderPreset must then be "custom".
+	Reminders []schedule.Reminder
+	Assignees []string
 	// MaxChores is the household's ChoresPerHousehold limit, resolved by the
 	// caller from internal/limits; CreateChore returns ErrLimit when the
 	// household already has that many (archived ones included). 0 = no cap.
@@ -78,6 +81,16 @@ type ChoreInput struct {
 }
 
 func (in *ChoreInput) validate() bool {
+	if in.Reminders != nil {
+		if in.ReminderPreset != "custom" {
+			return false
+		}
+		for _, r := range in.Reminders {
+			if r.Validate() != nil {
+				return false
+			}
+		}
+	}
 	in.Name = strings.TrimSpace(in.Name)
 	if in.Name == "" || !utf8.ValidString(in.Name+in.Notes) || utf8.RuneCountInString(in.Name) > 200 ||
 		utf8.RuneCountInString(in.Notes) > 10000 || len(in.Link) > 2000 {
@@ -185,6 +198,11 @@ func (s *Store) CreateChore(ctx context.Context, a Actor, householdID string, in
 		}
 		if err := t.setAssignees(ctx, id, in.Assignees); err != nil {
 			return err
+		}
+		if in.Reminders != nil {
+			if err := t.replaceReminders(ctx, id, in.Reminders); err != nil {
+				return err
+			}
 		}
 		var err error
 		c, err = t.chore(ctx, householdID, id)
@@ -332,6 +350,11 @@ func (s *Store) UpdateChore(ctx context.Context, a Actor, householdID, choreID s
 		}
 		if err := t.setAssignees(ctx, choreID, in.Assignees); err != nil {
 			return err
+		}
+		if in.Reminders != nil {
+			if err := t.replaceReminders(ctx, choreID, in.Reminders); err != nil {
+				return err
+			}
 		}
 		if old.Kind != in.Kind || old.ScheduleType != in.ScheduleType || old.IntervalN != in.IntervalN ||
 			old.IntervalUnit != in.IntervalUnit || old.RRule != in.RRule || old.Anchor != in.Anchor ||

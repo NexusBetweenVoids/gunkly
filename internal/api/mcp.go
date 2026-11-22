@@ -345,6 +345,7 @@ type createIn struct {
 	FirstDue  string   `json:"first_due,omitempty" jsonschema:"first due date YYYY-MM-DD in the household's time zone; default today"`
 	Assignees []string `json:"assignees,omitempty" jsonschema:"people responsible: 'me' for the token owner (member ids are also accepted); omit for the whole household"`
 	Notes     string   `json:"notes,omitempty" jsonschema:"optional free-text notes (at most 10000 characters)"`
+	RemindAt  string   `json:"remind_at,omitempty" jsonschema:"time of day for the chore's reminders, HH:MM (24-hour) in the household's time zone; omit for the household's default reminders"`
 }
 
 // addMCPTool registers a tool whose handler runs only when the token carries
@@ -742,11 +743,21 @@ func (m mcpCall) createChore(ctx context.Context, in createIn) (any, error) {
 		}
 	}
 	doc := choreInput{Name: strings.TrimSpace(in.Name), Notes: in.Notes, Kind: kind, Schedule: sc, Assignees: assignees}
+	if at := strings.TrimSpace(in.RemindAt); at != "" {
+		doc.ReminderTime = &at
+	}
 	si, err := doc.build(loc, nil)
 	if err != nil {
-		return nil, toolErrf("invalid chore: check the name (1 to 200 characters), first_due (YYYY-MM-DD) and repeat")
+		return nil, toolErrf("invalid chore: check the name (1 to 200 characters), first_due (YYYY-MM-DD), repeat and remind_at (HH:MM)")
 	}
 	if err := m.writeAllowed(h); err != nil {
+		return nil, err
+	}
+	hr, err := m.s.st.Household(ctx, h.actor(), h.hh)
+	if err != nil {
+		return nil, err
+	}
+	if err := m.s.applyReminderTime(ctx, h.actor(), h.hh, doc, &si, "", hr.DefaultReminderPreset); err != nil {
 		return nil, err
 	}
 	if si.MaxChores, err = m.s.limits.Limit(ctx, limits.ChoresPerHousehold, h.hh); err != nil {

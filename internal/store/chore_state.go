@@ -369,20 +369,25 @@ func (s *Store) SetChoreReminders(ctx context.Context, a Actor, householdID, cho
 			preset, s.nowMS(), choreID, householdID); err != nil {
 			return err
 		}
-		if _, err := t.exec(ctx, "DELETE FROM chore_reminders WHERE chore_id = ?", choreID); err != nil {
+		return t.replaceReminders(ctx, choreID, rs)
+	})
+}
+
+// replaceReminders swaps the chore's reminder rows for rs.
+func (t *tx) replaceReminders(ctx context.Context, choreID string, rs []schedule.Reminder) error {
+	if _, err := t.exec(ctx, "DELETE FROM chore_reminders WHERE chore_id = ?", choreID); err != nil {
+		return err
+	}
+	for _, r := range rs {
+		kind := map[schedule.ReminderKind]string{schedule.Before: "before", schedule.OnDue: "on", schedule.Overdue: "overdue"}[r.Kind]
+		days := r.Days
+		if r.Kind == schedule.OnDue {
+			days = 0
+		}
+		if _, err := t.exec(ctx, "INSERT INTO chore_reminders (id, chore_id, kind, days_before, time_of_day) VALUES (?, ?, ?, ?, ?)",
+			ids.New(), choreID, kind, days, r.Minute); err != nil {
 			return err
 		}
-		for _, r := range rs {
-			kind := map[schedule.ReminderKind]string{schedule.Before: "before", schedule.OnDue: "on", schedule.Overdue: "overdue"}[r.Kind]
-			days := r.Days
-			if r.Kind == schedule.OnDue {
-				days = 0
-			}
-			if _, err := t.exec(ctx, "INSERT INTO chore_reminders (id, chore_id, kind, days_before, time_of_day) VALUES (?, ?, ?, ?, ?)",
-				ids.New(), choreID, kind, days, r.Minute); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
+	}
+	return nil
 }

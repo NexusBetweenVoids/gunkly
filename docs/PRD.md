@@ -52,7 +52,7 @@ Gunkly tracks recurring household chores and home maintenance (gutters, washing-
 - **Assignees:** zero ("anyone"), one or many household members. One completion by anyone completes the chore for everyone.
 - **Snooze** (move this occurrence), **skip once**, **pause** (until a date or indefinitely) on every chore.
 - Fields: name, optional area, notes, optional link (`http`/`https` only, enforced on server and client).
-- **Simple editor:** name, area, assignees, first due date, repeat, reminder preset. **Advanced editor:** every option.
+- **Simple editor:** name, area, assignees, first due date, repeat, reminder preset, reminder time ("Remind me at": the preset's reminders at the chosen time, stored as the chore's own reminders; API `reminderTime`, MCP `remind_at`). **Advanced editor:** every option.
 - **Completion record:** who, when, source (`app`, `mark_done_link`, `api_token`, `oauth` for a connected app, `import`; token ID in audit log), optional note. History kept until the chore is deleted.
 - **Undo:** shown right after completing (app or mark-done page); owners and members can revert any completion later from history. Revert marks the entry reverted (kept for audit), restores the previous due date and reschedules reminders. On the unauthenticated mark-done page, `POST /mark-done` consumes the single-use token and returns a 5-minute single-use undo token scoped to that completion, so Undo needs no session.
 - **Archive** instead of delete: keeps history, stops reminders. Delete remains possible.

@@ -244,3 +244,32 @@ test('a new chore pre-ticks the assignees of the last chore created; editing kee
   await page.goto('/chores/new');
   await expect(box(bee.displayName)).not.toBeChecked();
 });
+
+test('the reminder time of a chore is set in the editor and shown again when reopening', async ({ world }) => {
+  const u = await world.newUser();
+  const { page } = await u.open();
+  await world.household(u);
+  const name = uniq('Timed ');
+  await page.goto('/chores/new');
+  await page.getByLabel('Name').fill(name);
+  await page.getByLabel('Reminders', { exact: true }).selectOption('nag');
+  await page.getByLabel('Remind me at').fill('07:30');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('heading', { level: 1, name })).toBeVisible();
+
+  // Reopen: the preset name and the time are shown; saving another field keeps them.
+  await page.getByRole('link', { name: 'Edit' }).first().click();
+  await expect(page.getByLabel('Remind me at')).toHaveValue('07:30');
+  await expect(page.getByLabel('Reminders', { exact: true })).toHaveValue('nag');
+  await page.getByLabel('Name').fill(`${name}2`);
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: `${name}2` })).toBeVisible();
+  await page.getByRole('link', { name: 'Edit' }).first().click();
+  await expect(page.getByLabel('Remind me at')).toHaveValue('07:30');
+
+  // More options: choosing Custom lists the reminders, all at 07:30.
+  await page.getByRole('button', { name: 'More options' }).click();
+  await page.getByLabel('Reminders', { exact: true }).selectOption('custom');
+  await expect(page.getByLabel('At', { exact: true })).toHaveCount(3);
+  for (const at of await page.getByLabel('At', { exact: true }).all()) await expect(at).toHaveValue('07:30');
+});
