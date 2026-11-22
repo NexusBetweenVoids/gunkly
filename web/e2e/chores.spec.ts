@@ -252,6 +252,10 @@ test('the reminder time of a chore is set in the editor and shown again when reo
   const name = uniq('Timed ');
   await page.goto('/chores/new');
   await page.getByLabel('Name').fill(name);
+  await expect(page.getByRole('button', { name: 'More options' })).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.getByLabel('Remind me at')).toBeVisible();
+  await page.getByLabel('Reminders', { exact: true }).selectOption('none');
+  await expect(page.getByLabel('Remind me at')).toHaveCount(0);
   await page.getByLabel('Reminders', { exact: true }).selectOption('nag');
   await page.getByLabel('Remind me at').fill('07:30');
   await page.getByRole('button', { name: 'Save' }).click();
@@ -272,4 +276,90 @@ test('the reminder time of a chore is set in the editor and shown again when reo
   await page.getByLabel('Reminders', { exact: true }).selectOption('custom');
   await expect(page.getByLabel('At', { exact: true })).toHaveCount(3);
   for (const at of await page.getByLabel('At', { exact: true }).all()) await expect(at).toHaveValue('07:30');
+});
+
+type Rem = { kind: string; days: number; minute: number };
+
+test('the reminder time can be changed when editing chores in every reminder state', async ({ world }) => {
+  const u = await world.newUser();
+  const { page } = await u.open();
+  const h = await world.household(u);
+  const base = `/households/${h.id}`;
+  const times = async (id: string): Promise<number[]> =>
+    (await u.api.get<{ reminders: Rem[] }>(`${base}/chores/${id}/reminders`)).reminders.map((r) => r.minute);
+  const field = page.getByLabel('Remind me at');
+  const presetBox = page.getByLabel('Reminders', { exact: true });
+  const save = async (): Promise<void> => {
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.getByRole('link', { name: 'Edit' }).first()).toBeVisible();
+  };
+  const edit = async (id: string): Promise<void> => {
+    await page.goto(`/chores/${id}/edit`);
+    await expect(page.getByLabel('Name')).toBeVisible();
+  };
+  const row = (kind: string, days: number, minute: number): Rem => ({ kind, days, minute });
+
+  // (a) created before the time field existed: household default, no explicit rows
+  // (b) gentle and nag presets
+  // (d) custom reminders at one time
+  // (e) custom reminders at different times
+  const cases: [string, Record<string, unknown>][] = [
+    ['default', {}],
+    ['gentle', { reminderPreset: 'gentle' }],
+    ['nag', { reminderPreset: 'nag' }],
+  ];
+  for (const [label, over] of cases) {
+    const c = await world.chore(u, h, { name: uniq(`${label} `), ...over });
+    await edit(c.id);
+    await expect(page.getByRole('button', { name: 'More options' })).toHaveAttribute('aria-expanded', 'false');
+    await expect(field).toBeVisible();
+    await field.fill('07:15');
+    await save();
+    expect((await times(c.id)).length).toBeGreaterThan(0);
+    expect(new Set(await times(c.id))).toEqual(new Set([435]));
+    await edit(c.id);
+    await expect(field).toHaveValue('07:15');
+    await field.fill('20:45');
+    await save();
+    expect(new Set(await times(c.id))).toEqual(new Set([1245]));
+  }
+
+  const custom = await world.chore(u, h, { name: uniq('same ') });
+  await u.api.call('PUT', `${base}/chores/${custom.id}/reminders`, { reminders: [row('on', 0, 600), row('overdue', 2, 600)] });
+  await edit(custom.id);
+  await expect(field).toHaveValue('10:00');
+  await field.fill('06:00');
+  await save();
+  expect(new Set(await times(custom.id))).toEqual(new Set([360]));
+
+  const mixed = await world.chore(u, h, { name: uniq('mixed ') });
+  await u.api.call('PUT', `${base}/chores/${mixed.id}/reminders`, { reminders: [row('on', 0, 600), row('overdue', 2, 700)] });
+  await edit(mixed.id);
+  await expect(field).toBeVisible();
+  await field.fill('08:00');
+  await save();
+  expect(new Set(await times(mixed.id))).toEqual(new Set([480]));
+  await edit(mixed.id);
+  await expect(field).toHaveValue('08:00');
+
+  // (c) preset none: no time field until a preset is chosen
+  const none = await world.chore(u, h, { name: uniq('none '), reminderPreset: 'none' });
+  await edit(none.id);
+  await expect(field).toHaveCount(0);
+  await presetBox.selectOption('gentle');
+  await field.fill('11:30');
+  await save();
+  expect(await times(none.id)).toEqual([690]);
+
+  // (f) household default none: same, via the default and via a chosen preset
+  await u.api.call('PATCH', base, { defaultReminderPreset: 'none' });
+  const dn = await world.chore(u, h, { name: uniq('defnone ') });
+  await edit(dn.id);
+  await expect(field).toHaveCount(0);
+  await presetBox.selectOption('nag');
+  await field.fill('12:00');
+  await save();
+  expect(new Set(await times(dn.id))).toEqual(new Set([720]));
+  await edit(dn.id);
+  await expect(field).toHaveValue('12:00');
 });

@@ -14,6 +14,7 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 ### Changed
 
 - The total JavaScript budget (lazy screens included) is now 200 KB gzipped; the first-load budget stays 45 KB and CSS 15 KB.
+- "Remind me at" sits next to Reminders and no longer requires More options. It now also shows when a chore's custom reminders are at different times (setting a time moves them all).
 
 ### Security
 

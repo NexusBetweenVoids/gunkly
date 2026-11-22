@@ -259,17 +259,7 @@
         <p class="hint">{assignees.length ? t('chore.assigneesSome') : t('chore.anyone')}</p>
       </fieldset>
 
-      <div class="row">
-        <Field label={t('chore.firstDue')} type="date" bind:value={firstDue} required />
-        {#if showTime && mixed}
-          <div class="field">
-            <span class="label">{t('chore.remindAt')}</span>
-            <p class="hint">{t('chore.remindAtMixed')}</p>
-          </div>
-        {:else if showTime}
-          <Field label={t('chore.remindAt')} type="time" bind:value={() => remTime, setRemTime} hint={t('chore.remindAtHint')} />
-        {/if}
-      </div>
+      <Field label={t('chore.firstDue')} type="date" bind:value={firstDue} required />
       <Select
         label={t('chore.repeat')}
         bind:value={() => repeat, setRepeat}
@@ -287,6 +277,9 @@
         ]}
         hint={t('reminder.presetHint')}
       />
+      {#if showTime}
+        <Field label={t('chore.remindAt')} type="time" bind:value={() => remTime, setRemTime} hint={t(mixed ? 'chore.remindAtMixed' : 'chore.remindAtHint')} />
+      {/if}
 
       <button type="button" class="btn btn-quiet" aria-expanded={more} onclick={() => (more = !more)}>{t('chore.more')}</button>
       {#if more}

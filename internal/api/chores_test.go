@@ -982,3 +982,84 @@ func TestChoreReminderTime(t *testing.T) {
 		t.Fatalf("guest: %d %v", st, v)
 	}
 }
+
+// Editing an existing chore with a reminder time, in every state the chore can be in:
+// stored preset or household default (no rows yet), preset none, and a household
+// whose default is none.
+func TestChoreReminderTimeOnEdit(t *testing.T) {
+	f := newHH(t)
+	body := func(name string, extra ...any) map[string]any {
+		b := intervalBody(name, "2026-11-21")
+		for i := 0; i < len(extra); i += 2 {
+			b[extra[i].(string)] = extra[i+1]
+		}
+		return b
+	}
+	times := func(id string) []float64 {
+		_, v := f.a.do("GET", f.chore(id)+"/reminders", nil)
+		return minutes(t, v)
+	}
+	put := func(id string, b map[string]any) {
+		t.Helper()
+		if st, v := f.a.do("PUT", f.chore(id), b); st != 200 {
+			t.Fatalf("PUT: %d %v", st, v)
+		}
+	}
+	all := func(got []float64, n int, want float64) {
+		t.Helper()
+		if len(got) != n {
+			t.Fatalf("rows %v, want %d", got, n)
+		}
+		for _, m := range got {
+			if m != want {
+				t.Fatalf("minutes %v, want all %v", got, want)
+			}
+		}
+	}
+
+	// Household default (gentle), no explicit rows; the editor sends the preset as stored ("").
+	def := f.mk(t, f.a, body("Default"))
+	put(def, body("Default", "reminderPreset", "", "reminderTime", "07:15"))
+	all(times(def), 1, 435)
+	// Same with the preset omitted.
+	def2 := f.mk(t, f.a, body("Default 2"))
+	put(def2, body("Default 2", "reminderTime", "07:15"))
+	all(times(def2), 1, 435)
+
+	// Stored presets.
+	for preset, n := range map[string]int{"gentle": 1, "nag": 3} {
+		id := f.mk(t, f.a, body(preset, "reminderPreset", preset))
+		put(id, body(preset, "reminderPreset", preset, "reminderTime", "20:45"))
+		all(times(id), n, 1245)
+		_, v := f.a.do("GET", f.chore(id), nil)
+		if str(v, "reminderPreset") != "custom" {
+			t.Fatalf("%s: %v", preset, v)
+		}
+	}
+
+	// Preset none: the time is ignored; choosing a preset in the same request applies it.
+	none := f.mk(t, f.a, body("None", "reminderPreset", "none"))
+	put(none, body("None", "reminderPreset", "none", "reminderTime", "07:15"))
+	all(times(none), 0, 0)
+	put(none, body("None", "reminderPreset", "nag", "reminderTime", "11:30"))
+	all(times(none), 3, 690)
+
+	// Household default none: the chore has no reminders until a preset is chosen.
+	if st, v := f.a.do("PATCH", f.base(), map[string]string{"defaultReminderPreset": "none"}); st != 200 {
+		t.Fatalf("PATCH: %d %v", st, v)
+	}
+	dn := f.mk(t, f.a, body("Default none"))
+	put(dn, body("Default none", "reminderPreset", "", "reminderTime", "07:15"))
+	all(times(dn), 0, 0)
+	put(dn, body("Default none", "reminderPreset", "gentle", "reminderTime", "12:00"))
+	all(times(dn), 1, 720)
+
+	// Custom rows at different times are moved together.
+	mixed := f.mk(t, f.a, body("Mixed"))
+	custom := map[string]any{"reminders": []map[string]any{{"kind": "before", "days": 3, "minute": 480}, {"kind": "on", "minute": 600}}}
+	if st, v := f.a.do("PUT", f.chore(mixed)+"/reminders", custom); st != 200 {
+		t.Fatalf("custom: %d %v", st, v)
+	}
+	put(mixed, body("Mixed", "reminderTime", "08:00"))
+	all(times(mixed), 2, 480)
+}

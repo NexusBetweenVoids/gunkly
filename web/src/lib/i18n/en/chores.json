@@ -26,7 +26,7 @@
   "chore.reminders": "Reminders",
   "chore.remindAt": "Remind me at",
   "chore.remindAtHint": "Time of day in the household's time zone, for all reminders of this chore.",
-  "chore.remindAtMixed": "Different times: see More options.",
+  "chore.remindAtMixed": "The reminders are at different times. Set a time to move them all, or see More options.",
   "chore.more": "More options",
   "chore.every": "Every",
   "chore.unit": "Unit",
