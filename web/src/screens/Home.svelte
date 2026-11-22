@@ -23,6 +23,14 @@
   let mine = $state(false);
   let archived = $state(false);
   let area = $state('');
+  let q = $state(new URLSearchParams(location.search).get('q') ?? ''); // lives in the URL only
+  function setQ(v: string): void {
+    q = v;
+    const u = new URL(location.href);
+    if (v) u.searchParams.set('q', v);
+    else u.searchParams.delete('q');
+    history.replaceState(null, '', u);
+  }
   let loaded = $state(false);
   let err = $state('');
   let doneErr = $state('');
@@ -50,9 +58,11 @@
     if (hh) void load();
   });
 
-  const visible = $derived(chores.filter((c) => !area || c.areaId === area));
   const areaName = (id: string | null) => areas.find((a) => a.id === id)?.name ?? '';
   const who = (c: Chore) => c.assignees.map((id) => members.find((m) => m.userId === id)?.displayName ?? '').filter(Boolean);
+  const needle = $derived(q.trim().toLocaleLowerCase());
+  const matches = (c: Chore) => !needle || [c.name, areaName(c.areaId), ...who(c)].some((s) => s.toLocaleLowerCase().includes(needle));
+  const visible = $derived(chores.filter((c) => (!area || c.areaId === area) && matches(c)));
   const rest = $derived(visible.filter((c) => !groups.some((g) => g.id === c.status)));
   const swap = (c: Chore) => (chores = chores.map((x) => (x.id === c.id ? c : x)));
 
@@ -89,6 +99,13 @@
 {#if !hh}
   <p class="muted">{t('home.noHousehold')} <a href="/households/new">{t('nav.newHousehold')}</a></p>
 {:else}
+  <div class="search">
+    <label class="visually-hidden" for="chore-search">{t('home.search')}</label>
+    <input id="chore-search" type="search" autocomplete="off" placeholder={t('home.search')} value={q} oninput={(e) => setQ(e.currentTarget.value)} />
+    {#if q}
+      <button type="button" class="btn btn-quiet clear" aria-label={t('home.searchClear')} onclick={() => { setQ(''); document.getElementById('chore-search')?.focus(); }}>&times;</button>
+    {/if}
+  </div>
   <div class="row toolbar">
     <div role="group" aria-label={t('home.whose')} class="seg">
       <button type="button" class="btn btn-quiet" aria-pressed={!mine} onclick={() => (mine = false)}>{t('home.everyone')}</button>
@@ -135,6 +152,8 @@
       <p>{mine ? t('home.empty.mine') : t('home.empty.all')}</p>
       {#if canEdit}<a class="btn" href="/chores/new">{t('chore.add')}</a>{/if}
     </section>
+  {:else if needle && !visible.length}
+    <p class="muted mt-md" role="status">{t('home.searchNone')}</p>
   {:else}
     <div class="groups">
       {#each groups as g (g.id)}
@@ -177,6 +196,22 @@
   }
   .empty {
     margin: 0;
+  }
+  .search {
+    position: relative;
+    margin-block-start: var(--space);
+  }
+  .search input {
+    padding-inline-end: var(--tap);
+  }
+  .search input::-webkit-search-cancel-button {
+    display: none;
+  }
+  .clear {
+    position: absolute;
+    inset-block-start: 0;
+    inset-inline-end: 0;
+    font-size: 1.5rem;
   }
   .toolbar {
     justify-content: space-between;

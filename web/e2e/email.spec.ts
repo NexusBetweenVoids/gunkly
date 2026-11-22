@@ -1,4 +1,4 @@
-import { axe, expect, mailMark, nextMail, PASSWORD, setTheme, test, uniq } from './helpers';
+import { axe, expect, headerItem, mailMark, nextMail, PASSWORD, setTheme, test, uniq } from './helpers';
 
 // These run against a server whose SMTP goes to the fake server started in global setup
 // (e2e/smtp.ts); nothing leaves the machine.
@@ -142,7 +142,7 @@ test('email codes: turn them on in the account screen, then sign in with an emai
   await page2.getByLabel('Code from your email').fill(second.code);
   await page2.getByRole('button', { name: 'Verify and sign in' }).click();
   await expect(page2).toHaveURL(/\/$/);
-  await expect(page2.getByRole('link', { name: 'Account' })).toBeVisible();
+  await expect(await headerItem(page2, 'link', 'Account')).toBeVisible();
 });
 
 test('the sign-up, reset and verification screens pass axe in light and dark', async ({ world }) => {

@@ -1,4 +1,4 @@
-import { expect, PASSWORD, test, totp, uniq } from './helpers';
+import { expect, headerItem, PASSWORD, test, totp, uniq } from './helpers';
 
 test('invite link: owner creates it, a second user registers in a new context, the guest has no Done button', async ({ world }) => {
   const owner = await world.newUser();
@@ -87,7 +87,7 @@ test('TOTP: enrol in the account screen, then sign in with a code', async ({ wor
   await page2.getByLabel('Authenticator code').fill(totp(secret, 1)); // the current step was used when enrolling
   await page2.getByRole('button', { name: 'Verify and sign in' }).click();
   await expect(page2).toHaveURL(/\/$/);
-  await expect(page2.getByRole('link', { name: 'Account' })).toBeVisible();
+  await expect(await headerItem(page2, 'link', 'Account')).toBeVisible();
 });
 
 test('theme override: light, dark and following the system', async ({ world }) => {
@@ -129,7 +129,7 @@ test('signed-out visitors are sent to sign in and back; sign out ends the sessio
   await page.getByLabel('Password', { exact: true }).fill(u.password);
   await page.getByRole('button', { name: 'Sign in' }).click();
   await expect(page).toHaveURL(/\/account$/);
-  await page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: 'Sign out' }).click();
+  await (await headerItem(page, 'button', 'Sign out')).click();
   await expect(page).toHaveURL(/\/signin/);
   await page.goto('/account');
   await expect(page).toHaveURL(/\/signin/);

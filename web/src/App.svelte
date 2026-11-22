@@ -1,4 +1,5 @@
 <script lang="ts">
+  import HeaderMenu from './components/HeaderMenu.svelte';
   import Logo from './components/Logo.svelte';
   import Toast from './components/Toast.svelte';
   import Lazy from './components/Lazy.svelte';
@@ -60,7 +61,7 @@
 
 <header class="bar">
   <nav class="nav" aria-label={t('nav.label')}>
-    <a class="brand" href="/"><Logo />{t('app.name')}</a>
+    <a class="brand" href="/"><Logo /><span class="brand-name">{t('app.name')}</span></a>
     {#if app.user}
       {#if app.households.length}
         <div class="switcher">
@@ -70,7 +71,7 @@
           </select>
         </div>
       {/if}
-      <ul>
+      <ul class="links">
         <li><a href="/households/new" aria-current={here('/households/new')}>{t('nav.newHousehold')}</a></li>
         <li><a href="/account" aria-current={here('/account')}>{t('nav.account')}</a></li>
         {#if app.user.isAdmin}
@@ -78,6 +79,7 @@
         {/if}
         <li><button type="button" class="btn btn-quiet" onclick={out}>{t('nav.signOut')}</button></li>
       </ul>
+      <HeaderMenu onsignout={out} />
     {/if}
   </nav>
 </header>
@@ -174,7 +176,7 @@
   }
   .nav {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: center;
     gap: 4px 8px;
     max-inline-size: 960px;
@@ -188,10 +190,30 @@
     color: var(--text);
     text-decoration: none;
     margin-inline-end: auto;
+    flex: none;
     min-block-size: var(--tap);
     display: inline-flex;
     align-items: center;
     gap: 8px;
+  }
+  .switcher {
+    flex: 1 1 auto;
+    min-inline-size: 0;
+  }
+  .switcher select {
+    min-inline-size: 0;
+    text-overflow: ellipsis;
+  }
+  /* Phones: logo, switcher and one menu button; the links live in the menu. */
+  .links {
+    display: none;
+  }
+  .brand-name {
+    position: absolute;
+    clip-path: inset(50%);
+    inline-size: 1px;
+    block-size: 1px;
+    overflow: hidden;
   }
   ul {
     display: flex;
@@ -250,7 +272,27 @@
   main.with-tabs {
     padding-block-end: 160px; /* room for the tab bar and a toast above it */
   }
+  /* A modal dialog owns the screen: the tab bar steps aside. */
+  :global(body:has(dialog[open])) .tabs {
+    visibility: hidden;
+  }
   @media (min-width: 768px) {
+    .nav {
+      flex-wrap: wrap;
+    }
+    .links {
+      display: flex;
+    }
+    .brand-name {
+      position: static;
+      clip-path: none;
+      inline-size: auto;
+      block-size: auto;
+      overflow: visible;
+    }
+    .switcher {
+      flex: 0 1 260px;
+    }
     .tabs {
       inset-block: 56px 0;
       inset-inline: 0 auto;

@@ -94,9 +94,9 @@
 <h2 id="cal-title" aria-live="polite">{title}</h2>
 <div aria-live="polite"><Alert message={err} /></div>
 
-<table role="grid" aria-labelledby="cal-title" class="cal" class:week={view === 'week'}>
+<table role="grid" aria-labelledby="cal-title" aria-readonly="true" class="cal" class:week={view === 'week'}>
   <thead>
-    <tr>{#each heads as d (d)}<th scope="col" abbr={fmt(d, { weekday: 'long' })}>{fmt(d, { weekday: 'short' })}</th>{/each}</tr>
+    <tr>{#each heads as d (d)}<th role="columnheader" scope="col" abbr={fmt(d, { weekday: 'long' })}>{fmt(d, { weekday: 'short' })}</th>{/each}</tr>
   </thead>
   <tbody>
     {#each { length: rows } as _, r (r)}
