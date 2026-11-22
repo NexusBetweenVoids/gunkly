@@ -9,7 +9,3 @@ export async function copyText(text: string): Promise<void> {
     toast(t('common.copyFailed'));
   }
 }
-
-export function safeNext(next: string | null): string {
-  return next && next.startsWith('/') && !next.startsWith('//') ? next : '/';
-}

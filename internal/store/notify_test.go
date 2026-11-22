@@ -91,7 +91,7 @@ func TestFeeds(t *testing.T) {
 	a, g, x := mkUser(t, s, "a"), mkUser(t, s, "g"), mkUser(t, s, "x")
 	hid := mkHousehold(t, s, a, "Home")
 	noErr(t, s.AddMember(ctx, a, hid, g.UserID, store.RoleGuest))
-	area := must(s.CreateArea(ctx, a, hid, "Garden"))
+	area := must(s.CreateArea(ctx, a, hid, "Garden", 0))
 	in := choreIn("Mow")
 	in.AreaID, in.Notes, in.Link = area.ID, "secret notes", "https://example.com/private"
 	must(s.CreateChore(ctx, a, hid, in))

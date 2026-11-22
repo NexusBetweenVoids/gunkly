@@ -165,7 +165,7 @@ func TestAdminReset2FA(t *testing.T) {
 	if err := a.store.SetPendingTOTP(ctx, u.ID, "v1:secret"); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.store.EnableTOTP(ctx, u.ID, 1, []string{"hash1", "hash2"}); err != nil {
+	if err := a.store.EnableTOTP(ctx, u.ID, "", 1, []string{"hash1", "hash2"}); err != nil {
 		t.Fatal(err)
 	}
 	if got, _ := a.store.UserByLogin(ctx, "ann"); !got.TOTPEnabled {

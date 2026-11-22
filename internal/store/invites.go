@@ -22,7 +22,12 @@ type Invite struct {
 	CreatedBy   string
 	CreatedAt   time.Time
 	ExpiresAt   time.Time
+	MaxUses     int // how many people may join with it
+	Uses        int // how many have
 }
+
+// MaxInviteUses bounds NewInvite.MaxUses.
+const MaxInviteUses = 100
 
 // NewInvite is the input to CreateInvite. MaxActive comes from internal/limits.
 type NewInvite struct {
@@ -30,6 +35,7 @@ type NewInvite struct {
 	TokenHash string
 	ExpiresAt time.Time
 	MaxActive int
+	MaxUses   int // 0 means 1; at most MaxInviteUses
 }
 
 // CreateInvite creates an invite link. Owner only. ErrLimit when the
@@ -39,22 +45,25 @@ func (s *Store) CreateInvite(ctx context.Context, a Actor, householdID string, i
 		return Invite{}, ErrInvalid
 	}
 	now := s.nowMS()
-	if in.ExpiresAt.UnixMilli() <= now {
+	if in.MaxUses == 0 {
+		in.MaxUses = 1
+	}
+	if in.ExpiresAt.UnixMilli() <= now || in.MaxUses < 1 || in.MaxUses > MaxInviteUses {
 		return Invite{}, ErrInvalid
 	}
 	inv := Invite{ID: ids.New(), HouseholdID: householdID, Role: in.Role, CreatedBy: a.UserID,
-		CreatedAt: time.UnixMilli(now).UTC(), ExpiresAt: in.ExpiresAt.UTC()}
+		CreatedAt: time.UnixMilli(now).UTC(), ExpiresAt: in.ExpiresAt.UTC(), MaxUses: in.MaxUses}
 	err := s.manage(ctx, a, householdID, RoleOwner, func(t *tx, _ Role) error {
 		var n int
-		if err := t.queryRow(ctx, "SELECT count(*) FROM invites WHERE household_id = ? AND revoked_at IS NULL AND expires_at > ?",
+		if err := t.queryRow(ctx, "SELECT count(*) FROM invites WHERE household_id = ? AND revoked_at IS NULL AND expires_at > ? AND uses < max_uses",
 			householdID, now).Scan(&n); err != nil {
 			return err
 		}
 		if n >= in.MaxActive {
 			return ErrLimit
 		}
-		_, err := t.exec(ctx, `INSERT INTO invites (id, household_id, token_hash, role, created_by, created_at, expires_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?)`, inv.ID, householdID, in.TokenHash, in.Role, a.UserID, now, in.ExpiresAt.UnixMilli())
+		_, err := t.exec(ctx, `INSERT INTO invites (id, household_id, token_hash, role, created_by, created_at, expires_at, max_uses)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, inv.ID, householdID, in.TokenHash, in.Role, a.UserID, now, in.ExpiresAt.UnixMilli(), in.MaxUses)
 		return conflict(err)
 	})
 	if err != nil {
@@ -70,8 +79,8 @@ func (s *Store) ListInvites(ctx context.Context, a Actor, householdID string) ([
 		if _, err := t.authorize(ctx, a, householdID, RoleOwner, false); err != nil {
 			return err
 		}
-		rows, err := t.query(ctx, `SELECT id, household_id, role, COALESCE(created_by, ''), created_at, expires_at FROM invites
-			WHERE household_id = ? AND revoked_at IS NULL AND expires_at > ? ORDER BY created_at, id`, householdID, s.nowMS())
+		rows, err := t.query(ctx, `SELECT id, household_id, role, COALESCE(created_by, ''), created_at, expires_at, max_uses, uses FROM invites
+			WHERE household_id = ? AND revoked_at IS NULL AND expires_at > ? AND uses < max_uses ORDER BY created_at, id`, householdID, s.nowMS())
 		if err != nil {
 			return err
 		}
@@ -79,7 +88,7 @@ func (s *Store) ListInvites(ctx context.Context, a Actor, householdID string) ([
 		for rows.Next() {
 			var inv Invite
 			var created, exp int64
-			if err := rows.Scan(&inv.ID, &inv.HouseholdID, &inv.Role, &inv.CreatedBy, &created, &exp); err != nil {
+			if err := rows.Scan(&inv.ID, &inv.HouseholdID, &inv.Role, &inv.CreatedBy, &created, &exp, &inv.MaxUses, &inv.Uses); err != nil {
 				return err
 			}
 			inv.CreatedAt, inv.ExpiresAt = time.UnixMilli(created).UTC(), time.UnixMilli(exp).UTC()
@@ -102,7 +111,7 @@ func (s *Store) RevokeInvite(ctx context.Context, a Actor, householdID, inviteID
 // invite, so the caller can look up its limits. ErrNotFound otherwise.
 func (s *Store) InviteHousehold(ctx context.Context, tokenHash string) (string, error) {
 	var hh string
-	err := s.db.QueryRowContext(ctx, s.d.Rebind("SELECT household_id FROM invites WHERE token_hash = ? AND revoked_at IS NULL AND expires_at > ?"),
+	err := s.db.QueryRowContext(ctx, s.d.Rebind("SELECT household_id FROM invites WHERE token_hash = ? AND revoked_at IS NULL AND expires_at > ? AND uses < max_uses"),
 		tokenHash, s.nowMS()).Scan(&hh)
 	return hh, notFound(err)
 }
@@ -157,12 +166,13 @@ func (s *Store) RegisterWithInvite(ctx context.Context, in NewUser, tokenHash st
 func (t *tx) acceptInvite(ctx context.Context, userID, tokenHash string, lim JoinLimits, now int64) (Joined, error) {
 	var j Joined
 	var exp int64
+	var uses, maxUses int
 	var revoked sql.NullInt64
-	if err := t.queryRow(ctx, "SELECT household_id, role, expires_at, revoked_at FROM invites WHERE token_hash = ?",
-		tokenHash).Scan(&j.HouseholdID, &j.Role, &exp, &revoked); err != nil {
+	if err := t.queryRow(ctx, "SELECT household_id, role, expires_at, revoked_at, uses, max_uses FROM invites WHERE token_hash = ?",
+		tokenHash).Scan(&j.HouseholdID, &j.Role, &exp, &revoked, &uses, &maxUses); err != nil {
 		return Joined{}, notFound(err)
 	}
-	if revoked.Valid || exp <= now {
+	if revoked.Valid || exp <= now || uses >= maxUses {
 		return Joined{}, ErrNotFound
 	}
 	if t.d == db.Postgres {
@@ -171,6 +181,9 @@ func (t *tx) acceptInvite(ctx context.Context, userID, tokenHash string, lim Joi
 		if err := t.queryRow(ctx, "SELECT id FROM households WHERE id = ? FOR UPDATE", j.HouseholdID).Scan(&id); err != nil {
 			return Joined{}, notFound(err)
 		}
+	}
+	if err := t.lockUser(ctx, userID); err != nil {
+		return Joined{}, err
 	}
 	var already, members, households int
 	if err := t.queryRow(ctx, `SELECT
@@ -186,7 +199,20 @@ func (t *tx) acceptInvite(ctx context.Context, userID, tokenHash string, lim Joi
 	case members >= lim.MaxMembers, households >= lim.MaxHouseholds:
 		return Joined{}, ErrLimit
 	}
-	_, err := t.exec(ctx, "INSERT INTO memberships (household_id, user_id, role, joined_at) VALUES (?, ?, ?, ?)",
-		j.HouseholdID, userID, j.Role, now)
-	return j, notFoundFK(conflict(err))
+	if _, err := t.exec(ctx, "INSERT INTO memberships (household_id, user_id, role, joined_at) VALUES (?, ?, ?, ?)",
+		j.HouseholdID, userID, j.Role, now); err != nil {
+		return Joined{}, notFoundFK(conflict(err))
+	}
+	// Consume one use atomically: the conditional UPDATE locks the invite row,
+	// so concurrent joins cannot exceed max_uses. The enclosing transaction
+	// rolls the membership back if the invite was used up meanwhile.
+	res, err := t.exec(ctx, `UPDATE invites SET uses = uses + 1
+		WHERE token_hash = ? AND revoked_at IS NULL AND expires_at > ? AND uses < max_uses`, tokenHash, now)
+	if err != nil {
+		return Joined{}, err
+	}
+	if n, err := res.RowsAffected(); err != nil || n != 1 {
+		return Joined{}, errors.Join(ErrNotFound, err)
+	}
+	return j, nil
 }

@@ -1,0 +1,120 @@
+package store_test
+
+import (
+	"context"
+	"fmt"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/NexusBetweenVoids/gunkly/internal/limits"
+	"github.com/NexusBetweenVoids/gunkly/internal/store"
+)
+
+func TestAreaCapIsAtomic(t *testing.T) {
+	ctx := context.Background()
+	s := newStore(t)
+	a := mkUser(t, s, "a")
+	hh := mkHousehold(t, s, a, "H")
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	okN := 0
+	for i := 0; i < 12; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if _, err := s.CreateArea(ctx, a, hh, fmt.Sprintf("Area %d", i), 5); err == nil {
+				mu.Lock()
+				okN++
+				mu.Unlock()
+			}
+		}()
+	}
+	wg.Wait()
+	if okN != 5 || len(must(s.ListAreas(ctx, a, hh))) != 5 {
+		t.Fatalf("created %d areas, want exactly 5", okN)
+	}
+	_, err := s.CreateArea(ctx, a, hh, "More", 5)
+	is(t, err, store.ErrLimit)
+}
+
+func TestCompletionHistoryRetention(t *testing.T) {
+	ctx := context.Background()
+	base := time.Date(2026, 11, 22, 8, 0, 0, 0, time.UTC)
+	tick := 0
+	s := newStore(t).WithClock(func() time.Time { tick++; return base.Add(time.Duration(tick) * time.Minute) })
+	a := mkUser(t, s, "a")
+	hh := mkHousehold(t, s, a, "H")
+	noErr(t, s.UpdateInstanceSettings(ctx, store.SettingsUpdate{Limits: map[string]int{string(limits.CompletionsPerChore): 3}}))
+	ch := must(s.CreateChore(ctx, a, hh, choreIn("Dust")))
+	var ids []string
+	for i := 0; i < 6; i++ {
+		c, _, err := s.CompleteChoreAuto(ctx, a, hh, ch.ID, fmt.Sprintf("n%d", i))
+		noErr(t, err)
+		ids = append(ids, c.ID)
+	}
+	got := must(s.ListCompletions(ctx, a, hh, ch.ID, 100))
+	if len(got) != 3 {
+		t.Fatalf("kept %d completions, want 3", len(got))
+	}
+	for _, c := range got {
+		if c.ID == ids[0] || c.ID == ids[1] || c.ID == ids[2] {
+			t.Fatalf("an old completion survived: %s", c.Note)
+		}
+	}
+}
+
+func TestHouseholdsPerUserIsAtomic(t *testing.T) {
+	ctx := context.Background()
+	s := newStore(t)
+	a := mkUser(t, s, "a")
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	okN := 0
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_, err := s.CreateHousehold(ctx, a, store.NewHousehold{Name: fmt.Sprintf("H%d", i), Timezone: "UTC", MaxHouseholds: 3})
+			if err == nil {
+				mu.Lock()
+				okN++
+				mu.Unlock()
+			}
+		}()
+	}
+	wg.Wait()
+	if hs := must(s.ListHouseholds(ctx, a)); okN != 3 || len(hs) != 3 {
+		t.Fatalf("created %d, listed %d, want 3", okN, len(hs))
+	}
+	_, err := s.CreateHousehold(ctx, a, store.NewHousehold{Name: "X", Timezone: "UTC", MaxHouseholds: 3})
+	is(t, err, store.ErrLimit)
+}
+
+func TestInviteUseIsAtomic(t *testing.T) {
+	ctx := context.Background()
+	s := newStore(t)
+	owner := mkUser(t, s, "owner")
+	hh := mkHousehold(t, s, owner, "H")
+	_, err := s.CreateInvite(ctx, owner, hh, store.NewInvite{Role: store.RoleMember, TokenHash: "th", ExpiresAt: time.Now().Add(time.Hour), MaxActive: 5, MaxUses: 2})
+	noErr(t, err)
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	okN := 0
+	for i := 0; i < 8; i++ {
+		u := mkUser(t, s, fmt.Sprintf("u%d", i))
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if _, err := s.AcceptInvite(ctx, u.UserID, "th", store.JoinLimits{MaxMembers: 50, MaxHouseholds: 20}); err == nil {
+				mu.Lock()
+				okN++
+				mu.Unlock()
+			}
+		}()
+	}
+	wg.Wait()
+	if okN != 2 || len(must(s.ListMembers(ctx, owner, hh))) != 3 {
+		t.Fatalf("%d joins succeeded, want exactly 2", okN)
+	}
+}

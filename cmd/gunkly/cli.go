@@ -67,17 +67,15 @@ func (a *app) adminCommand(ctx context.Context, sub, login string, stdout io.Wri
 		if err := a.store.SetPassword(ctx, u.ID, auth.HashPassword(pw), ""); err != nil {
 			return err
 		}
-		if err := a.store.InvalidateUserLinks(ctx, u.ID); err != nil {
-			return err
-		}
-		if err := a.store.Audit(ctx, store.AuditEvent{Event: store.AuditPasswordReset, Meta: via}); err != nil {
+		// Recorded against the account so the owner sees it in their own audit log.
+		if err := a.store.Audit(ctx, store.AuditEvent{ActorUserID: u.ID, Event: store.AuditPasswordReset, Meta: via}); err != nil {
 			return err
 		}
 		// Printed once to the operator's terminal; never logged.
 		_, err = fmt.Fprintf(stdout, "New password for %s: %s\nAll of their sessions were signed out.\n", u.Username, pw)
 		return err
 	case "reset-2fa":
-		if err := a.store.DisableTOTP(ctx, u.ID); err != nil {
+		if err := a.store.DisableTOTP(ctx, u.ID, ""); err != nil {
 			return err
 		}
 		if err := a.store.Audit(ctx, store.AuditEvent{Event: store.AuditTOTPDisable, Meta: via}); err != nil {

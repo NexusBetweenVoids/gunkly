@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"time"
 
@@ -60,14 +61,11 @@ func (s *Server) createHousehold(w http.ResponseWriter, r *http.Request, c *call
 		return errInvalid
 	}
 	ctx := r.Context()
-	hs, err := s.st.ListHouseholds(ctx, c.actor())
+	max, err := s.limits.Limit(ctx, limits.HouseholdsPerUser, "")
 	if err != nil {
 		return err
 	}
-	if err := s.limits.Check(ctx, limits.HouseholdsPerUser, "", len(hs)); err != nil {
-		return err
-	}
-	nh := store.NewHousehold{Name: in.Name, Timezone: in.Timezone}
+	nh := store.NewHousehold{Name: in.Name, Timezone: in.Timezone, MaxHouseholds: max}
 	if in.StarterAreas {
 		nh.StarterAreas = starterAreas(c.user.Locale)
 	}
@@ -177,6 +175,8 @@ type inviteView struct {
 	CreatedBy string     `json:"createdBy,omitempty"`
 	CreatedAt time.Time  `json:"createdAt"`
 	ExpiresAt time.Time  `json:"expiresAt"`
+	MaxUses   int        `json:"maxUses"`
+	Uses      int        `json:"uses"`
 	Token     string     `json:"token,omitempty"` // only in the create response
 	URL       string     `json:"url,omitempty"`   // only in the create response
 }
@@ -185,6 +185,7 @@ func (s *Server) createInvite(w http.ResponseWriter, r *http.Request, c *call) e
 	var in struct {
 		Role           store.Role `json:"role"`
 		ExpiresInHours int        `json:"expiresInHours"`
+		MaxUses        int        `json:"maxUses"` // 1..100, default 1
 	}
 	if err := decode(r, &in); err != nil {
 		return err
@@ -196,6 +197,12 @@ func (s *Server) createInvite(w http.ResponseWriter, r *http.Request, c *call) e
 	case in.ExpiresInHours < 0 || ttl > inviteMaxTTL:
 		return errInvalid
 	}
+	if in.MaxUses == 0 {
+		in.MaxUses = 1
+	}
+	if in.MaxUses < 1 || in.MaxUses > store.MaxInviteUses {
+		return errInvalid
+	}
 	ctx := r.Context()
 	maxActive, err := s.limits.Limit(ctx, limits.ActiveInvitesPerHousehold, c.hh)
 	if err != nil {
@@ -203,7 +210,7 @@ func (s *Server) createInvite(w http.ResponseWriter, r *http.Request, c *call) e
 	}
 	token := ids.Token()
 	inv, err := s.st.CreateInvite(ctx, c.actor(), c.hh, store.NewInvite{
-		Role: in.Role, TokenHash: ids.Hash(token), ExpiresAt: s.now().Add(ttl), MaxActive: maxActive,
+		Role: in.Role, TokenHash: ids.Hash(token), ExpiresAt: s.now().Add(ttl), MaxActive: maxActive, MaxUses: in.MaxUses,
 	})
 	if err != nil {
 		return err
@@ -219,7 +226,7 @@ func (s *Server) createInvite(w http.ResponseWriter, r *http.Request, c *call) e
 }
 
 func viewInvite(i store.Invite) inviteView {
-	return inviteView{ID: i.ID, Role: i.Role, CreatedBy: i.CreatedBy, CreatedAt: i.CreatedAt, ExpiresAt: i.ExpiresAt}
+	return inviteView{ID: i.ID, Role: i.Role, CreatedBy: i.CreatedBy, CreatedAt: i.CreatedAt, ExpiresAt: i.ExpiresAt, MaxUses: i.MaxUses, Uses: i.Uses}
 }
 
 func (s *Server) listInvites(w http.ResponseWriter, r *http.Request, c *call) error {
@@ -325,7 +332,10 @@ func (s *Server) registerWithInvite(w http.ResponseWriter, r *http.Request, c *c
 		return err
 	}
 	u, j, err := s.st.RegisterWithInvite(ctx, nu, hash, lim)
-	if err != nil {
+	if errors.Is(err, store.ErrConflict) {
+		// Same answer whether the username or the email exists: no oracle.
+		return errf(http.StatusBadRequest, "registration_failed")
+	} else if err != nil {
 		return err
 	}
 	if err := s.startSession(w, r, c, u, http.StatusCreated); err != nil {

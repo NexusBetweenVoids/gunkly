@@ -27,6 +27,22 @@ func (db *DB) BackupFile(ctx context.Context, dst string) error {
 	if err != nil {
 		return fmt.Errorf("db: backup: %w", err)
 	}
+	// Backups hold every household's data: owner-only, whatever the umask.
+	return os.Chmod(dst, 0o600)
+}
+
+// secureFiles restricts the SQLite database and its -wal/-shm companions to
+// the owner (0600). Missing companions are skipped; SQLite creates them with
+// the main file's mode, and this runs again after migrations.
+func (db *DB) secureFiles() error {
+	if db.Dialect != SQLite {
+		return nil
+	}
+	for _, suffix := range []string{"", "-wal", "-shm"} {
+		if err := os.Chmod(db.path+suffix, 0o600); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("db: restrict file mode: %w", err)
+		}
+	}
 	return nil
 }
 

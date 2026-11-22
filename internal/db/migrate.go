@@ -158,7 +158,7 @@ func (db *DB) Migrate(ctx context.Context) error {
 			return fmt.Errorf("db: migration %s: %w", m.version, err)
 		}
 	}
-	return nil
+	return db.secureFiles()
 }
 
 func (db *DB) apply(ctx context.Context, conn *sql.Conn, m migration) error {

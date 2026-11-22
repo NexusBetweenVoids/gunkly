@@ -176,6 +176,13 @@ func (e *env) signedIn(name string) *client {
 	return c
 }
 
+// signedInStepUp signs in and re-verifies, for tests of sensitive actions.
+func (e *env) signedInStepUp(name string) *client {
+	c := e.signedIn(name)
+	e.stepUp(c, name)
+	return c
+}
+
 func code(v any) string {
 	m, _ := v.(map[string]any)
 	er, _ := m["error"].(map[string]any)
@@ -445,7 +452,7 @@ func TestSessionLifetimesConfigurable(t *testing.T) {
 	e := newEnv(t)
 	e.user("ann", false)
 	e.user("root", true)
-	root := e.signedIn("root")
+	root := e.signedInStepUp("root")
 	st, v := root.do("GET", "/api/v1/admin/settings", nil)
 	if st != 200 || field(v, "sessionIdleDays") != 30.0 || field(v, "sessionMaxDays") != 90.0 ||
 		field(v, "auditRetentionDays") != 90.0 || field(v, "deliveryRetentionDays") != 30.0 {
@@ -488,7 +495,7 @@ func TestSessionLifetimesConfigurable(t *testing.T) {
 	expect(t, st, v, 401, "unauthenticated")
 
 	// Raising the limits applies to existing sessions.
-	root = e.signedIn("root")
+	root = e.signedInStepUp("root")
 	c = e.signedIn("ann")
 	st, v = root.do("PATCH", "/api/v1/admin/settings", map[string]any{"sessionMaxDays": 60, "sessionIdleDays": 40})
 	expect(t, st, v, 200, "")
@@ -571,8 +578,8 @@ func TestStepUpAndTOTP(t *testing.T) {
 func TestPasswordChange(t *testing.T) {
 	e := newEnv(t)
 	e.user("ann", false)
-	c := e.signedIn("ann")
-	other := e.signedIn("ann")
+	c := e.signedInStepUp("ann")
+	other := e.signedInStepUp("ann")
 	st, v := c.do("POST", "/api/v1/account/password", map[string]string{"newPassword": "short"})
 	expect(t, st, v, 400, "password_too_short")
 	st, _ = c.do("POST", "/api/v1/account/password", map[string]string{"newPassword": "a-new-long-password"})
@@ -646,6 +653,7 @@ func TestRateLimiterBounded(t *testing.T) {
 	if len(l.m) > 100 {
 		t.Fatalf("%d keys", len(l.m))
 	}
+	clock.Add(2 * time.Minute)
 	for i := 0; i < 5; i++ {
 		if l.allow("k") != 0 {
 			t.Fatal("burst denied")
@@ -800,7 +808,7 @@ func TestHouseholdOwnerOps(t *testing.T) {
 	expect(t, st, nil, 204, "")
 
 	// Invites: accept by an existing user, register a new account, revoke.
-	st, v = f.a.do("POST", base+"/invites", map[string]any{"role": "member", "expiresInHours": 48})
+	st, v = f.a.do("POST", base+"/invites", map[string]any{"role": "member", "expiresInHours": 48, "maxUses": 3})
 	expect(t, st, v, 201, "")
 	tok := field(v, "token").(string)
 	st, v = f.x.do("POST", "/api/v1/invites/"+tok+"/accept", nil)
@@ -853,7 +861,7 @@ func TestAdmin(t *testing.T) {
 		st, v := ann.do("GET", p, nil)
 		expect(t, st, v, 403, "forbidden")
 	}
-	root := e.signedIn("root")
+	root := e.signedInStepUp("root")
 	st, v := root.do("GET", "/api/v1/admin/users", nil)
 	if l, _ := v.([]any); st != 200 || len(l) != 2 {
 		t.Fatalf("users: %d %v", st, v)
@@ -885,4 +893,291 @@ func TestAdmin(t *testing.T) {
 	e.clock.Add(16 * time.Minute)
 	st, v = root.do("PATCH", "/api/v1/admin/settings", map[string]any{"openSignup": false})
 	expect(t, st, v, 403, "step_up_required")
+}
+
+func TestIPKeyCollapsesIPv6(t *testing.T) {
+	a := ipKey(netip.MustParseAddr("2001:db8:1:2:aaaa::1"))
+	b := ipKey(netip.MustParseAddr("2001:db8:1:2:bbbb::9"))
+	c := ipKey(netip.MustParseAddr("2001:db8:1:3::1"))
+	if a != b || a == c {
+		t.Fatalf("/64 keys: %s %s %s", a, b, c)
+	}
+	if ipKey(netip.MustParseAddr("192.0.2.1")) == ipKey(netip.MustParseAddr("192.0.2.2")) {
+		t.Fatal("IPv4 must key by full address")
+	}
+	if ipKey(netip.MustParseAddr("::ffff:192.0.2.1")) != "192.0.2.1" {
+		t.Fatal("mapped IPv4")
+	}
+}
+
+func TestRateLimiterFullTableFailsClosedAndKeepsBackoff(t *testing.T) {
+	clock := &fakeClock{t: time.Unix(0, 0)}
+	l := newRateLimiter(2, 3, clock.Now)
+	for i := 0; i < 3; i++ {
+		l.allow("k" + strconv.Itoa(i))
+	}
+	// k0 goes into backoff.
+	l.allow("k0")
+	if l.allow("k0") == 0 {
+		t.Fatal("k0 should be limited")
+	}
+	// Table full of active keys: a new key is refused, nobody is evicted.
+	if l.allow("new") == 0 {
+		t.Fatal("new key admitted into a full table")
+	}
+	if _, ok := l.m["k0"]; !ok || len(l.m) != 3 {
+		t.Fatal("active key evicted")
+	}
+	// Once the others are idle they are evicted, but a key in backoff stays.
+	clock.Add(61 * time.Second)
+	for i := 0; i < 4; i++ {
+		l.allow("k0")
+	}
+	if l.allow("new") != 0 {
+		t.Fatal("new key refused although idle keys exist")
+	}
+	if b := l.m["k0"]; b == nil || !b.until.After(clock.Now()) {
+		t.Fatal("backoff key lost")
+	}
+}
+
+func TestRateLimiterFollowsAdminRate(t *testing.T) {
+	clock := &fakeClock{t: time.Unix(0, 0)}
+	l := newRateLimiter(5, 100, clock.Now)
+	n := 5
+	l.defaultRate = func() int { return n }
+	ok := 0
+	for i := 0; i < 10; i++ {
+		if l.allow("login:ip:x") == 0 {
+			ok++
+		}
+	}
+	if ok != 5 {
+		t.Fatalf("allowed %d", ok)
+	}
+	n = 2
+	clock.Add(rateRefresh + time.Hour)
+	ok = 0
+	for i := 0; i < 10; i++ {
+		if l.allow("login:ip:x") == 0 {
+			ok++
+		}
+	}
+	if ok != 2 {
+		t.Fatalf("after lowering limit allowed %d", ok)
+	}
+}
+
+func TestAuthenticatedWritesThrottled(t *testing.T) {
+	f := newHH(t)
+	f.e.srv.rl = newRateLimiter(10000, 1000, f.e.clock.Now)
+	f.e.srv.rl.perMinute, f.e.srv.rl.burstOf = bucketRates, bucketBursts
+	// Per user: reads are free, writes run out after the burst.
+	for i := 0; i < 3*limits.UserWriteBurst; i++ {
+		if st, _ := f.x.do("GET", "/api/v1/me", nil); st != 200 {
+			t.Fatalf("GET throttled at %d: %d", i, st)
+		}
+	}
+	limited := 0
+	for i := 0; i < limits.UserWriteBurst+10; i++ {
+		if st, _ := f.x.do("DELETE", "/api/v1/sessions", nil); st == 429 {
+			limited++
+		}
+	}
+	if limited < 5 {
+		t.Fatalf("user write bucket not enforced (%d denials)", limited)
+	}
+	// Another user is unaffected.
+	if st, v := f.b.do("DELETE", "/api/v1/sessions", nil); st != 200 {
+		t.Fatalf("other user throttled: %d %v", st, v)
+	}
+	// Per household: two members share one household bucket.
+	f.e.srv.rl = newRateLimiter(10000, 1000, f.e.clock.Now)
+	f.e.srv.rl.perMinute = map[string]int{rateHouseholdWrite: 60}
+	f.e.srv.rl.burstOf = map[string]int{rateHouseholdWrite: 4}
+	denied := 0
+	for i := 0; i < 3; i++ {
+		for _, c := range []*client{f.a, f.m} {
+			if st, _ := c.do("POST", "/api/v1/households/"+f.hA+"/areas", map[string]string{"name": fmt.Sprintf("Area %d", denied+i)}); st == 429 {
+				denied++
+			}
+		}
+	}
+	if denied == 0 {
+		t.Fatal("household write bucket not enforced")
+	}
+	if st, _ := f.b.do("POST", "/api/v1/households/"+f.hB+"/areas", map[string]string{"name": "Shed"}); st != 201 {
+		t.Fatalf("other household throttled: %d", st)
+	}
+}
+
+func TestAdminResetPasswordSafeguards(t *testing.T) {
+	e := newEnv(t)
+	e.user("root", true)
+	e.user("root2", true)
+	bob := e.user("bob", false)
+	bobC := e.signedIn("bob")
+	root := e.signedInStepUp("root")
+	e.stepUp(root, "root")
+
+	st, v := root.do("POST", "/api/v1/admin/users/"+bob.ID+"/reset-password", nil)
+	expect(t, st, v, 200, "")
+	if st, _ := bobC.do("GET", "/api/v1/me", nil); st != 401 {
+		t.Fatalf("target session survived the reset: %d", st)
+	}
+	// The target sees the reset in their own audit log.
+	nb := e.client()
+	pw := field(v, "password").(string)
+	if st, v := nb.login("bob", map[string]string{"password": pw}); st != 200 {
+		t.Fatalf("login after reset: %d %v", st, v)
+	}
+	st, v = nb.do("GET", "/api/v1/account/audit", nil)
+	found := false
+	for _, ev := range v.([]any) {
+		if field(ev, "event") == store.AuditPasswordReset && field(field(ev, "meta"), "by") == "admin" {
+			found = true
+		}
+	}
+	if st != 200 || !found {
+		t.Fatalf("reset missing from the target's audit log: %d %v", st, v)
+	}
+	// Admin targets are refused.
+	r2, _ := e.st.UserByLogin(context.Background(), "root2")
+	st, v = root.do("POST", "/api/v1/admin/users/"+r2.ID+"/reset-password", nil)
+	expect(t, st, v, 403, "admin_target")
+
+	// Hosted mode disables the endpoint.
+	h := newEnv(t, func(o *Options) { o.HostedMode = true })
+	h.user("root", true)
+	hb := h.user("bob", false)
+	hr := h.signedIn("root")
+	h.stepUp(hr, "root")
+	st, v = hr.do("POST", "/api/v1/admin/users/"+hb.ID+"/reset-password", nil)
+	expect(t, st, v, 403, "disabled_in_hosted_mode")
+}
+
+// stepUp re-verifies the signed-in user's password, as the SPA does before a
+// sensitive action (sign-in alone does not grant step-up).
+func (e *env) stepUp(c *client, name string) {
+	e.t.Helper()
+	if st, v := c.do("POST", "/api/v1/session/step-up", map[string]string{"password": "password-" + name}); st != 204 {
+		e.t.Fatalf("step-up %s: %d %v", name, st, v)
+	}
+}
+
+func TestLoginGrantsNoStepUpAndTOTPChangeRevokesSessions(t *testing.T) {
+	e := newEnv(t)
+	e.user("ann", false)
+	c := e.signedIn("ann")
+	st, v := c.do("POST", "/api/v1/account/totp/setup", nil)
+	expect(t, st, v, 403, "step_up_required") // no implicit step-up at sign-in
+	e.stepUp(c, "ann")
+	other := e.signedIn("ann")
+	st, v = c.do("POST", "/api/v1/account/totp/setup", nil)
+	expect(t, st, v, 200, "")
+	secret := field(v, "secret").(string)
+	st, v = c.do("POST", "/api/v1/account/totp/confirm", map[string]string{"code": totpCode(secret, e.clock.Now())})
+	expect(t, st, v, 200, "")
+	if st, _ := other.do("GET", "/api/v1/me", nil); st != 401 {
+		t.Fatalf("other session survived enabling TOTP: %d", st)
+	}
+	if st, _ := c.do("GET", "/api/v1/me", nil); st != 200 {
+		t.Fatalf("current session lost: %d", st)
+	}
+	// Disabling revokes the others too.
+	third := e.client()
+	e.clock.Add(30 * time.Second)
+	if st, v := third.login("ann", map[string]string{"totp": totpCode(secret, e.clock.Now())}); st != 200 {
+		t.Fatalf("login: %d %v", st, v)
+	}
+	st, _ = c.do("DELETE", "/api/v1/account/totp", nil)
+	expect(t, st, nil, 204, "")
+	if st, _ := third.do("GET", "/api/v1/me", nil); st != 401 {
+		t.Fatalf("other session survived disabling TOTP: %d", st)
+	}
+}
+
+func TestAccountFailureBackoffAcrossIPs(t *testing.T) {
+	e := newEnv(t) // per-IP limiter is effectively off: only the account counter acts
+	e.user("ann", false)
+	e.user("nobody-here", false)
+	for i := 0; i < freeFailures+1; i++ {
+		st, v := e.client().login("ann", map[string]string{"password": "wrong-password"})
+		expect(t, st, v, 401, "invalid_credentials")
+	}
+	st, v := e.client().login("ann", nil) // even the right password waits
+	expect(t, st, v, 429, "rate_limited")
+	// An unknown login is throttled the same way (no existence oracle).
+	for i := 0; i < freeFailures+1; i++ {
+		e.client().login("ghost", map[string]string{"password": "wrong-password"})
+	}
+	st, v = e.client().login("ghost", map[string]string{"password": "wrong-password"})
+	expect(t, st, v, 429, "rate_limited")
+	// Never a hard lock: the delay is capped and success resets the counter.
+	e.clock.Add(maxBackoff + time.Second)
+	st, v = e.client().login("ann", nil)
+	expect(t, st, v, 200, "")
+	st, v = e.client().login("ann", map[string]string{"password": "wrong-password"})
+	expect(t, st, v, 401, "invalid_credentials")
+	for i := 0; i < freeFailures; i++ {
+		if st, _ := e.client().login("ann", nil); st != 200 {
+			t.Fatalf("counter not reset by success: %d", st)
+		}
+	}
+}
+
+func TestSecondFactorFailureBackoff(t *testing.T) {
+	e := newEnv(t)
+	u := e.user("tom", false)
+	_ = e.st.SetPendingTOTP(context.Background(), u.ID, e.srv.keyring.Encrypt([]byte("JBSWY3DPEHPK3PXP"), []byte("totp:"+u.ID)))
+	if err := e.st.EnableTOTP(context.Background(), u.ID, "", 1, []string{"h"}); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < freeFailures+1; i++ {
+		st, v := e.client().login("tom", map[string]string{"totp": "000000"})
+		expect(t, st, v, 401, "invalid_code")
+	}
+	st, v := e.client().login("tom", map[string]string{"totp": "000000"})
+	expect(t, st, v, 429, "rate_limited")
+}
+
+func TestInviteMaxUses(t *testing.T) {
+	f := newHH(t)
+	base := "/api/v1/households/" + f.hA
+	st, v := f.a.do("POST", base+"/invites", map[string]any{"role": "guest"})
+	expect(t, st, v, 201, "")
+	if field(v, "maxUses") != 1.0 {
+		t.Fatalf("default maxUses: %v", v)
+	}
+	one := field(v, "token").(string)
+	st, v = f.x.do("POST", "/api/v1/invites/"+one+"/accept", nil)
+	expect(t, st, v, 200, "")
+	st, v = f.b.do("POST", "/api/v1/invites/"+one+"/accept", nil)
+	expect(t, st, v, 404, "not_found") // used up
+	st, v = f.e.client().do("POST", "/api/v1/invites/"+one+"/register", map[string]string{"username": "late", "password": "password-late", "displayName": "L"})
+	expect(t, st, v, 404, "not_found")
+
+	for _, bad := range []int{-1, 101} {
+		st, v = f.a.do("POST", base+"/invites", map[string]any{"role": "guest", "maxUses": bad})
+		expect(t, st, v, 400, "invalid")
+	}
+	st, v = f.a.do("POST", base+"/invites", map[string]any{"role": "guest", "maxUses": 2})
+	expect(t, st, v, 201, "")
+	two := field(v, "token").(string)
+	st, v = f.e.client().do("POST", "/api/v1/invites/"+two+"/register", map[string]string{"username": "n1", "password": "password-n1", "displayName": "N"})
+	expect(t, st, v, 201, "")
+	// Duplicate username (and email) give one generic answer and burn no use.
+	st, v = f.e.client().do("POST", "/api/v1/invites/"+two+"/register", map[string]string{"username": "N1", "password": "password-n1", "displayName": "N"})
+	expect(t, st, v, 400, "registration_failed")
+	st, v = f.e.client().do("POST", "/api/v1/invites/"+two+"/register", map[string]string{"username": "fresh", "email": "a@example.com", "password": "password-n1", "displayName": "N"})
+	expect(t, st, v, 400, "registration_failed")
+	st, v = f.e.client().do("POST", "/api/v1/invites/"+two+"/register", map[string]string{"username": "n2", "password": "password-n2", "displayName": "N"})
+	expect(t, st, v, 201, "")
+	st, v = f.e.client().do("POST", "/api/v1/invites/"+two+"/register", map[string]string{"username": "n3", "password": "password-n3", "displayName": "N"})
+	expect(t, st, v, 404, "not_found")
+	// Exhausted invites drop out of the active list.
+	st, v = f.a.do("GET", base+"/invites", nil)
+	if l, _ := v.([]any); st != 200 || len(l) != 1 { // only the fixture's invite
+		t.Fatalf("list: %d %v", st, v)
+	}
 }

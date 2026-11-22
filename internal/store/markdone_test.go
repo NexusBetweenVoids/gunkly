@@ -192,7 +192,7 @@ func TestMarkDoneInvalidation(t *testing.T) {
 		}, false},
 		{"archive", false, func(t *testing.T, f *mdFixture) { noErr(t, f.s.ArchiveChore(f.ctx, f.owner, f.hid, f.chore.ID)) }, false},
 		{"delete", false, func(t *testing.T, f *mdFixture) { noErr(t, f.s.DeleteChore(f.ctx, f.owner, f.hid, f.chore.ID)) }, false},
-		{"password change", false, func(t *testing.T, f *mdFixture) { noErr(t, f.s.InvalidateUserLinks(f.ctx, f.m.UserID)) }, false},
+		{"password change", false, func(t *testing.T, f *mdFixture) { noErr(t, f.s.SetPassword(f.ctx, f.m.UserID, "new-hash", "")) }, false},
 		{"downgrade to guest", false, func(t *testing.T, f *mdFixture) {
 			noErr(t, f.s.ChangeRole(f.ctx, f.owner, f.hid, f.m.UserID, store.RoleGuest))
 		}, false},
@@ -210,7 +210,7 @@ func TestMarkDoneInvalidation(t *testing.T) {
 		{"cosmetic edit, channel link", true, func(t *testing.T, f *mdFixture) {
 			must(f.s.UpdateChore(f.ctx, f.owner, f.hid, f.chore.ID, cosmetic(f)))
 		}, true},
-		{"other user's password change", false, func(t *testing.T, f *mdFixture) { noErr(t, f.s.InvalidateUserLinks(f.ctx, f.owner.UserID)) }, true},
+		{"other user's password change", false, func(t *testing.T, f *mdFixture) { noErr(t, f.s.SetPassword(f.ctx, f.owner.UserID, "new-hash", "")) }, true},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -258,5 +258,32 @@ func TestMarkDoneConcurrentConsume(t *testing.T) {
 	}
 	if n := len(must(f.s.ListCompletions(f.ctx, f.owner, f.hid, f.chore.ID, 0))); n != 1 {
 		t.Fatalf("%d completions", n)
+	}
+}
+
+// Two different links for the same occurrence, consumed concurrently, must
+// produce exactly one completion.
+func TestMarkDoneTwoTokensOneCompletion(t *testing.T) {
+	f := newMD(t)
+	t1 := f.link(t, f.m.UserID, "")
+	t2 := f.link(t, f.owner.UserID, "")
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	okN := 0
+	for _, tok := range []string{t1, t2} {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if _, err := f.s.ConsumeMarkDone(f.ctx, tok); err == nil {
+				mu.Lock()
+				okN++
+				mu.Unlock()
+			}
+		}()
+	}
+	wg.Wait()
+	hist := must(f.s.ListCompletions(f.ctx, f.owner, f.hid, f.chore.ID, 0))
+	if okN != 1 || len(hist) != 1 {
+		t.Fatalf("%d consumed, %d completions, want exactly 1", okN, len(hist))
 	}
 }

@@ -64,12 +64,21 @@ const (
 	rateMarkDone = "markdone" // unauthenticated mark-done pages
 	rateICal     = "ical"     // unauthenticated calendar feeds (apps poll)
 	rateTest     = "test"     // test notifications, per user
+
+	rateUserWrite      = "uwrite" // authenticated non-GET requests, per user
+	rateHouseholdWrite = "hwrite" // household write requests, per household
 )
 
 // bucketRates gives the unauthenticated link buckets their own rate per IP:
 // several people may sit behind one NAT and calendar apps poll, while login
 // stays at the strict default.
-var bucketRates = map[string]int{rateMarkDone: limits.MarkDonePerMinute, rateICal: limits.ICalPerMinute}
+var bucketRates = map[string]int{
+	rateMarkDone: limits.MarkDonePerMinute, rateICal: limits.ICalPerMinute,
+	rateUserWrite: limits.UserWritesPerMinute, rateHouseholdWrite: limits.HouseholdWritesPerMinute,
+}
+
+// bucketBursts overrides the bucket capacity where it differs from one minute of tokens.
+var bucketBursts = map[string]int{rateUserWrite: limits.UserWriteBurst, rateHouseholdWrite: limits.HouseholdWriteBurst}
 
 type route struct {
 	pattern string
@@ -81,7 +90,8 @@ type call struct {
 	user store.User    // zero unless the policy requires a session
 	sess store.Session // zero unless the policy requires a session
 	hh   string        // {hh} path value for household routes
-	ip   string
+	ip   string        // client address, for audit
+	rip  string        // rate-limit identity (IPv6 collapsed to /64)
 }
 
 func (c *call) actor() store.Actor { return store.Actor{UserID: c.user.ID} }
@@ -121,12 +131,12 @@ func (s *Server) enforce(p policy, h handlerFunc) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		info := infoFrom(r)
 		info.pattern = r.Pattern
-		c := &call{ip: info.ip.String()}
+		c := &call{ip: info.ip.String(), rip: ipKey(info.ip)}
 		if !safeMethod(r.Method) && !s.requestOK(p, r) {
 			s.fail(w, r, errCSRF)
 			return
 		}
-		if p.rate != "" && !s.allow(w, p.rate+":ip:"+c.ip) {
+		if p.rate != "" && !s.allow(w, p.rate+":ip:"+c.rip) {
 			return
 		}
 		if p.auth >= authSession {
@@ -140,6 +150,11 @@ func (s *Server) enforce(p policy, h handlerFunc) http.Handler {
 				s.fail(w, r, errForbidden)
 				return
 			}
+			if !safeMethod(r.Method) {
+				if !s.allow(w, rateUserWrite+":user:"+u.ID) {
+					return
+				}
+			}
 			if p.stepUp && (ss.StepUpAt.IsZero() || s.now().Sub(ss.StepUpAt) > stepUpWindow) {
 				s.fail(w, r, errStepUp)
 				return
@@ -149,6 +164,9 @@ func (s *Server) enforce(p policy, h handlerFunc) http.Handler {
 			c.hh = r.PathValue("hh")
 			// Defence in depth: the store re-checks membership in the same
 			// transaction as the data access.
+			if !safeMethod(r.Method) && !s.allow(w, rateHouseholdWrite+":hh:"+c.hh) {
+				return
+			}
 			role, err := s.st.Role(r.Context(), c.actor(), c.hh)
 			if err != nil {
 				s.fail(w, r, err)

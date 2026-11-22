@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/NexusBetweenVoids/gunkly/internal/i18n"
+	"github.com/NexusBetweenVoids/gunkly/internal/limits"
 	"github.com/NexusBetweenVoids/gunkly/internal/store"
 )
 
@@ -49,7 +50,11 @@ func (s *Server) createArea(w http.ResponseWriter, r *http.Request, c *call) err
 	if err := decode(r, &in); err != nil {
 		return err
 	}
-	a, err := s.st.CreateArea(r.Context(), c.actor(), c.hh, in.Name)
+	max, err := s.limits.Limit(r.Context(), limits.AreasPerHousehold, c.hh)
+	if err != nil {
+		return err
+	}
+	a, err := s.st.CreateArea(r.Context(), c.actor(), c.hh, in.Name, max)
 	if err != nil {
 		return err
 	}

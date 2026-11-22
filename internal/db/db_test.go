@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 
 	"github.com/NexusBetweenVoids/gunkly/internal/db"
@@ -180,6 +181,38 @@ func TestOpenRejects(t *testing.T) {
 		if d, err := db.Open(context.Background(), u); err == nil {
 			d.Close()
 			t.Errorf("%s: expected error", u)
+		}
+	}
+}
+
+func TestSQLiteFilesOwnerOnly(t *testing.T) {
+	ctx := context.Background()
+	old := syscall.Umask(0)
+	defer syscall.Umask(old)
+	dir := t.TempDir()
+	path := filepath.Join(dir, "g.db")
+	d, err := db.Open(ctx, "sqlite://"+path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer d.Close()
+	if err := d.Migrate(ctx); err != nil {
+		t.Fatal(err)
+	}
+	snap := filepath.Join(dir, "snap.db")
+	if err := d.BackupFile(ctx, snap); err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range []string{path, path + "-wal", path + "-shm", snap} {
+		fi, err := os.Stat(p)
+		if os.IsNotExist(err) && p != path && p != snap {
+			continue
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		if fi.Mode().Perm() != 0o600 {
+			t.Errorf("%s mode %o, want 600", filepath.Base(p), fi.Mode().Perm())
 		}
 	}
 }

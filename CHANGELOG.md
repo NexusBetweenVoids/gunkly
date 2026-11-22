@@ -4,6 +4,16 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ## [Unreleased]
 
+### Security
+- Rate limiter: IPv6 clients are keyed by /64; eviction only drops idle keys not in backoff and a full table refuses new keys (429); it follows the admin-set `login_attempts_per_minute`.
+- Authenticated write throttling: per-user and per-household token buckets; new limits `areas_per_household` (100) and `completions_per_chore` (1000, oldest non-reverted completions pruned).
+- Admin password reset: disabled in hosted mode, refused for admin targets, revokes sessions, recorded in the target's own audit log; ADR 0009 and the threat model state the self-hosted trade-off. Password changes are now one transaction (password, sessions, mark-done links).
+- `households_per_user` and invite use are enforced atomically; invites have `maxUses` (1-100, default 1, new migration 0005) and registration answers `registration_failed` for duplicate username/email.
+- Sign-in no longer grants step-up; enabling/disabling TOTP revokes other sessions; per-account failed password/2FA backoff across IPs.
+- Mark-done: two links for one occurrence cannot both complete the chore (chore row lock).
+- SQLite database, WAL/SHM and backup files are created 0600; compose files recommend pinning the image version.
+- Redirect hardening in `safeNext` and the service worker (same-origin paths only); channel hints no longer contain secret characters.
+
 ### Added
 - Admin-configurable session lifetimes (`sessionIdleDays` 1-365, `sessionMaxDays` 1-730) and data retention (`auditRetentionDays`, `deliveryRetentionDays`) in `GET/PATCH /api/v1/admin/settings` and the admin settings screen; the retention job reads them on each run (the `scheduler.Config.Retention` field is gone). ADR 0013 (sessions, CSRF, rate limiting, setup code).
 - CLI tests for `healthcheck`, `admin reset-password`/`reset-2fa`, `rotate-key`, `backup -` and `migrate`; a test keeps `.env.example` in step with the config keys. README quick start, upgrade and backup steps corrected to match the code.

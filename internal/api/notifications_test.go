@@ -25,7 +25,7 @@ func TestUserChannelsWriteOnlyURL(t *testing.T) {
 	st, v := f.m.do("POST", base, map[string]string{"url": discordURL, "label": "Phone"})
 	expect(t, st, v, 201, "")
 	id := field(v, "id").(string)
-	if field(v, "kind") != "discord" || field(v, "label") != "Phone" || field(v, "scope") != "user" || field(v, "hint") != "…7890" {
+	if field(v, "kind") != "discord" || field(v, "label") != "Phone" || field(v, "scope") != "user" || field(v, "hint") != "discord" {
 		t.Fatalf("view: %v", v)
 	}
 	for _, leak := range []string{"tokensecret", "discord://", "url"} {
@@ -48,7 +48,7 @@ func TestUserChannelsWriteOnlyURL(t *testing.T) {
 	}
 	// Rename and replace the URL (re-validated).
 	st, v = f.m.do("PATCH", base+"/"+id, map[string]string{"label": "Tablet"})
-	if st != 200 || field(v, "label") != "Tablet" || field(v, "hint") != "…7890" {
+	if st != 200 || field(v, "label") != "Tablet" || field(v, "hint") != "discord" {
 		t.Fatalf("rename: %d %v", st, v)
 	}
 	st, v = f.m.do("PATCH", base+"/"+id, map[string]string{"url": "telegram://bottoken123456789@telegram?chats=42"})
@@ -66,7 +66,7 @@ func TestUserChannelsWriteOnlyURL(t *testing.T) {
 func TestNotificationKindsForAnyUser(t *testing.T) {
 	f := newLinks(t)
 	f.e.user("root", true)
-	root := f.e.signedIn("root")
+	root := f.e.signedInStepUp("root")
 	const path = "/api/v1/notification-kinds"
 
 	// Defaults, visible to a plain member (not just admins).
@@ -99,7 +99,7 @@ func TestNotificationKindsForAnyUser(t *testing.T) {
 func TestChannelKindAllowlist(t *testing.T) {
 	f := newLinks(t)
 	f.e.user("root", true)
-	root := f.e.signedIn("root")
+	root := f.e.signedInStepUp("root")
 	base := "/api/v1/account/channels"
 
 	// Defaults: fixed providers only.
@@ -322,7 +322,7 @@ func TestEgressGuardSetting(t *testing.T) {
 	ctx := context.Background()
 	f := newLinks(t)
 	f.e.user("root", true)
-	root := f.e.signedIn("root")
+	root := f.e.signedInStepUp("root")
 	if !f.e.srv.EgressGuardEnabled(ctx) {
 		t.Fatal("guard must default on")
 	}
@@ -338,7 +338,7 @@ func TestEgressGuardSetting(t *testing.T) {
 	// Hosted: forced on, cannot be turned off, even if the stored value says off.
 	h := newLinks(t, func(o *Options) { o.HostedMode = true })
 	h.e.user("root", true)
-	hroot := h.e.signedIn("root")
+	hroot := h.e.signedInStepUp("root")
 	st, v = hroot.do("PATCH", "/api/v1/admin/settings", map[string]any{"egressGuard": false})
 	expect(t, st, v, 400, "egress_guard_locked")
 	off := false

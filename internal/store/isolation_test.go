@@ -32,7 +32,7 @@ func setup(t *testing.T) *fixture {
 	noErr(t, s.AddMember(ctx, f.a, f.hA, f.m.UserID, store.RoleMember))
 	noErr(t, s.AddMember(ctx, f.a, f.hA, f.g.UserID, store.RoleGuest))
 	f.areaN = "Garden"
-	f.areaA = must(s.CreateArea(ctx, f.a, f.hA, f.areaN)).ID
+	f.areaA = must(s.CreateArea(ctx, f.a, f.hA, f.areaN, 0)).ID
 	in := choreIn("Clean gutters")
 	in.AreaID, in.Assignees = f.areaA, []string{f.m.UserID}
 	f.choreAName = in.Name
@@ -40,7 +40,7 @@ func setup(t *testing.T) *fixture {
 	f.completionA = must(s.CompleteChore(ctx, f.m, f.hA, f.choreA, store.CompletionInput{
 		CompletedAt: time.Now(), Source: store.SourceApp, NextDue: in.NextDue.AddDate(0, 0, 7), DueDate: "2026-11-28",
 	})).ID
-	f.areaB = must(s.CreateArea(ctx, f.b, f.hB, "Shed")).ID
+	f.areaB = must(s.CreateArea(ctx, f.b, f.hB, "Shed", 0)).ID
 	f.choreB = must(s.CreateChore(ctx, f.b, f.hB, choreIn("Oil hinges"))).ID
 	return f
 }
@@ -84,7 +84,7 @@ var ops = []op{
 		return ignore(s.ListCompletions(ctx, a, hh, f.choreA, 0))
 	}},
 	{name: "CreateArea", write: true, run: func(ctx context.Context, s *store.Store, a store.Actor, hh string, f *fixture) error {
-		return ignore(s.CreateArea(ctx, a, hh, "Attic"))
+		return ignore(s.CreateArea(ctx, a, hh, "Attic", 0))
 	}},
 	{name: "RenameArea", write: true, run: func(ctx context.Context, s *store.Store, a store.Actor, hh string, f *fixture) error {
 		return s.RenameArea(ctx, a, hh, f.areaA, "Hacked")

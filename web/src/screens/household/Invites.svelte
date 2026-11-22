@@ -20,6 +20,8 @@
   let invites = $state<Invite[]>([]);
   let role = $state<Role>('member');
   let hours = $state(168);
+  let several = $state(false);
+  let maxUses = $state(5);
   let link = $state('');
   let busy = $state(false);
   let err = $state('');
@@ -41,7 +43,7 @@
     busy = true;
     err = '';
     try {
-      const inv = await api<Invite>('POST', `/households/${id}/invites`, { role, expiresInHours: hours });
+      const inv = await api<Invite>('POST', `/households/${id}/invites`, { role, expiresInHours: hours, maxUses: several ? Math.min(100, Math.max(1, Math.floor(maxUses) || 1)) : 1 });
       link = `${location.origin}/invite/${inv.token}`;
       await load();
     } catch (x) {
@@ -81,6 +83,21 @@
           </select>
         {/snippet}
       </Field>
+      <Field label={t('invite.usesLabel')}>
+        {#snippet children({ id: fid })}
+          <select id={fid} bind:value={several}>
+            <option value={false}>{t('invite.usesOne')}</option>
+            <option value={true}>{t('invite.usesMany')}</option>
+          </select>
+        {/snippet}
+      </Field>
+      {#if several}
+        <Field label={t('invite.usesCount')}>
+          {#snippet children({ id: fid })}
+            <input id={fid} type="number" min="2" max="100" inputmode="numeric" bind:value={maxUses} />
+          {/snippet}
+        </Field>
+      {/if}
     </div>
     <div><Button type="submit" {busy}>{t('invite.create')}</Button></div>
   </form>
@@ -102,6 +119,7 @@
         <li>
           <span>
             <span class="badge">{t(roleLabel[inv.role])}</span>
+            <span class="muted">{t('invite.usesLeft', { remaining: inv.maxUses - inv.uses, max: inv.maxUses })}</span>
             <span class="muted">{t('invite.expiresOn', { date: formatDate(new Date(inv.expiresAt), { dateStyle: 'medium', timeStyle: 'short' }) })}</span>
           </span>
           <Button variant="danger" onclick={() => revoke(inv)}>{t('invite.revoke')}</Button>

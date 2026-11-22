@@ -353,6 +353,7 @@ func TestPasswordPathsInvalidateLinks(t *testing.T) {
 
 	// Own password change.
 	tok := f.link(t, f.mA)
+	f.e.stepUp(f.m, "m")
 	st, v := f.m.do("POST", "/api/v1/account/password", map[string]string{"newPassword": "a-brand-new-password"})
 	expect(t, st, v, 204, "")
 	if r := f.e.anon("POST", "/done/"+tok, nil); r.status != 404 {
@@ -361,7 +362,7 @@ func TestPasswordPathsInvalidateLinks(t *testing.T) {
 
 	// Admin reset.
 	tok = f.link(t, f.oA)
-	root := f.e.signedIn("root")
+	root := f.e.signedInStepUp("root")
 	st, v = root.do("POST", "/api/v1/admin/users/"+f.oA.UserID+"/reset-password", nil)
 	expect(t, st, v, 200, "")
 	if r := f.e.anon("POST", "/done/"+tok, nil); r.status != 404 {

@@ -77,7 +77,7 @@
           {#if u.isAdmin}<span class="badge">{t('admin.adminBadge')}</span>{/if}
           <br /><span class="muted">{u.username}{u.email ? ` · ${u.email}` : ''} · {t('admin.lastActive', { date: formatDate(new Date(u.lastActiveAt), { dateStyle: 'medium' }) })}</span>
         </span>
-        <Button variant="quiet" onclick={() => (resetFor = u)}>{t('admin.reset')}</Button>
+        {#if !u.isAdmin}<Button variant="quiet" onclick={() => (resetFor = u)}>{t('admin.reset')}</Button>{/if}
       </li>
     {/each}
   </ul>

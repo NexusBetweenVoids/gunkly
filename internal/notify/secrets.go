@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 
 	"github.com/NexusBetweenVoids/gunkly/internal/auth"
 	"github.com/NexusBetweenVoids/gunkly/internal/ids"
@@ -21,7 +22,7 @@ func Prepare(k *auth.Keyring, rawURL, label string, enabled map[string]bool) (st
 		return store.NewChannel{}, err
 	}
 	id := ids.New()
-	return store.NewChannel{ID: id, Service: kind, Ciphertext: Seal(k, id, rawURL), Label: label, Hint: Hint(rawURL)}, nil
+	return store.NewChannel{ID: id, Service: kind, Ciphertext: Seal(k, id, rawURL), Label: label, Hint: Hint(kind, rawURL)}, nil
 }
 
 // Reseal validates a replacement URL for an existing channel and returns the
@@ -31,17 +32,24 @@ func Reseal(k *auth.Keyring, channelID, rawURL string, enabled map[string]bool) 
 	if err != nil {
 		return store.ChannelUpdate{}, err
 	}
-	return store.ChannelUpdate{Service: kind, Ciphertext: Seal(k, channelID, rawURL), Hint: Hint(rawURL)}, nil
+	return store.ChannelUpdate{Service: kind, Ciphertext: Seal(k, channelID, rawURL), Hint: Hint(kind, rawURL)}, nil
 }
 
-// Hint is the masked form of a channel URL that may be shown after saving: an
-// ellipsis and the last four characters. Short URLs reveal nothing.
-func Hint(rawURL string) string {
-	r := []rune(rawURL)
-	if len(r) < 20 {
-		return "…"
+// Hint is what may be shown about a channel after saving. It never contains
+// characters of the secret: a fixed provider shows its kind (plus its fixed
+// host where it has one); a user-chosen-host service shows the host only.
+func Hint(kind, rawURL string) string {
+	if f, ok := fixedServices[kind]; ok {
+		if f.host != "" && f.host != kind {
+			return kind + " · " + f.host
+		}
+		return kind
 	}
-	return "…" + string(r[len(r)-4:])
+	u, err := url.Parse(rawURL)
+	if err != nil || u.Hostname() == "" {
+		return kind
+	}
+	return u.Hostname()
 }
 
 // Seal encrypts a channel URL bound to its channel ID.

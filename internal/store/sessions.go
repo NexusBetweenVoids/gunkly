@@ -28,17 +28,18 @@ type NewSession struct {
 	ExpiresAt time.Time
 }
 
-// CreateSession stores a new session. The caller has just verified the
-// user's credentials, so the session starts with a fresh step-up.
+// CreateSession stores a new session. It starts without a step-up even
+// though the credentials were just verified: sensitive actions always ask
+// again, so a stolen cookie never inherits a fresh step-up window.
 func (s *Store) CreateSession(ctx context.Context, in NewSession) (Session, error) {
 	now := s.nowMS()
 	ss := Session{
 		ID: ids.New(), UserID: in.UserID, Label: in.Label, ExpiresAt: in.ExpiresAt.UTC(),
-		CreatedAt: time.UnixMilli(now).UTC(), LastSeenAt: time.UnixMilli(now).UTC(), StepUpAt: time.UnixMilli(now).UTC(),
+		CreatedAt: time.UnixMilli(now).UTC(), LastSeenAt: time.UnixMilli(now).UTC(),
 	}
 	err := s.inTx(ctx, true, func(t *tx) error {
-		_, err := t.exec(ctx, `INSERT INTO sessions (id, token_hash, user_id, user_agent, created_at, last_seen_at, expires_at, step_up_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, ss.ID, in.TokenHash, in.UserID, in.Label, now, now, in.ExpiresAt.UnixMilli(), now)
+		_, err := t.exec(ctx, `INSERT INTO sessions (id, token_hash, user_id, user_agent, created_at, last_seen_at, expires_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?)`, ss.ID, in.TokenHash, in.UserID, in.Label, now, now, in.ExpiresAt.UnixMilli())
 		return notFoundFK(err)
 	})
 	if err != nil {

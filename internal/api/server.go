@@ -59,6 +59,7 @@ type Server struct {
 	static  fs.FS
 	now     func() time.Time
 	rl      *rateLimiter
+	acct    *acctGuard
 
 	// Password hashing hooks; tests swap in fast fakes and counters.
 	hashPassword   func(string) string
@@ -101,7 +102,18 @@ func New(o Options) *Server {
 		s.ready = func(context.Context) error { return nil }
 	}
 	s.rl = newRateLimiter(limits.Defaults[limits.LoginAttemptsPerMinute], 10000, s.now)
-	s.rl.perMinute = bucketRates
+	s.acct = newAcctGuard(s.now, 10000)
+	s.rl.perMinute, s.rl.burstOf = bucketRates, bucketBursts
+	s.rl.defaultRate = func() int {
+		if s.limits == nil {
+			return 0
+		}
+		n, err := s.limits.Limit(context.Background(), limits.LoginAttemptsPerMinute, "")
+		if err != nil {
+			return 0
+		}
+		return n
+	}
 	s.registerRoutes()
 	return s
 }

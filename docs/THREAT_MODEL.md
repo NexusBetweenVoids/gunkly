@@ -41,7 +41,7 @@ Covers self-hosted and the hosted service. Hosting infrastructure (servers, netw
 | Threat | Mitigation (plan section) |
 |-|-|
 | Cross-household read/write, ID guessing | Single scoped data-access layer, membership checked in-query, UUIDv7 public IDs, parameterised isolation tests per endpoint, depguard + fitness tests (Tenant isolation) |
-| Password guessing, credential stuffing | Argon2id, per-IP and per-IP+account rate limits with exponential backoff, no hard lockout, mandatory 2FA on hosted (Authentication) |
+| Password guessing, credential stuffing | Argon2id, per-IP (IPv6 by /64) and per-IP+account rate limits with exponential backoff, per-account failure backoff across IPs, fail-closed limiter table, no hard lockout, no implicit step-up at sign-in, mandatory 2FA on hosted (Authentication) |
 | Session theft / CSRF | Secure httpOnly SameSite cookies, CSRF protection, revocable sessions, 15-minute step-up for sensitive actions, strict CSP (Authentication, Web hardening) |
 | Stolen API token | Hashed at rest, revocable, household-bound, least-privilege scopes, token ID in audit log (Authentication) |
 | Email-OTP brute force/replay | Single-use, 10-minute expiry, hashed, strict attempt limits |
@@ -51,12 +51,14 @@ Covers self-hosted and the hosted service. Hosting infrastructure (servers, netw
 | Link previews completing chores | GET shows confirmation only; POST with single-use hashed token completes; `Referrer-Policy: no-referrer`; tokens kept out of logs (Links without sign-in) |
 | Mark-done token leak via provider | Single-use, max 7 days, scoped to occurrence and recipient/channel, invalidated on state-affecting changes, role downgrade, leave or password change; guests never get one; 5-minute single-use undo token |
 | Calendar feed leak | Long random per-user-per-household token, names/areas/dates only, revocable and regenerable |
-| Curious admin | Admin panel exposes no household content; secrets encrypted at rest with versioned key and `gunkly rotate-key`; logs scrubbed of secrets |
+| Curious admin | Admin panel exposes no household content; admin password reset is disabled on hosted, refused for admin targets, revokes sessions and is visible in the target's own audit log (on self-hosted an admin can still take over a non-admin account, which is an accepted, now non-silent, trust-in-operator trade-off, ADR 0009); secrets encrypted at rest with versioned key and `gunkly rotate-key`; logs scrubbed of secrets |
+| Authenticated abuse / data growth | Per-user and per-household write token buckets, areas-per-household cap, completion history retention, atomic households-per-user and invite-use limits |
 | Spam relay / sign-up abuse | Limits service caps, SMTP caps, email verification, ALTCHA proof-of-work, per-IP sign-up limit |
 | XSS / injection | Strict CSP without inline scripts, server-side validation, output encoding, parameterised SQL only, link schemes limited to http/https |
 | Clickjacking / MIME sniffing | Frame protection, `X-Content-Type-Options`, HSTS |
 | Account lockout by third party | No hard lockouts; CLI recovery for admins; hosted has no manual 2FA reset (warned at setup) |
 | Supply chain | Pinned dependencies, justification per dependency, govulncheck, gitleaks, CodeQL, license check, SBOM, cosign-signed images, Renovate/Dependabot |
+| Data at rest on disk | SQLite database, -wal/-shm and backup/snapshot files are mode 0600; channel hints show only kind/host, never secret characters |
 | Container compromise | Distroless, non-root, read-only rootfs, no shell, one port |
 | Data loss / bad upgrade | Expand-and-contract migrations, pre-migration snapshots (SQLite), pre-deploy snapshot, canary with auto-rollback, tested restores |
 | Duplicate or storm notifications | Unique delivery keys, scheduler lock, per-household and per-user caps, 24 h overdue cadence |

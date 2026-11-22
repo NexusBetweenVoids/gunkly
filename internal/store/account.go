@@ -11,9 +11,10 @@ import (
 // from the authenticated session, never from request input) or are
 // operator-only (CLI, admin).
 
-// SetPassword replaces the user's password hash and revokes every session
-// except keepSessionID (empty revokes all). Mark-done links are invalidated
-// separately with InvalidateUserLinks.
+// SetPassword replaces the user's password hash, revokes every session except
+// keepSessionID (empty revokes all) and deletes the mark-done links addressed
+// to the user, all in one transaction: a failure leaves the old password and
+// sessions intact rather than a half-applied change.
 func (s *Store) SetPassword(ctx context.Context, userID, hash, keepSessionID string) error {
 	if hash == "" {
 		return ErrInvalid
@@ -22,7 +23,10 @@ func (s *Store) SetPassword(ctx context.Context, userID, hash, keepSessionID str
 		if err := t.execOne(ctx, "UPDATE users SET password_hash = ?, password_changed_at = ? WHERE id = ?", hash, s.nowMS(), userID); err != nil {
 			return err
 		}
-		_, err := t.exec(ctx, "DELETE FROM sessions WHERE user_id = ? AND id <> ?", userID, keepSessionID)
+		if err := t.revokeSessionsExcept(ctx, userID, keepSessionID); err != nil {
+			return err
+		}
+		_, err := t.exec(ctx, "DELETE FROM mark_done_tokens WHERE user_id = ?", userID)
 		return err
 	})
 }
@@ -32,15 +36,6 @@ func (s *Store) SetPassword(ctx context.Context, userID, hash, keepSessionID str
 func (s *Store) RehashPassword(ctx context.Context, userID, hash string) error {
 	return s.inTx(ctx, true, func(t *tx) error {
 		return t.execOne(ctx, "UPDATE users SET password_hash = ? WHERE id = ?", hash, userID)
-	})
-}
-
-// InvalidateUserLinks deletes every unauthenticated capability addressed to
-// the user (mark-done links), e.g. after a password change or reset.
-func (s *Store) InvalidateUserLinks(ctx context.Context, userID string) error {
-	return s.inTx(ctx, true, func(t *tx) error {
-		_, err := t.exec(ctx, "DELETE FROM mark_done_tokens WHERE user_id = ?", userID)
-		return err
 	})
 }
 
@@ -106,9 +101,10 @@ func (s *Store) SetPendingTOTP(ctx context.Context, userID, ciphertext string) e
 
 // EnableTOTP confirms the pending secret: it records step as the last used
 // step (so the confirming code cannot be replayed) and replaces the user's
-// recovery codes with codeHashes. ErrConflict if already enabled or nothing
+// recovery codes with codeHashes. Every session except keepSessionID is
+// revoked in the same transaction. ErrConflict if already enabled or nothing
 // is pending.
-func (s *Store) EnableTOTP(ctx context.Context, userID string, step int64, codeHashes []string) error {
+func (s *Store) EnableTOTP(ctx context.Context, userID, keepSessionID string, step int64, codeHashes []string) error {
 	return s.inTx(ctx, true, func(t *tx) error {
 		res, err := t.exec(ctx, `UPDATE users SET totp_enabled = TRUE, totp_last_step = ?
 			WHERE id = ? AND totp_enabled = FALSE AND totp_secret_ciphertext IS NOT NULL`, step, userID)
@@ -118,7 +114,10 @@ func (s *Store) EnableTOTP(ctx context.Context, userID string, step int64, codeH
 		if n, err := res.RowsAffected(); err != nil || n == 0 {
 			return conflictIfNone(err)
 		}
-		return t.replaceRecoveryCodes(ctx, userID, codeHashes, s.nowMS())
+		if err := t.replaceRecoveryCodes(ctx, userID, codeHashes, s.nowMS()); err != nil {
+			return err
+		}
+		return t.revokeSessionsExcept(ctx, userID, keepSessionID)
 	})
 }
 
@@ -144,15 +143,24 @@ func (t *tx) replaceRecoveryCodes(ctx context.Context, userID string, hashes []s
 }
 
 // DisableTOTP removes the user's TOTP secret and recovery codes. Used by the
-// account settings and by `gunkly admin reset-2fa`.
-func (s *Store) DisableTOTP(ctx context.Context, userID string) error {
+// account settings and by `gunkly admin reset-2fa`. Every session except
+// keepSessionID (empty revokes all) is revoked in the same transaction.
+func (s *Store) DisableTOTP(ctx context.Context, userID, keepSessionID string) error {
 	return s.inTx(ctx, true, func(t *tx) error {
 		if err := t.execOne(ctx, `UPDATE users SET totp_secret_ciphertext = NULL, totp_enabled = FALSE, totp_last_step = 0
 			WHERE id = ?`, userID); err != nil {
 			return err
 		}
-		return t.replaceRecoveryCodes(ctx, userID, nil, 0)
+		if err := t.replaceRecoveryCodes(ctx, userID, nil, 0); err != nil {
+			return err
+		}
+		return t.revokeSessionsExcept(ctx, userID, keepSessionID)
 	})
+}
+
+func (t *tx) revokeSessionsExcept(ctx context.Context, userID, keepSessionID string) error {
+	_, err := t.exec(ctx, "DELETE FROM sessions WHERE user_id = ? AND id <> ?", userID, keepSessionID)
+	return err
 }
 
 // UseTOTPStep atomically records step as used. ErrConflict if a code with

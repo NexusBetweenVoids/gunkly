@@ -40,6 +40,8 @@
     calendar_feeds_per_user: 'limit.calendar_feeds_per_user',
     signups_per_ip_hour: 'limit.signups_per_ip_hour',
     login_attempts_per_minute: 'limit.login_attempts_per_minute',
+    areas_per_household: 'limit.areas_per_household',
+    completions_per_chore: 'limit.completions_per_chore',
   };
 
   let s = $state<S | null>(null);

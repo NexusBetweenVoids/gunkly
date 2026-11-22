@@ -107,10 +107,14 @@ Gunkly tracks recurring household chores and home maintenance (gutters, washing-
 | Notifications sent per user (all households) | 500/day |
 | Overdue reminder repeat cadence | at most once per 24 h per chore |
 | Outbound SMTP emails | 10/hour per account (5/hour per IP unauthenticated); 500/hour global |
-| Active invite links per household | 20 |
+| Areas per household | 100 |
+| Completions kept per chore (oldest non-reverted pruned beyond this) | 1,000 |
+| Authenticated write requests | 120/minute per user (burst 60); 300/minute per household (burst 100); fixed, not admin-tunable |
+| Active invite links per household | 20 (each link: 1-100 uses, default 1) |
 | Calendar feeds per user | 10 |
 | Sign-ups per IP per hour (open sign-up on) | 5 |
-| Login attempts per IP and per IP + account | 5/minute, then exponential backoff; never hard-lock |
+| Login attempts per IP (IPv6 by /64) and per IP + account | 5/minute (admin-tunable, applied live), then exponential backoff; never hard-lock |
+| Failed password / second-factor attempts per account, across all IPs | 5 free, then doubling delay capped at 15 minutes; success resets |
 
 ### Data retention (daily cleanup; audit and delivery periods configurable by the admin)
 

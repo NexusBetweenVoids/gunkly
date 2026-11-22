@@ -108,6 +108,7 @@ func TestHouseholdsAndMembers(t *testing.T) {
 
 	is(t, s.AddMember(ctx, a, h, "no-such-user", store.RoleMember), store.ErrNotFound)
 	is(t, s.AddMember(ctx, a, h, b.UserID, "admin"), store.ErrInvalid)
+	time.Sleep(3 * time.Millisecond) // distinct joined_at: members list by join time
 	noErr(t, s.AddMember(ctx, a, h, b.UserID, store.RoleGuest))
 	is(t, s.AddMember(ctx, a, h, b.UserID, store.RoleMember), store.ErrConflict)
 	if r := must(s.Role(ctx, b, h)); r != store.RoleGuest {
@@ -135,8 +136,8 @@ func TestChoreLifecycle(t *testing.T) {
 	h := mkHousehold(t, s, a, "Home")
 	noErr(t, s.AddMember(ctx, a, h, m.UserID, store.RoleMember))
 	noErr(t, s.AddMember(ctx, a, h, g.UserID, store.RoleGuest))
-	area := must(s.CreateArea(ctx, a, h, "Kitchen"))
-	_, err := s.CreateArea(ctx, m, h, " kitchen ")
+	area := must(s.CreateArea(ctx, a, h, "Kitchen", 0))
+	_, err := s.CreateArea(ctx, m, h, " kitchen ", 0)
 	is(t, err, store.ErrConflict)
 
 	in := choreIn("Descale kettle")

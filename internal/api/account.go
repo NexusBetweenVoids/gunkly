@@ -103,9 +103,6 @@ func (s *Server) changePassword(w http.ResponseWriter, r *http.Request, c *call)
 	if err := s.st.SetPassword(ctx, c.user.ID, s.hashPassword(in.NewPassword), c.sess.ID); err != nil {
 		return err
 	}
-	if err := s.st.InvalidateUserLinks(ctx, c.user.ID); err != nil {
-		return err
-	}
 	s.audit(ctx, c, c.user.ID, store.AuditPasswordChange, "", nil)
 	return noContent(w)
 }
@@ -148,7 +145,7 @@ func (s *Server) totpConfirm(w http.ResponseWriter, r *http.Request, c *call) er
 		return errInvalidCode
 	}
 	codes, hashes := auth.GenerateRecoveryCodes(auth.RecoveryCodeCount)
-	if err := s.st.EnableTOTP(r.Context(), c.user.ID, step, hashes); err != nil {
+	if err := s.st.EnableTOTP(r.Context(), c.user.ID, c.sess.ID, step, hashes); err != nil {
 		if errors.Is(err, store.ErrConflict) {
 			return errf(http.StatusConflict, "totp_not_pending")
 		}
@@ -159,7 +156,7 @@ func (s *Server) totpConfirm(w http.ResponseWriter, r *http.Request, c *call) er
 }
 
 func (s *Server) totpDisable(w http.ResponseWriter, r *http.Request, c *call) error {
-	if err := s.st.DisableTOTP(r.Context(), c.user.ID); err != nil {
+	if err := s.st.DisableTOTP(r.Context(), c.user.ID, c.sess.ID); err != nil {
 		return err
 	}
 	s.audit(r.Context(), c, c.user.ID, store.AuditTOTPDisable, "", nil)

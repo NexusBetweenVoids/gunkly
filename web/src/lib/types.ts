@@ -21,7 +21,7 @@ export type Household = {
   createdAt: string;
 };
 export type Member = { userId: string; displayName: string; role: Role; joinedAt: string };
-export type Invite = { id: string; role: Role; createdAt: string; expiresAt: string; token?: string };
+export type Invite = { id: string; role: Role; createdAt: string; expiresAt: string; maxUses: number; uses: number; token?: string };
 export type Status = 'overdue' | 'today' | 'thisWeek' | 'later' | 'none' | 'paused' | 'archived';
 export type Schedule = {
   type: 'interval' | 'rrule';

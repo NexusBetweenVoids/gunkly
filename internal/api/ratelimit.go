@@ -1,6 +1,7 @@
 package api
 
 import (
+	"net/netip"
 	"strings"
 	"sync"
 	"time"
@@ -19,9 +20,22 @@ type rateLimiter struct {
 	// perMinute overrides the default rate for keys of a bucket (the part of
 	// the key before the first colon), e.g. "ical" for "ical:ip:1.2.3.4".
 	perMinute map[string]int
-	now       func() time.Time
-	m         map[string]*bucket
+	// burst overrides the bucket capacity (default: one minute of tokens).
+	burstOf map[string]int
+	now     func() time.Time
+	m       map[string]*bucket
+	// defaultRate, when set, supplies the per-minute rate of buckets with no
+	// perMinute entry (the admin-set login rate). It is re-read at most every
+	// rateRefresh, so a settings change applies to existing keys too.
+	defaultRate func() int
+	rateAt      time.Time
 }
+
+const rateRefresh = 10 * time.Second
+
+// fullWait is the wait returned for a new key when the table holds only
+// active keys: fail closed rather than evict someone's backoff state.
+const fullWait = time.Second
 
 type bucket struct {
 	rate    float64 // tokens per second
@@ -44,17 +58,28 @@ func (l *rateLimiter) allow(key string) time.Duration {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	now := l.now()
+	l.refresh(now)
 	b := l.m[key]
-	if b == nil {
-		rate, burst := l.rate, l.burst
-		if n, ok := l.perMinute[bucketOf(key)]; ok {
-			rate, burst = float64(n)/60, float64(n)
+	rate, burst := l.rate, l.burst
+	custom := false
+	if n, ok := l.perMinute[bucketOf(key)]; ok {
+		rate, burst, custom = float64(n)/60, float64(n), true
+		if bn, ok := l.burstOf[bucketOf(key)]; ok {
+			burst = float64(bn)
 		}
+	}
+	if b == nil {
 		if len(l.m) >= l.maxKeys {
 			l.evict(now)
+			if len(l.m) >= l.maxKeys {
+				return fullWait
+			}
 		}
 		b = &bucket{rate: rate, burst: burst, tokens: burst, last: now}
 		l.m[key] = b
+	} else if !custom {
+		b.rate, b.burst = rate, burst
+		b.tokens = min(b.tokens, burst)
 	}
 	if now.Before(b.until) {
 		return b.until.Sub(now)
@@ -74,6 +99,17 @@ func (l *rateLimiter) allow(key string) time.Duration {
 	return d
 }
 
+// refresh re-reads the default rate (caller holds mu).
+func (l *rateLimiter) refresh(now time.Time) {
+	if l.defaultRate == nil || now.Sub(l.rateAt) < rateRefresh {
+		return
+	}
+	l.rateAt = now
+	if n := l.defaultRate(); n > 0 {
+		l.rate, l.burst = float64(n)/60, float64(n)
+	}
+}
+
 // bucketOf is the bucket name of a limiter key ("login:ip:1.2.3.4" -> "login").
 func bucketOf(key string) string {
 	b, _, _ := strings.Cut(key, ":")
@@ -89,8 +125,9 @@ func backoff(rate float64, strikes int) time.Duration {
 	return min(d, maxBackoff)
 }
 
-// evict drops idle keys (bucket full, not blocked); if that is not enough,
-// arbitrary keys, so memory stays bounded under a flood of new keys.
+// evict drops only idle keys: not in backoff and with a full bucket. Active
+// keys are never dropped, since forgetting a key in backoff would let an
+// attacker reset it by flooding the table with new keys.
 func (l *rateLimiter) evict(now time.Time) {
 	for k, b := range l.m {
 		full := time.Duration(b.burst / b.rate * float64(time.Second))
@@ -98,10 +135,16 @@ func (l *rateLimiter) evict(now time.Time) {
 			delete(l.m, k)
 		}
 	}
-	for k := range l.m {
-		if len(l.m) < l.maxKeys*9/10 {
-			break
+}
+
+// ipKey is the rate-limit identity of a client address: IPv4 by full address,
+// IPv6 by its /64, so one customer cannot mint unlimited keys from a prefix.
+func ipKey(a netip.Addr) string {
+	a = a.Unmap()
+	if a.Is6() {
+		if p, err := a.Prefix(64); err == nil {
+			return p.String()
 		}
-		delete(l.m, k)
 	}
+	return a.String()
 }

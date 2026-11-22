@@ -4,7 +4,7 @@
   import Field from '../components/Field.svelte';
   import SecondFactor from '../components/SecondFactor.svelte';
   import { api } from '../lib/api';
-  import { safeNext } from '../lib/clip';
+  import { safeNext } from '../lib/safenext';
   import { failure } from '../lib/errors';
   import { t } from '../lib/i18n';
   import { navigate } from '../lib/router';

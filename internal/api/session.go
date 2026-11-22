@@ -171,18 +171,29 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request, c *call) error {
 	if login == "" || in.Password == "" || len(login) > 254 {
 		return errInvalid
 	}
-	if !s.allow(w, rateLogin+":acct:"+c.ip+"|"+login) {
+	if !s.allow(w, rateLogin+":acct:"+c.rip+"|"+login) {
 		return nil
 	}
 	ctx := r.Context()
 	u, err := s.st.UserByLogin(ctx, login)
+	// Per-account failure counter across all IPs. Unknown logins are counted
+	// under the login string so both cases behave alike.
+	pwKey := "l:" + login
+	if err == nil {
+		pwKey = "u:" + u.ID
+	}
+	if s.acctDelay(w, pwKey) {
+		return nil
+	}
 	if errors.Is(err, store.ErrNotFound) {
 		_, _ = s.verifyPassword(s.dummy(), in.Password)
+		s.acct.fail(pwKey)
 		return errInvalidCredentials
 	} else if err != nil {
 		return err
 	}
 	if good, err := s.verifyPassword(u.PasswordHash, in.Password); err != nil || !good {
+		s.acct.fail(pwKey)
 		s.audit(ctx, c, u.ID, store.AuditLoginFailure, "", nil)
 		return errInvalidCredentials
 	}
@@ -190,11 +201,17 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request, c *call) error {
 		if in.TOTP == "" && in.RecoveryCode == "" {
 			return ok(w, sessionView{TwoFactorRequired: true})
 		}
+		if s.acctDelay(w, "2fa:"+u.ID) {
+			return nil
+		}
 		if err := s.secondFactor(ctx, c, u, in.credentials); err != nil {
+			s.acct.fail("2fa:" + u.ID)
 			s.audit(ctx, c, u.ID, store.AuditLoginFailure, "", map[string]string{"reason": "second_factor"})
 			return err
 		}
+		s.acct.reset("2fa:" + u.ID)
 	}
+	s.acct.reset(pwKey)
 	if auth.NeedsRehash(u.PasswordHash) {
 		if err := s.st.RehashPassword(ctx, u.ID, s.hashPassword(in.Password)); err != nil {
 			s.log.Error("rehash", "err", err)
@@ -261,21 +278,32 @@ func (s *Server) stepUp(w http.ResponseWriter, r *http.Request, c *call) error {
 	if err := decode(r, &in); err != nil {
 		return err
 	}
-	if !s.allow(w, rateTwoFA+":acct:"+c.ip+"|"+c.user.ID) {
+	if !s.allow(w, rateTwoFA+":acct:"+c.rip+"|"+c.user.ID) {
 		return nil
 	}
 	ctx := r.Context()
+	pwKey, tfKey := "u:"+c.user.ID, "2fa:"+c.user.ID
+	if s.acctDelay(w, pwKey) {
+		return nil
+	}
 	if good, err := s.verifyPassword(c.user.PasswordHash, in.Password); err != nil || !good {
+		s.acct.fail(pwKey)
 		return errInvalidCredentials
 	}
 	if c.user.TOTPEnabled {
 		if in.TOTP == "" && in.RecoveryCode == "" {
 			return errf(http.StatusUnauthorized, "two_factor_required")
 		}
+		if s.acctDelay(w, tfKey) {
+			return nil
+		}
 		if err := s.secondFactor(ctx, c, c.user, in); err != nil {
+			s.acct.fail(tfKey)
 			return err
 		}
+		s.acct.reset(tfKey)
 	}
+	s.acct.reset(pwKey)
 	if err := s.st.StepUpSession(ctx, c.user.ID, c.sess.ID); err != nil {
 		return err
 	}

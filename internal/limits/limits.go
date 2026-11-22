@@ -28,6 +28,8 @@ const (
 	CalendarFeedsPerUser       Kind = "calendar_feeds_per_user"
 	SignupsPerIPHour           Kind = "signups_per_ip_hour"
 	LoginAttemptsPerMinute     Kind = "login_attempts_per_minute"
+	AreasPerHousehold          Kind = "areas_per_household"
+	CompletionsPerChore        Kind = "completions_per_chore"
 )
 
 // Defaults is the PRD limits table.
@@ -48,6 +50,8 @@ var Defaults = map[Kind]int{
 	CalendarFeedsPerUser:       10,
 	SignupsPerIPHour:           5,
 	LoginAttemptsPerMinute:     5,
+	AreasPerHousehold:          100,
+	CompletionsPerChore:        1000,
 }
 
 // Per-IP request rates of the unauthenticated link endpoints. Fixed, not
@@ -55,6 +59,12 @@ var Defaults = map[Kind]int{
 const (
 	MarkDonePerMinute = 30
 	ICalPerMinute     = 60
+	// Authenticated write throttles: a token bucket per user over all unsafe
+	// /api/v1 requests, and one per household over its write routes.
+	UserWritesPerMinute      = 120
+	UserWriteBurst           = 60
+	HouseholdWritesPerMinute = 300
+	HouseholdWriteBurst      = 100
 )
 
 // ErrExceeded is returned by Check when current has reached the limit.

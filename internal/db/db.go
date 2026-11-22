@@ -86,6 +86,10 @@ func Open(ctx context.Context, rawURL string) (*DB, error) {
 		_ = d.Close()
 		return nil, fmt.Errorf("db: connect %s: %w", d.Dialect, redact(err))
 	}
+	if err := d.secureFiles(); err != nil {
+		_ = d.Close()
+		return nil, err
+	}
 	return d, nil
 }
 

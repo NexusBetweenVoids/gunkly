@@ -6,6 +6,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/NexusBetweenVoids/gunkly/internal/db"
 	"github.com/NexusBetweenVoids/gunkly/internal/ids"
 	"github.com/NexusBetweenVoids/gunkly/internal/schedule"
 )
@@ -186,6 +187,21 @@ func (t *tx) checkMarkDone(ctx context.Context, r mdRow, now int64) (mdChore, er
 	return mdChore{Chore: c, loc: loc}, nil
 }
 
+// lockChoreOfToken takes the row lock of the chore a token belongs to (a
+// no-op on SQLite, whose write transactions are serialised). Unknown tokens
+// are ErrNotFound.
+func (t *tx) lockChoreOfToken(ctx context.Context, token string) error {
+	if token == "" || len(token) > 128 {
+		return ErrNotFound
+	}
+	var id string
+	q := "SELECT c.id FROM chores c JOIN mark_done_tokens m ON m.chore_id = c.id WHERE m.token_hash = ?"
+	if t.d == db.Postgres {
+		q += " FOR UPDATE OF c"
+	}
+	return notFound(t.queryRow(ctx, q, ids.Hash(token)).Scan(&id))
+}
+
 // markDone loads a token by its hash and validates it. With claim, the token
 // is atomically marked used first, so concurrent POSTs cannot both succeed.
 func (t *tx) markDone(ctx context.Context, token string, now int64, claim bool) (mdRow, mdChore, error) {
@@ -257,6 +273,12 @@ func (s *Store) ConsumeMarkDone(ctx context.Context, token string) (MarkDoneResu
 	undo := ids.Token()
 	err := s.inTx(ctx, true, func(t *tx) error {
 		now := s.now()
+		// Serialise with every other completion of the same chore (Postgres):
+		// two links for one occurrence must not both pass the occurrence
+		// check. markDone re-reads the chore after the lock is held.
+		if err := t.lockChoreOfToken(ctx, token); err != nil {
+			return err
+		}
 		r, c, err := t.markDone(ctx, token, now.UnixMilli(), true)
 		if err != nil {
 			return err

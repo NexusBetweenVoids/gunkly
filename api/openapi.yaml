@@ -283,6 +283,7 @@ paths:
               properties:
                 role: {type: string, enum: [member, guest]}
                 expiresInHours: {type: integer, minimum: 1, maximum: 720}
+                maxUses: {type: integer, minimum: 1, maximum: 100, default: 1, description: How many people may join with the link}
       responses:
         "201": {description: Created, content: {application/json: {schema: {$ref: "#/components/schemas/Invite"}}}}
         "400": {$ref: "#/components/responses/Invalid"}
@@ -791,7 +792,8 @@ paths:
     parameters: [{name: id, in: path, required: true, schema: {type: string}}]
     post:
       tags: [admin]
-      summary: Set a new random password for an account (admin, step-up); returned once
+      summary: Set a new random password for a non-admin account (admin, step-up); returned once
+      description: Disabled in hosted mode (403 disabled_in_hosted_mode) and refused for admin accounts (403 admin_target). The reset is written to the target's own audit log and signs them out everywhere.
       responses:
         "200": {description: OK, content: {application/json: {schema: {type: object, properties: {password: {type: string}}}}}}
         "403": {$ref: "#/components/responses/Forbidden"}
@@ -925,6 +927,8 @@ components:
         createdBy: {type: string}
         createdAt: {type: string, format: date-time}
         expiresAt: {type: string, format: date-time}
+        maxUses: {type: integer}
+        uses: {type: integer}
         token: {type: string, description: Only in the create response}
         url: {type: string, description: Only in the create response, when a base URL is configured}
     Joined:

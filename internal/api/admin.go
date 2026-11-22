@@ -70,17 +70,30 @@ func (s *Server) adminCreateUser(w http.ResponseWriter, r *http.Request, c *call
 // NewRandomPassword returns a password for admin and CLI resets (shown once).
 func NewRandomPassword() string { return ids.Token()[:24] }
 
+// adminResetPassword sets a random password for a non-admin account
+// (self-hosted only; hosted accounts use the email reset flow). The reset is
+// written to the target's own audit log and signs them out everywhere. The
+// admin therefore cannot silently take over an account, but on a self-hosted
+// instance an admin can still sign in as a non-admin user; see ADR 0009.
 func (s *Server) adminResetPassword(w http.ResponseWriter, r *http.Request, c *call) error {
+	if s.hosted {
+		return errf(http.StatusForbidden, "disabled_in_hosted_mode")
+	}
 	ctx := r.Context()
 	id := r.PathValue("id")
+	target, err := s.st.UserByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if target.IsAdmin {
+		return errf(http.StatusForbidden, "admin_target") // admins are reset with the CLI
+	}
 	pw := NewRandomPassword()
 	if err := s.st.SetPassword(ctx, id, s.hashPassword(pw), ""); err != nil {
 		return err
 	}
-	if err := s.st.InvalidateUserLinks(ctx, id); err != nil {
-		return err
-	}
 	s.audit(ctx, c, c.user.ID, store.AuditPasswordReset, "", map[string]string{"user": id})
+	s.audit(ctx, c, id, store.AuditPasswordReset, "", map[string]string{"by": "admin", "admin": c.user.ID})
 	return ok(w, map[string]string{"password": pw})
 }
 

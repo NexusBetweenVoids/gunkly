@@ -3,9 +3,13 @@ package store
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
+	"errors"
+	"strconv"
 	"time"
 
 	"github.com/NexusBetweenVoids/gunkly/internal/ids"
+	"github.com/NexusBetweenVoids/gunkly/internal/limits"
 )
 
 // Completion sources.
@@ -91,8 +95,49 @@ func (t *tx) complete(ctx context.Context, householdID, choreID, userID string, 
 	if err != nil {
 		return Completion{}, err
 	}
-	_, err = t.exec(ctx, "DELETE FROM mark_done_tokens WHERE chore_id = ?", choreID)
-	return c, err
+	if _, err = t.exec(ctx, "DELETE FROM mark_done_tokens WHERE chore_id = ?", choreID); err != nil {
+		return Completion{}, err
+	}
+	return c, t.pruneCompletions(ctx, householdID, choreID)
+}
+
+// effectiveLimit resolves a limit inside t the way limits.Service does (plan
+// override, instance override, default), so store-internal enforcement
+// follows the same configuration.
+func (t *tx) effectiveLimit(ctx context.Context, k limits.Kind, householdID string) (int, error) {
+	var raw string
+	err := t.queryRow(ctx, "SELECT p.limits FROM households h JOIN plans p ON p.id = h.plan_id WHERE h.id = ?", householdID).Scan(&raw)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return 0, err
+	}
+	if err == nil {
+		var plan map[string]int
+		if json.Unmarshal([]byte(raw), &plan) == nil && plan[string(k)] > 0 {
+			return plan[string(k)], nil
+		}
+	}
+	var v string
+	err = t.queryRow(ctx, "SELECT value FROM settings WHERE key = ?", settingLimitPrefix+string(k)).Scan(&v)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return 0, err
+	}
+	if n, perr := strconv.Atoi(v); err == nil && perr == nil && n > 0 {
+		return n, nil
+	}
+	return limits.Defaults[k], nil
+}
+
+// pruneCompletions keeps the most recent CompletionsPerChore non-reverted
+// completions of a chore and deletes the older ones (history retention).
+func (t *tx) pruneCompletions(ctx context.Context, householdID, choreID string) error {
+	keep, err := t.effectiveLimit(ctx, limits.CompletionsPerChore, householdID)
+	if err != nil {
+		return err
+	}
+	_, err = t.exec(ctx, `DELETE FROM completions WHERE id IN (
+		SELECT id FROM completions WHERE chore_id = ? AND reverted_at IS NULL
+		ORDER BY completed_at DESC, id DESC LIMIT 1000000000 OFFSET ?)`, choreID, keep)
+	return err
 }
 
 // ListCompletions returns a chore's history, newest first (limit <= 0 means 100).

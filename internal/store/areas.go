@@ -22,15 +22,26 @@ func cleanName(s string) (name, lower string, ok bool) {
 }
 
 // CreateArea adds an area. Member or owner. ErrConflict if the name exists
-// (case-insensitive).
-func (s *Store) CreateArea(ctx context.Context, a Actor, householdID, name string) (Area, error) {
+// (case-insensitive); ErrLimit if the household already has maxAreas (0 = no
+// cap). The count is checked under the household lock, so concurrent creates
+// cannot overshoot.
+func (s *Store) CreateArea(ctx context.Context, a Actor, householdID, name string, maxAreas int) (Area, error) {
 	name, lower, ok := cleanName(name)
 	if !ok {
 		return Area{}, ErrInvalid
 	}
 	now := s.nowMS()
 	ar := Area{ID: ids.New(), HouseholdID: householdID, Name: name, CreatedAt: time.UnixMilli(now).UTC()}
-	err := s.write(ctx, a, householdID, RoleMember, func(t *tx, _ Role) error {
+	err := s.manage(ctx, a, householdID, RoleMember, func(t *tx, _ Role) error {
+		if maxAreas > 0 {
+			var n int
+			if err := t.queryRow(ctx, "SELECT count(*) FROM areas WHERE household_id = ?", householdID).Scan(&n); err != nil {
+				return err
+			}
+			if n >= maxAreas {
+				return ErrLimit
+			}
+		}
 		_, err := t.exec(ctx, "INSERT INTO areas (id, household_id, name, name_lower, created_at) VALUES (?, ?, ?, ?, ?)",
 			ar.ID, householdID, name, lower, now)
 		return conflict(err)

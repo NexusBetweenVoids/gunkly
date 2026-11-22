@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/NexusBetweenVoids/gunkly/internal/db"
 	"github.com/NexusBetweenVoids/gunkly/internal/ids"
 )
 
@@ -27,6 +28,10 @@ type NewHousehold struct {
 	Timezone string // IANA name
 	// StarterAreas are created with the household (already translated by the caller).
 	StarterAreas []string
+	// MaxHouseholds is the user's HouseholdsPerUser limit (0 = unchecked); it
+	// is enforced inside the creating transaction so concurrent requests
+	// cannot exceed it. ErrLimit when reached.
+	MaxHouseholds int
 }
 
 // Member is a household membership with display details.
@@ -49,6 +54,18 @@ func (s *Store) CreateHousehold(ctx context.Context, a Actor, in NewHousehold) (
 	now := s.nowMS()
 	h := Household{ID: ids.New(), Name: name, Timezone: in.Timezone, CreatedAt: time.UnixMilli(now).UTC(), Role: RoleOwner}
 	err := s.inTx(ctx, true, func(t *tx) error {
+		if in.MaxHouseholds > 0 {
+			if err := t.lockUser(ctx, a.UserID); err != nil {
+				return err
+			}
+			var n int
+			if err := t.queryRow(ctx, "SELECT count(*) FROM memberships WHERE user_id = ?", a.UserID).Scan(&n); err != nil {
+				return err
+			}
+			if n >= in.MaxHouseholds {
+				return ErrLimit
+			}
+		}
 		if _, err := t.exec(ctx, "INSERT INTO households (id, name, timezone, created_at) VALUES (?, ?, ?, ?)",
 			h.ID, h.Name, h.Timezone, now); err != nil {
 			return err
@@ -255,4 +272,16 @@ func intPtr(v sql.NullInt64) *int {
 	}
 	i := int(v.Int64)
 	return &i
+}
+
+// lockUser serialises concurrent per-user membership counting on Postgres
+// (SQLite write transactions are already serialised). ErrNotFound if the
+// user does not exist.
+func (t *tx) lockUser(ctx context.Context, userID string) error {
+	q := "SELECT id FROM users WHERE id = ?"
+	if t.d == db.Postgres {
+		q += " FOR UPDATE"
+	}
+	var id string
+	return notFound(t.queryRow(ctx, q, userID).Scan(&id))
 }

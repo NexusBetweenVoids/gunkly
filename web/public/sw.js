@@ -22,11 +22,23 @@ self.addEventListener('push', (event) => {
   );
 });
 
+// Same-origin paths only: reject //host and /\host, then confirm by parsing.
+function sameOriginUrl(raw) {
+  const origin = self.location.origin;
+  if (typeof raw !== 'string' || !raw.startsWith('/') || raw.startsWith('//') || raw.startsWith('/\\')) return new URL('/', origin);
+  try {
+    const u = new URL(raw, origin);
+    return u.origin === origin ? u : new URL('/', origin);
+  } catch {
+    return new URL('/', origin);
+  }
+}
+
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   // Only open same-origin paths.
   const raw = event.notification.data && event.notification.data.url;
-  const url = new URL(typeof raw === 'string' && raw.startsWith('/') && !raw.startsWith('//') ? raw : '/', self.location.origin);
+  const url = sameOriginUrl(raw);
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
       for (const c of list) {
