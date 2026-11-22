@@ -32,6 +32,7 @@
     'audit.account_export',
     'audit.household_export',
     'audit.household_import',
+    'audit.inactive_warn',
   ];
 
   const label = (ev: string) => (LABELS.includes(`audit.${ev}`) ? t(('audit.' + ev) as Key) : ev);

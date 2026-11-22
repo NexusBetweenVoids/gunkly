@@ -66,7 +66,7 @@ Covers self-hosted and the hosted service. Hosting infrastructure (servers, netw
 | Data loss / bad upgrade | Expand-and-contract migrations, pre-migration snapshots (SQLite), pre-deploy snapshot, canary with auto-rollback, tested restores |
 | Duplicate or storm notifications | Unique delivery keys, scheduler lock, per-household and per-user caps, 24 h overdue cadence |
 | Privacy/regulatory | Minimal data, no telemetry, export and delete, EU-only own infrastructure, breach procedure (72 h), processor agreements |
-| Inactive account data retention | Optional inactivity warnings and deletion; retention cleanup of audit (90 d) and delivery logs (30 d) |
+| Inactive account data retention | Optional inactivity warnings and deletion (idempotent, leader-only, admins exempt, 30 days notice); self-service account deletion in one transaction that strips audit rows of actor, IP and metadata; retention cleanup of audit (90 d) and delivery logs (30 d); templates in `docs/legal/` |
 
 ## Out of scope / accepted risks
 

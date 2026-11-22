@@ -158,6 +158,9 @@ func (s *Server) changeRole(w http.ResponseWriter, r *http.Request, c *call) err
 
 func (s *Server) removeMember(w http.ResponseWriter, r *http.Request, c *call) error {
 	target := r.PathValue("user")
+	if target == c.user.ID {
+		return s.leaveHousehold(w, r, c)
+	}
 	// The store allows owners to remove anyone and members to remove themselves.
 	if err := s.st.RemoveMember(r.Context(), c.actor(), c.hh, target); err != nil {
 		return err

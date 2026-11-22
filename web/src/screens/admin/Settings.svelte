@@ -23,6 +23,9 @@
     availableNotificationKinds: string[];
     egressGuard: boolean;
     egressGuardLocked: boolean;
+    inactiveEnabled: boolean;
+    inactiveWarnAfterDays: number;
+    inactiveDeleteAfterDays: number;
   };
   let s = $state<S | null>(null);
   let minLen = $state('8');
@@ -30,6 +33,8 @@
   let maxDays = $state('90');
   let auditDays = $state('90');
   let deliveryDays = $state('30');
+  let inactiveWarn = $state('365');
+  let inactiveDelete = $state('548');
   let limitInputs = $state<Record<string, string>>({});
   let savedKinds = '';
   let busy = $state(false);
@@ -43,6 +48,8 @@
     maxDays = String(v.sessionMaxDays);
     auditDays = String(v.auditRetentionDays);
     deliveryDays = String(v.deliveryRetentionDays);
+    inactiveWarn = String(v.inactiveWarnAfterDays);
+    inactiveDelete = String(v.inactiveDeleteAfterDays);
     limitInputs = Object.fromEntries(Object.entries(v.limits).map(([k, n]) => [k, String(n)]));
   }
   api<S>('GET', '/admin/settings')
@@ -81,6 +88,9 @@
             sessionMaxDays: Number(maxDays),
             auditRetentionDays: Number(auditDays),
             deliveryRetentionDays: Number(deliveryDays),
+            inactiveEnabled: s!.inactiveEnabled,
+            inactiveWarnAfterDays: Number(inactiveWarn),
+            inactiveDeleteAfterDays: Number(inactiveDelete),
             limits,
             // Only when the admin changed it, so saving other settings never freezes the defaults.
             ...([...s!.enabledNotificationKinds].sort().join() === savedKinds ? {} : { enabledNotificationKinds: s!.enabledNotificationKinds }),
@@ -112,6 +122,11 @@
       <p class="hint">{t('admin.retentionHint')}</p>
       <Field label={t('admin.auditRetention')} type="number" bind:value={auditDays} min="1" max="3650" required />
       <Field label={t('admin.deliveryRetention')} type="number" bind:value={deliveryDays} min="1" max="3650" required />
+      <h3>{t('admin.inactive')}</h3>
+      <p class="hint">{t('admin.inactiveHint')}</p>
+      <label class="check"><input type="checkbox" bind:checked={s.inactiveEnabled} />{t('admin.inactiveEnabled')}</label>
+      <Field label={t('admin.inactiveWarn')} type="number" bind:value={inactiveWarn} min="30" max="3650" required />
+      <Field label={t('admin.inactiveDelete')} hint={t('admin.inactiveDeleteHint')} type="number" bind:value={inactiveDelete} min="60" max="3650" required />
       <fieldset class="stack-sm">
         <legend class="label">{t('admin.kinds')}</legend>
         <p class="hint">{t('admin.kindsHint')}</p>

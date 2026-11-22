@@ -130,9 +130,15 @@ cosign verify-attestation ghcr.io/nexusbetweenvoids/gunkly:<tag> --type spdxjson
 
 Verify a binary: `sha256sum -c --ignore-missing SHA256SUMS`.
 
+## Hosted service
+
+The maintainer runs a free, non-commercial hosted service. Its legal texts are templates (not legal advice, to be reviewed by the maintainer) and apply to the hosted service only; self-hosters run their own instance and are responsible for their own data: [privacy policy](docs/legal/privacy-policy.md), [terms of use](docs/legal/terms.md), [record of processing](docs/legal/processing-register.md), [breach procedure](docs/legal/breach-procedure.md) and [incident response](docs/legal/incident-response.md).
+
+Every instance can delete accounts (Account, "Delete account") and can optionally remove accounts that stay inactive: an admin switches it on in the instance settings (default off; warning after 365 days, deletion after 548 days without activity, a final warning 30 days before; instance admins are never deleted).
+
 ## Documentation
 
-`docs/PRD.md` (scope and requirements), `docs/adr/` (decisions), `docs/THREAT_MODEL.md`, `SECURITY.md`, `CONTRIBUTING.md`, `AGENTS.md`.
+`docs/PRD.md` (scope and requirements), `docs/adr/` (decisions), `docs/THREAT_MODEL.md`, `docs/legal/` (hosted-service templates), `SECURITY.md`, `CONTRIBUTING.md`, `AGENTS.md`.
 
 ## License
 

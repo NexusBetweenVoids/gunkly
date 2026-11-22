@@ -182,5 +182,9 @@
   "updates.off": "The update check is off. Nothing is sent to anyone.",
   "updates.never": "No update check has completed yet. It runs in the background at most every 12 hours.",
   "updates.checked": "Checked {date}",
-  "updates.changelog": "What changed"
+  "updates.changelog": "What changed",
+  "err.owner_required": "Choose a new owner first.",
+  "err.last_admin": "You are the only instance admin, so this account cannot be deleted.",
+  "err.confirmation_mismatch": "That is not your username.",
+  "err.household_would_be_deleted": "You are the last member: leaving would delete this household. Invite someone first, or delete your account."
 }

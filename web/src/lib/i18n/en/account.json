@@ -62,6 +62,7 @@
   "audit.account_export": "Exported own data",
   "audit.household_export": "Exported a household",
   "audit.household_import": "Imported a household file",
+  "audit.inactive_warn": "Inactivity warning sent",
   "push.title": "Notifications on this device",
   "push.privacy": "Browser notifications are delivered through your browser vendor's push service (Google, Apple or Mozilla). The message is end-to-end encrypted, but the vendor can see that a notification was sent to your device and when.",
   "push.enable": "Enable notifications on this device",
@@ -90,5 +91,12 @@
   "emailcodes.mandatory": "Two-factor authentication is required on this server. Switch to an authenticator app to stop using email codes.",
   "totp.replacesEmail": "Setting this up replaces email codes.",
   "totp.mandatory": "Two-factor authentication is required on this server, so it can't be turned off.",
-  "push.disable": "Disable notifications on this device"
+  "push.disable": "Disable notifications on this device",
+  "delete.title": "Delete account",
+  "delete.intro": "Deleting your account removes your profile, sign-ins, notification channels and personal data for good. Chores you completed stay in your households as \"Deleted user\".",
+  "delete.start": "Delete my account...",
+  "delete.households": "These households have no other member who can use them and will be deleted with their chores:",
+  "delete.newOwner": "New owner of {name}",
+  "delete.confirmLabel": "Type your username ({username}) to confirm",
+  "delete.confirm": "Delete my account permanently"
 }

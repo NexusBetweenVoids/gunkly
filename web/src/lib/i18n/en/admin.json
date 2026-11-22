@@ -58,5 +58,11 @@
   "limit.signups_per_ip_hour": "Sign-ups per IP address per hour",
   "limit.login_attempts_per_minute": "Login attempts per minute",
   "limit.areas_per_household": "Areas per household",
-  "limit.completions_per_chore": "Completions kept per chore"
+  "limit.completions_per_chore": "Completions kept per chore",
+  "admin.inactive": "Inactive accounts",
+  "admin.inactiveHint": "Warn people who have not signed in for a long time, then delete their account. Off by default.",
+  "admin.inactiveEnabled": "Warn and delete inactive accounts",
+  "admin.inactiveWarn": "Warn after (days without activity)",
+  "admin.inactiveDelete": "Delete after (days without activity)",
+  "admin.inactiveDeleteHint": "At least 30 days after the warning. A final warning goes out 30 days before deletion. Instance admins are never deleted."
 }

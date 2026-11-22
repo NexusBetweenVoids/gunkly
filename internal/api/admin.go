@@ -122,6 +122,10 @@ type settingsView struct {
 	EgressGuard                bool     `json:"egressGuard"`
 	EgressGuardLocked          bool     `json:"egressGuardLocked"` // hosted mode: cannot be turned off
 	UpdateCheck                bool     `json:"updateCheck"`       // ask GitHub for the latest release (Updates page)
+	// Inactive-account lifecycle (default off): warn, then delete.
+	InactiveEnabled         bool `json:"inactiveEnabled"`
+	InactiveWarnAfterDays   int  `json:"inactiveWarnAfterDays"`
+	InactiveDeleteAfterDays int  `json:"inactiveDeleteAfterDays"`
 }
 
 func (s *Server) adminGetSettings(w http.ResponseWriter, r *http.Request, _ *call) error {
@@ -139,7 +143,8 @@ func (s *Server) adminGetSettings(w http.ResponseWriter, r *http.Request, _ *cal
 		AuditRetentionDays: st.AuditRetentionDays, DeliveryRetentionDays: st.DeliveryRetentionDays,
 		Limits: map[limits.Kind]int{}, LimitDefaults: limits.Defaults,
 		EnabledNotificationKinds: append([]string{}, slices.Sorted(maps.Keys(kindSet(st)))...), AvailableNotificationKinds: notify.AllKinds(),
-		EgressGuard: s.hosted || st.EgressGuard, EgressGuardLocked: s.hosted, UpdateCheck: st.UpdateCheck}
+		EgressGuard: s.hosted || st.EgressGuard, EgressGuardLocked: s.hosted, UpdateCheck: st.UpdateCheck,
+		InactiveEnabled: st.InactiveEnabled, InactiveWarnAfterDays: st.InactiveWarnAfterDays, InactiveDeleteAfterDays: st.InactiveDeleteAfterDays}
 	for k, d := range limits.Defaults {
 		v.Limits[k] = d
 		if o, set := st.Limits[string(k)]; set && o > 0 {
@@ -164,6 +169,9 @@ func (s *Server) adminPatchSettings(w http.ResponseWriter, r *http.Request, c *c
 		EnabledNotificationKinds optional[[]string] `json:"enabledNotificationKinds"`
 		EgressGuard              *bool              `json:"egressGuard"`
 		UpdateCheck              *bool              `json:"updateCheck"`
+		InactiveEnabled          *bool              `json:"inactiveEnabled"`
+		InactiveWarnAfterDays    *int               `json:"inactiveWarnAfterDays"`
+		InactiveDeleteAfterDays  *int               `json:"inactiveDeleteAfterDays"`
 	}
 	if err := decode(r, &in); err != nil {
 		return err
@@ -179,7 +187,8 @@ func (s *Server) adminPatchSettings(w http.ResponseWriter, r *http.Request, c *c
 	upd := store.SettingsUpdate{OpenSignup: in.OpenSignup, RequirePoW: in.RequirePoW,
 		InviteRegistration: in.InviteRegistration, MinPasswordLength: in.MinPasswordLength, Limits: in.Limits, EgressGuard: in.EgressGuard, UpdateCheck: in.UpdateCheck,
 		SessionIdleDays: in.SessionIdleDays, SessionMaxDays: in.SessionMaxDays,
-		AuditRetentionDays: in.AuditRetentionDays, DeliveryRetentionDays: in.DeliveryRetentionDays}
+		AuditRetentionDays: in.AuditRetentionDays, DeliveryRetentionDays: in.DeliveryRetentionDays,
+		InactiveEnabled: in.InactiveEnabled, InactiveWarnAfterDays: in.InactiveWarnAfterDays, InactiveDeleteAfterDays: in.InactiveDeleteAfterDays}
 	if in.EgressGuard != nil && !*in.EgressGuard && s.hosted {
 		return errf(http.StatusBadRequest, "egress_guard_locked")
 	}
