@@ -235,6 +235,12 @@
     {#if isOwner}<Invites {id} />{/if}
     {#if hh.role !== 'guest'}<Lazy load={() => import('./household/Transfer.svelte')} props={{ id }} />{/if}
 
+    <section class="card" aria-labelledby="h-more">
+      <h2 id="h-more">{t('household.more')}</h2>
+      <p class="muted">{t('household.moreHint')}</p>
+      <p><a class="btn btn-quiet" href="/households/new">{t('household.createAnother')}</a></p>
+    </section>
+
     <section class="card" aria-labelledby="h-leave">
       <h2 id="h-leave">{t('household.leave')}</h2>
       <p class="muted">{t('household.leaveWarn')}</p>

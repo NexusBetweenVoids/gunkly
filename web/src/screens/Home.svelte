@@ -110,7 +110,11 @@
 <p class="muted">{t('home.today', { date: formatDate(new Date(), { dateStyle: 'full', timeZone: currentHousehold()?.timezone }) })}</p>
 
 {#if !hh}
-  <p class="muted">{t('home.noHousehold')} <a href="/households/new">{t('nav.newHousehold')}</a></p>
+  <section class="card stack" aria-labelledby="h-welcome">
+    <h2 id="h-welcome">{t('home.welcome')}</h2>
+    <p class="muted">{t('home.noHousehold')}</p>
+    <p><a class="btn" href="/households/new">{t('household.createFirst')}</a></p>
+  </section>
 {:else}
   <div class="search">
     <label class="visually-hidden" for="chore-search">{t('home.search')}</label>

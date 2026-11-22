@@ -59,7 +59,6 @@
     <svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22"><path d="M4 7h16M4 12h16M4 17h16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
   </button>
   <ul bind:this={panel} id="menu-{uid}" class="panel" hidden={!open}>
-    <li><a href="/households/new" aria-current={here('/households/new')}>{t('nav.newHousehold')}</a></li>
     <li><a href="/account" aria-current={here('/account')}>{t('nav.account')}</a></li>
     {#if app.user?.isAdmin}
       <li><a href="/admin" aria-current={here('/admin')}>{t('nav.admin')}</a></li>

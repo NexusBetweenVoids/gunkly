@@ -8,6 +8,10 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 - Updates page: "Check now" button (`POST /api/v1/admin/updates/check`) and a "Checking for updates…" state. `GET /api/v1/admin/updates` gains `checking` and `ahead`.
 
+### Changed
+
+- Creating another household moved out of the header and menu into Settings (Households section); the header shows the household name as plain text when you belong to one household and a switcher only with two or more. With no household, Home shows a prominent "Create your first household" button.
+
 ### Fixed
 
 - After an upgrade the Updates page could say "You are up to date. Latest release: v0.1.1" because the cached check predated the release. The page now refreshes the check in the background when the cache is missing, over an hour old or older than the running version (at most one GitHub request per 5 minutes), and never claims "up to date" while the cached release is older than the running version.

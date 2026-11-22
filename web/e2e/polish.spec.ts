@@ -17,20 +17,18 @@ test('header menu on phones: keyboard open, arrow keys, Escape returns focus', a
   await menu.focus();
   await page.keyboard.press('Enter');
   await expect(menu).toHaveAttribute('aria-expanded', 'true');
-  await expect(nav.getByRole('link', { name: 'New household' })).toBeFocused();
-  await page.keyboard.press('ArrowDown');
   await expect(nav.getByRole('link', { name: 'Account' })).toBeFocused();
   await page.keyboard.press('ArrowDown');
   await expect(nav.getByRole('button', { name: 'Sign out' })).toBeFocused();
   await page.keyboard.press('ArrowDown');
-  await expect(nav.getByRole('link', { name: 'New household' })).toBeFocused();
+  await expect(nav.getByRole('link', { name: 'Account' })).toBeFocused();
+  await expect(nav.getByRole('link', { name: 'New household' })).toHaveCount(0);
   await page.keyboard.press('Escape');
   await expect(menu).toHaveAttribute('aria-expanded', 'false');
   await expect(menu).toBeFocused();
 
   // Tabbing out closes it; a link navigates and closes it.
   await page.keyboard.press('Enter');
-  await page.keyboard.press('Tab');
   await page.keyboard.press('Tab');
   await page.keyboard.press('Tab');
   await expect(menu).toHaveAttribute('aria-expanded', 'false');
@@ -94,4 +92,33 @@ test('home search filters by name, area and assignee; lives in the URL only', as
   await expect(search).toBeFocused();
   await expect(page).not.toHaveURL(/q=/);
   await expect(page.getByText(a.name)).toBeVisible();
+});
+
+test('household switcher: name only with one household, select with two, onboarding with none', async ({ world }) => {
+  const u = await world.newUser();
+  const { page } = await u.open();
+  const nav = page.getByRole('navigation', { name: 'Main' });
+
+  // Zero households: Home guides to creating one; nothing in the header offers it.
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Welcome to Gunkly' })).toBeVisible();
+  await expect(nav.getByRole('combobox')).toHaveCount(0);
+  await page.getByRole('link', { name: 'Create your first household' }).click();
+  await expect(page).toHaveURL(/\/households\/new$/);
+
+  // One household: plain name, no select; creating another lives in Settings.
+  const h1 = await world.household(u);
+  await page.goto('/');
+  await expect(page.getByTestId('hh-name')).toContainText(h1.name);
+  await expect(nav.getByRole('combobox')).toHaveCount(0);
+  await expect(nav.getByRole('link', { name: 'New household' })).toHaveCount(0);
+  await page.goto(`/households/${h1.id}`);
+  await page.getByRole('region', { name: 'Households' }).getByRole('link', { name: 'Create another household' }).click();
+  await expect(page).toHaveURL(/\/households\/new$/);
+
+  // Two households: the switcher appears.
+  await world.household(u);
+  await page.goto('/');
+  await expect(nav.getByRole('combobox', { name: 'Household' })).toBeVisible();
+  await expect(page.getByTestId('hh-name')).toHaveCount(0);
 });

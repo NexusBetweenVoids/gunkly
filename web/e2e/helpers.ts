@@ -242,7 +242,7 @@ export async function setTheme(page: Page, theme: 'light' | 'dark'): Promise<voi
 
 export { join };
 
-/** A header action (New household, Account, Admin, Sign out): opens the phone menu first when the links are folded into it. */
+/** A header action (Account, Admin, Sign out): opens the phone menu first when the links are folded into it. */
 export async function headerItem(page: Page, role: 'link' | 'button', name: string) {
   const nav = page.getByRole('navigation', { name: 'Main' });
   const menu = nav.getByRole('button', { name: 'Menu' });

@@ -64,7 +64,9 @@
   <nav class="nav" aria-label={t('nav.label')}>
     <a class="brand" href="/"><Logo /><span class="brand-name">{t('app.name')}</span></a>
     {#if app.user}
-      {#if app.households.length}
+      {#if app.households.length === 1}
+        <p class="switcher hh-name" data-testid="hh-name"><span class="visually-hidden">{t('nav.household')}: </span>{app.households[0]?.name}</p>
+      {:else if app.households.length > 1}
         <div class="switcher">
           <label class="visually-hidden" for="hh-switch">{t('nav.household')}</label>
           <select id="hh-switch" value={app.hhId} onchange={(e) => selectHousehold(e.currentTarget.value)}>
@@ -73,7 +75,6 @@
         </div>
       {/if}
       <ul class="links">
-        <li><a href="/households/new" aria-current={here('/households/new')}>{t('nav.newHousehold')}</a></li>
         <li><a href="/account" aria-current={here('/account')}>{t('nav.account')}</a></li>
         {#if app.user.isAdmin}
           <li><a href="/admin" aria-current={here('/admin')}>{t('nav.admin')}</a></li>
@@ -200,6 +201,14 @@
   .switcher {
     flex: 1 1 auto;
     min-inline-size: 0;
+  }
+  .hh-name {
+    margin: 0;
+    padding-inline: 12px;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .switcher select {
     min-inline-size: 0;

@@ -139,6 +139,10 @@ textarea {
   transition: opacity var(--dur) var(--ease);
 }
 
+a.btn {
+  text-decoration: none;
+}
+
 .btn:hover {
   opacity: 0.88;
 }
