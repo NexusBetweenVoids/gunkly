@@ -27,13 +27,20 @@ export async function deviceSubscription(): Promise<string> {
   return (await api<Sub[]>('GET', '/account/push-subscriptions')).find((s) => s.endpointHash === h)?.id ?? '';
 }
 
-/** Asks for permission (the browser prompt) and registers this device. */
+/**
+ * Asks for permission (the browser prompt) and registers this device.
+ * Must be called straight from a tap: iOS only shows the prompt while the tap's
+ * user activation is alive, so the permission request comes before any await.
+ */
 export async function enablePush(): Promise<void> {
+  const permission = Notification.permission === 'default' ? await Notification.requestPermission() : Notification.permission;
+  if (permission !== 'granted') throw new DOMException('notifications not allowed', 'NotAllowedError');
   const { publicKey } = await api<{ publicKey: string }>('GET', '/push/vapid-public-key');
   const key = Uint8Array.from(atob(publicKey.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0));
   const reg = await navigator.serviceWorker.ready;
   const sub = (await reg.pushManager.getSubscription()) ?? (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key }));
-  await api('POST', '/account/push-subscriptions', sub.toJSON());
+  const { endpoint, keys } = sub.toJSON();
+  await api('POST', '/account/push-subscriptions', { endpoint, keys });
 }
 
 export async function disablePush(id: string): Promise<void> {

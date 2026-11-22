@@ -3,6 +3,7 @@ package store_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -307,4 +308,28 @@ func TestLeaveHousehold(t *testing.T) {
 	// A non-member learns nothing.
 	_, err = s.LeaveHousehold(ctx, w.c, w.h, store.LeaveOptions{})
 	is(t, err, store.ErrNotFound)
+}
+
+// Firefox and Edge endpoints are several hundred characters; none of the
+// storage limits may truncate or reject them.
+func TestPushSubscriptionLongEndpoints(t *testing.T) {
+	e := newDelEnv(t)
+	w := e.world()
+	for _, ep := range []string{
+		"https://updates.push.services.mozilla.com/wpush/v2/" + strings.Repeat("gAAAAAB-_x", 80),
+		"https://wns2-par02p.notify.windows.com/w/?token=" + strings.Repeat("BQYAAAB%2bQ", 100),
+	} {
+		p := must(e.s.CreatePushSubscription(e.ctx, w.a, store.NewPushSubscription{ID: ids.New(), Endpoint: ep, Ciphertext: "v1:k", Max: 5}))
+		if p.EndpointHash != store.EndpointHash(ep) {
+			t.Fatalf("hash mismatch for %d-char endpoint", len(ep))
+		}
+		got := must(e.s.ListPushSubscriptions(e.ctx, w.a))
+		found := false
+		for _, g := range got {
+			found = found || g.EndpointHash == store.EndpointHash(ep)
+		}
+		if !found {
+			t.Fatalf("%d-char endpoint not stored intact", len(ep))
+		}
+	}
 }
