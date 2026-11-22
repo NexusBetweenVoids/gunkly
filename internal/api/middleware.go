@@ -195,6 +195,7 @@ func logSafe(v string) string {
 	if len(v) > 200 {
 		v = v[:200]
 	}
+	v = strings.ReplaceAll(strings.ReplaceAll(v, "\n", ""), "\r", "") // explicit for scanners; QuoteToASCII escapes them anyway
 	return strconv.QuoteToASCII(v)
 }
 

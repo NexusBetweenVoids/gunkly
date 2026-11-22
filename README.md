@@ -87,7 +87,7 @@ Needs Docker with Compose. No checkout needed: make an empty folder, save this a
 ```yaml
 services:
   gunkly:
-    image: gunkly/gunkly:0.1   # pin a version; also on ghcr.io/nexusbetweenvoids/gunkly
+    image: gunkly/gunkly:0.2   # pin a version; also on ghcr.io/nexusbetweenvoids/gunkly
     restart: unless-stopped
     ports:
       - "4865:4865"
