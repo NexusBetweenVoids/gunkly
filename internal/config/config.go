@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/mail"
 	"net/netip"
 	"net/url"
 	"sort"
@@ -24,13 +25,16 @@ type Config struct {
 	DatabaseURL string
 	// SecretKeys maps key version to key bytes. CurrentKey is the version used
 	// for new ciphertexts; older versions stay readable for rotation.
-	SecretKeys       map[int][]byte
-	CurrentKey       int
-	ListenAddr       string
-	BaseURL          string // scheme://host[:port], no trailing slash; may be empty when self-hosting
-	TrustedProxies   []netip.Prefix
-	EmailEnabled     bool
-	SMTP             SMTP
+	SecretKeys     map[int][]byte
+	CurrentKey     int
+	ListenAddr     string
+	BaseURL        string // scheme://host[:port], no trailing slash; may be empty when self-hosting
+	TrustedProxies []netip.Prefix
+	EmailEnabled   bool
+	SMTP           SMTP
+	// PoWMaxNumber is the sign-up proof-of-work difficulty: the largest number
+	// a client may have to try (about 75k takes a laptop around a second).
+	PoWMaxNumber     int
 	HostedMode       bool
 	AutoMigrate      bool
 	DisableScheduler bool
@@ -80,6 +84,7 @@ func Load(lookup func(string) string) (*Config, error) {
 		AutoMigrate:      boolean("AUTO_MIGRATE", true),
 		DisableScheduler: boolean("DISABLE_SCHEDULER", false),
 		ShutdownTimeout:  30 * time.Second,
+		PoWMaxNumber:     75_000,
 	}
 
 	if !strings.HasPrefix(c.DatabaseURL, "sqlite://") && !strings.HasPrefix(c.DatabaseURL, "postgres://") && !strings.HasPrefix(c.DatabaseURL, "postgresql://") {
@@ -158,6 +163,21 @@ func Load(lookup func(string) string) (*Config, error) {
 	}
 	if c.EmailEnabled && (c.SMTP.Host == "" || c.SMTP.From == "") {
 		fail("GUNKLY_EMAIL_ENABLED requires GUNKLY_SMTP_HOST and GUNKLY_SMTP_FROM")
+	}
+	if c.EmailEnabled && c.SMTP.From != "" {
+		if _, err := mail.ParseAddress(c.SMTP.From); err != nil {
+			fail("GUNKLY_SMTP_FROM: not a valid address")
+		}
+	}
+	if c.EmailEnabled && c.BaseURL == "" {
+		fail("GUNKLY_EMAIL_ENABLED requires GUNKLY_BASE_URL (emailed links point at it)")
+	}
+	if v := get("SIGNUP_POW_MAX"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 1_000 || n > 1_000_000 {
+			fail("GUNKLY_SIGNUP_POW_MAX: must be 1000-1000000")
+		}
+		c.PoWMaxNumber = n
 	}
 
 	// Hosted mode: the public multi-tenant service. Stricter requirements.

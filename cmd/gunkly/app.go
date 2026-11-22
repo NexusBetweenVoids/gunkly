@@ -17,6 +17,7 @@ import (
 	"github.com/NexusBetweenVoids/gunkly/internal/config"
 	"github.com/NexusBetweenVoids/gunkly/internal/db"
 	"github.com/NexusBetweenVoids/gunkly/internal/limits"
+	"github.com/NexusBetweenVoids/gunkly/internal/mail"
 	"github.com/NexusBetweenVoids/gunkly/internal/store"
 )
 
@@ -74,6 +75,15 @@ func newApp(ctx context.Context, logOut io.Writer) (*app, error) {
 	a.store = store.New(a.db)
 	a.limits = limits.New(a.store)
 	return a, nil
+}
+
+// smtp returns the mail settings when email is enabled, else nil.
+func (a *app) smtp() *mail.Config {
+	if !a.cfg.EmailEnabled {
+		return nil
+	}
+	s := a.cfg.SMTP
+	return &mail.Config{Host: s.Host, Port: s.Port, Username: s.Username, Password: s.Password, From: s.From, TLS: s.TLS}
 }
 
 // withApp runs fn with an app and closes it afterwards.

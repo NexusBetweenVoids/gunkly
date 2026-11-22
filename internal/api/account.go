@@ -21,11 +21,25 @@ type meView struct {
 	WeekStart   *int   `json:"weekStart"`
 	IsAdmin     bool   `json:"isAdmin"`
 	TOTPEnabled bool   `json:"totpEnabled"`
+	// EmailVerified is false for an address not yet confirmed; EmailOTPEnabled
+	// means emailed codes are the second factor; TwoFactor names the active
+	// method ("totp", "email" or "").
+	EmailVerified   bool   `json:"emailVerified"`
+	EmailOTPEnabled bool   `json:"emailOtpEnabled"`
+	TwoFactor       string `json:"twoFactor"`
 }
 
 func viewMe(u store.User) *meView {
-	return &meView{ID: u.ID, Username: u.Username, Email: u.Email, DisplayName: u.DisplayName, Locale: u.Locale,
-		WeekStart: u.WeekStart, IsAdmin: u.IsAdmin, TOTPEnabled: u.TOTPEnabled}
+	v := &meView{ID: u.ID, Username: u.Username, Email: u.Email, DisplayName: u.DisplayName, Locale: u.Locale,
+		WeekStart: u.WeekStart, IsAdmin: u.IsAdmin, TOTPEnabled: u.TOTPEnabled,
+		EmailVerified: u.EmailVerified, EmailOTPEnabled: u.EmailOTPEnabled}
+	switch {
+	case u.TOTPEnabled:
+		v.TwoFactor = "totp"
+	case u.EmailOTPEnabled:
+		v.TwoFactor = "email"
+	}
+	return v
 }
 
 func (s *Server) getMe(w http.ResponseWriter, _ *http.Request, c *call) error {
@@ -156,6 +170,13 @@ func (s *Server) totpConfirm(w http.ResponseWriter, r *http.Request, c *call) er
 }
 
 func (s *Server) totpDisable(w http.ResponseWriter, r *http.Request, c *call) error {
+	if !c.user.TOTPEnabled {
+		return errNotFound
+	}
+	if s.hosted {
+		// 2FA is mandatory there: switch to emailed codes instead.
+		return errf(http.StatusConflict, "two_factor_mandatory")
+	}
 	if err := s.st.DisableTOTP(r.Context(), c.user.ID, c.sess.ID); err != nil {
 		return err
 	}

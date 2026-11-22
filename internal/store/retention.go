@@ -45,6 +45,7 @@ func (s *Store) PurgeExpired(ctx context.Context, p RetentionPolicy, now time.Ti
 		{"sessions", "id", "last_seen_at < ?", now.Add(-p.SessionIdle).UnixMilli(), p.SessionIdle <= 0},
 		{"sessions", "id", "created_at < ?", now.Add(-p.SessionMax).UnixMilli(), p.SessionMax <= 0},
 		{"user_tokens", "token_hash", "expires_at < ?", n, false},
+		{"pow_used", "challenge_hash", "expires_at < ?", n, false},
 		{"invites", "id", "expires_at < ? OR revoked_at IS NOT NULL", n, false},
 		{"mark_done_tokens", "token_hash", "expires_at < ?", n, false},
 		{"undo_tokens", "token_hash", "expires_at < ?", n, false},

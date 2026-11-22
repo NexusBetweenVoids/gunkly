@@ -5,6 +5,7 @@
 package api
 
 import (
+	"cmp"
 	"context"
 	"crypto/sha256"
 	"io/fs"
@@ -18,6 +19,7 @@ import (
 	"github.com/NexusBetweenVoids/gunkly/internal/auth"
 	"github.com/NexusBetweenVoids/gunkly/internal/ids"
 	"github.com/NexusBetweenVoids/gunkly/internal/limits"
+	"github.com/NexusBetweenVoids/gunkly/internal/mail"
 	"github.com/NexusBetweenVoids/gunkly/internal/metrics"
 	"github.com/NexusBetweenVoids/gunkly/internal/notify"
 	"github.com/NexusBetweenVoids/gunkly/internal/store"
@@ -44,7 +46,14 @@ type Options struct {
 	// for the scheduler so both behave alike.
 	Sender         notify.Sender
 	TrustedProxies []netip.Prefix
-	Logger         *slog.Logger
+	// SMTP enables email (verification, password reset, email codes) when set;
+	// mail is sent through the egress guard like every outbound connection.
+	// Mailer replaces the SMTP sender (tests). Both nil: email is disabled.
+	SMTP   *mail.Config
+	Mailer Mailer
+	// PoWMaxNumber is the sign-up proof-of-work difficulty; 0 means the default.
+	PoWMaxNumber int
+	Logger       *slog.Logger
 	// Ready reports whether the server can take traffic (database reachable,
 	// migrations current). Used by /readyz.
 	Ready func(context.Context) error
@@ -75,6 +84,10 @@ type Server struct {
 	now              func() time.Time
 	rl               *rateLimiter
 	acct             *acctGuard
+	mailer           Mailer
+	mailWG           sync.WaitGroup // in-flight background sends
+	counts           *windowCounter // hourly email and sign-up caps
+	pow              *auth.PoW
 
 	// Password hashing hooks; tests swap in fast fakes and counters.
 	hashPassword   func(string) string
@@ -123,6 +136,14 @@ func New(o Options) *Server {
 	s.push = notify.NewWebPush(s.st, s.keyring, subject, s.EgressGuardEnabled, s.now)
 	if s.ready == nil {
 		s.ready = func(context.Context) error { return nil }
+	}
+	s.counts = newWindowCounter(s.now, 20000)
+	s.pow = auth.NewPoW(s.keyring.DeriveKey("gunkly signup proof of work v1"), cmp.Or(o.PoWMaxNumber, auth.DefaultPoWMaxNumber))
+	switch {
+	case o.Mailer != nil:
+		s.mailer = o.Mailer
+	case o.SMTP != nil:
+		s.mailer = mail.New(*o.SMTP, s.EgressGuardEnabled)
 	}
 	s.rl = newRateLimiter(limits.Defaults[limits.LoginAttemptsPerMinute], 10000, s.now)
 	s.acct = newAcctGuard(s.now, 10000)

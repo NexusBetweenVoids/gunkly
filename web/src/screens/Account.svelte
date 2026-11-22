@@ -4,6 +4,8 @@
   import Lazy from '../components/Lazy.svelte';
   import { t } from '../lib/i18n';
   import Audit from './account/Audit.svelte';
+  import Email from './account/Email.svelte';
+  import EmailCodes from './account/EmailCodes.svelte';
   import Password from './account/Password.svelte';
   import Profile from './account/Profile.svelte';
   import Sessions from './account/Sessions.svelte';
@@ -13,8 +15,10 @@
 <h1>{t('account.title')}</h1>
 <div class="sections">
   <Profile />
+  <Email />
   <Password />
   <Totp />
+  <EmailCodes />
   <Channels base="/account/channels" title={t('channels.personalTitle')} id="me" />
   <Lazy load={() => import('./account/PushNotifications.svelte')} />
   <Deliveries path="/account/deliveries" title={t('delivery.personalTitle')} id="me" />

@@ -13,6 +13,7 @@ import (
 const (
 	settingOpenSignup         = "open_signup"
 	settingInviteRegistration = "invite_registration"
+	settingRequirePoW         = "require_pow"
 	settingMinPasswordLength  = "min_password_length"
 	settingSetupCompleted     = "setup_completed"
 	settingNotificationKinds  = "notification_kinds" // JSON array; absent = notify.DefaultKinds
@@ -28,7 +29,10 @@ const (
 // InstanceSettings are the admin-editable instance settings, with defaults
 // applied for keys never set.
 type InstanceSettings struct {
-	OpenSignup         bool           // default false (self-hosted)
+	OpenSignup         bool           // default false (self-hosted); see OpenSignupSet
+	OpenSignupSet      bool           // the admin has chosen; otherwise the mode decides (hosted: on)
+	RequirePoW         bool           // sign-up proof-of-work; see RequirePoWSet
+	RequirePoWSet      bool           // as OpenSignupSet (hosted default: on)
 	InviteRegistration bool           // default true: a valid invite lets someone register
 	MinPasswordLength  int            // 0 = auth.DefaultMinPasswordLen
 	Limits             map[string]int // instance-wide overrides of internal/limits defaults
@@ -62,6 +66,7 @@ const (
 // limit value of 0 removes the override (back to the built-in default).
 type SettingsUpdate struct {
 	OpenSignup         *bool
+	RequirePoW         *bool
 	InviteRegistration *bool
 	MinPasswordLength  *int
 	Limits             map[string]int
@@ -95,7 +100,9 @@ func (s *Store) InstanceSettings(ctx context.Context) (InstanceSettings, error) 
 			}
 			switch {
 			case k == settingOpenSignup:
-				out.OpenSignup = v == "true"
+				out.OpenSignup, out.OpenSignupSet = v == "true", true
+			case k == settingRequirePoW:
+				out.RequirePoW, out.RequirePoWSet = v == "true", true
 			case k == settingInviteRegistration:
 				out.InviteRegistration = v == "true"
 			case k == settingNotificationKinds:
@@ -170,6 +177,9 @@ func (s *Store) UpdateInstanceSettings(ctx context.Context, u SettingsUpdate) er
 		var err error
 		if u.OpenSignup != nil {
 			err = set(settingOpenSignup, strconv.FormatBool(*u.OpenSignup))
+		}
+		if err == nil && u.RequirePoW != nil {
+			err = set(settingRequirePoW, strconv.FormatBool(*u.RequirePoW))
 		}
 		if err == nil && u.InviteRegistration != nil {
 			err = set(settingInviteRegistration, strconv.FormatBool(*u.InviteRegistration))

@@ -33,7 +33,7 @@ Covers self-hosted and the hosted service. Hosting infrastructure (servers, netw
 3. Handlers to data: only through `internal/store`, which enforces household membership and role (ADR 0009).
 4. Gunkly to outbound services (Shoutrrr targets, Web Push endpoints, SMTP, update check): crosses to untrusted networks, passes the egress guard (ADR 0006).
 5. Third-party relays: Discord, Telegram, Slack, Apple, Google, Mozilla and Microsoft push services receive reminder text or push metadata outside Gunkly's control and, for hosted, outside the EU. Treated as untrusted; mark-done links are single-use and short-lived because they traverse these channels.
-6. Email: email-OTP 2FA shares a trust boundary with email-based password reset. An attacker controlling the mailbox can do both, so email-OTP defends against password reuse and credential stuffing but not mailbox takeover. TOTP is the stronger second factor.
+6. Email: email-OTP 2FA shares a trust boundary with email-based password reset and verification links. An attacker controlling the mailbox can do all of them (a reset still leaves the second factor in place, but with email-OTP the mailbox is that factor), so email-OTP defends against password reuse and credential stuffing but not mailbox takeover. TOTP is the stronger second factor. Outbound SMTP crosses boundary 4: it dials through the egress guard, so a hosted instance needs a public relay.
 7. Operator vs tenant: instance admin is trusted with the instance, not with household content in-app; DB and host access can read data, so secrets are encrypted at rest and operators are in the trust base.
 
 ## Threats and mitigations
@@ -44,7 +44,8 @@ Covers self-hosted and the hosted service. Hosting infrastructure (servers, netw
 | Password guessing, credential stuffing | Argon2id, per-IP (IPv6 by /64) and per-IP+account rate limits with exponential backoff, per-account failure backoff across IPs, fail-closed limiter table, no hard lockout, no implicit step-up at sign-in, mandatory 2FA on hosted (Authentication) |
 | Session theft / CSRF | Secure httpOnly SameSite cookies, CSRF protection, revocable sessions, 15-minute step-up for sensitive actions, strict CSP (Authentication, Web hardening) |
 | Stolen API token | Hashed at rest, revocable, household-bound, least-privilege scopes, token ID in audit log (Authentication) |
-| Email-OTP brute force/replay | Single-use, 10-minute expiry, hashed, strict attempt limits |
+| Email-OTP brute force/replay | Single-use, 10-minute expiry, hashed with the challenge ID, 5 attempts per code then invalidated, per-account failure backoff, resends capped by the email limits |
+| Account enumeration and mail bombing via reset/verify/email change | Reset request always answers 202 and sends in the background; email-change answers alike for taken addresses; per-IP, per-login and per-account hourly email caps; tokens hashed, single use, expiring (1 h reset, 24 h verification) |
 | SSRF via notification URL or push endpoint | Custom dialer with post-DNS IP check, private/loopback/link-local/CGNAT/metadata blocked, 3-redirect HTTPS-only cap, timeouts and body caps; CI tests every Shoutrrr service and Web Push against blocked ranges (Abuse resistance) |
 | Malicious self-hosted service URL / redirect | Same guard on every hop; admin-controlled service allowlist; provider-host overrides rejected |
 | Push endpoint abuse | Provider domain allowlist, expired subscription pruning |
@@ -53,7 +54,7 @@ Covers self-hosted and the hosted service. Hosting infrastructure (servers, netw
 | Calendar feed leak | Long random per-user-per-household token, names/areas/dates only, revocable and regenerable |
 | Curious admin | Admin panel exposes no household content; admin password reset is disabled on hosted, refused for admin targets, revokes sessions and is visible in the target's own audit log (on self-hosted an admin can still take over a non-admin account, which is an accepted, now non-silent, trust-in-operator trade-off, ADR 0009); secrets encrypted at rest with versioned key and `gunkly rotate-key`; logs scrubbed of secrets |
 | Authenticated abuse / data growth | Per-user and per-household write token buckets, areas-per-household cap, completion history retention, atomic households-per-user and invite-use limits |
-| Spam relay / sign-up abuse | Limits service caps, SMTP caps, email verification, ALTCHA proof-of-work, per-IP sign-up limit |
+| Spam relay / sign-up abuse | Limits service caps, SMTP caps, email verification (required to create or join households in hosted mode), ALTCHA proof-of-work (HMAC-signed, expiring, single use; checked before the password is hashed), per-IP sign-up limit |
 | XSS / injection | Strict CSP without inline scripts, server-side validation, output encoding, parameterised SQL only, link schemes limited to http/https |
 | Clickjacking / MIME sniffing | Frame protection, `X-Content-Type-Options`, HSTS |
 | Account lockout by third party | No hard lockouts; CLI recovery for admins; hosted has no manual 2FA reset (warned at setup) |

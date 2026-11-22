@@ -32,6 +32,20 @@ func (s *Server) registerRoutes() {
 	s.handle("DELETE /api/v1/sessions", session, s.revokeOtherSessions)
 	s.handle("DELETE /api/v1/sessions/{id}", session, s.revokeSession)
 
+	// What this instance offers, and open sign-up with proof of work.
+	s.handle("GET /api/v1/instance", public, s.getInstance)
+	s.handle("GET /api/v1/signup/challenge", publicRateLimited(rateSignup), s.signupChallenge)
+	s.handle("POST /api/v1/signup", publicRateLimited(rateSignup), s.signup)
+
+	// Email: verification, address change, password reset, emailed codes.
+	s.handle("POST /api/v1/account/email/verify", publicRateLimited(rateVerify), s.verifyEmail)
+	s.handle("POST /api/v1/account/email/resend", session.withRate(rateEmail), s.resendVerification)
+	s.handle("PATCH /api/v1/account/email", session.withStepUp().withRate(rateEmail), s.changeEmail)
+	s.handle("POST /api/v1/password-reset/request", publicRateLimited(rateReset), s.requestPasswordReset)
+	s.handle("POST /api/v1/password-reset/confirm", publicRateLimited(rateReset), s.confirmPasswordReset)
+	s.handle("POST /api/v1/account/email-otp", session.withStepUp().withRate(rateTwoFA), s.enableEmailOTP)
+	s.handle("DELETE /api/v1/account/email-otp", session.withStepUp(), s.disableEmailOTP)
+
 	// Own account.
 	s.handle("GET /api/v1/me", session, s.getMe)
 	s.handle("PATCH /api/v1/me", session, s.patchMe)

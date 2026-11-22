@@ -13,21 +13,31 @@
   let password = $state('');
   let code = $state('');
   let recovery = $state(false);
+  let emailAsked = $state(false); // email-code users get the code after the password is checked
   let busy = $state(false);
   let err = $state({ code: '', message: '' });
 
-  async function submit(e: SubmitEvent): Promise<void> {
-    e.preventDefault();
+  const email = $derived(app.user?.twoFactor === 'email');
+
+  async function submit(e?: SubmitEvent, resend = false): Promise<void> {
+    e?.preventDefault();
     busy = true;
     err = { code: '', message: '' };
     try {
       const body: Record<string, string> = { password };
       if (app.user?.totpEnabled) body[recovery ? 'recoveryCode' : 'totp'] = code.trim();
+      // Without a code the server emails one (and answers two_factor_required).
+      else if (email && emailAsked && !resend) body[recovery ? 'recoveryCode' : 'emailCode'] = code.trim();
       await api<void>('POST', '/session/step-up', body);
       password = code = '';
+      emailAsked = false;
       resolveStepUp(true);
     } catch (x) {
       err = failure(x);
+      if (email && err.code === 'two_factor_required') {
+        emailAsked = true;
+        err = { code: '', message: '' };
+      }
     } finally {
       busy = false;
     }
@@ -47,6 +57,15 @@
     />
     {#if app.user?.totpEnabled}
       <SecondFactor bind:code bind:recovery error={err.code === 'invalid_code' ? err.message : ''} />
+    {:else if email && emailAsked}
+      <p class="muted" role="status">{t('stepUp.emailCodeSent')}</p>
+      <SecondFactor
+        bind:code
+        bind:recovery
+        method="email"
+        onresend={() => submit(undefined, true)}
+        error={err.code === 'invalid_code' ? err.message : ''}
+      />
     {/if}
     {#if err.code !== 'invalid_credentials' && err.code !== 'invalid_code'}<Alert message={err.message} />{/if}
     <div class="row">

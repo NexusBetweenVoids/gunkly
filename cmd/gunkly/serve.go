@@ -50,6 +50,7 @@ func serve(ctx context.Context, logOut io.Writer) error {
 		Store: a.store, Limits: a.limits, Keyring: a.keyring, BaseURL: a.cfg.BaseURL,
 		TrustedProxies: a.cfg.TrustedProxies, Logger: a.log, Ready: a.ready, Static: dist, HostedMode: a.cfg.HostedMode,
 		Metrics: reg, MetricsToken: a.cfg.MetricsToken, Version: version,
+		PoWMaxNumber: a.cfg.PoWMaxNumber, SMTP: a.smtp(),
 	})
 	if err := srv.InitSetup(ctx); err != nil {
 		return err

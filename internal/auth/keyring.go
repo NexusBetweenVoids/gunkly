@@ -33,12 +33,13 @@ var (
 type Keyring struct {
 	current uint32
 	aeads   map[uint32]cipher.AEAD
+	secret  string // the current secret, for DeriveKey
 }
 
 // NewKeyring derives one AES-256 key per configured secret with HKDF-SHA256.
 // Versions must be >= 1 and secrets at least MinSecretLen bytes.
 func NewKeyring(current uint32, secrets map[uint32]string) (*Keyring, error) {
-	k := &Keyring{current: current, aeads: make(map[uint32]cipher.AEAD, len(secrets))}
+	k := &Keyring{current: current, aeads: make(map[uint32]cipher.AEAD, len(secrets)), secret: secrets[current]}
 	for v, s := range secrets {
 		if v == 0 {
 			return nil, ErrUnknownKey
@@ -62,6 +63,18 @@ func NewKeyring(current uint32, secrets map[uint32]string) (*Keyring, error) {
 		return nil, errNoCurrentVersion
 	}
 	return k, nil
+}
+
+// DeriveKey returns a 32-byte key for label from the current secret (HKDF),
+// for signing things that need no storage, such as sign-up proof-of-work
+// challenges. Rotating the secret changes it; whatever it signed then simply
+// stops verifying. Each purpose uses its own label.
+func (k *Keyring) DeriveKey(label string) []byte {
+	key, err := hkdf.Key(sha256.New, []byte(k.secret), nil, label, 32)
+	if err != nil {
+		panic(err) // only for an oversized length
+	}
+	return key
 }
 
 // Encrypt seals plaintext under the current key. ad binds the ciphertext to

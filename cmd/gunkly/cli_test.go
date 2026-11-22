@@ -188,6 +188,36 @@ func TestAdminReset2FA(t *testing.T) {
 	}
 }
 
+// reset-2fa must also clear email-code 2FA, or a user locked out of their
+// mailbox-based factor could never be recovered by the operator.
+func TestAdminReset2FAClearsEmailOTP(t *testing.T) {
+	ctx := context.Background()
+	a := testApp(t)
+	u, err := a.store.CreateUser(ctx, store.NewUser{Username: "bob", Email: "bob@example.com", DisplayName: "bob", PasswordHash: "x"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := a.store.IssueVerifyToken(ctx, u.ID, "h", "", time.Now().Add(time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := a.store.VerifyEmail(ctx, "h", false, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.store.EnableEmailOTP(ctx, u.ID, "", []string{"r1"}); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := a.store.UserByLogin(ctx, "bob"); !got.EmailOTPEnabled {
+		t.Fatal("email OTP not enabled in setup")
+	}
+	var out bytes.Buffer
+	if err := a.adminCommand(ctx, "reset-2fa", "bob", &out); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := a.store.UserByLogin(ctx, "bob"); got.EmailOTPEnabled || got.TOTPEnabled {
+		t.Fatalf("2FA not removed: %+v", got)
+	}
+}
+
 func TestRotateKey(t *testing.T) {
 	ctx := context.Background()
 	a := testApp(t)

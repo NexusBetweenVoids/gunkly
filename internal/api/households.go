@@ -61,6 +61,9 @@ func (s *Server) createHousehold(w http.ResponseWriter, r *http.Request, c *call
 		return errInvalid
 	}
 	ctx := r.Context()
+	if err := s.requireAccess(ctx, c.user); err != nil {
+		return err
+	}
 	max, err := s.limits.Limit(ctx, limits.HouseholdsPerUser, "")
 	if err != nil {
 		return err
@@ -279,6 +282,9 @@ type joinedView struct {
 
 func (s *Server) acceptInvite(w http.ResponseWriter, r *http.Request, c *call) error {
 	ctx := r.Context()
+	if err := s.requireAccess(ctx, c.user); err != nil {
+		return err
+	}
 	hash, lim, err := s.inviteTarget(ctx, r)
 	if err != nil {
 		return err
@@ -342,5 +348,6 @@ func (s *Server) registerWithInvite(w http.ResponseWriter, r *http.Request, c *c
 		return err
 	}
 	s.audit(ctx, c, u.ID, store.AuditRegisterByInvite, j.HouseholdID, nil)
+	s.verifyNewAccount(ctx, c, u)
 	return nil
 }
