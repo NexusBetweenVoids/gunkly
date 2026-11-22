@@ -210,6 +210,10 @@ curl -X POST -H "Authorization: Bearer gk_..." https://gunkly.example.com/api/v1
 
 Requests with a token need no cookies or CSRF header. See [api/openapi.yaml](api/openapi.yaml) (`bearerAuth`) and [ADR 0014](docs/adr/0014-api-tokens.md). Treat a token like a password.
 
+## Home Assistant
+
+The [Gunkly integration for Home Assistant](https://github.com/NexusBetweenVoids/gunkly-homeassistant) (installable through HACS as a custom repository) adds a to-do list per household — ticking an item completes the chore — plus overdue and due-today sensors, a calendar, actions to complete, snooze or skip chores, and an event when a chore becomes overdue. Create an API token with the `chores:read` and `chores:complete` scopes (add `chores:write` to create chores from Home Assistant).
+
 ## Use with AI assistants (MCP)
 
 Gunkly has a built-in [MCP](https://modelcontextprotocol.io) server, so an AI assistant can list, complete, snooze, skip and add chores for you. It is the Streamable HTTP endpoint `https://<host>/mcp` and uses an [access token](#integrations--api-tokens) from Account, "Integrations": give the token only the households and permissions the assistant needs.
