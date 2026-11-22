@@ -12,7 +12,7 @@
   <img alt="SQLite or PostgreSQL" src="https://img.shields.io/badge/database-SQLite%20%7C%20PostgreSQL-345461?logo=postgresql&logoColor=white">
   <a href="Dockerfile"><img alt="Distroless container" src="https://img.shields.io/badge/container-distroless%2C%20non--root-345461?logo=docker&logoColor=white"></a>
   <a href="https://github.com/NexusBetweenVoids/gunkly/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/NexusBetweenVoids/gunkly?color=345461"></a>
-  <a href="https://github.com/NexusBetweenVoids/gunkly/pkgs/container/gunkly"><img alt="Container image" src="https://img.shields.io/badge/image-ghcr.io%2Fnexusbetweenvoids%2Fgunkly-345461?logo=github"></a>
+  <a href="https://hub.docker.com/r/gunkly/gunkly"><img alt="Docker Hub" src="https://img.shields.io/docker/pulls/gunkly/gunkly?logo=docker&logoColor=white&color=345461"></a>
   <img alt="No telemetry" src="https://img.shields.io/badge/telemetry-none-7ba99d">
 </p>
 
@@ -78,7 +78,7 @@ Needs Docker with Compose. No checkout needed: make an empty folder, save this a
 ```yaml
 services:
   gunkly:
-    image: ghcr.io/nexusbetweenvoids/gunkly:0.1   # pin a version; see Releases
+    image: gunkly/gunkly:0.1   # pin a version; also on ghcr.io/nexusbetweenvoids/gunkly
     restart: unless-stopped
     ports:
       - "8080:8080"
@@ -203,7 +203,7 @@ Every user can download their own data (Account, "Export my data"; asks for the 
 
 ## Releases and verification
 
-Pushing a `vX.Y.Z` tag builds a multi-arch (linux/amd64, linux/arm64) image at `ghcr.io/nexusbetweenvoids/gunkly` (tags `X.Y.Z`, `X.Y`, `latest`), signs it with keyless cosign and attests an SPDX SBOM. The GitHub release carries the SBOM (`sbom.spdx.json`), plain static binaries and `SHA256SUMS`.
+Pushing a `vX.Y.Z` tag builds a multi-arch (linux/amd64, linux/arm64) image, published at `ghcr.io/nexusbetweenvoids/gunkly` and on Docker Hub as `gunkly/gunkly` (tags `X.Y.Z`, `X.Y`, `latest`), signs it with keyless cosign and attests an SPDX SBOM. The GitHub release carries the SBOM (`sbom.spdx.json`), plain static binaries and `SHA256SUMS`.
 
 Verify the image signature and the SBOM attestation:
 
@@ -216,6 +216,8 @@ cosign verify-attestation ghcr.io/nexusbetweenvoids/gunkly:<tag> --type spdxjson
   --certificate-identity-regexp 'https://github.com/NexusBetweenVoids/gunkly/.github/workflows/release.yml@refs/tags/v.*' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```
+
+The same commands work for `gunkly/gunkly:<tag>`. Version 0.1.0 was copied to Docker Hub after release, so its Docker Hub signature comes from `.github/workflows/dockerhub.yml` instead of `release.yml` (use that path in the identity regexp, with `@refs/heads/main`).
 
 Verify a binary: `sha256sum -c --ignore-missing SHA256SUMS`.
 
