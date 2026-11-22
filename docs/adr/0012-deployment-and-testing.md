@@ -20,7 +20,7 @@ AI agents will write most changes, so verification, architectural constraints an
 - **Budgets:** image at most 40 MB (CI, with binary size reported); at most 6 direct Go requires and 9 web devDependencies (`scripts/dep-budget.sh`).
 - **Fitness (frontend):** `scripts/fitness-web.sh` fails on network access outside `web/src/lib/api.ts`, inline `style=` attributes, and physical CSS properties (use logical ones for RTL).
 - **API compatibility:** `oasdiff breaking` on `api/openapi.yaml` between PR base and head fails on ERR-level changes (the spec only describes `/api/v1`).
-- **Release:** on a `vX.Y.Z` tag, a multi-arch image is pushed to `ghcr.io/nexusbetweenvoids/gunkly`, signed by digest with cosign keyless (GitHub OIDC), the SPDX SBOM is attested and attached to the GitHub release together with static binaries and `SHA256SUMS`. Release notes come from the matching CHANGELOG section. Staging and production promotion (above) are not yet automated.
+- **Release:** on a `vX.Y.Z` tag, a multi-arch image is pushed to `ghcr.io/nexusbetweenvoids/gunkly`, signed by digest with cosign keyless (GitHub OIDC), the SPDX SBOM is attested and attached to the GitHub release together with static binaries and `SHA256SUMS`. Release notes come from the matching CHANGELOG section. Staging (`staging.yml`) and production (`deploy.yml`) rollouts use `scripts/deploy.sh`, `scripts/canary.sh` and `deploy/staging/`; they stay inert until the maintainer configures the environments and secrets. See `docs/operations.md`.
 - **Pending:** the `/healthz` boot probe in the container job stays `continue-on-error` until the maintainer decides.
 
 ## Consequences

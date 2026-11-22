@@ -138,7 +138,7 @@ Every instance can delete accounts (Account, "Delete account") and can optionall
 
 ## Documentation
 
-`docs/PRD.md` (scope and requirements), `docs/adr/` (decisions), `docs/THREAT_MODEL.md`, `docs/legal/` (hosted-service templates), `SECURITY.md`, `CONTRIBUTING.md`, `AGENTS.md`.
+`docs/PRD.md` (scope and requirements), `docs/adr/` (decisions), `docs/THREAT_MODEL.md`, `docs/legal/` (hosted-service templates), `docs/operations.md` (staging, production rollout, rollback and restore), `SECURITY.md`, `CONTRIBUTING.md`, `AGENTS.md`.
 
 ## License
 
