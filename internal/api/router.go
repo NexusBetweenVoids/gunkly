@@ -34,6 +34,9 @@ type policy struct {
 	// double-submit, which cannot apply without a session, and get the
 	// cross-site request check only (crossSiteOK).
 	tokenAuth bool
+	// bodyLimit overrides the default request body cap (maxBodyBytes) for
+	// routes that take uploads; 0 = default.
+	bodyLimit int64
 }
 
 var (
@@ -50,6 +53,9 @@ func (p policy) withStepUp() policy { p.stepUp = true; return p }
 
 func (p policy) withRate(bucket string) policy { p.rate = bucket; return p }
 
+// withBodyLimit raises the request body cap for this route (uploads).
+func (p policy) withBodyLimit(n int64) policy { p.bodyLimit = n; return p }
+
 // withTokenAuth declares the route authenticated by a URL token (see policy).
 func (p policy) withTokenAuth() policy { p.tokenAuth = true; return p }
 
@@ -64,6 +70,7 @@ const (
 	rateMarkDone = "markdone" // unauthenticated mark-done pages
 	rateICal     = "ical"     // unauthenticated calendar feeds (apps poll)
 	rateTest     = "test"     // test notifications, per user
+	rateTransfer = "transfer" // data export and import, per IP
 
 	rateUserWrite      = "uwrite" // authenticated non-GET requests, per user
 	rateHouseholdWrite = "hwrite" // household write requests, per household
@@ -73,7 +80,7 @@ const (
 // several people may sit behind one NAT and calendar apps poll, while login
 // stays at the strict default.
 var bucketRates = map[string]int{
-	rateMarkDone: limits.MarkDonePerMinute, rateICal: limits.ICalPerMinute,
+	rateMarkDone: limits.MarkDonePerMinute, rateTransfer: limits.TransfersPerMinute, rateICal: limits.ICalPerMinute,
 	rateUserWrite: limits.UserWritesPerMinute, rateHouseholdWrite: limits.HouseholdWritesPerMinute,
 }
 
@@ -105,6 +112,9 @@ func (s *Server) handle(pattern string, p policy, h handlerFunc) {
 		panic(err)
 	}
 	s.routes = append(s.routes, route{pattern: pattern, policy: p})
+	if p.bodyLimit > 0 {
+		s.bodyLimits[pattern] = p.bodyLimit
+	}
 	s.mux.Handle(pattern, s.enforce(p, h))
 }
 

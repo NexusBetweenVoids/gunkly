@@ -15,6 +15,7 @@
   import { toast } from '../lib/toast.svelte';
   import type { Household, Member, Role } from '../lib/types';
   import { zones } from '../lib/zones';
+  import Lazy from '../components/Lazy.svelte';
   import Areas from './household/Areas.svelte';
   import Feeds from './household/Feeds.svelte';
   import Invites from './household/Invites.svelte';
@@ -198,6 +199,7 @@
       <Deliveries path="/households/{id}/deliveries" title={t('delivery.householdTitle')} id="hh" />
     {/if}
     {#if isOwner}<Invites {id} />{/if}
+    {#if hh.role !== 'guest'}<Lazy load={() => import('./household/Transfer.svelte')} props={{ id }} />{/if}
 
     <section class="card" aria-labelledby="h-leave">
       <h2 id="h-leave">{t('household.leave')}</h2>

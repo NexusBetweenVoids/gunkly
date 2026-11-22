@@ -29,6 +29,9 @@
     admin_user_create: 'audit.admin_user_create',
     admin_settings: 'audit.admin_settings',
     register_invite: 'audit.register_invite',
+    account_export: 'audit.account_export',
+    household_export: 'audit.household_export',
+    household_import: 'audit.household_import',
   };
 
   api<Ev[]>('GET', '/account/audit')

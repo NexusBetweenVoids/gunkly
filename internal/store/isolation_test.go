@@ -8,6 +8,7 @@ import (
 
 	"github.com/NexusBetweenVoids/gunkly/internal/schedule"
 	"github.com/NexusBetweenVoids/gunkly/internal/store"
+	"github.com/NexusBetweenVoids/gunkly/internal/transfer"
 )
 
 // fixture: household A (owner a, member m, guest g) with an area, a chore and
@@ -139,6 +140,16 @@ var ops = []op{
 	{name: "RevertChoreCompletion", write: true, run: func(ctx context.Context, s *store.Store, a store.Actor, hh string, f *fixture) error {
 		return ignore(s.RevertChoreCompletion(ctx, a, hh, f.choreA, f.completionA))
 	}},
+	{name: "ExportHousehold", write: true, run: func(ctx context.Context, s *store.Store, a store.Actor, hh string, f *fixture) error {
+		return ignore(s.ExportHousehold(ctx, a, hh))
+	}},
+	{name: "MergeHousehold", write: true, run: func(ctx context.Context, s *store.Store, a store.Actor, hh string, f *fixture) error {
+		return ignore(s.MergeHousehold(ctx, a, hh, &transfer.Household{
+			Areas: []transfer.Area{{Name: "Imported"}},
+			Chores: []transfer.Chore{{Name: "Imported", Kind: store.KindRecurring, Area: "Imported", Schedule: transfer.Schedule{
+				Type: store.ScheduleInterval, Interval: &transfer.Interval{Every: 1, Unit: "week"}, Anchor: store.AnchorFromCompletion, FirstDue: "2026-11-21"}}},
+		}))
+	}},
 	{name: "AddMember", write: true, owner: true, run: func(ctx context.Context, s *store.Store, a store.Actor, hh string, f *fixture) error {
 		return s.AddMember(ctx, a, hh, f.x.UserID, store.RoleOwner)
 	}},
@@ -205,7 +216,8 @@ func TestIsolationOutsider(t *testing.T) {
 			t.Run(c.who+"/"+o.name, func(t *testing.T) {
 				err := o.run(ctx, f.s, c.actor, c.hh, f)
 				if c.hh == f.hB && !o.owner && (o.name == "Household" || o.name == "Role" || o.name == "ListMembers" ||
-					o.name == "ListAreas" || o.name == "ListChores" || o.name == "CreateArea" || o.name == "CreateChore") {
+					o.name == "ListAreas" || o.name == "ListChores" || o.name == "CreateArea" || o.name == "CreateChore" ||
+					o.name == "ExportHousehold" || o.name == "MergeHousehold") {
 					// Household-level ops on b's own household legitimately succeed;
 					// they must just not expose A's data (checked below).
 					if err != nil {

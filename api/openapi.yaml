@@ -175,6 +175,65 @@ paths:
       responses:
         "200": {description: OK, content: {application/json: {schema: {type: array, items: {$ref: "#/components/schemas/AuditEvent"}}}}}
         "401": {$ref: "#/components/responses/Unauthenticated"}
+  /account/export:
+    get:
+      tags: [account]
+      summary: Export all of the user's own data as a JSON download (step-up)
+      description: |
+        Format gunkly-user-export, version 1: profile, preferences, memberships (household names and roles), the user's own
+        completions, personal notification channels (kind and label only, never URLs), sessions (device labels, no tokens),
+        own audit events. Sent as an attachment. Audited. Rate limit 6/min per IP.
+      responses:
+        "200": {description: The export file, headers: {Content-Disposition: {schema: {type: string}, description: attachment}}, content: {application/json: {schema: {$ref: "#/components/schemas/UserExport"}}}}
+        "401": {$ref: "#/components/responses/Unauthenticated"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+  /households/{hh}/export:
+    parameters: [{$ref: "#/components/parameters/hh"}]
+    get:
+      tags: [households]
+      summary: Export the household as a JSON download (member; guests are refused)
+      description: |
+        Format gunkly-household-export, version 1: settings, areas, chores (schedule, reminders, pause and archive state,
+        assignee display names and usernames as hints) and completion history. Never includes notification channels, feeds,
+        tokens, invites or member emails. Audited. Rate limit 6/min per IP.
+      responses:
+        "200": {description: The export file, headers: {Content-Disposition: {schema: {type: string}, description: attachment}}, content: {application/json: {schema: {$ref: "#/components/schemas/HouseholdExport"}}}}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+  /households/import:
+    post:
+      tags: [households]
+      summary: Create a household from an export file (the user becomes owner)
+      description: |
+        The body is a gunkly-household-export file (up to 5 MiB; every other route accepts 1 MiB). The whole file is
+        validated like the normal create paths and applied in one transaction. Rate limit 6/min per IP.
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/HouseholdExport"}}}}
+      responses:
+        "201": {description: Created, content: {application/json: {schema: {$ref: "#/components/schemas/ImportSummary"}}}}
+        "400": {$ref: "#/components/responses/ImportInvalid"}
+        "409": {$ref: "#/components/responses/ImportInvalid"}
+        "413": {description: Upload larger than 5 MiB (body_too_large)}
+        "429": {$ref: "#/components/responses/RateLimited"}
+  /households/{hh}/import:
+    parameters: [{$ref: "#/components/parameters/hh"}]
+    post:
+      tags: [households]
+      summary: Merge an export file into this household (member)
+      description: |
+        Areas with the same name (case-insensitive) are combined; chores are added as new chores; assignees are matched to
+        members by username (others become "anyone"); completers are matched by username, otherwise the completion is
+        anonymous. The household's own settings are never changed. One transaction: all or nothing. Rate limit 6/min per IP.
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/HouseholdExport"}}}}
+      responses:
+        "200": {description: Merged, content: {application/json: {schema: {$ref: "#/components/schemas/ImportSummary"}}}}
+        "400": {$ref: "#/components/responses/ImportInvalid"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409": {$ref: "#/components/responses/ImportInvalid"}
+        "413": {description: Upload larger than 5 MiB (body_too_large)}
+        "429": {$ref: "#/components/responses/RateLimited"}
   /templates:
     get:
       tags: [chores]
@@ -845,6 +904,19 @@ components:
     Unauthenticated: {description: Not signed in (unauthenticated), content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
     Forbidden: {description: Role too low, CSRF failure or step-up needed (forbidden, csrf_failed, step_up_required), content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
     NotFound: {description: Not found, or not a member of the household (not_found), content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
+    ImportInvalid:
+      description: The file was rejected (code import_invalid; limit_reached when the household is already full)
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: object
+                properties:
+                  code: {type: string, enum: [import_invalid, limit_reached]}
+                  reason: {type: string, enum: [not_json, format, version, required, invalid, too_long, limit_chores, limit_areas, limit_reminders, limit_completions]}
+                  path: {type: string, description: "Offending field, e.g. chores[3].schedule.rrule"}
     LimitReached: {description: A usage limit was reached (limit_reached), content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
     RateLimited: {description: Too many attempts (rate_limited), headers: {Retry-After: {schema: {type: integer}}}, content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
   schemas:
@@ -852,6 +924,65 @@ components:
       type: object
       properties:
         error: {type: object, properties: {code: {type: string}}}
+    ImportSummary:
+      type: object
+      properties:
+        household: {type: object, properties: {id: {type: string}, name: {type: string}}}
+        areasCreated: {type: integer}
+        areasMerged: {type: integer, description: File areas that matched an existing area by name}
+        choresCreated: {type: integer}
+        completionsImported: {type: integer}
+        unassigned: {type: integer, description: Chores whose assignees were all unknown here (now "anyone")}
+    HouseholdExport:
+      type: object
+      required: [format, version, household]
+      properties:
+        format: {type: string, enum: [gunkly-household-export]}
+        version: {type: integer, enum: [1]}
+        exportedAt: {type: string, format: date-time}
+        household:
+          type: object
+          required: [name, timezone]
+          properties:
+            name: {type: string}
+            timezone: {type: string}
+            quietHours: {type: object, nullable: true, properties: {start: {type: integer}, end: {type: integer}}}
+            defaultReminderPreset: {type: string}
+        areas: {type: array, items: {type: object, properties: {name: {type: string}}}}
+        chores:
+          type: array
+          items:
+            type: object
+            required: [name, kind, schedule]
+            properties:
+              name: {type: string}
+              notes: {type: string}
+              link: {type: string}
+              area: {type: string}
+              kind: {type: string, enum: [recurring, oneoff]}
+              schedule: {type: object}
+              dueDate: {type: string, format: date}
+              nextDue: {type: string, format: date-time, nullable: true}
+              pausedUntil: {type: string, format: date-time, nullable: true}
+              pausedIndefinitely: {type: boolean}
+              archivedAt: {type: string, format: date-time, nullable: true}
+              reminderPreset: {type: string}
+              reminders: {type: array, items: {type: object, properties: {kind: {type: string}, days: {type: integer}, minute: {type: integer}}}}
+              assignees: {type: array, items: {type: object, properties: {displayName: {type: string}, username: {type: string}}}}
+              completions: {type: array, items: {type: object, properties: {completedAt: {type: string, format: date-time}, by: {type: object, nullable: true}, note: {type: string}, source: {type: string}, reverted: {type: boolean}}}}
+    UserExport:
+      type: object
+      properties:
+        format: {type: string, enum: [gunkly-user-export]}
+        version: {type: integer, enum: [1]}
+        exportedAt: {type: string, format: date-time}
+        profile: {type: object}
+        preferences: {type: object}
+        memberships: {type: array, items: {type: object}}
+        completions: {type: array, items: {type: object}}
+        channels: {type: array, items: {type: object, properties: {kind: {type: string}, label: {type: string}}}}
+        sessions: {type: array, items: {type: object}}
+        audit: {type: array, items: {type: object}}
     Role: {type: string, enum: [owner, member, guest]}
     SetupRequest:
       allOf:

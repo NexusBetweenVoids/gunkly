@@ -53,6 +53,17 @@ func (w *statusWriter) Write(b []byte) (int, error) {
 
 func (w *statusWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }
 
+// bodyLimit is the request body cap for r: the default, or the raised cap of
+// an upload route.
+func (s *Server) bodyLimit(r *http.Request) int64 {
+	if r.Method == http.MethodPost {
+		if _, pattern := s.mux.Handler(r); s.bodyLimits[pattern] > 0 {
+			return s.bodyLimits[pattern]
+		}
+	}
+	return maxBodyBytes
+}
+
 // middleware wraps every response: security headers, client IP, body cap,
 // panic recovery and the access log.
 func (s *Server) middleware(next http.Handler) http.Handler {
@@ -71,7 +82,7 @@ func (s *Server) middleware(next http.Handler) http.Handler {
 		}
 		info := &reqInfo{ip: clientIP(r, s.proxies)}
 		r = r.WithContext(context.WithValue(r.Context(), infoKey{}, info))
-		r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
+		r.Body = http.MaxBytesReader(w, r.Body, s.bodyLimit(r))
 		sw := &statusWriter{ResponseWriter: w}
 		defer func() {
 			if v := recover(); v != nil {

@@ -15,6 +15,8 @@ import (
 type apiError struct {
 	status int
 	code   string
+	// reason and path locate a validation failure (import files); optional.
+	reason, path string
 }
 
 func (e *apiError) Error() string { return e.code }
@@ -39,6 +41,10 @@ func (s *Server) fail(w http.ResponseWriter, r *http.Request, err error) {
 	var mbe *http.MaxBytesError
 	switch {
 	case errors.As(err, &ae):
+		if ae.reason != "" {
+			writeJSON(w, ae.status, map[string]any{"error": map[string]string{"code": ae.code, "reason": ae.reason, "path": ae.path}})
+			return
+		}
 		writeError(w, ae.status, ae.code)
 	case errors.As(err, &mbe):
 		writeError(w, http.StatusRequestEntityTooLarge, "body_too_large")

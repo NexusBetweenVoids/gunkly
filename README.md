@@ -61,7 +61,25 @@ Pending database migrations are applied on start (`GUNKLY_AUTO_MIGRATE=true`, th
 | **SQLite** (default) | One household, family and friends, or a small community instance; one container and simple one-command backups |
 | **Postgres** | A larger or public instance; you already run and back up Postgres; you want the database on its own server, or more than one app container later |
 
-Switching later (`gunkly migrate-db`) is planned for a later release.
+### Switching later (SQLite to Postgres)
+
+`gunkly migrate-db` copies a SQLite instance into an empty Postgres database and verifies the copy. It needs no secret key (sealed values are copied as stored) and never writes to the SQLite file.
+
+1. Take a backup (`gunkly backup`) and stop Gunkly so nothing changes during the copy.
+2. Create an empty Postgres database and role. The target must hold no tables (an empty `schema_migrations` table is fine); the command refuses anything else.
+3. If you have just upgraded, start Gunkly once or run `gunkly migrate` so the SQLite database has no pending migrations; the command refuses a source with pending migrations.
+4. Run the copy with the Gunkly binary or image, for example `docker compose -f compose.sqlite.yml run --rm --no-deps gunkly /gunkly migrate-db ...` (the Postgres host must be reachable from there, and the SQLite file readable at the path you give):
+
+   ```sh
+   gunkly migrate-db --from sqlite:///data/gunkly.db --to 'postgres://gunkly:PASSWORD@db:5432/gunkly?sslmode=disable'
+   ```
+
+   It creates the schema at the same version, copies every table in foreign-key order from one consistent read snapshot, then compares per-table row counts and a SHA-256 over the rows (ordered by primary key, values normalised across both databases) inside the same target transaction. It commits only if everything matches; on any mismatch or error nothing is left in the target (rerun after fixing the cause) and the exit status is non-zero.
+5. Set `GUNKLY_DATABASE_URL` to the Postgres URL (compose: use `compose.postgres.yml`), keep the same `GUNKLY_SECRET_KEYS`, and start Gunkly. Keep the SQLite file until you are satisfied; it is untouched.
+
+## Export and import
+
+Every user can download their own data (Account, "Export my data"; asks for the password again) and members and owners can export a household (household settings, "Export household") as JSON. The files never contain notification URLs, tokens, calendar feed links or member email addresses. A household file can be imported as a new household or merged into one you are a member of (areas with the same name are combined, chores are added as new ones, assignees are matched to members by username). Uploads are limited to 5 MiB and an import is all-or-nothing.
 
 ## Backups
 

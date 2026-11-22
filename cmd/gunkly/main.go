@@ -21,7 +21,10 @@ Commands:
   serve                       run the server (default)
   healthcheck                 probe the local server's /healthz (exit 0 when healthy)
   migrate                     apply pending database migrations
-  backup [path|-]             write a consistent SQLite snapshot to path (default inside the
+  migrate-db --from sqlite://<file> --to postgres://<url>
+                              copy a SQLite database into an empty Postgres database and
+                              verify it (row counts, checksums); the SQLite file is not changed
+  backup [path|-]           write a consistent SQLite snapshot to path (default inside the
                               data directory) or to stdout with -
   admin reset-password <user> set a new random password (printed once), sign out everywhere
   admin reset-2fa <user>      remove the user's TOTP secret and recovery codes
@@ -48,6 +51,11 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	fs := flag.NewFlagSet(cmd, flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	fs.Usage = func() { fmt.Fprint(stderr, usage) }
+	var from, to string
+	if cmd == "migrate-db" {
+		fs.StringVar(&from, "from", "", "source database URL (sqlite:///path/to/gunkly.db)")
+		fs.StringVar(&to, "to", "", "target database URL (postgres://...), must be empty")
+	}
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -59,6 +67,12 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 		return healthcheck(ctx, os.Getenv("GUNKLY_LISTEN_ADDR"))
 	case "migrate":
 		return withApp(ctx, stderr, func(a *app) error { return a.migrate(ctx) })
+	case "migrate-db":
+		if from == "" || to == "" || len(args) > 0 {
+			fs.Usage()
+			return errors.New("usage: gunkly migrate-db --from sqlite:///data/gunkly.db --to postgres://URL")
+		}
+		return migrateDB(ctx, from, to, stdout)
 	case "backup":
 		if len(args) > 1 {
 			return errors.New("backup takes at most one argument")
