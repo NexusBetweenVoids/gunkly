@@ -164,14 +164,14 @@ func (v viewCtx) view(c store.Chore) choreView {
 // choreInput is the body of create and update: the simple and the advanced
 // editor send the same document.
 type choreInput struct {
-	Name           string     `json:"name"`
-	Notes          string     `json:"notes"`
-	Link           string     `json:"link"`
-	AreaID         *string    `json:"areaId"`
-	Kind           string     `json:"kind"` // recurring (default) | oneoff
-	Schedule       scheduleIO `json:"schedule"`
-	Assignees      []string   `json:"assignees"`
-	ReminderPreset *string    `json:"reminderPreset"`
+	Name           string           `json:"name"`
+	Notes          string           `json:"notes"`
+	Link           string           `json:"link"`
+	AreaID         optional[string] `json:"areaId"` // absent on update = keep the current area
+	Kind           string           `json:"kind"`   // recurring (default) | oneoff
+	Schedule       scheduleIO       `json:"schedule"`
+	Assignees      []string         `json:"assignees"`
+	ReminderPreset *string          `json:"reminderPreset"`
 }
 
 // validPreset reports whether name is "" (household default) or a built-in preset.
@@ -208,8 +208,11 @@ func (in choreInput) build(loc *time.Location, existing *store.Chore) (store.Cho
 	if len(in.Assignees) > 100 {
 		return out, errInvalid
 	}
-	if in.AreaID != nil {
-		out.AreaID = *in.AreaID
+	switch {
+	case in.AreaID.set && in.AreaID.Value != nil:
+		out.AreaID = *in.AreaID.Value
+	case !in.AreaID.set && existing != nil:
+		out.AreaID = existing.AreaID
 	}
 	first, err := schedule.ParseDate(in.Schedule.FirstDue)
 	if err != nil || first.Year < 1970 || first.Year > 9000 {

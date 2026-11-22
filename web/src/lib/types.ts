@@ -26,6 +26,7 @@ export type Household = {
   timezone: string;
   quietHours: { start: number; end: number } | null;
   defaultReminderPreset?: string;
+  areasEnabled: boolean;
   role: Role;
   createdAt: string;
 };

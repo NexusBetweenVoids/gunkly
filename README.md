@@ -38,8 +38,8 @@ All screenshots show synthetic demo data.
 - Recurring (every N days, weeks or months, or a calendar rule such as "every Saturday" or "every April and October") and one-off chores.
 - Next due date from completion or from the scheduled date; monthly rules on the 29th to 31st fall on the month's last day; time zone and DST aware.
 - Assignees (none, one or many); one completion by anyone completes it for everyone.
-- Snooze, skip once, pause, archive; undo right after completing, revert later from history; areas, notes, link, starter templates.
-- Home screen grouped Overdue / Today / This week / Later, with "Mine / Everyone" and area filters.
+- Snooze, skip once, pause, archive; undo right after completing, revert later from history; optional areas (off by default), notes, link, starter templates.
+- Home screen grouped Overdue / Today / This week / Later, with "Mine / Everyone" (and area filters if you turn areas on).
 
 **Reminders and notification channels**
 - Per chore: before due, on the due date, repeating while overdue (at most once per 24 h); household presets and quiet hours (deferred, not dropped); per-user mutes.
@@ -131,7 +131,7 @@ docker compose -f compose.sqlite.yml exec gunkly /gunkly backup - > backup.db
 
 The snapshot is consistent while Gunkly runs. Without the `-` argument it is written inside the data volume (`/data/backups`) instead. For Postgres use `pg_dump`. Also keep `GUNKLY_SECRET_KEYS` with the backup: without it encrypted values cannot be read.
 
-**Restore:** stop Gunkly, place the snapshot as `gunkly.db` in the data volume, delete any `gunkly.db-wal` and `gunkly.db-shm` next to it, and start Gunkly. For Postgres use `pg_restore`. More in [docs/operations.md](docs/operations.md).
+**Restore:** stop Gunkly, place the snapshot as `gunkly.db` in the data volume, delete any `gunkly.db-wal` and `gunkly.db-shm` next to it, and start Gunkly. For Postgres use `pg_restore`.
 
 ## Upgrading
 
@@ -203,7 +203,7 @@ Verify a binary: `sha256sum -c --ignore-missing SHA256SUMS`.
 
 ## Hosted service
 
-The maintainer runs a free, non-commercial hosted service. Its legal texts are templates (not legal advice, to be reviewed by the maintainer) and apply to the hosted service only; self-hosters run their own instance and are responsible for their own data: [privacy policy](docs/legal/privacy-policy.md), [terms of use](docs/legal/terms.md), [record of processing](docs/legal/processing-register.md), [breach procedure](docs/legal/breach-procedure.md) and [incident response](docs/legal/incident-response.md).
+The maintainer runs a free, non-commercial hosted instance; its operations and legal texts live outside this repository. Self-hosters run their own instance and are responsible for their own data.
 
 Every instance can delete accounts (Account, "Delete account") and can optionally remove accounts that stay inactive: an admin switches it on in the instance settings (default off; warning after 365 days, deletion after 548 days without activity, a final warning 30 days before; instance admins are never deleted).
 
@@ -212,11 +212,9 @@ Every instance can delete accounts (Account, "Delete account") and can optionall
 | | |
 |-|-|
 | [docs/getting-started.md](docs/getting-started.md) | First-run walkthrough |
-| [docs/operations.md](docs/operations.md) | Staging, production rollout, rollback and restore |
 | [docs/PRD.md](docs/PRD.md) | Scope and requirements |
 | [docs/adr/](docs/adr/) | Architecture decisions |
 | [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) | Threat model |
-| [docs/legal/](docs/legal/) | Hosted-service legal templates |
 | [api/openapi.yaml](api/openapi.yaml) | The `/api/v1` HTTP API |
 
 ## Contributing, security, license

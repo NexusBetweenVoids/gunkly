@@ -31,6 +31,7 @@
   let name = $state('');
   let timezone = $state('');
   let preset = $state('');
+  let areasEnabled = $state(false);
   let quiet = $state(false);
   let qStart = $state('22:00');
   let qEnd = $state('07:00');
@@ -59,6 +60,7 @@
       name = hh.name;
       timezone = hh.timezone;
       preset = hh.defaultReminderPreset ?? '';
+      areasEnabled = hh.areasEnabled;
       quiet = !!hh.quietHours;
       if (hh.quietHours) [qStart, qEnd] = [hm(hh.quietHours.start), hm(hh.quietHours.end)];
     } catch (x) {
@@ -82,6 +84,7 @@
         name: name.trim(),
         timezone,
         defaultReminderPreset: preset,
+        areasEnabled,
         quietHours: quiet ? { start: mins(qStart), end: mins(qEnd) } : null,
       });
       await refreshHouseholds();
@@ -174,6 +177,10 @@
             ]}
           />
           <div class="stack-sm">
+            <label class="check"><input type="checkbox" bind:checked={areasEnabled} />{t('household.areasEnabled')}</label>
+            <p class="hint">{t('household.areasEnabledHint')}</p>
+          </div>
+          <div class="stack-sm">
             <label class="check"><input type="checkbox" bind:checked={quiet} />{t('household.quiet')}</label>
             {#if quiet}
               <div class="row">
@@ -219,7 +226,7 @@
       </ul>
     </section>
 
-    {#if hh.role !== 'guest'}<Areas {id} />{/if}
+    {#if hh.role !== 'guest' && hh.areasEnabled}<Areas {id} owner={isOwner} />{/if}
     <Feeds {id} />
     {#if hh.role !== 'guest'}
       <Channels base="/households/{id}/channels" title={t('channels.householdTitle')} id="hh" />

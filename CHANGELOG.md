@@ -36,7 +36,7 @@ Draft for 0.1.0, the first public release (self-hosted and hosted).
 - Admin Updates: running version and latest release with changelog from the GitHub release API (at most every 12 h, egress-guarded, generic user agent, no instance data; can be switched off).
 - Prometheus `/metrics` behind `GUNKLY_METRICS_TOKEN` and a bearer token, no user or household labels.
 - CLI: `serve`, `healthcheck`, `migrate`, `migrate-db`, `backup`, `admin reset-password`, `admin reset-2fa`, `rotate-key`, `version`. `/healthz` and `/readyz`.
-- Staging stack, synthetic canary, `scripts/deploy.sh` with automatic image rollback, and an upgrade test (see `docs/operations.md`).
+- Synthetic canary (`scripts/canary.sh`) and an upgrade test (`scripts/upgrade-test.sh`).
 
 **Web app**
 - Svelte SPA embedded in the binary: home, calendar, chore editor, household settings, account, admin, sign-up, password reset and email verification; installable PWA; light and dark themes; English with i18n and RTL wiring; WCAG 2.2 AA checked in e2e. JS budget 94 KB gzipped.
@@ -44,7 +44,7 @@ Draft for 0.1.0, the first public release (self-hosted and hosted).
 **Project**
 - `api/openapi.yaml` documents every `/api/v1` operation and a test keeps it in step with the routes; a test keeps `.env.example` in step with the config keys.
 - CI and release automation: dual-database tests, Playwright e2e, OpenAPI breaking-change check, size and dependency budgets, fuzzing, nightly ZAP baseline, tag-driven release with multi-arch image, cosign signature, SPDX SBOM, binaries and `SHA256SUMS`.
-- Documentation: README, getting-started guide, PRD, ADRs, threat model, security policy, contributing guide, operations guide, and hosted-service legal templates in `docs/legal/` (not legal advice).
+- Documentation: README, getting-started guide, PRD, ADRs, threat model, security policy, and contributing guide.
 
 ### Security
 - Hosted mode: every household-scoped route requires a verified email and a second factor, enforced once in the router (`403 email_not_verified` / `two_factor_setup_required`); creating or joining a household needs both; 2FA cannot be turned off. Import goes through the same gate as creating a household.
@@ -60,5 +60,6 @@ Draft for 0.1.0, the first public release (self-hosted and hosted).
 
 ### Changed
 - README, quick start, upgrade and backup steps rewritten to match the code; `docs/PRD.md` names `GUNKLY_DISABLE_SCHEDULER` (there is no `--disable-scheduler` flag).
+- Areas are now an optional per-household setting, off by default (`areasEnabled` on the household; Settings, "Group chores by area"). When off, the UI hides areas and calendar feeds omit categories; areas and chore links are kept. The API stays compatible (additive field; `areaId` is kept on update when omitted).
 - Compose files recommend pinning the image version.
 - Registration answers `registration_failed` for a duplicate username or email.

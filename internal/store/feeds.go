@@ -113,18 +113,22 @@ func (s *Store) FeedByToken(ctx context.Context, token string) (FeedData, error)
 	}
 	err := s.inTx(ctx, false, func(t *tx) error {
 		var hid, tz string
-		err := t.queryRow(ctx, `SELECT f.household_id, h.name, h.timezone FROM calendar_feeds f
+		var areasOn bool
+		err := t.queryRow(ctx, `SELECT f.household_id, h.name, h.timezone, h.areas_enabled FROM calendar_feeds f
 			JOIN households h ON h.id = f.household_id
 			JOIN memberships m ON m.household_id = f.household_id AND m.user_id = f.user_id
-			WHERE f.token_hash = ? AND f.revoked_at IS NULL`, ids.Hash(token)).Scan(&hid, &out.HouseholdName, &tz)
+			WHERE f.token_hash = ? AND f.revoked_at IS NULL`, ids.Hash(token)).Scan(&hid, &out.HouseholdName, &tz, &areasOn)
 		if err != nil {
 			return notFound(err)
 		}
 		if out.Location, err = time.LoadLocation(tz); err != nil {
 			return err
 		}
-		areas := map[string]string{}
+		areas := map[string]string{} // stays empty (no CATEGORIES) when areas are off
 		if err := func() error {
+			if !areasOn {
+				return nil
+			}
 			rows, err := t.query(ctx, "SELECT id, name FROM areas WHERE household_id = ?", hid)
 			if err != nil {
 				return err

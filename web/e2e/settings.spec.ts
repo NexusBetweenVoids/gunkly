@@ -14,7 +14,7 @@ async function maybeStepUp(page: Page, password: string, done: ReturnType<Page['
 
 test('household settings: areas, calendar feed, notification channel from the service picker', async ({ world }) => {
   const u = await world.newUser();
-  const h = await world.household(u);
+  const h = await world.household(u, undefined, { areas: true });
   const { page } = await u.open();
   await page.goto(`/households/${h.id}`);
 

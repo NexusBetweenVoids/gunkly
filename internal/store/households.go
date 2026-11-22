@@ -18,6 +18,7 @@ type Household struct {
 	QuietStartMin         *int // minutes after local midnight; nil = no quiet hours
 	QuietEndMin           *int
 	DefaultReminderPreset string
+	AreasEnabled          bool
 	CreatedAt             time.Time
 	Role                  Role
 }
@@ -28,6 +29,8 @@ type NewHousehold struct {
 	Timezone string // IANA name
 	// StarterAreas are created with the household (already translated by the caller).
 	StarterAreas []string
+	// AreasEnabled turns the areas feature on for the new household.
+	AreasEnabled bool
 	// MaxHouseholds is the user's HouseholdsPerUser limit (0 = unchecked); it
 	// is enforced inside the creating transaction so concurrent requests
 	// cannot exceed it. ErrLimit when reached.
@@ -52,7 +55,7 @@ func (s *Store) CreateHousehold(ctx context.Context, a Actor, in NewHousehold) (
 		return Household{}, ErrInvalid
 	}
 	now := s.nowMS()
-	h := Household{ID: ids.New(), Name: name, Timezone: in.Timezone, CreatedAt: time.UnixMilli(now).UTC(), Role: RoleOwner}
+	h := Household{ID: ids.New(), Name: name, Timezone: in.Timezone, AreasEnabled: in.AreasEnabled, CreatedAt: time.UnixMilli(now).UTC(), Role: RoleOwner}
 	err := s.inTx(ctx, true, func(t *tx) error {
 		if in.MaxHouseholds > 0 {
 			if err := t.lockUser(ctx, a.UserID); err != nil {
@@ -66,25 +69,15 @@ func (s *Store) CreateHousehold(ctx context.Context, a Actor, in NewHousehold) (
 				return ErrLimit
 			}
 		}
-		if _, err := t.exec(ctx, "INSERT INTO households (id, name, timezone, created_at) VALUES (?, ?, ?, ?)",
-			h.ID, h.Name, h.Timezone, now); err != nil {
+		if _, err := t.exec(ctx, "INSERT INTO households (id, name, timezone, areas_enabled, created_at) VALUES (?, ?, ?, ?, ?)",
+			h.ID, h.Name, h.Timezone, in.AreasEnabled, now); err != nil {
 			return err
 		}
 		if _, err := t.exec(ctx, "INSERT INTO memberships (household_id, user_id, role, joined_at) VALUES (?, ?, ?, ?)",
 			h.ID, a.UserID, RoleOwner, now); err != nil {
 			return notFoundFK(err)
 		}
-		for _, name := range in.StarterAreas {
-			name, lower, ok := cleanName(name)
-			if !ok {
-				return ErrInvalid
-			}
-			if _, err := t.exec(ctx, "INSERT INTO areas (id, household_id, name, name_lower, created_at) VALUES (?, ?, ?, ?, ?)",
-				ids.New(), h.ID, name, lower, now); err != nil {
-				return conflict(err)
-			}
-		}
-		return nil
+		return t.insertAreas(ctx, h.ID, in.StarterAreas, now)
 	})
 	if err != nil {
 		return Household{}, err
@@ -92,13 +85,28 @@ func (s *Store) CreateHousehold(ctx context.Context, a Actor, in NewHousehold) (
 	return h, nil
 }
 
-const householdCols = `h.id, h.name, h.timezone, h.quiet_start_min, h.quiet_end_min, h.default_reminder_preset, h.created_at, m.role`
+// insertAreas creates areas with the given (translated) names.
+func (t *tx) insertAreas(ctx context.Context, householdID string, names []string, now int64) error {
+	for _, name := range names {
+		name, lower, ok := cleanName(name)
+		if !ok {
+			return ErrInvalid
+		}
+		if _, err := t.exec(ctx, "INSERT INTO areas (id, household_id, name, name_lower, created_at) VALUES (?, ?, ?, ?, ?)",
+			ids.New(), householdID, name, lower, now); err != nil {
+			return conflict(err)
+		}
+	}
+	return nil
+}
+
+const householdCols = `h.id, h.name, h.timezone, h.quiet_start_min, h.quiet_end_min, h.default_reminder_preset, h.areas_enabled, h.created_at, m.role`
 
 func scanHousehold(row interface{ Scan(...any) error }) (Household, error) {
 	var h Household
 	var qs, qe sql.NullInt64
 	var created int64
-	if err := row.Scan(&h.ID, &h.Name, &h.Timezone, &qs, &qe, &h.DefaultReminderPreset, &created, &h.Role); err != nil {
+	if err := row.Scan(&h.ID, &h.Name, &h.Timezone, &qs, &qe, &h.DefaultReminderPreset, &h.AreasEnabled, &created, &h.Role); err != nil {
 		return Household{}, notFound(err)
 	}
 	h.QuietStartMin, h.QuietEndMin = intPtr(qs), intPtr(qe)

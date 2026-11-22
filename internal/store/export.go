@@ -30,8 +30,8 @@ func (s *Store) ExportHousehold(ctx context.Context, a Actor, householdID string
 		}
 		var qs, qe sql.NullInt64
 		h := &out.Household
-		if err := t.queryRow(ctx, "SELECT name, timezone, quiet_start_min, quiet_end_min, default_reminder_preset FROM households WHERE id = ?",
-			householdID).Scan(&h.Name, &h.Timezone, &qs, &qe, &h.DefaultReminderPreset); err != nil {
+		if err := t.queryRow(ctx, "SELECT name, timezone, quiet_start_min, quiet_end_min, default_reminder_preset, areas_enabled FROM households WHERE id = ?",
+			householdID).Scan(&h.Name, &h.Timezone, &qs, &qe, &h.DefaultReminderPreset, &h.AreasEnabled); err != nil {
 			return notFound(err)
 		}
 		if qs.Valid && qe.Valid {

@@ -452,7 +452,12 @@ func TestImportAttribution(t *testing.T) {
 // A file may not carry more than ImportMaxCompletions history entries in all.
 func TestImportTotalCompletionsCap(t *testing.T) {
 	f, doc := transferFixture(t)
-	chore := doc.(map[string]any)["chores"].([]any)[0].(map[string]any)
+	var chore map[string]any
+	for _, c := range doc.(map[string]any)["chores"].([]any) { // same-millisecond chores export in ID order
+		if c.(map[string]any)["name"] == "Wipe counters" {
+			chore = c.(map[string]any)
+		}
+	}
 	comp := chore["completions"].([]any)[0]
 	comps := make([]any, 1000)
 	for i := range comps {

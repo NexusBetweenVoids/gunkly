@@ -15,7 +15,6 @@
   let timezone = $state(localZone);
   let busy = $state(false);
   let err = $state({ code: '', message: '' });
-  let starter = $state(true);
   let tzErr = $state('');
 
   async function submit(e: SubmitEvent): Promise<void> {
@@ -25,7 +24,7 @@
     if (tzErr) return;
     busy = true;
     try {
-      const h = await api<Household>('POST', '/households', { name: name.trim(), timezone, starterAreas: starter });
+      const h = await api<Household>('POST', '/households', { name: name.trim(), timezone });
       await refreshHouseholds(h.id);
       selectHousehold(h.id);
       navigate(`/households/${h.id}`);
@@ -42,8 +41,6 @@
   <form class="stack" onsubmit={submit}>
     <Field label={t('household.name')} bind:value={name} required maxlength={100} />
     <TimeZone bind:value={timezone} error={tzErr} />
-    <label class="check"><input type="checkbox" bind:checked={starter} />{t('household.starterAreas')}</label>
-    <p class="hint">{t('household.starterAreasHint')}</p>
     <Alert message={err.message} />
     <Button type="submit" {busy}>{t('household.create')}</Button>
   </form>

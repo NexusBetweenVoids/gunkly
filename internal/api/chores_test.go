@@ -90,7 +90,7 @@ func TestStarterAreas(t *testing.T) {
 	if len(list(t, v)) != 0 {
 		t.Fatalf("areas without the flag: %v", v)
 	}
-	st, v = c.do("POST", "/api/v1/households", map[string]any{"name": "Starter", "timezone": "UTC", "starterAreas": true})
+	st, v = c.do("POST", "/api/v1/households", map[string]any{"name": "Starter", "timezone": "UTC", "areasEnabled": true, "starterAreas": true})
 	expect(t, st, v, 201, "")
 	_, v = c.do("GET", "/api/v1/households/"+str(v, "id")+"/areas", nil)
 	var names []string

@@ -10,7 +10,7 @@
   import { toast } from '../../lib/toast.svelte';
   import type { Area } from '../../lib/types';
 
-  let { id }: { id: string } = $props();
+  let { id, owner }: { id: string; owner: boolean } = $props();
   const base = $derived(`/households/${id}/areas`);
   let areas = $state<Area[]>([]);
   let err = $state('');
@@ -58,6 +58,7 @@
     </ul>
   {:else}
     <p class="muted">{t('areas.none')}</p>
+    {#if owner}<div><Button variant="quiet" onclick={() => run(() => api('PATCH', `/households/${id}`, { starterAreas: true }))}>{t('areas.addStarter')}</Button></div>{/if}
   {/if}
   <form class="row mt-md" onsubmit={(e) => { e.preventDefault(); void run(() => api('POST', base, { name: name.trim() }).then(() => (name = ''))); }}>
     <Field label={t('areas.new')} bind:value={name} required maxlength={100} />

@@ -12,7 +12,7 @@
   import { nameOf } from '../lib/names';
   import { navigate } from '../lib/router.svelte';
   import { fromRRule, newRule, toRRule } from '../lib/rrule';
-  import { app } from '../lib/session.svelte';
+  import { app, currentHousehold } from '../lib/session.svelte';
   import { toast } from '../lib/toast.svelte';
   import type { Area, Chore, Member, Reminder, Template } from '../lib/types';
 
@@ -31,6 +31,8 @@
   const hh = app.hhId;
   const base = `/households/${hh}`;
 
+  // With areas off the editor has no area field and never sends areaId, so a chore keeps its area.
+  const areasOn = !!currentHousehold()?.areasEnabled;
   let areas = $state<Area[]>([]);
   let members = $state<Member[]>([]);
   let templates = $state<Template[]>([]);
@@ -94,7 +96,7 @@
   async function load(): Promise<void> {
     try {
       const [a, m, tp, c] = await Promise.all([
-        api<Area[]>('GET', `${base}/areas`),
+        areasOn ? api<Area[]>('GET', `${base}/areas`) : Promise.resolve([] as Area[]),
         api<Member[]>('GET', `${base}/members`),
         id ? Promise.resolve([] as Template[]) : api<Template[]>('GET', '/templates'),
         id ? api<Chore>('GET', `${base}/chores/${id}`) : Promise.resolve(null),
@@ -117,9 +119,11 @@
     const tp = templates.find((x) => x.key === key);
     if (!tp) return;
     name = nameOf('template', tp.key);
-    const an = nameOf('area', tp.area);
-    const hit = areas.find((a) => a.name.toLowerCase() === an.toLowerCase());
-    [areaId, newArea] = hit ? [hit.id, ''] : ['__new', an];
+    if (areasOn) {
+      const an = nameOf('area', tp.area);
+      const hit = areas.find((a) => a.name.toLowerCase() === an.toLowerCase());
+      [areaId, newArea] = hit ? [hit.id, ''] : ['__new', an];
+    }
     const p = Object.keys(PRESETS).find((k) => PRESETS[k][0] === tp.interval.every && PRESETS[k][1] === tp.interval.unit);
     if (p) setRepeat(p);
     else {
@@ -140,12 +144,12 @@
     busy = true;
     try {
       let area: string | null = areaId || null;
-      if (areaId === '__new') area = newArea.trim() ? (await api<Area>('POST', `${base}/areas`, { name: newArea.trim() })).id : null;
+      if (areasOn && areaId === '__new') area = newArea.trim() ? (await api<Area>('POST', `${base}/areas`, { name: newArea.trim() })).id : null;
       const recurring = repeat !== 'none';
       const [every, u] = PRESETS[repeat] ?? [n, unit];
       const custom = reminder === 'custom';
       const body = {
-        name: name.trim(), notes, link: link.trim(), areaId: area, assignees,
+        name: name.trim(), notes, link: link.trim(), ...(areasOn ? { areaId: area } : {}), assignees,
         kind: recurring ? 'recurring' : 'oneoff',
         schedule: repeat === 'rule'
           ? { type: 'rrule', rrule: toRRule(rule), anchor, firstDue }
@@ -184,6 +188,7 @@
         />
       {/if}
       <Field label={t('chore.name')} bind:value={name} required maxlength={200} />
+      {#if areasOn}
       <Select
         label={t('chore.area')}
         bind:value={areaId}
@@ -194,6 +199,7 @@
         ]}
       />
       {#if areaId === '__new'}<Field label={t('chore.newAreaName')} bind:value={newArea} maxlength={100} />{/if}
+      {/if}
 
       <fieldset class="stack-sm">
         <legend class="label">{t('chore.assignees')}</legend>

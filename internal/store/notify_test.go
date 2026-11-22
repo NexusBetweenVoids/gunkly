@@ -99,6 +99,11 @@ func TestFeeds(t *testing.T) {
 	noErr(t, s.ArchiveChore(ctx, a, hid, archived.ID))
 
 	f, tok := must2(s.CreateFeed(ctx, g, hid, 2)) // guests may have feeds
+	if d := must(s.FeedByToken(ctx, tok)); d.Chores[0].AreaName != "" {
+		t.Fatalf("area name with areas off: %+v", d.Chores[0])
+	}
+	on := true
+	must(s.UpdateHousehold(ctx, a, hid, store.HouseholdUpdate{AreasEnabled: &on}))
 	data := must(s.FeedByToken(ctx, tok))
 	if data.HouseholdName != "Home" || len(data.Chores) != 1 || data.Chores[0].AreaName != "Garden" ||
 		data.Chores[0].Notes != "" || data.Chores[0].Link != "" || data.Location.String() != "Europe/Amsterdam" {

@@ -104,7 +104,8 @@ export type World = {
   newUser: (opts?: { admin?: boolean }) => Promise<User>;
   /** A fresh client with no session, with its own IP, tracked for CSP violations. */
   newContext: (opts?: Parameters<Browser['newContext']>[0]) => Promise<BrowserContext>;
-  household: (u: User, name?: string) => Promise<Household>;
+  /** A household; areas are off unless `areas` is set (then with the starter areas). */
+  household: (u: User, name?: string, opts?: { areas?: boolean }) => Promise<Household>;
   chore: (u: User, h: Household, over?: Record<string, unknown>) => Promise<Chore>;
 };
 
@@ -182,8 +183,8 @@ export const test = base.extend<{ world: World; csp: string[] }>({
           },
         };
       },
-      household: (u, name = uniq('Home ')) =>
-        u.api.post<Household>('/households', { name, timezone: ZONE, starterAreas: true }),
+      household: (u, name = uniq('Home '), opts = {}) =>
+        u.api.post<Household>('/households', { name, timezone: ZONE, ...(opts.areas ? { areasEnabled: true, starterAreas: true } : {}) }),
       chore: (u, h, over = {}) =>
         u.api.post<Chore>(`/households/${h.id}/chores`, {
           name: uniq('Chore '),

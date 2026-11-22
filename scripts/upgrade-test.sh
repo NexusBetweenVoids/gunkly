@@ -22,7 +22,7 @@ key="1:$(openssl rand -base64 32)"
 SEED_PASSWORD="upgrade-$(openssl rand -hex 12)"
 CANARY_LOGIN=canary-bot
 CANARY_PASSWORD="canary-$(openssl rand -hex 12)"
-export SEED_PASSWORD CANARY_LOGIN CANARY_PASSWORD
+export CANARY_LOGIN CANARY_PASSWORD
 tmp=$(mktemp -d)
 chmod 700 "$tmp"
 
@@ -52,6 +52,41 @@ start() { # start IMAGE
   fail "$1 did not become ready"
 }
 
+# call USER METHOD PATH [JSON]: JSON request with a per-user cookie jar; prints the body, fails on non-2xx.
+call() {
+  local jar="$tmp/jar-$1" csrf
+  csrf=$(awk '$6 == "gunkly_csrf" { print $7 }' "$jar" 2>/dev/null | tail -n 1 || true)
+  local args=(-sSf --max-time 20 -b "$jar" -c "$jar" -X "$2" -H "X-CSRF-Token: $csrf" -H 'Accept: application/json')
+  if [ -n "${4:-}" ]; then
+    printf '%s' "$4" | curl "${args[@]}" -H 'Content-Type: application/json' --data-binary @- "$base$3"
+  else
+    curl "${args[@]}" "$base$3"
+  fi
+}
+
+# seed SETUP_CODE: first-run admin, the canary account, and a demo user with a household and chores.
+seed() {
+  local hh u
+  call setup GET /api/v1/session >/dev/null
+  call setup POST /api/v1/setup "$(jq -n --arg p "$SEED_PASSWORD" --arg c "$1" \
+    '{username: "upgrade-admin", displayName: "Upgrade Admin (fake)", password: $p, code: $c}')" >/dev/null
+  call admin GET /api/v1/session >/dev/null
+  call admin POST /api/v1/session "$(jq -n --arg p "$SEED_PASSWORD" '{login: "upgrade-admin", password: $p}')" >/dev/null
+  call admin POST /api/v1/session/step-up "$(jq -n --arg p "$SEED_PASSWORD" '{password: $p}')" >/dev/null
+  call admin POST /api/v1/admin/users "$(jq -n --arg u "$CANARY_LOGIN" --arg p "$CANARY_PASSWORD" \
+    '{username: $u, displayName: "Canary (fake)", password: $p}')" >/dev/null
+  call admin POST /api/v1/admin/users "$(jq -n --arg p "$SEED_PASSWORD" \
+    '{username: "alice-demo", displayName: "Alice (fake)", password: $p}')" >/dev/null
+  call alice GET /api/v1/session >/dev/null
+  call alice POST /api/v1/session "$(jq -n --arg p "$SEED_PASSWORD" '{login: "alice-demo", password: $p}')" >/dev/null
+  hh=$(call alice POST /api/v1/households '{"name": "Demo household (fake)", "timezone": "UTC", "starterAreas": true}' | jq -r .id)
+  for u in "Wipe the fake kitchen counters:1:week" "Water the pretend ferns:3:day" "Descale the imaginary kettle:1:month"; do
+    call alice POST "/api/v1/households/$hh/chores" "$(jq -n --arg n "${u%%:*}" --arg d "$(date -u +%F)" \
+      --argjson e "$(cut -d: -f2 <<<"$u")" --arg t "${u##*:}" \
+      '{name: $n, schedule: {type: "interval", interval: {every: $e, unit: $t}, firstDue: $d}}')" >/dev/null
+  done
+}
+
 # chore_names: sorted chore names of the seeded demo user, via the public API.
 chore_names() {
   local jar="$tmp/jar-names" csrf hh
@@ -73,7 +108,7 @@ start "$prev_image"
 log "seeding $prev_image through the API"
 code=$(docker logs "$name" 2>&1 | grep -o 'setup_code[^,} ]*' | tail -n 1 | sed -E 's/^setup_code"?[=:] *"?//; s/"$//' || true)
 [ -n "$code" ] || fail "no setup code in the log"
-SETUP_CODE="$code" SEED_DISABLE_EGRESS_GUARD=false SEED_WEBHOOK_URL="" "$here/seed-staging.sh" "$base"
+seed "$code"
 chore_names >"$tmp/before"
 [ -s "$tmp/before" ] || fail "no seeded chores found before the upgrade"
 

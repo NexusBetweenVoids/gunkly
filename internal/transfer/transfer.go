@@ -37,6 +37,9 @@ type Settings struct {
 	Timezone              string `json:"timezone"`
 	QuietHours            *Quiet `json:"quietHours"`
 	DefaultReminderPreset string `json:"defaultReminderPreset"`
+	// AreasEnabled: the areas feature is on. A new household made from a file
+	// turns it on too when the file has areas.
+	AreasEnabled bool `json:"areasEnabled"`
 }
 
 // Quiet is a quiet-hours window in minutes after local midnight.

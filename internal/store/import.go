@@ -58,8 +58,8 @@ func (s *Store) ImportNewHousehold(ctx context.Context, a Actor, f *transfer.Hou
 		if h.QuietHours != nil {
 			qs, qe = h.QuietHours.Start, h.QuietHours.End
 		}
-		if _, err := t.exec(ctx, `INSERT INTO households (id, name, timezone, quiet_start_min, quiet_end_min, default_reminder_preset, created_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?)`, hhID, h.Name, h.Timezone, qs, qe, h.DefaultReminderPreset, now); err != nil {
+		if _, err := t.exec(ctx, `INSERT INTO households (id, name, timezone, quiet_start_min, quiet_end_min, default_reminder_preset, areas_enabled, created_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, hhID, h.Name, h.Timezone, qs, qe, h.DefaultReminderPreset, h.AreasEnabled || len(f.Areas) > 0, now); err != nil {
 			return err
 		}
 		if _, err := t.exec(ctx, "INSERT INTO memberships (household_id, user_id, role, joined_at) VALUES (?, ?, ?, ?)",
@@ -78,7 +78,8 @@ func (s *Store) ImportNewHousehold(ctx context.Context, a Actor, f *transfer.Hou
 }
 
 // MergeHousehold merges a validated file into an existing household. Member
-// or owner. Household settings in the file are ignored. One transaction; on
+// or owner. Household settings in the file are ignored (areas are added to the data, but the
+// areas-enabled setting stays as it is). One transaction; on
 // Postgres the household row is locked first, so concurrent imports cannot
 // each pass the chore-limit check and together exceed it. Completions are
 // attributed to members named in the file only when the importer is an owner

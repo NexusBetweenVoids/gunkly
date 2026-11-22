@@ -33,13 +33,13 @@ Optional: turn on authenticator-app two-factor under Account.
 
 ## 3. Create a household
 
-Choose "New household" in the header (or the menu on a phone), give it a name and a time zone (it defaults to your browser's) and keep "starter areas" if you want Kitchen, Bathroom and similar areas to begin with. Reminder times use the household time zone.
+Choose "New household" in the header (or the menu on a phone), give it a name and a time zone (it defaults to your browser's). Areas are off by default; to group chores by area, turn on "Group chores by area" in the household's Settings, where you can also add starter areas such as Kitchen and Bathroom. Reminder times use the household time zone.
 
 To share it, open the household's Settings and create an invite link (choose a role: member, or guest for view-only). Send the link; the other person signs up or signs in and accepts it. Open sign-up is off by default on a self-hosted instance, so create their account under Admin, Users first, or turn sign-up on in the admin settings.
 
 ## 4. Add chores
 
-Use "Add" and either start from a template or fill in the form: name, area, assignees, first due date, how it repeats (every N days, weeks or months, or a calendar rule such as "every April and October") and a reminder preset. "More options" holds notes, a link and the advanced settings. Completing a chore from Home schedules the next due date; Undo is shown right after.
+Use "Add" and either start from a template or fill in the form: name, assignees, first due date (and an area, if your household uses areas), how it repeats (every N days, weeks or months, or a calendar rule such as "every April and October") and a reminder preset. "More options" holds notes, a link and the advanced settings. Completing a chore from Home schedules the next due date; Undo is shown right after.
 
 ## 5. Connect a notification channel
 
@@ -58,9 +58,9 @@ Open Gunkly over HTTPS in a supported browser and use its "Install" or "Add to H
 
 ## 7. Subscribe to the calendar feed
 
-Open the household's Settings, "Calendar feeds", "Create feed" and copy the address (also reachable from "Subscribe from your own calendar app" on the Calendar screen). Add it as a subscription calendar in Google Calendar, Apple Calendar or Outlook. The feed is read-only and lists chore names, areas and dates only. "New address" replaces the link and "Revoke" turns it off.
+Open the household's Settings, "Calendar feeds", "Create feed" and copy the address (also reachable from "Subscribe from your own calendar app" on the Calendar screen). Add it as a subscription calendar in Google Calendar, Apple Calendar or Outlook. The feed is read-only and lists chore names, dates and, if areas are on, areas only. "New address" replaces the link and "Revoke" turns it off.
 
 ## Next steps
 
 - Back up: `docker compose -f compose.sqlite.yml exec gunkly /gunkly backup - > backup.db` (see [Backups](../README.md#backups)).
-- Monitoring and upgrades: [README](../README.md); rollout and restore: [operations.md](operations.md).
+- Monitoring and upgrades: [README](../README.md).

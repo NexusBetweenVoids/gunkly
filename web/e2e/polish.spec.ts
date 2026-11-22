@@ -58,7 +58,7 @@ test('header menu mirrors in RTL', async ({ world }, info) => {
 
 test('home search filters by name, area and assignee; lives in the URL only', async ({ world }) => {
   const u = await world.newUser();
-  const h = await world.household(u);
+  const h = await world.household(u, undefined, { areas: true });
   const areas = await u.api.get<{ id: string; name: string }[]>(`/households/${h.id}/areas`);
   const members = await u.api.get<{ userId: string }[]>(`/households/${h.id}/members`);
   const garden = areas.find((a) => a.name === 'Garden')!;

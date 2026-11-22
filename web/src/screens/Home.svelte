@@ -38,6 +38,7 @@
   const hh = $derived(app.hhId);
   const canEdit = $derived(currentHousehold()?.role !== 'guest');
   const base = $derived(`/households/${hh}`);
+  const areasOn = $derived(!!currentHousehold()?.areasEnabled);
 
   async function load(): Promise<void> {
     err = '';
@@ -45,7 +46,7 @@
       const q = (archived ? '?archived=1' : '') + (mine ? `${archived ? '&' : '?'}mine=1` : '');
       [chores, areas, members] = await Promise.all([
         api<Chore[]>('GET', `${base}/chores${q}`),
-        api<Area[]>('GET', `${base}/areas`),
+        areasOn ? api<Area[]>('GET', `${base}/areas`) : Promise.resolve([] as Area[]),
         api<Member[]>('GET', `${base}/members`),
       ]);
     } catch (x) {
@@ -54,15 +55,15 @@
     loaded = true;
   }
   $effect(() => {
-    void [hh, mine, archived];
+    void [hh, mine, archived, areasOn];
     if (hh) void load();
   });
 
-  const areaName = (id: string | null) => areas.find((a) => a.id === id)?.name ?? '';
+  const areaName = (id: string | null) => !areasOn ? '' : areas.find((a) => a.id === id)?.name ?? '';
   const who = (c: Chore) => c.assignees.map((id) => members.find((m) => m.userId === id)?.displayName ?? '').filter(Boolean);
   const needle = $derived(q.trim().toLocaleLowerCase());
   const matches = (c: Chore) => !needle || [c.name, areaName(c.areaId), ...who(c)].some((s) => s.toLocaleLowerCase().includes(needle));
-  const visible = $derived(chores.filter((c) => (!area || c.areaId === area) && matches(c)));
+  const visible = $derived(chores.filter((c) => (!areasOn || !area || c.areaId === area) && matches(c)));
   const rest = $derived(visible.filter((c) => !groups.some((g) => g.id === c.status)));
   const swap = (c: Chore) => (chores = chores.map((x) => (x.id === c.id ? c : x)));
 
@@ -113,7 +114,7 @@
     </div>
     <label class="check"><input type="checkbox" bind:checked={archived} />{t('home.archived')}</label>
   </div>
-  {#if areas.length}
+  {#if areasOn && areas.length}
     <div role="group" aria-label={t('home.areas')} class="row chips">
       <button type="button" class="btn btn-quiet chip" aria-pressed={!area} onclick={() => (area = '')}>{t('home.allAreas')}</button>
       {#each areas as a (a.id)}

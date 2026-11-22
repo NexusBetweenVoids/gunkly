@@ -370,7 +370,7 @@ paths:
       description: |
         Areas with the same name (case-insensitive) are combined; chores are added as new chores; assignees are matched to
         members by username (others become "anyone"); completers are matched by username, otherwise the completion is
-        anonymous. The household's own settings are never changed. One transaction: all or nothing. Rate limit 6/min per IP.
+        anonymous. The household's own settings are never changed (areas in the file are added even when the household has areas turned off). One transaction: all or nothing. Rate limit 6/min per IP.
       requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/HouseholdExport"}}}}
       responses:
         "200": {description: Merged, content: {application/json: {schema: {$ref: "#/components/schemas/ImportSummary"}}}}
@@ -408,7 +408,8 @@ paths:
               properties:
                 name: {type: string, maxLength: 100}
                 timezone: {type: string, description: IANA zone}
-                starterAreas: {type: boolean, description: "Also create Kitchen, Bathroom, Garden, Exterior, Appliances and General, named in the user's language"}
+                areasEnabled: {type: boolean, default: false, description: Turn the areas feature on for the new household}
+                starterAreas: {type: boolean, description: "Also create Kitchen, Bathroom, Garden, Exterior, Appliances and General, named in the user's language; ignored unless areasEnabled is true"}
       responses:
         "201": {description: Created, content: {application/json: {schema: {$ref: "#/components/schemas/Household"}}}}
         "400": {$ref: "#/components/responses/Invalid"}
@@ -435,6 +436,8 @@ paths:
                 timezone: {type: string}
                 quietHours: {type: object, nullable: true, properties: {start: {type: integer}, end: {type: integer}}}
                 defaultReminderPreset: {type: string, enum: ["", gentle, nag, none]}
+                areasEnabled: {type: boolean, description: Group chores by area (owner only; areas and links are kept when turned off)}
+                starterAreas: {type: boolean, description: Create the starter areas if the household has none}
       responses:
         "200": {description: OK, content: {application/json: {schema: {$ref: "#/components/schemas/Household"}}}}
         "400": {$ref: "#/components/responses/Invalid"}
@@ -1160,6 +1163,7 @@ components:
             timezone: {type: string}
             quietHours: {type: object, nullable: true, properties: {start: {type: integer}, end: {type: integer}}}
             defaultReminderPreset: {type: string}
+            areasEnabled: {type: boolean, description: A new household made from a file with areas turns the feature on}
         areas: {type: array, items: {type: object, properties: {name: {type: string}}}}
         chores:
           type: array
@@ -1273,6 +1277,7 @@ components:
         timezone: {type: string}
         quietHours: {type: object, nullable: true, properties: {start: {type: integer}, end: {type: integer}}}
         defaultReminderPreset: {type: string}
+        areasEnabled: {type: boolean, description: "Chores are grouped by area (default false). When false the UI hides areas and calendar feeds omit CATEGORIES; the areas API keeps working."}
         role: {$ref: "#/components/schemas/Role"}
         createdAt: {type: string, format: date-time}
     Member:
@@ -1474,7 +1479,7 @@ components:
         name: {type: string, minLength: 1, maxLength: 200}
         notes: {type: string, maxLength: 10000}
         link: {type: string, description: http or https URL}
-        areaId: {type: string, nullable: true}
+        areaId: {type: string, nullable: true, description: On update, omitted keeps the current area and null clears it}
         kind: {type: string, enum: [recurring, oneoff], default: recurring}
         schedule: {$ref: "#/components/schemas/Schedule"}
         assignees: {type: array, items: {type: string}, description: Non-guest member user IDs; empty = anyone}

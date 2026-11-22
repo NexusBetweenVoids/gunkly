@@ -1,18 +1,64 @@
 import { expect, test, uniq, ymd } from './helpers';
 
-test('create a household with starter areas, then chores from a template and a custom one', async ({ world }) => {
+test('areas are off for a new household and can be switched on and off without losing data', async ({ world }) => {
   const u = await world.newUser();
   const { page } = await u.open();
   await page.goto('/households/new');
-
+  await expect(page.getByLabel(/starter areas/i)).toHaveCount(0);
   const name = uniq('Flat ');
   await page.getByLabel('Household name').fill(name);
   await page.getByRole('button', { name: 'Create household' }).click();
   await expect(page.getByRole('heading', { level: 1, name })).toBeVisible();
   const areas = page.getByRole('region', { name: 'Areas' });
-  for (const a of ['Kitchen', 'Bathroom', 'Garden', 'Exterior', 'Appliances', 'General']) {
-    await expect(areas.getByText(a, { exact: true })).toBeVisible();
-  }
+  await expect(areas).toHaveCount(0);
+
+  // Off: no area field in the editor, no chips on Home.
+  await page.goto('/chores/new');
+  await expect(page.getByLabel('Name')).toBeVisible();
+  await expect(page.getByLabel('Area', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('group', { name: 'Filter by area' })).toHaveCount(0);
+
+  // On: the section appears with an "Add starter areas" button; chips and the editor field follow.
+  await page.goto('/');
+  const hh = (await u.api.get<{ id: string; name: string }[]>('/households')).find((x) => x.name === name)!;
+  await page.goto(`/households/${hh.id}`);
+  await page.getByLabel('Group chores by area').check();
+  await page.getByRole('button', { name: 'Save' }).first().click();
+  await expect(areas).toBeVisible();
+  await expect(areas.getByText('No areas yet.')).toBeVisible();
+  await areas.getByRole('button', { name: 'Add starter areas' }).click();
+  await expect(areas.getByText('Kitchen', { exact: true })).toBeVisible();
+  const kitchen = (await u.api.get<{ id: string; name: string }[]>(`/households/${hh.id}/areas`)).find((a) => a.name === 'Kitchen')!;
+  const chore = await world.chore(u, hh, { name: uniq('Pans '), areaId: kitchen.id });
+  await page.goto('/');
+  await expect(page.getByRole('group', { name: 'Filter by area' })).toBeVisible();
+  await expect(page.getByRole('link', { name: new RegExp(`${chore.name}.*Kitchen`) })).toBeVisible();
+  await page.goto(`/chores/${chore.id}/edit`);
+  await expect(page.getByLabel('Area', { exact: true })).toBeVisible();
+
+  // Off again: hidden everywhere, and editing a chore keeps its area.
+  await page.goto(`/households/${hh.id}`);
+  await page.getByLabel('Group chores by area').uncheck();
+  await page.getByRole('button', { name: 'Save' }).first().click();
+  await expect(areas).toHaveCount(0);
+  await page.goto('/');
+  await expect(page.getByRole('link', { name: new RegExp(chore.name) })).toBeVisible();
+  await expect(page.getByRole('group', { name: 'Filter by area' })).toHaveCount(0);
+  await expect(page.getByText('Kitchen')).toHaveCount(0);
+  await page.goto(`/chores/${chore.id}/edit`);
+  await expect(page.getByLabel('Area', { exact: true })).toHaveCount(0);
+  await page.getByLabel('Name').fill(`${chore.name}2`);
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: `${chore.name}2` })).toBeVisible();
+  const kept = await u.api.get<{ areaId: string | null }>(`/households/${hh.id}/chores/${chore.id}`);
+  expect(kept.areaId).toBe(kitchen.id);
+});
+
+test('with areas on: chores from a template and a custom one use areas', async ({ world }) => {
+  const u = await world.newUser();
+  const { page } = await u.open();
+  await world.household(u, undefined, { areas: true });
+  await page.goto('/');
 
   // From a template: name, area and interval are prefilled.
   await page.goto('/chores/new');

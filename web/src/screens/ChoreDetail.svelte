@@ -21,6 +21,7 @@
   const PRESET: Record<string, Key> = { gentle: 'reminder.gentle', nag: 'reminder.nag', none: 'reminder.none', custom: 'reminder.customOption' };
 
   let c = $state<Chore | null>(null);
+  const areasOn = !!currentHousehold()?.areasEnabled;
   let areas = $state<Area[]>([]);
   let members = $state<Member[]>([]);
   let rem = $state<{ effectivePreset: string; reminders: Reminder[] } | null>(null);
@@ -37,7 +38,7 @@
     try {
       [c, areas, members] = await Promise.all([
         api<Chore>('GET', `${base}/chores/${id}`),
-        api<Area[]>('GET', `${base}/areas`),
+        areasOn ? api<Area[]>('GET', `${base}/areas`) : Promise.resolve([] as Area[]),
         api<Member[]>('GET', `${base}/members`),
       ]);
       rem = await api('GET', `${base}/chores/${id}/reminders`);
@@ -101,7 +102,7 @@
       {#if paused}<br />{c.pausedIndefinitely ? t('chore.pausedForever') : t('chore.pausedUntil', { date: formatDate(new Date(c.pausedUntil!), { dateStyle: 'medium' }) })}{/if}
     </p>
     <dl class="facts">
-      <dt>{t('chore.area')}</dt><dd>{areas.find((a) => a.id === c!.areaId)?.name ?? t('chore.noArea')}</dd>
+      {#if areasOn}<dt>{t('chore.area')}</dt><dd>{areas.find((a) => a.id === c!.areaId)?.name ?? t('chore.noArea')}</dd>{/if}
       <dt>{t('chore.repeat')}</dt><dd>{repeatText(c)}</dd>
       <dt>{t('chore.assignees')}</dt>
       <dd>{#if c.assignees.length}<Initials names={c.assignees.map(who)} />{:else}{t('chore.anyone')}{/if}</dd>

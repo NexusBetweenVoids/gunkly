@@ -22,14 +22,16 @@ type householdView struct {
 	Timezone   string     `json:"timezone"`
 	QuietHours *quietView `json:"quietHours"`
 	// DefaultReminderPreset applies to chores without their own ("" = none).
-	DefaultReminderPreset string     `json:"defaultReminderPreset"`
-	Role                  store.Role `json:"role"`
-	CreatedAt             time.Time  `json:"createdAt"`
+	DefaultReminderPreset string `json:"defaultReminderPreset"`
+	// AreasEnabled: chores are grouped by area (off by default).
+	AreasEnabled bool       `json:"areasEnabled"`
+	Role         store.Role `json:"role"`
+	CreatedAt    time.Time  `json:"createdAt"`
 }
 
 func viewHousehold(h store.Household) householdView {
 	v := householdView{ID: h.ID, Name: h.Name, Timezone: h.Timezone, Role: h.Role, CreatedAt: h.CreatedAt,
-		DefaultReminderPreset: h.DefaultReminderPreset}
+		DefaultReminderPreset: h.DefaultReminderPreset, AreasEnabled: h.AreasEnabled}
 	if h.QuietStartMin != nil && h.QuietEndMin != nil {
 		v.QuietHours = &quietView{Start: *h.QuietStartMin, End: *h.QuietEndMin}
 	}
@@ -52,7 +54,10 @@ func (s *Server) createHousehold(w http.ResponseWriter, r *http.Request, c *call
 	var in struct {
 		Name         string `json:"name"`
 		Timezone     string `json:"timezone"`
-		StarterAreas bool   `json:"starterAreas"` // also create the starter areas, named in the user's language
+		AreasEnabled bool   `json:"areasEnabled"` // turn the areas feature on (default off)
+		// StarterAreas also creates the starter areas, named in the user's
+		// language; ignored unless AreasEnabled is true.
+		StarterAreas bool `json:"starterAreas"`
 	}
 	if err := decode(r, &in); err != nil {
 		return err
@@ -69,7 +74,8 @@ func (s *Server) createHousehold(w http.ResponseWriter, r *http.Request, c *call
 		return err
 	}
 	nh := store.NewHousehold{Name: in.Name, Timezone: in.Timezone, MaxHouseholds: max}
-	if in.StarterAreas {
+	nh.AreasEnabled = in.AreasEnabled
+	if in.AreasEnabled && in.StarterAreas {
 		nh.StarterAreas = starterAreas(c.user.Locale)
 	}
 	h, err := s.st.CreateHousehold(ctx, c.actor(), nh)
@@ -96,6 +102,9 @@ func (s *Server) patchHousehold(w http.ResponseWriter, r *http.Request, c *call)
 		QuietHours optional[quietView] `json:"quietHours"`
 		// DefaultReminderPreset is "" (none), "gentle", "nag" or "none".
 		DefaultReminderPreset *string `json:"defaultReminderPreset"`
+		AreasEnabled          *bool   `json:"areasEnabled"`
+		// StarterAreas true creates the starter areas when the household has none.
+		StarterAreas bool `json:"starterAreas"`
 	}
 	if err := decode(r, &in); err != nil {
 		return err
@@ -106,7 +115,10 @@ func (s *Server) patchHousehold(w http.ResponseWriter, r *http.Request, c *call)
 	if in.DefaultReminderPreset != nil && !validPreset(*in.DefaultReminderPreset) {
 		return errInvalid
 	}
-	u := store.HouseholdUpdate{Name: in.Name, Timezone: in.Timezone, DefaultReminderPreset: in.DefaultReminderPreset}
+	u := store.HouseholdUpdate{Name: in.Name, Timezone: in.Timezone, DefaultReminderPreset: in.DefaultReminderPreset, AreasEnabled: in.AreasEnabled}
+	if in.StarterAreas {
+		u.StarterAreas = starterAreas(c.user.Locale)
+	}
 	if in.QuietHours.set {
 		var q *store.QuietHours
 		if v := in.QuietHours.Value; v != nil {

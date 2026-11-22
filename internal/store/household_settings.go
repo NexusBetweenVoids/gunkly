@@ -15,6 +15,12 @@ type HouseholdUpdate struct {
 	// DefaultReminderPreset is the household default ("" = none); the caller
 	// validates the name against the scheduler's presets.
 	DefaultReminderPreset *string
+	// AreasEnabled switches the areas feature on or off. Areas and the
+	// chores' area links are kept when it is off.
+	AreasEnabled *bool
+	// StarterAreas (already translated by the caller) are created when the
+	// household has no areas yet; otherwise they are ignored.
+	StarterAreas []string
 }
 
 // QuietHours are minutes after local midnight; End may be before Start
@@ -58,6 +64,22 @@ func (s *Store) UpdateHousehold(ctx context.Context, a Actor, householdID string
 		if u.DefaultReminderPreset != nil {
 			if err := t.execOne(ctx, "UPDATE households SET default_reminder_preset = ? WHERE id = ?", *u.DefaultReminderPreset, householdID); err != nil {
 				return err
+			}
+		}
+		if u.AreasEnabled != nil {
+			if err := t.execOne(ctx, "UPDATE households SET areas_enabled = ? WHERE id = ?", *u.AreasEnabled, householdID); err != nil {
+				return err
+			}
+		}
+		if len(u.StarterAreas) > 0 {
+			var n int
+			if err := t.queryRow(ctx, "SELECT count(*) FROM areas WHERE household_id = ?", householdID).Scan(&n); err != nil {
+				return err
+			}
+			if n == 0 {
+				if err := t.insertAreas(ctx, householdID, u.StarterAreas, s.nowMS()); err != nil {
+					return err
+				}
 			}
 		}
 		if u.QuietHours != nil {

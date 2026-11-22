@@ -10,7 +10,7 @@ const noOverflow = async (page: Page, what: string) => {
 test('axe WCAG 2.2 AA and no overflow on every main screen, light and dark', async ({ world }) => {
   test.setTimeout(120_000);
   const u = await world.newUser();
-  const h = await world.household(u);
+  const h = await world.household(u, undefined, { areas: true });
   const c = await world.chore(u, h, { name: uniq('A11y '), notes: 'Some notes', link: 'https://example.com/how-to' });
   await u.api.post(`/households/${h.id}/chores/${c.id}/complete`);
   await u.api.post(`/households/${h.id}/invites`, { role: 'member', expiresInHours: 24 });

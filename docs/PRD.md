@@ -75,7 +75,7 @@ Gunkly tracks recurring household chores and home maintenance (gutters, washing-
 - **Home:** chores grouped Overdue / Today / This week / Later; "Mine / Everyone" toggle; views by area.
 - **Calendar screen:** month and week views by due date.
 - **iCal feeds:** per user per household; read-only; revocable and regenerable. Calendar-rule chores show the next 12 months; completion-based chores show only the next due date.
-- One optional **area** per chore; households manage their own areas.
+- One optional **area** per chore; households manage their own areas. Areas are an optional household feature, **off by default** (`areasEnabled`, owner setting "Group chores by area"): when off, Home has no area chips or labels, the chore editor and detail have no area field, templates' suggested area is ignored, and iCal feeds omit `CATEGORIES`; existing areas and chore links stay untouched and the API still accepts `areaId`. Turning it on offers "Add starter areas" when the household has none. Importing a file with areas into a new household turns the setting on; merging into a household with areas off keeps the setting.
 
 ### Interface and languages
 
@@ -102,7 +102,7 @@ Gunkly tracks recurring household chores and home maintenance (gutters, washing-
 
 ### Hosted service
 
-Legal and compliance documents for the maintainer's hosted service live in `docs/legal/` as templates (not legal advice; reviewed by the maintainer before use; not for self-hosters): privacy policy (data collected, purposes, legal bases, retention matching the defaults here, processors, EU hosting, third-party notification and push services outside the EU at the user's instruction, rights and how to exercise them in the app: export, deletion, age 16+), terms of use (non-commercial, acceptable use, age 16+, no warranty, inactive-account policy), the Art. 30 processing register, the breach procedure (72-hour notification to the supervisory authority where required, informing users, breach log) and incident response. Changing retention defaults or the inactive-account behaviour means updating those texts in the same change.
+Legal and compliance documents for the maintainer's hosted service are kept outside this repository (not legal advice; reviewed by the maintainer before use; not for self-hosters) and cover: privacy policy (data collected, purposes, legal bases, retention matching the defaults here, processors, EU hosting, third-party notification and push services outside the EU at the user's instruction, rights and how to exercise them in the app: export, deletion, age 16+), terms of use (non-commercial, acceptable use, age 16+, no warranty, inactive-account policy), the Art. 30 processing register, the breach procedure (72-hour notification to the supervisory authority where required, informing users, breach log) and incident response. Changing retention defaults or the inactive-account behaviour means updating those texts too.
 
 ### Limits (all configurable via one limits service; per-household override supported)
 
@@ -153,7 +153,7 @@ Every feature goes through `/api/v1` first; no business logic only in the front 
 
 | Phase | Contents |
 |-|-|
-| **0. Foundations** | Repo files (`LICENSE`, `SECURITY.md`, `AGENTS.md`); `make check`; CI (dual-DB `-race`, lint, deadcode, govulncheck, gitleaks, CodeQL, license check, fitness tests, size budgets, Playwright + axe-core, OpenAPI diff, fuzzing, DAST); Dockerfile and both compose files; staging pipeline; scoped data-access layer with isolation tests; limits service; translation setup; egress guard with CI tests; ADRs |
+| **0. Foundations** | Repo files (`LICENSE`, `SECURITY.md`, `AGENTS.md`); `make check`; CI (dual-DB `-race`, lint, deadcode, govulncheck, gitleaks, CodeQL, license check, fitness tests, size budgets, Playwright + axe-core, OpenAPI diff, fuzzing, DAST); Dockerfile and both compose files; scoped data-access layer with isolation tests; limits service; translation setup; egress guard with CI tests; ADRs |
 | **1A. Self-Hosted Alpha** | Accounts, roles, invites, TOTP; multiple households; recurring and one-off chores with interval and RRULE rules; assignees; snooze, skip, pause, undo, archive; simple/advanced editors; templates and starter areas; reminders, presets, quiet hours; Shoutrrr + egress guard + service allowlist; mark-done + 5-minute undo links; delivery log; home and calendar screens, iCal feeds; PWA; English with i18n/RTL wiring; basic admin panel and CLI (`backup`, `rotate-key`, `reset-password`, `reset-2fa`); first-run setup; session overview; health endpoints; trusted-proxy setting; scheduler lock and graceful shutdown; retention cleanup; full security baseline |
 | **1B. Public Hosted Launch** | Web Push; transactional JSON export/import; `migrate-db`; ALTCHA; email-OTP 2FA; inactive-account lifecycle; Updates page with optional auto-migrations; Prometheus `/metrics`; production canary rollout; external security review; GDPR documentation |
 | **Later** | Passkeys and SSO, rotating assignees, personal quiet hours, sub-path hosting, Home Assistant integration, outgoing webhooks, native mobile apps, more languages (CJK, RTL) via reviewed translations, MCP server (token-based first; OAuth 2.1 when remote hosted MCP is enabled) |
