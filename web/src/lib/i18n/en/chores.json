@@ -69,6 +69,7 @@
   "chore.noHistory": "Not completed yet.",
   "chore.reverted": "Reverted",
   "chore.imported": "Imported",
+  "chore.app": "Connected app",
   "chore.revertFor": "Undo completion on {date}",
   "chore.undone": "Completion undone.",
   "rule.freq": "Repeats",

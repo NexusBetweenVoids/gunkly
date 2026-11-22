@@ -63,14 +63,22 @@ test('oauth: admin enables it, a user approves an app, sees it under Connected a
     await page.getByRole('button', { name: 'Sign in' }).click();
     await expect(page.getByRole('heading', { name: new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} wants to connect`) })).toBeVisible();
     await expect(page.getByText('Unverified app.')).toBeVisible();
-    await expect(page.getByText(hostPort)).toBeVisible();
+    await expect(page.locator('.host')).toHaveText(hostPort); // the return host is the headline
+    await expect(page.getByText('First time:')).toBeVisible();
     await expect(page.locator('main b')).toHaveCount(0); // the name is text, never markup
     await expect(page.getByLabel(h.name)).toBeChecked();
     await expect(page.getByLabel('Mark chores done, snooze, skip and pause them')).toBeChecked();
     await expect(page.getByLabel('Create chores')).not.toBeChecked();
     await axe(page, 'oauth consent page');
 
-    // Allow: the browser follows the 303 to the client (the page's CSP names that origin in form-action).
+    // Allowing needs the password again (this session has not stepped up): a wrong one changes nothing.
+    await page.getByLabel('Password', { exact: true }).fill('not-the-password');
+    await page.getByRole('button', { name: 'Allow' }).click();
+    await expect(page.getByRole('alert')).toContainText('That did not match.');
+    await expect(page).toHaveURL(/\/oauth\/authorize$/);
+
+    // The right one: the browser follows the 303 to the client (the page's CSP names that origin in form-action).
+    await page.getByLabel('Password', { exact: true }).fill(u.password);
     await page.getByRole('button', { name: 'Allow' }).click();
     await page.waitForURL(`http://${hostPort}/callback?**`);
     const back = new URL(page.url());

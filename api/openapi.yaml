@@ -1700,7 +1700,8 @@ components:
         choreId: {type: string}
         userId: {type: string, nullable: true}
         completedAt: {type: string, format: date-time}
-        source: {type: string, enum: [app, mark_done_link, api_token, import]}
+        source: {type: string, enum: [app, mark_done_link, api_token, oauth, import]}
+        via: {type: string, description: "Name of the connected app behind an oauth completion; absent when unknown."}
         note: {type: string}
         revertedAt: {type: string, format: date-time, nullable: true}
     Reminder:

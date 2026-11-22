@@ -89,6 +89,15 @@ func TestParseRejects(t *testing.T) {
 	}
 }
 
+func TestParseAcceptsEverySource(t *testing.T) {
+	for _, src := range []string{"app", "mark_done_link", "api_token", "oauth", "import"} {
+		in := strings.Replace(validFile, `"source": "app"`, `"source": "`+src+`"`, 1)
+		if _, err := Parse([]byte(in), testOpts); err != nil {
+			t.Errorf("source %q: %v", src, err)
+		}
+	}
+}
+
 func TestParseLimits(t *testing.T) {
 	for name, tc := range map[string]struct {
 		o    Options

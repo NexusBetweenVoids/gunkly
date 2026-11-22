@@ -140,6 +140,24 @@ func authzQuery(clientID, challenge string, extra ...string) url.Values {
 // the redirect it answers with.
 func (f *oauthFix) consent(t *testing.T, u *client, q url.Values, decision string, hhs []string, extra ...string) (int, *url.URL, string) {
 	t.Helper()
+	f.e.stepUp(u, f.nameOf(u)) // the consent page asks for a password unless the session re-verified: tested separately
+	return f.consentRaw(t, u, q, decision, hhs, extra...)
+}
+
+// nameOf is the username behind one of the fixture's clients.
+func (f *oauthFix) nameOf(u *client) string {
+	for n, c := range map[string]*client{"a": f.a, "m": f.m, "g": f.g, "b": f.b, "x": f.x} {
+		if c == u {
+			return n
+		}
+	}
+	f.e.t.Fatal("unknown client")
+	return ""
+}
+
+// consentRaw posts the decision as is (no step-up first).
+func (f *oauthFix) consentRaw(t *testing.T, u *client, q url.Values, decision string, hhs []string, extra ...string) (int, *url.URL, string) {
+	t.Helper()
 	form := url.Values{"csrf": {u.cookie(csrfCookie)}, "decision": {decision}, "hh": hhs}
 	for k, v := range q {
 		form[k] = v
@@ -348,10 +366,26 @@ func TestOAuthRegistrationLimits(t *testing.T) {
 	if err := f.e.st.UpdateInstanceSettings(context.Background(), store.SettingsUpdate{Limits: map[string]int{string(limits.OAuthClients): 2}}); err != nil {
 		t.Fatal(err)
 	}
-	f.register(t, "one")
+	one := f.register(t, "one")
+	f.e.clock.Add(time.Second)
 	f.register(t, "two")
+	// At the cap the oldest unused client makes room.
+	f.e.clock.Add(time.Minute)
+	three := f.register(t, "three")
+	ctx := context.Background()
+	if _, err := f.e.st.OAuthClientByID(ctx, one); err == nil {
+		t.Fatal("the oldest unused client survived the cap")
+	}
+	if _, err := f.e.st.OAuthClientByID(ctx, three); err != nil {
+		t.Fatal("the new client was not stored")
+	}
+	// Fails only when every client is in use.
+	_, ch := pkce()
+	f.code(t, f.a, three, ch, []string{f.hA})
+	four := f.register(t, "four") // evicts "two", the only unused one left
+	f.code(t, f.a, four, ch, []string{f.hA})
 	if st, _, _ := f.e.oauthRaw("POST", "/oauth/register", nil, map[string]any{"redirect_uris": []string{oauthRedirect}}); st != 503 {
-		t.Fatalf("over the cap: %d", st)
+		t.Fatalf("all clients in use, over the cap: %d", st)
 	}
 	// The per-IP rate limit.
 	e := f.e
@@ -418,11 +452,22 @@ func TestOAuthFullFlow(t *testing.T) {
 	}
 	mustFail(t, cs, "create_chore", map[string]any{"name": "x"}, "permission")
 	mustOK(t, cs, "complete_chore", map[string]any{"chore": chore})
-	// Completion attribution: source api_token, token id = the grant id.
-	comps, _ := e.st.ListCompletions(context.Background(), store.Actor{UserID: f.userID("a")}, f.hA, chore, 5)
+	// Completion attribution: source oauth, token id = the grant id, named in the history.
+	comps, _, _ := e.st.CompletionsPage(context.Background(), store.Actor{UserID: f.userID("a")}, f.hA, chore, 5, "")
 	grants, _ := e.st.ListOAuthGrants(context.Background(), f.userID("a"))
-	if len(comps) != 1 || comps[0].Source != store.SourceAPIToken || len(grants) != 1 || comps[0].TokenID != grants[0].ID {
+	if len(comps) != 1 || comps[0].Source != store.SourceOAuth || len(grants) != 1 || comps[0].TokenID != grants[0].ID || comps[0].Via != grants[0].ClientName {
 		t.Fatalf("attribution %+v %+v", comps, grants)
+	}
+	// The export carries the new source.
+	resp := f.aStep.raw("GET", "/api/v1/households/"+f.hA+"/export", nil, "")
+	exp, _ := io.ReadAll(resp.Body)
+	_ = resp.Body.Close()
+	if resp.StatusCode != 200 || !strings.Contains(string(exp), `"source": "oauth"`) && !strings.Contains(string(exp), `"source":"oauth"`) {
+		t.Fatalf("export lacks the oauth source: %d %s", resp.StatusCode, exp)
+	}
+	st, v := f.a.do("GET", "/api/v1/households/"+f.hA+"/chores/"+chore+"/completions", nil)
+	if items := field(v, "items").([]any); st != 200 || len(items) != 1 || field(items[0], "source") != "oauth" || field(items[0], "via") != grants[0].ClientName {
+		t.Fatalf("history %d %v", st, v)
 	}
 
 	// The same token is refused by the REST API (audience: /mcp only).
@@ -565,6 +610,7 @@ func TestOAuthDeny(t *testing.T) {
 
 func TestOAuthConsentCSRF(t *testing.T) {
 	f := newOAuthEnv(t)
+	f.e.stepUp(f.a, "a")
 	cid := f.register(t, "App")
 	_, ch := pkce()
 	post := func(mod func(url.Values), hdr ...string) int {
@@ -864,33 +910,42 @@ func TestOAuthPurgesUnusedClients(t *testing.T) {
 	f := newOAuthEnv(t)
 	ctx := context.Background()
 	unused := f.register(t, "unused")
-	touched := f.register(t, "touched")
+	visited := f.register(t, "visited")
 	granted := f.register(t, "granted")
 	ver, ch := pkce()
 	f.exchange(t, granted, f.code(t, f.a, granted, ch, []string{f.hA}), ver)
-	if st, _, _ := f.a.browseGet("/oauth/authorize?" + authzQuery(touched, ch).Encode()); st != 200 {
+	// Only looking at the consent page does not keep a client.
+	if st, _, _ := f.a.browseGet("/oauth/authorize?" + authzQuery(visited, ch).Encode()); st != 200 {
 		t.Fatal(st)
 	}
-	// An unredeemed consent: its grant is purged after an hour.
-	f.code(t, f.a, f.register(t, "pending"), ch, []string{f.hA})
-
-	f.e.clock.Add(25 * time.Hour)
-	if _, err := f.e.st.PurgeExpired(ctx, store.RetentionPolicy{}, f.e.clock.Now()); err != nil {
-		t.Fatal(err)
-	}
+	// An unredeemed consent: its grant is purged after an hour, the client stays (approved).
+	pending := f.register(t, "pending")
+	f.code(t, f.a, pending, ch, []string{f.hA})
 	has := func(id string) bool { _, err := f.e.st.OAuthClientByID(ctx, id); return err == nil }
-	if has(unused) {
-		t.Fatal("a client never used within 24 hours survived")
+	purge := func() {
+		t.Helper()
+		if _, err := f.e.st.PurgeExpired(ctx, store.RetentionPolicy{}, f.e.clock.Now()); err != nil {
+			t.Fatal(err)
+		}
 	}
-	if !has(touched) || !has(granted) {
-		t.Fatal("a used client was purged")
+
+	f.e.clock.Add(59 * time.Minute)
+	purge()
+	if !has(unused) || !has(visited) {
+		t.Fatal("an unused client was purged before an hour")
+	}
+	f.e.clock.Add(2 * time.Minute)
+	purge()
+	if has(unused) || has(visited) {
+		t.Fatal("a client never approved within an hour survived")
+	}
+	if !has(granted) || !has(pending) {
+		t.Fatal("an approved client was purged")
 	}
 	// Idle for 90 days without any grant: purged too; one with a (revoked, then purged) grant too.
 	f.e.clock.Add(91 * 24 * time.Hour)
-	if _, err := f.e.st.PurgeExpired(ctx, store.RetentionPolicy{}, f.e.clock.Now()); err != nil {
-		t.Fatal(err)
-	}
-	if has(touched) {
+	purge()
+	if has(pending) {
 		t.Fatal("an idle client survived 90 days")
 	}
 	if has(granted) { // the grant expired after 90 days and was purged with its tokens

@@ -64,6 +64,7 @@ export type Completion = {
   userId: string | null;
   completedAt: string;
   source: string;
+  via?: string;
   note: string;
   revertedAt: string | null;
 };

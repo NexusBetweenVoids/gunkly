@@ -24,10 +24,10 @@ const (
 	OAuthAccessTTL     = time.Hour
 	OAuthRefreshIdle   = 30 * 24 * time.Hour // a refresh token unused this long dies
 	OAuthGrantLifetime = 90 * 24 * time.Hour // absolute: re-consent after this
-	// OAuthUnusedClientAge is how long a registered client that never started
-	// an authorization is kept; OAuthIdleClientAge how long one without any
+	// OAuthUnusedClientAge is how long a registered client that never got a
+	// grant approved is kept; OAuthIdleClientAge how long one without any
 	// grant is kept after its last use.
-	OAuthUnusedClientAge = 24 * time.Hour
+	OAuthUnusedClientAge = time.Hour
 	OAuthIdleClientAge   = 90 * 24 * time.Hour
 )
 
@@ -39,9 +39,16 @@ type OAuthClient struct {
 	CreatedAt    time.Time
 }
 
-// CreateOAuthClient stores a client. ErrLimit when max clients exist already.
-func (s *Store) CreateOAuthClient(ctx context.Context, name string, redirectURIs []string, max int) (OAuthClient, error) {
-	if max <= 0 || len(redirectURIs) == 0 {
+// unusedClient is the SQL condition for a client that never had a grant
+// approved (last_used_at is set only then).
+const unusedClient = "last_used_at IS NULL"
+
+// CreateOAuthClient stores a client registered from regKey (the caller's
+// rate-limit identity, IPv6 as its /64; "" = unknown). ErrLimit when regKey
+// already has perKey unused clients. At max clients the oldest unused client
+// (of anyone) is evicted to make room; ErrLimit only when all are in use.
+func (s *Store) CreateOAuthClient(ctx context.Context, name string, redirectURIs []string, max, perKey int, regKey string) (OAuthClient, error) {
+	if max <= 0 || perKey <= 0 || len(redirectURIs) == 0 {
 		return OAuthClient{}, ErrInvalid
 	}
 	raw, err := json.Marshal(redirectURIs)
@@ -51,16 +58,33 @@ func (s *Store) CreateOAuthClient(ctx context.Context, name string, redirectURIs
 	c := OAuthClient{ID: ids.New(), Name: name, RedirectURIs: redirectURIs}
 	err = s.inTx(ctx, true, func(t *tx) error {
 		var n int
+		if regKey != "" {
+			if err := t.queryRow(ctx, "SELECT count(*) FROM oauth_clients WHERE reg_key = ? AND "+unusedClient, regKey).Scan(&n); err != nil {
+				return err
+			}
+			if n >= perKey {
+				return ErrLimit
+			}
+		}
 		if err := t.queryRow(ctx, "SELECT count(*) FROM oauth_clients").Scan(&n); err != nil {
 			return err
 		}
 		if n >= max {
-			return ErrLimit
+			var old string
+			if err := t.queryRow(ctx, "SELECT id FROM oauth_clients WHERE "+unusedClient+" ORDER BY created_at, id LIMIT 1").Scan(&old); err != nil {
+				if errors.Is(err, sql.ErrNoRows) {
+					return ErrLimit
+				}
+				return err
+			}
+			if _, err := t.exec(ctx, "DELETE FROM oauth_clients WHERE id = ?", old); err != nil {
+				return err
+			}
 		}
 		now := s.nowMS()
 		c.CreatedAt = time.UnixMilli(now).UTC()
-		_, err := t.exec(ctx, "INSERT INTO oauth_clients (id, name, redirect_uris, created_at) VALUES (?, ?, ?, ?)",
-			c.ID, name, string(raw), now)
+		_, err := t.exec(ctx, "INSERT INTO oauth_clients (id, name, redirect_uris, created_at, reg_key) VALUES (?, ?, ?, ?, ?)",
+			c.ID, name, string(raw), now, regKey)
 		return err
 	})
 	return c, err
@@ -83,13 +107,32 @@ func (s *Store) OAuthClientByID(ctx context.Context, id string) (OAuthClient, er
 	return c, nil
 }
 
-// TouchOAuthClient records that the client started an authorization (keeps it
-// out of the unused-client purge).
-func (s *Store) TouchOAuthClient(ctx context.Context, id string) error {
-	return s.inTx(ctx, true, func(t *tx) error {
-		_, err := t.exec(ctx, "UPDATE oauth_clients SET last_used_at = ? WHERE id = ?", s.nowMS(), id)
-		return err
+// OAuthRedirectsApproved lists the redirect URIs of every client the user has
+// approved (a grant exists, even if later revoked and not yet purged), for
+// telling a first-time return host from a familiar one.
+func (s *Store) OAuthRedirectsApproved(ctx context.Context, userID string) ([]string, error) {
+	var out []string
+	err := s.inTx(ctx, false, func(t *tx) error {
+		rows, err := t.query(ctx, `SELECT DISTINCT c.id, c.redirect_uris FROM oauth_grants g JOIN oauth_clients c ON c.id = g.client_id
+			WHERE g.user_id = ? ORDER BY c.id`, userID)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var id, raw string
+			var uris []string
+			if err := rows.Scan(&id, &raw); err != nil {
+				return err
+			}
+			if err := json.Unmarshal([]byte(raw), &uris); err != nil {
+				return err
+			}
+			out = append(out, uris...)
+		}
+		return rows.Err()
 	})
+	return out, err
 }
 
 // NewOAuthCode is the input to CreateOAuthCode. CodeHash is the SHA-256 of the
@@ -127,6 +170,10 @@ func (s *Store) CreateOAuthCode(ctx context.Context, a Actor, in NewOAuthCode) (
 			VALUES (?, ?, ?, ?, ?, ?)`, grantID, a.UserID, in.ClientID, strings.Join(in.Scopes, " "), now,
 			now+OAuthGrantLifetime.Milliseconds()); err != nil {
 			return notFoundFK(err)
+		}
+		// Approval, not a mere visit to the consent page, keeps a client.
+		if _, err := t.exec(ctx, "UPDATE oauth_clients SET last_used_at = ? WHERE id = ?", now, in.ClientID); err != nil {
+			return err
 		}
 		for _, hid := range in.HouseholdIDs {
 			if _, err := t.authorize(ctx, a, hid, RoleGuest, true); err != nil {
@@ -315,7 +362,7 @@ func (s *Store) OAuthAccessByHash(ctx context.Context, hash string) (APIToken, U
 			hash, now, now).Scan(&k.ID, &k.UserID, &k.Name, &scopes, &created, &used, &texp); err != nil {
 			return notFound(err)
 		}
-		k.Scopes = strings.Fields(scopes)
+		k.OAuth, k.Scopes = true, strings.Fields(scopes)
 		k.CreatedAt, k.LastUsedAt, k.ExpiresAt = time.UnixMilli(created).UTC(), fromMS(used), time.UnixMilli(texp).UTC()
 		var err error
 		if k.Households, err = t.grantHouseholds(ctx, k.ID, k.UserID); err != nil {

@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 	"unicode"
@@ -22,6 +23,7 @@ import (
 	"github.com/NexusBetweenVoids/gunkly/internal/ids"
 	"github.com/NexusBetweenVoids/gunkly/internal/limits"
 	"github.com/NexusBetweenVoids/gunkly/internal/store"
+	"golang.org/x/text/unicode/norm"
 )
 
 // OAuth 2.1 sign-in for MCP clients (ADR 0016). Optional and off by default:
@@ -137,13 +139,29 @@ func cleanClientName(n string) (string, bool) {
 			return "", false
 		}
 	}
+	if impersonates(n) {
+		return "", false
+	}
 	return n, true
+}
+
+// impersonates reports whether a client name contains "gunkly" once folded
+// (compatibility decomposition, combining marks dropped, lower case), so
+// fullwidth, styled and accented lookalikes do not pass for the product.
+func impersonates(n string) bool {
+	var b strings.Builder
+	for _, r := range norm.NFKD.String(n) {
+		if !unicode.Is(unicode.Mn, r) {
+			b.WriteRune(unicode.ToLower(r))
+		}
+	}
+	return strings.Contains(b.String(), "gunkly")
 }
 
 // registerClient is RFC 7591 dynamic client registration, for public clients
 // only: token_endpoint_auth_method is always "none" (a client asking for more
 // is told what it got).
-func (s *Server) registerClient(w http.ResponseWriter, r *http.Request, _ *call) error {
+func (s *Server) registerClient(w http.ResponseWriter, r *http.Request, c *call) error {
 	var in struct {
 		ClientName   string   `json:"client_name"`
 		RedirectURIs []string `json:"redirect_uris"`
@@ -170,7 +188,11 @@ func (s *Server) registerClient(w http.ResponseWriter, r *http.Request, _ *call)
 	if err != nil {
 		return err
 	}
-	cl, err := s.st.CreateOAuthClient(r.Context(), name, uris, max)
+	perIP, err := s.limits.Limit(r.Context(), limits.OAuthUnusedClientsPerIP, "")
+	if err != nil {
+		return err
+	}
+	cl, err := s.st.CreateOAuthClient(r.Context(), name, uris, max, perIP, c.rip)
 	if errors.Is(err, store.ErrLimit) {
 		return oauthError(w, http.StatusServiceUnavailable, "temporarily_unavailable")
 	}
@@ -366,21 +388,24 @@ type consentHousehold struct {
 type consentField struct{ Name, Value string }
 
 type consentPage struct {
-	Lang, Title, Heading, UnverifiedLabel, UnverifiedNote, RedirectNote, SignedIn, Error string
-	NoHouseholds                                                                         bool
-	NoHouseholdsNote                                                                     string
-	Hidden                                                                               []consentField
-	HouseholdsLegend, ActionsLegend, ActionRead, ActionComplete, ActionWrite             string
-	GuestNote, NeverNote, Allow, Deny                                                    string
-	Households                                                                           []consentHousehold
-	OfferComplete, OfferWrite, CompleteChecked, WriteChecked                             bool
+	Lang, Title, Heading, UnverifiedLabel, UnverifiedNote, ReturnLabel, ReturnHost, NewHostWarning, SignedIn, Error, Info string
+	NoHouseholds                                                                                                          bool
+	NoHouseholdsNote                                                                                                      string
+	Hidden                                                                                                                []consentField
+	HouseholdsLegend, ActionsLegend, ActionRead, ActionComplete, ActionWrite                                              string
+	GuestNote, NeverNote, Allow, Deny                                                                                     string
+	Households                                                                                                            []consentHousehold
+	OfferComplete, OfferWrite, CompleteChecked, WriteChecked                                                              bool
+	// Step-up: the password (and second factor) fields, shown when this
+	// session has not re-verified within stepUpWindow.
+	StepUp, ShowCode, OfferEmail                                       bool
+	ConfirmLegend, ConfirmNote, PasswordLabel, CodeLabel, EmailCodeBtn string
 }
 
 // sessionUser authenticates the browser session for the HTML routes, or reports
 // that there is none.
-func (s *Server) sessionUser(w http.ResponseWriter, r *http.Request) (store.User, bool) {
-	_, u, ok := s.authenticate(w, r)
-	return u, ok
+func (s *Server) sessionUser(w http.ResponseWriter, r *http.Request) (store.Session, store.User, bool) {
+	return s.authenticate(w, r)
 }
 
 func userLocale(u store.User, r *http.Request) string {
@@ -388,6 +413,11 @@ func userLocale(u store.User, r *http.Request) string {
 		return u.Locale
 	}
 	return acceptLocale(r)
+}
+
+// steppedUp reports whether the session re-verified within stepUpWindow.
+func (s *Server) steppedUp(ss store.Session) bool {
+	return !ss.StepUpAt.IsZero() && s.now().Sub(ss.StepUpAt) <= stepUpWindow
 }
 
 // authorizeGet is GET /oauth/authorize: sign in if needed, then the consent page.
@@ -405,7 +435,7 @@ func (s *Server) authorizeGet(w http.ResponseWriter, r *http.Request, c *call) e
 		s.authzRedirect(w, r, req, map[string]string{"error": code})
 		return nil
 	}
-	u, signedIn := s.sessionUser(w, r)
+	ss, u, signedIn := s.sessionUser(w, r)
 	if !signedIn {
 		w.Header().Set("Cache-Control", "no-store")
 		http.Redirect(w, r, "/signin?next="+url.QueryEscape(r.URL.RequestURI()), http.StatusSeeOther)
@@ -414,21 +444,34 @@ func (s *Server) authorizeGet(w http.ResponseWriter, r *http.Request, c *call) e
 	if err := s.requireAccess(ctx, u); err != nil {
 		return s.oauthNotice(w, userLocale(u, r), http.StatusForbidden, "oauth.invalid_heading", "oauth.invalid_note")
 	}
-	if err := s.st.TouchOAuthClient(ctx, req.client.ID); err != nil {
-		return err
-	}
-	return s.renderConsent(w, r, u, req, nil, "")
+	return s.renderConsent(w, r, consentCtx{u: u, ss: ss, req: req})
 }
 
-// renderConsent writes the consent page. picked preselects households (nil:
-// all); errKey is an i18n key for a form error.
-func (s *Server) renderConsent(w http.ResponseWriter, r *http.Request, u store.User, req authzReq, picked []string, errKey string) error {
+// consentCtx is what renderConsent needs beyond the request.
+type consentCtx struct {
+	u        store.User
+	ss       store.Session
+	req      authzReq
+	picked   []string // households to preselect (nil: all)
+	errKey   string   // i18n key of a form error
+	infoKey  string   // i18n key of a notice (the emailed code was sent)
+	showCode bool     // the code field is shown even for users without an authenticator app
+}
+
+// renderConsent writes the consent page.
+func (s *Server) renderConsent(w http.ResponseWriter, r *http.Request, cc consentCtx) error {
 	ctx := r.Context()
+	u, req := cc.u, cc.req
 	loc := userLocale(u, r)
 	hs, err := s.st.ListHouseholds(ctx, store.Actor{UserID: u.ID})
 	if err != nil {
 		return err
 	}
+	seen, err := s.st.OAuthRedirectsApproved(ctx, u.ID)
+	if err != nil {
+		return err
+	}
+	host := hostnameOf(req.redirect)
 	name := req.client.Name
 	if name == "" {
 		name = i18n.T(loc, "oauth.unnamed_app", nil)
@@ -437,15 +480,27 @@ func (s *Server) renderConsent(w http.ResponseWriter, r *http.Request, u store.U
 	p := consentPage{Lang: langOf(loc), Title: t("oauth.page_title"),
 		Heading:         i18n.T(loc, "oauth.heading", map[string]string{"app": name}),
 		UnverifiedLabel: t("oauth.unverified_label"), UnverifiedNote: t("oauth.unverified_note"),
-		RedirectNote: i18n.T(loc, "oauth.redirect_note", map[string]string{"host": mustHost(req.redirect)}),
+		ReturnLabel: t("oauth.return_label"), ReturnHost: mustHost(req.redirect),
 		SignedIn:     i18n.T(loc, "oauth.signed_in_as", map[string]string{"name": u.DisplayName}),
 		NoHouseholds: len(hs) == 0, NoHouseholdsNote: t("oauth.no_households"),
 		HouseholdsLegend: t("oauth.households"), ActionsLegend: t("oauth.actions"), ActionRead: t("oauth.action_read"),
 		ActionComplete: t("oauth.action_complete"), ActionWrite: t("oauth.action_write"),
 		GuestNote: t("oauth.guest_note"), NeverNote: t("oauth.never_note"), Allow: t("oauth.allow"), Deny: t("oauth.deny"),
 	}
-	if errKey != "" {
-		p.Error = t(errKey)
+	if !slices.ContainsFunc(seen, func(x string) bool { return hostnameOf(x) == host }) {
+		p.NewHostWarning = i18n.T(loc, "oauth.new_host", map[string]string{"host": mustHost(req.redirect)})
+	}
+	if cc.errKey != "" {
+		p.Error = t(cc.errKey)
+	}
+	if cc.infoKey != "" {
+		p.Info = t(cc.infoKey)
+	}
+	if !s.steppedUp(cc.ss) {
+		p.StepUp, p.OfferEmail = true, u.EmailOTPEnabled
+		p.ShowCode = u.TOTPEnabled || cc.showCode
+		p.ConfirmLegend, p.ConfirmNote, p.PasswordLabel, p.CodeLabel, p.EmailCodeBtn =
+			t("oauth.confirm_legend"), t("oauth.confirm_note"), t("oauth.password"), t("oauth.code"), t("oauth.email_code")
 	}
 	for _, h := range hs {
 		role, err := s.st.Role(ctx, store.Actor{UserID: u.ID}, h.ID)
@@ -453,7 +508,7 @@ func (s *Server) renderConsent(w http.ResponseWriter, r *http.Request, u store.U
 			return err
 		}
 		p.Households = append(p.Households, consentHousehold{ID: h.ID, Name: h.Name, Role: t("oauth.role_" + string(role)),
-			Checked: picked == nil || slices.Contains(picked, h.ID)})
+			Checked: cc.picked == nil || slices.Contains(cc.picked, h.ID)})
 	}
 	p.OfferComplete, p.OfferWrite = slices.Contains(req.scopes, store.ScopeComplete), slices.Contains(req.scopes, store.ScopeWrite)
 	// Least privilege: create is ticked only when the app asked for it by name.
@@ -485,6 +540,15 @@ func authzValue(r *http.Request, k string) string {
 	return r.URL.Query().Get(k)
 }
 
+// hostnameOf is the lower-case host of raw without its port ("" if invalid).
+func hostnameOf(raw string) string {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return ""
+	}
+	return strings.ToLower(u.Hostname())
+}
+
 func mustHost(raw string) string {
 	u, err := url.Parse(raw)
 	if err != nil {
@@ -495,14 +559,15 @@ func mustHost(raw string) string {
 
 // authorizePost is POST /oauth/authorize: the user's decision. CSRF (cookie
 // token echoed as a form field, plus the cross-site check) was applied by the
-// router.
-func (s *Server) authorizePost(w http.ResponseWriter, r *http.Request, _ *call) error {
+// router. Deny never needs a password; allow needs one (and a second factor
+// when the account has one) unless the session re-verified recently.
+func (s *Server) authorizePost(w http.ResponseWriter, r *http.Request, c *call) error {
 	ctx := r.Context()
 	loc := acceptLocale(r)
 	if err := r.ParseForm(); err != nil {
 		return s.oauthNotice(w, loc, http.StatusBadRequest, "oauth.invalid_heading", "oauth.invalid_note")
 	}
-	u, signedIn := s.sessionUser(w, r)
+	ss, u, signedIn := s.sessionUser(w, r)
 	if !signedIn {
 		return s.oauthNotice(w, loc, http.StatusUnauthorized, "oauth.session_heading", "oauth.session_note")
 	}
@@ -514,7 +579,8 @@ func (s *Server) authorizePost(w http.ResponseWriter, r *http.Request, _ *call) 
 	if bad || code != "" {
 		return s.oauthNotice(w, loc, http.StatusBadRequest, "oauth.invalid_heading", "oauth.invalid_note")
 	}
-	if r.PostForm.Get("decision") != "allow" {
+	decision := r.PostForm.Get("decision")
+	if decision != "allow" && decision != "email_code" {
 		s.authzRedirect(w, r, req, map[string]string{"error": "access_denied"})
 		return nil
 	}
@@ -522,8 +588,25 @@ func (s *Server) authorizePost(w http.ResponseWriter, r *http.Request, _ *call) 
 		return s.oauthNotice(w, loc, http.StatusForbidden, "oauth.invalid_heading", "oauth.invalid_note")
 	}
 	picked := slices.Compact(slices.Sorted(slices.Values(r.PostForm["hh"])))
+	cc := consentCtx{u: u, ss: ss, req: req, picked: picked, showCode: r.PostForm.Get("code") != ""}
 	if len(picked) == 0 || len(picked) > maxTokenHH {
-		return s.renderConsent(w, r, u, req, nil, "oauth.pick_household")
+		cc.picked, cc.errKey = nil, "oauth.pick_household"
+		return s.renderConsent(w, r, cc)
+	}
+	if !s.steppedUp(ss) {
+		out, err := s.consentStepUp(w, r, c, ss, u, decision == "email_code")
+		if err != nil || out == stepUpThrottled {
+			return err
+		}
+		switch out {
+		case stepUpFailed:
+			cc.errKey = "oauth.stepup_failed"
+		case stepUpCodeSent:
+			cc.infoKey, cc.showCode = "oauth.code_sent", true
+		}
+		if out != stepUpOK {
+			return s.renderConsent(w, r, cc)
+		}
 	}
 	scopes := []string{store.ScopeRead}
 	if r.PostForm.Get("complete") != "" && slices.Contains(req.scopes, store.ScopeComplete) {
@@ -549,6 +632,92 @@ func (s *Server) authorizePost(w http.ResponseWriter, r *http.Request, _ *call) 
 	}
 	s.authzRedirect(w, r, req, map[string]string{"code": rawCode})
 	return nil
+}
+
+type stepUpOutcome int
+
+const (
+	stepUpOK        stepUpOutcome = iota // verified; the session is stepped up
+	stepUpFailed                         // wrong credentials: one generic error whatever was wrong
+	stepUpCodeSent                       // the emailed code went out
+	stepUpThrottled                      // the 429 page is already written
+)
+
+// consentStepUp re-verifies the signed-in user on the consent page with the
+// same verifier, per-account backoff and rate limit as POST
+// /api/v1/session/step-up, and on success marks the session stepped up. With
+// emailRequest it sends the email code instead of checking one.
+func (s *Server) consentStepUp(w http.ResponseWriter, r *http.Request, c *call, ss store.Session, u store.User, emailRequest bool) (stepUpOutcome, error) {
+	ctx := r.Context()
+	loc := userLocale(u, r)
+	pwKey, tfKey := "u:"+u.ID, "2fa:"+u.ID
+	wait := s.rl.allow(rateTwoFA + ":acct:" + c.rip + "|" + u.ID)
+	wait = max(wait, s.acct.wait(pwKey))
+	if wait > 0 {
+		return stepUpThrottled, s.slowDown(w, loc, wait)
+	}
+	fail := func(key, why string) (stepUpOutcome, error) {
+		s.acct.fail(key)
+		s.audit(ctx, c, u.ID, store.AuditLoginFailure, "", map[string]string{"via": "oauth_consent", "reason": why})
+		return stepUpFailed, nil
+	}
+	if good, err := s.verifyPassword(u.PasswordHash, r.PostForm.Get("password")); err != nil || !good {
+		return fail(pwKey, "password")
+	}
+	if u.TOTPEnabled || u.EmailOTPEnabled {
+		if emailRequest {
+			if !u.EmailOTPEnabled {
+				return stepUpFailed, nil
+			}
+			wait, err := s.sendLoginCode(ctx, c, u, false)
+			if err != nil {
+				return stepUpFailed, err
+			}
+			if wait > 0 {
+				return stepUpThrottled, s.slowDown(w, loc, wait)
+			}
+			return stepUpCodeSent, nil
+		}
+		code := strings.TrimSpace(r.PostForm.Get("code"))
+		if code == "" {
+			return stepUpFailed, nil
+		}
+		if wait := s.acct.wait(tfKey); wait > 0 {
+			return stepUpThrottled, s.slowDown(w, loc, wait)
+		}
+		if err := s.consentSecondFactor(ctx, c, u, code); errors.Is(err, errInvalidCode) {
+			return fail(tfKey, "second_factor")
+		} else if err != nil {
+			return stepUpFailed, err
+		}
+		s.acct.reset(tfKey)
+	}
+	s.acct.reset(pwKey)
+	return stepUpOK, s.st.StepUpSession(ctx, u.ID, ss.ID)
+}
+
+// consentSecondFactor checks one code field: six digits are an authenticator
+// or emailed code, anything else a recovery code.
+func (s *Server) consentSecondFactor(ctx context.Context, c *call, u store.User, code string) error {
+	digits := strings.ReplaceAll(code, " ", "")
+	if len(digits) != 6 || strings.Trim(digits, "0123456789") != "" {
+		return s.secondFactor(ctx, c, u, credentials{RecoveryCode: code})
+	}
+	err := error(errInvalidCode)
+	if u.TOTPEnabled {
+		err = s.secondFactor(ctx, c, u, credentials{TOTP: digits})
+	}
+	if errors.Is(err, errInvalidCode) && u.EmailOTPEnabled {
+		err = s.secondFactor(ctx, c, u, credentials{EmailCode: digits})
+	}
+	return err
+}
+
+// slowDown answers a throttled consent step-up with a 429 page.
+func (s *Server) slowDown(w http.ResponseWriter, loc string, wait time.Duration) error {
+	w.Header().Set("Retry-After", strconv.Itoa(max(int((wait+time.Second-1)/time.Second), 1)))
+	return writeDone(w, http.StatusTooManyRequests, donePage{Lang: langOf(loc), Title: i18n.T(loc, "oauth.page_title", nil),
+		Heading: i18n.T(loc, "oauth.slow_heading", nil), Note: i18n.T(loc, "oauth.slow_note", nil)})
 }
 
 // ---- connected apps (the user's own grants) ----
@@ -582,4 +751,13 @@ func (s *Server) revokeOAuthGrant(w http.ResponseWriter, r *http.Request, c *cal
 	}
 	s.audit(r.Context(), c, c.user.ID, store.AuditOAuthRevoke, "", map[string]string{"grant": id, "via": "disconnect"})
 	return noContent(w)
+}
+
+// tokenSource is the completion source for a bearer credential: an OAuth
+// grant or an API token.
+func tokenSource(k *store.APIToken) string {
+	if k.OAuth {
+		return store.SourceOAuth
+	}
+	return store.SourceAPIToken
 }

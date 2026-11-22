@@ -216,3 +216,76 @@ func TestSQLiteFilesOwnerOnly(t *testing.T) {
 		}
 	}
 }
+
+// TestOAuthAttributionMigrationKeepsData applies every migration before
+// 0014, fills the tables the SQLite rebuild of completions touches, applies
+// 0014 and checks nothing was lost: rows, undo tokens, indexes, foreign keys.
+func TestOAuthAttributionMigrationKeepsData(t *testing.T) {
+	ctx := context.Background()
+	d, err := db.Open(ctx, dbtest.URL(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer d.Close()
+	if err := d.MigrateBefore(ctx, "0014"); err != nil {
+		t.Fatal(err)
+	}
+	exec := func(q string, args ...any) {
+		t.Helper()
+		if _, err := d.ExecContext(ctx, d.Dialect.Rebind(q), args...); err != nil {
+			t.Fatalf("%s: %v", q, err)
+		}
+	}
+	exec(`INSERT INTO users (id, username, username_lower, display_name, password_hash, password_changed_at, created_at, last_active_at)
+		VALUES ('u1', 'u', 'u', 'u', 'x', 1, 1, 1)`)
+	exec("INSERT INTO households (id, name, timezone, created_at) VALUES ('h1', 'H', 'UTC', 1)")
+	exec(`INSERT INTO chores (id, household_id, name, kind, schedule_type, interval_n, interval_unit, anchor, first_due, due_date, created_at, updated_at)
+		VALUES ('c1', 'h1', 'C', 'recurring', 'interval', 1, 'day', 'from_completion', '2026-01-01', '2026-01-01', 1, 1)`)
+	for i, src := range []string{"app", "api_token", "import"} {
+		exec(`INSERT INTO completions (id, chore_id, user_id, completed_at, source, token_id, note, created_at)
+			VALUES (?, 'c1', 'u1', ?, ?, 'tok', 'n', 1)`, "k"+src, i+1, src)
+	}
+	exec("INSERT INTO undo_tokens (token_hash, completion_id, created_at, expires_at) VALUES ('th', 'kapp', 1, 2)")
+	if _, err := d.ExecContext(ctx, "INSERT INTO oauth_clients (id, name, redirect_uris, created_at) VALUES ('oc', 'n', '[]', 1)"); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := d.Migrate(ctx); err != nil {
+		t.Fatal(err)
+	}
+	count := func(q string) int {
+		t.Helper()
+		var n int
+		if err := d.QueryRowContext(ctx, q).Scan(&n); err != nil {
+			t.Fatalf("%s: %v", q, err)
+		}
+		return n
+	}
+	if n := count("SELECT count(*) FROM completions WHERE note = 'n' AND token_id = 'tok' AND user_id = 'u1'"); n != 3 {
+		t.Fatalf("completions kept: %d", n)
+	}
+	if n := count("SELECT count(*) FROM undo_tokens WHERE completion_id = 'kapp'"); n != 1 {
+		t.Fatalf("undo tokens kept: %d", n)
+	}
+	if n := count("SELECT count(*) FROM oauth_clients WHERE reg_key = ''"); n != 1 {
+		t.Fatalf("clients kept: %d", n)
+	}
+	exec(`INSERT INTO completions (id, chore_id, completed_at, source, token_id, created_at) VALUES ('koauth', 'c1', 9, 'oauth', 'grant', 1)`)
+	if _, err := d.ExecContext(ctx, `INSERT INTO completions (id, chore_id, completed_at, source, created_at) VALUES ('kbad', 'c1', 9, 'bogus', 1)`); err == nil {
+		t.Fatal("the CHECK no longer rejects an unknown source")
+	}
+	// Indexes and foreign keys survived: deleting the chore removes its completions and their undo tokens.
+	for _, ix := range []string{"completions_chore", "completions_user"} {
+		q := "SELECT count(*) FROM sqlite_master WHERE type = 'index' AND name = '" + ix + "'"
+		if d.Dialect == db.Postgres {
+			q = "SELECT count(*) FROM pg_indexes WHERE indexname = '" + ix + "' AND schemaname = current_schema()"
+		}
+		if count(q) != 1 {
+			t.Errorf("index %s missing", ix)
+		}
+	}
+	exec("DELETE FROM chores WHERE id = 'c1'")
+	if n := count("SELECT count(*) FROM completions") + count("SELECT count(*) FROM undo_tokens"); n != 0 {
+		t.Fatalf("cascade lost: %d rows left", n)
+	}
+}

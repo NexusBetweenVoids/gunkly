@@ -38,6 +38,7 @@ type APIToken struct {
 	CreatedAt  time.Time
 	ExpiresAt  time.Time // zero = never
 	LastUsedAt time.Time // zero = never
+	OAuth      bool      // an OAuth access token: ID is the grant id
 }
 
 // HasScope reports whether the token carries scope.

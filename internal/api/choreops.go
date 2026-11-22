@@ -16,12 +16,13 @@ type completionView struct {
 	UserID      *string    `json:"userId"` // null: deleted user or household channel
 	CompletedAt time.Time  `json:"completedAt"`
 	Source      string     `json:"source"`
+	Via         string     `json:"via,omitempty"` // connected app behind an "oauth" completion
 	Note        string     `json:"note"`
 	RevertedAt  *time.Time `json:"revertedAt"`
 }
 
 func viewCompletion(c store.Completion) completionView {
-	v := completionView{ID: c.ID, ChoreID: c.ChoreID, CompletedAt: c.CompletedAt, Source: c.Source, Note: c.Note, RevertedAt: timePtr(c.RevertedAt)}
+	v := completionView{ID: c.ID, ChoreID: c.ChoreID, CompletedAt: c.CompletedAt, Source: c.Source, Via: c.Via, Note: c.Note, RevertedAt: timePtr(c.RevertedAt)}
 	if c.UserID != "" {
 		v.UserID = &c.UserID
 	}

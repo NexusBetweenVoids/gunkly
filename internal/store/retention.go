@@ -69,7 +69,7 @@ func (s *Store) PurgeExpired(ctx context.Context, p RetentionPolicy, now time.Ti
 		{"oauth_tokens", "token_hash", "expires_at < ?", n, false},
 		{"oauth_grants", "id", "expires_at < ? OR revoked_at IS NOT NULL", n, false},
 		{"oauth_grants", "id", "activated_at IS NULL AND created_at < ?", now.Add(-time.Hour).UnixMilli(), false},
-		{"oauth_clients", "id", "last_used_at IS NULL AND created_at < ? AND NOT EXISTS (SELECT 1 FROM oauth_grants g WHERE g.client_id = oauth_clients.id)",
+		{"oauth_clients", "id", unusedClient + " AND created_at < ? AND NOT EXISTS (SELECT 1 FROM oauth_grants g WHERE g.client_id = oauth_clients.id)",
 			now.Add(-OAuthUnusedClientAge).UnixMilli(), false},
 		{"oauth_clients", "id", "last_used_at < ? AND NOT EXISTS (SELECT 1 FROM oauth_grants g WHERE g.client_id = oauth_clients.id)",
 			now.Add(-OAuthIdleClientAge).UnixMilli(), false},

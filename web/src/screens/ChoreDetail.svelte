@@ -149,7 +149,7 @@
         {#each hist as h (h.id)}
           <li>
             <span class:struck={!!h.revertedAt}>
-              {fmtTime(h.completedAt)} &middot; {who(h.userId)}{#if h.source === 'import'} &middot; {t('chore.imported')}{/if}{#if h.note}<br /><span class="muted">{h.note}</span>{/if}
+              {fmtTime(h.completedAt)} &middot; {who(h.userId)}{#if h.source === 'import'} &middot; {t('chore.imported')}{:else if h.source === 'oauth'} &middot; {h.via || t('chore.app')}{/if}{#if h.note}<br /><span class="muted">{h.note}</span>{/if}
             </span>
             {#if h.revertedAt}
               <span class="badge">{t('chore.reverted')}</span>

@@ -88,7 +88,7 @@ type Completion struct {
 	CompletedAt time.Time `json:"completedAt"`
 	By          *Person   `json:"by"`
 	Note        string    `json:"note"`
-	Source      string    `json:"source"` // app | mark_done_link | api_token
+	Source      string    `json:"source"` // app | mark_done_link | api_token | oauth
 	Reverted    bool      `json:"reverted"`
 }
 

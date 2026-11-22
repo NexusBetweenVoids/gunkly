@@ -17,6 +17,7 @@ const (
 	SourceApp          = "app"
 	SourceMarkDoneLink = "mark_done_link"
 	SourceAPIToken     = "api_token"
+	SourceOAuth        = "oauth"  // an MCP client signed in with OAuth; TokenID is the grant id
 	SourceImport       = "import" // history brought in by a data import; never created by a request
 )
 
@@ -28,6 +29,7 @@ type Completion struct {
 	CompletedAt time.Time
 	Source      string
 	TokenID     string
+	Via         string // history only: name of the connected app behind an "oauth" completion, "" if unknown or purged
 	Note        string
 	RevertedAt  time.Time
 }
@@ -48,7 +50,7 @@ type CompletionInput struct {
 // Member or owner (guests cannot complete). Archived chores are ErrConflict.
 // Outstanding mark-done links for the chore are invalidated.
 func (s *Store) CompleteChore(ctx context.Context, a Actor, householdID, choreID string, in CompletionInput) (Completion, error) {
-	if in.Source != SourceApp && in.Source != SourceMarkDoneLink && in.Source != SourceAPIToken || in.CompletedAt.IsZero() || len(in.Note) > 2000 {
+	if in.Source != SourceApp && in.Source != SourceMarkDoneLink && in.Source != SourceAPIToken && in.Source != SourceOAuth || in.CompletedAt.IsZero() || len(in.Note) > 2000 {
 		return Completion{}, ErrInvalid
 	}
 	var c Completion

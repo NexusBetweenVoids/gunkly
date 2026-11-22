@@ -148,12 +148,12 @@ func (t *tx) finishState(ctx context.Context, householdID, choreID string, out *
 	return err
 }
 
-// CompleteChoreAuto completes a chore now, recorded with the given source (SourceApp or SourceAPIToken; tokenID names the token for the latter), and computes the next
+// CompleteChoreAuto completes a chore now, recorded with the given source (SourceApp, SourceAPIToken or SourceOAuth; tokenID names the token or grant for the latter two), and computes the next
 // occurrence inside the transaction with internal/schedule (so concurrent
 // completions cannot work from a stale due date). Member or owner. Archived
 // chores are ErrConflict. It returns the completion and the updated chore.
 func (s *Store) CompleteChoreAuto(ctx context.Context, a Actor, householdID, choreID, note, source, tokenID string) (Completion, Chore, error) {
-	if len(note) > 2000 || source != SourceApp && source != SourceAPIToken {
+	if len(note) > 2000 || source != SourceApp && source != SourceAPIToken && source != SourceOAuth {
 		return Completion{}, Chore{}, ErrInvalid
 	}
 	var comp Completion
@@ -252,7 +252,9 @@ func (s *Store) CompletionsPage(ctx context.Context, a Actor, householdID, chore
 		if n == 0 {
 			return ErrNotFound
 		}
-		rows, err := t.query(ctx, `SELECT id, COALESCE(user_id, ''), completed_at, source, COALESCE(token_id, ''), note, reverted_at
+		rows, err := t.query(ctx, `SELECT id, COALESCE(user_id, ''), completed_at, source, COALESCE(token_id, ''), note, reverted_at,
+			COALESCE((SELECT oc.name FROM oauth_grants og JOIN oauth_clients oc ON oc.id = og.client_id
+				WHERE og.id = completions.token_id AND completions.source = 'oauth'), '')
 			FROM completions WHERE chore_id = ? AND (completed_at < ? OR (completed_at = ? AND id < ?))
 			ORDER BY completed_at DESC, id DESC LIMIT ?`, choreID, atMS, atMS, afterID, limit+1)
 		if err != nil {
@@ -263,7 +265,7 @@ func (s *Store) CompletionsPage(ctx context.Context, a Actor, householdID, chore
 			c := Completion{ChoreID: choreID}
 			var at int64
 			var rev sql.NullInt64
-			if err := rows.Scan(&c.ID, &c.UserID, &at, &c.Source, &c.TokenID, &c.Note, &rev); err != nil {
+			if err := rows.Scan(&c.ID, &c.UserID, &at, &c.Source, &c.TokenID, &c.Note, &rev, &c.Via); err != nil {
 				return err
 			}
 			c.CompletedAt, c.RevertedAt = time.UnixMilli(at).UTC(), fromMS(rev)

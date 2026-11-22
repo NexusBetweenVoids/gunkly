@@ -83,5 +83,6 @@
   "admin.oauthHint": "Lets apps that cannot take an access key (ChatGPT, Claude connectors) sign in to /mcp. Off by default; answers 404 while off. Needs public HTTPS at GUNKLY_BASE_URL.",
   "admin.oauthNeedsHttps": "Unavailable: GUNKLY_BASE_URL is not https.",
   "limit.oauth_clients": "Registered OAuth apps (instance)",
-  "limit.oauth_grants_per_user": "Connected apps per user"
+  "limit.oauth_grants_per_user": "Connected apps per user",
+  "limit.oauth_unused_clients_per_ip": "Unapproved OAuth apps per address"
 }

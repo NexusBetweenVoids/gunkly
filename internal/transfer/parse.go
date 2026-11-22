@@ -319,7 +319,7 @@ func (c *Completion) normalise(p string) error {
 		return err
 	}
 	switch c.Source {
-	case "app", "mark_done_link", "api_token", "import":
+	case "app", "mark_done_link", "api_token", "oauth", "import":
 	default:
 		return bad(ReasonInvalid, p+".source")
 	}

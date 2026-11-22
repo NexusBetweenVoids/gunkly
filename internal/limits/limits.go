@@ -35,6 +35,7 @@ const (
 	APITokensPerUser           Kind = "api_tokens_per_user" //nolint:gosec // G101: a limit name, not a credential
 	OAuthClients               Kind = "oauth_clients"       // registered OAuth clients, instance-wide
 	OAuthGrantsPerUser         Kind = "oauth_grants_per_user"
+	OAuthUnusedClientsPerIP    Kind = "oauth_unused_clients_per_ip" // registered, never approved clients per registering IP
 )
 
 // Defaults is the PRD limits table.
@@ -62,6 +63,7 @@ var Defaults = map[Kind]int{
 	APITokensPerUser:           20,
 	OAuthClients:               1000,
 	OAuthGrantsPerUser:         20,
+	OAuthUnusedClientsPerIP:    20,
 }
 
 // Per-IP request rates of the unauthenticated link endpoints. Fixed, not

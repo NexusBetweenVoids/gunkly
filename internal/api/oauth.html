@@ -12,10 +12,12 @@
 <main class="consent">
 <picture><source srcset="/icons/mark-dark.png" media="(prefers-color-scheme: dark)"><img class="mark" src="/icons/mark-light.png" alt="" width="72" height="72"></picture>
 <h1>{{.Heading}}</h1>
+<p class="return">{{.ReturnLabel}} <strong class="host">{{.ReturnHost}}</strong></p>
 <p class="warn" role="note"><strong>{{.UnverifiedLabel}}</strong> {{.UnverifiedNote}}</p>
-<p>{{.RedirectNote}}</p>
+{{if .NewHostWarning}}<p class="warn" role="note">{{.NewHostWarning}}</p>{{end}}
 <p class="hint">{{.SignedIn}}</p>
 {{if .Error}}<p class="err" role="alert">{{.Error}}</p>{{end}}
+{{if .Info}}<p role="status">{{.Info}}</p>{{end}}
 {{if .NoHouseholds}}<p>{{.NoHouseholdsNote}}</p>{{else}}
 <form method="post" action="/oauth/authorize">
 {{range .Hidden}}<input type="hidden" name="{{.Name}}" value="{{.Value}}">
@@ -33,10 +35,19 @@
 {{end}}<p class="hint">{{.GuestNote}}</p>
 </fieldset>
 <p class="hint">{{.NeverNote}}</p>
-<div class="buttons">
+{{if .StepUp}}<fieldset>
+<legend>{{.ConfirmLegend}}</legend>
+<p class="hint">{{.ConfirmNote}}</p>
+<label for="oauth-password">{{.PasswordLabel}}</label>
+<input id="oauth-password" type="password" name="password" autocomplete="current-password" required>
+{{if .ShowCode}}<label for="oauth-code">{{.CodeLabel}}</label>
+<input id="oauth-code" type="text" name="code" autocomplete="one-time-code" inputmode="text" spellcheck="false" autocapitalize="off">
+{{end}}</fieldset>
+{{end}}<div class="buttons">
 <button type="submit" name="decision" value="allow" class="primary">{{.Allow}}</button>
-<button type="submit" name="decision" value="deny">{{.Deny}}</button>
-</div>
+<button type="submit" name="decision" value="deny" formnovalidate>{{.Deny}}</button>
+{{if .OfferEmail}}<button type="submit" name="decision" value="email_code">{{.EmailCodeBtn}}</button>
+{{end}}</div>
 </form>
 {{end}}
 </main>

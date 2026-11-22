@@ -581,7 +581,7 @@ func (m mcpCall) completeChore(ctx context.Context, in completeIn) (any, error) 
 	if err := m.writeAllowed(h); err != nil {
 		return nil, err
 	}
-	comp, ch, err := m.s.st.CompleteChoreAuto(ctx, h.actor(), h.hh, ch.ID, in.Note, store.SourceAPIToken, m.c.tok.ID)
+	comp, ch, err := m.s.st.CompleteChoreAuto(ctx, h.actor(), h.hh, ch.ID, in.Note, tokenSource(m.c.tok), m.c.tok.ID)
 	if err != nil {
 		return nil, err
 	}
