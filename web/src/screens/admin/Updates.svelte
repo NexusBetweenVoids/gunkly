@@ -2,7 +2,7 @@
   import Alert from '../../components/Alert.svelte';
   import { api } from '../../lib/api';
   import { failure } from '../../lib/errors';
-  import { t } from '../../lib/i18n';
+  import { formatDate, t } from '../../lib/i18n';
   import { withStepUp } from '../../lib/stepup.svelte';
 
   type U = { running: string; latest: string; newer: boolean; changelog: string; checkedAt: string | null; enabled: boolean };
@@ -34,9 +34,17 @@
   <div aria-live="polite"><Alert message={err} /></div>
   {#if u}
     <p>{t('updates.running', { v: u.running })}</p>
-    {#if u.enabled && u.latest}
+    {#if !u.enabled}
+      <p class="muted">{t('updates.off')}</p>
+    {:else if !u.latest}
+      <p class="muted">{t('updates.never')}</p>
+    {:else}
       <p role="status">{t(u.newer ? 'updates.newer' : 'updates.current', { v: u.latest })}</p>
-      {#if u.changelog}<pre class="changelog">{u.changelog}</pre>{/if}
+      {#if u.checkedAt}<p class="muted">{t('updates.checked', { date: formatDate(new Date(u.checkedAt)) })}</p>{/if}
+      {#if u.changelog}
+        <h3>{t('updates.changelog')}</h3>
+        <pre class="changelog">{u.changelog}</pre>
+      {/if}
     {/if}
     <label class="check"><input type="checkbox" checked={u.enabled} onchange={(e) => toggle(e.currentTarget.checked)} />{t('updates.enable')}</label>
     <p class="hint">{t('updates.privacy')}</p>

@@ -10,7 +10,7 @@
   import { api } from '../lib/api';
   import { failure } from '../lib/errors';
   import { formatDate, t, type Key } from '../lib/i18n';
-  import { navigate } from '../lib/router';
+  import { navigate } from '../lib/router.svelte';
   import { app, refreshHouseholds } from '../lib/session.svelte';
   import { toast } from '../lib/toast.svelte';
   import type { Household, Member, Role } from '../lib/types';

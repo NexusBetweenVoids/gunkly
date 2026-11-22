@@ -1,21 +1,8 @@
-// Tiny history router: a Svelte-store-compatible `route` plus link interception.
-type Sub = (path: string) => void;
-const subs = new Set<Sub>();
-let current = location.pathname;
+// Tiny history router: reactive `route.path` plus link interception.
+export const route = $state({ path: location.pathname });
 
-function emit(): void {
-  current = location.pathname;
-  subs.forEach((f) => f(current));
-}
-
-export const route = {
-  subscribe(f: Sub): () => void {
-    subs.add(f);
-    f(current);
-    return () => {
-      subs.delete(f);
-    };
-  },
+const emit = (): void => {
+  route.path = location.pathname;
 };
 
 export function navigate(to: string, replace = false): void {

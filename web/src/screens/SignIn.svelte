@@ -8,7 +8,7 @@
   import { safeNext } from '../lib/safenext';
   import { failure } from '../lib/errors';
   import { t } from '../lib/i18n';
-  import { navigate } from '../lib/router';
+  import { navigate } from '../lib/router.svelte';
   import { adopt, app } from '../lib/session.svelte';
   import { toast } from '../lib/toast.svelte';
   import type { SessionView } from '../lib/types';

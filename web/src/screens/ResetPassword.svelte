@@ -5,7 +5,7 @@
   import { api } from '../lib/api';
   import { failure } from '../lib/errors';
   import { t } from '../lib/i18n';
-  import { navigate } from '../lib/router';
+  import { navigate } from '../lib/router.svelte';
   import { clearSession } from '../lib/session.svelte';
   import { toast } from '../lib/toast.svelte';
 

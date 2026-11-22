@@ -6,7 +6,7 @@
   import { api } from './lib/api';
   import { failure } from './lib/errors';
   import { t } from './lib/i18n';
-  import { navigate, route } from './lib/router';
+  import { navigate, route } from './lib/router.svelte';
   import { app, bootstrap, currentHousehold, selectHousehold, signOut } from './lib/session.svelte';
   import { toast } from './lib/toast.svelte';
   import Home from './screens/Home.svelte';
@@ -15,23 +15,23 @@
 
   void bootstrap();
 
-  const invite = $derived($route.match(/^\/invite\/([^/]+)$/)?.[1]);
-  const choreId = $derived($route.match(/^\/chores\/([^/]+)$/)?.[1]);
-  const editId = $derived($route.match(/^\/chores\/([^/]+)\/edit$/)?.[1]);
-  const hhId = $derived($route.match(/^\/households\/([^/]+)$/)?.[1]);
+  const invite = $derived(route.path.match(/^\/invite\/([^/]+)$/)?.[1]);
+  const choreId = $derived(route.path.match(/^\/chores\/([^/]+)$/)?.[1]);
+  const editId = $derived(route.path.match(/^\/chores\/([^/]+)\/edit$/)?.[1]);
+  const hhId = $derived(route.path.match(/^\/households\/([^/]+)$/)?.[1]);
   // Public screens: signed-out users may see them (the last two also signed in: emailed links).
   const PUBLIC = ['/signin', '/setup', '/signup', '/forgot-password', '/reset-password', '/verify-email'];
-  const isPublic = $derived(PUBLIC.includes($route) || !!invite);
+  const isPublic = $derived(PUBLIC.includes(route.path) || !!invite);
 
   // Route guard: signed-out users only see public screens.
   $effect(() => {
     if (!app.ready) return;
     if (!app.user && !isPublic) {
       if (app.setupNeeded) navigate('/setup', true);
-      else navigate(`/signin?next=${encodeURIComponent($route + location.search)}`, true);
-    } else if (!app.user && app.setupNeeded && $route === '/signin') {
+      else navigate(`/signin?next=${encodeURIComponent(route.path + location.search)}`, true);
+    } else if (!app.user && app.setupNeeded && route.path === '/signin') {
       navigate('/setup', true);
-    } else if (app.user && ['/signin', '/setup', '/signup', '/forgot-password'].includes($route)) {
+    } else if (app.user && ['/signin', '/setup', '/signup', '/forgot-password'].includes(route.path)) {
       navigate('/', true);
     }
   });
@@ -40,7 +40,7 @@
     await signOut();
     navigate('/signin');
   }
-  const here = (p: string) => ($route === p ? 'page' : undefined);
+  const here = (p: string) => (route.path === p ? 'page' : undefined);
 
   // Signed in with an address that isn't confirmed yet.
   const unverified = $derived(!!app.user && app.instance.emailEnabled && !!app.user.email && !app.user.emailVerified);
@@ -105,46 +105,46 @@
 <main id="main" class:with-tabs={app.user && app.hhId && !isPublic}>
   {#if !app.ready}
     <p role="status" class="muted">{t('common.loading')}</p>
-  {:else if $route === '/signin'}
+  {:else if route.path === '/signin'}
     {#if !app.user}<SignIn />{/if}
-  {:else if $route === '/setup'}
-    {#if !app.user && app.setupNeeded}<Lazy load={() => import('./screens/Setup.svelte')} />{:else if !app.user}<NotFound />{/if}
-  {:else if $route === '/signup'}
-    {#if !app.user}<Lazy load={() => import('./screens/Signup.svelte')} />{/if}
-  {:else if $route === '/forgot-password'}
-    {#if !app.user}<Lazy load={() => import('./screens/ForgotPassword.svelte')} />{/if}
-  {:else if $route === '/reset-password'}
-    <Lazy load={() => import('./screens/ResetPassword.svelte')} />
-  {:else if $route === '/verify-email'}
-    <Lazy load={() => import('./screens/VerifyEmail.svelte')} />
+  {:else if route.path === '/setup'}
+    {#if !app.user && app.setupNeeded}<Lazy load={() => import('./screens/Setup.svelte')} ns={['auth']} />{:else if !app.user}<NotFound />{/if}
+  {:else if route.path === '/signup'}
+    {#if !app.user}<Lazy load={() => import('./screens/Signup.svelte')} ns={['auth']} />{/if}
+  {:else if route.path === '/forgot-password'}
+    {#if !app.user}<Lazy load={() => import('./screens/ForgotPassword.svelte')} ns={['auth']} />{/if}
+  {:else if route.path === '/reset-password'}
+    <Lazy load={() => import('./screens/ResetPassword.svelte')} ns={['auth']} />
+  {:else if route.path === '/verify-email'}
+    <Lazy load={() => import('./screens/VerifyEmail.svelte')} ns={['auth']} />
   {:else if invite}
-    {#key invite}<Lazy load={() => import('./screens/Invite.svelte')} props={{ token: invite }} />{/key}
+    {#key invite}<Lazy load={() => import('./screens/Invite.svelte')} ns={['auth']} props={{ token: invite }} />{/key}
   {:else if app.user}
-    {#if $route === '/'}
+    {#if route.path === '/'}
       <Home />
-    {:else if $route === '/calendar'}
-      {#key app.hhId}<Lazy load={() => import('./screens/Calendar.svelte')} />{/key}
-    {:else if $route === '/chores/new'}
-      {#key app.hhId}<Lazy load={() => import('./screens/ChoreEditor.svelte')} />{/key}
+    {:else if route.path === '/calendar'}
+      {#key app.hhId}<Lazy load={() => import('./screens/Calendar.svelte')} ns={['calendar']} />{/key}
+    {:else if route.path === '/chores/new'}
+      {#key app.hhId}<Lazy load={() => import('./screens/ChoreEditor.svelte')} ns={['chores']} />{/key}
     {:else if choreId}
-      {#key `${app.hhId}/${choreId}`}<Lazy load={() => import('./screens/ChoreDetail.svelte')} props={{ id: choreId }} />{/key}
+      {#key `${app.hhId}/${choreId}`}<Lazy load={() => import('./screens/ChoreDetail.svelte')} ns={['chores']} props={{ id: choreId }} />{/key}
     {:else if editId}
-      {#key `${app.hhId}/${editId}`}<Lazy load={() => import('./screens/ChoreEditor.svelte')} props={{ id: editId }} />{/key}
-    {:else if $route === '/households/new'}
-      <Lazy load={() => import('./screens/NewHousehold.svelte')} />
+      {#key `${app.hhId}/${editId}`}<Lazy load={() => import('./screens/ChoreEditor.svelte')} ns={['chores']} props={{ id: editId }} />{/key}
+    {:else if route.path === '/households/new'}
+      <Lazy load={() => import('./screens/NewHousehold.svelte')} ns={['household']} />
     {:else if hhId}
-      {#key hhId}<Lazy load={() => import('./screens/Household.svelte')} props={{ id: hhId }} />{/key}
-    {:else if $route === '/account'}
-      <Lazy load={() => import('./screens/Account.svelte')} />
-    {:else if $route === '/admin' && app.user.isAdmin}
-      <Lazy load={() => import('./screens/Admin.svelte')} />
+      {#key hhId}<Lazy load={() => import('./screens/Household.svelte')} ns={['household', 'channels']} props={{ id: hhId }} />{/key}
+    {:else if route.path === '/account'}
+      <Lazy load={() => import('./screens/Account.svelte')} ns={['account', 'channels']} />
+    {:else if route.path === '/admin' && app.user.isAdmin}
+      <Lazy load={() => import('./screens/Admin.svelte')} ns={['admin']} />
     {:else}
       <NotFound />
     {/if}
   {/if}
 </main>
 
-{#if stepUp.open}<Lazy load={() => import('./components/StepUp.svelte')} />{/if}
+{#if stepUp.open}<Lazy load={() => import('./components/StepUp.svelte')} ns={['auth']} />{/if}
 <Toast />
 
 <style>

@@ -5,7 +5,7 @@
   import { api, ApiError, download } from '../../lib/api';
   import { failure } from '../../lib/errors';
   import { t, type Key } from '../../lib/i18n';
-  import { navigate } from '../../lib/router';
+  import { navigate } from '../../lib/router.svelte';
   import { refreshHouseholds, selectHousehold } from '../../lib/session.svelte';
   import { toast } from '../../lib/toast.svelte';
 

@@ -6,7 +6,7 @@
   import { failure } from '../lib/errors';
   import { locale, t } from '../lib/i18n';
   import { solveChallenge, type Solution } from '../lib/pow';
-  import { navigate } from '../lib/router';
+  import { navigate } from '../lib/router.svelte';
   import { adopt, app } from '../lib/session.svelte';
   import type { SessionView } from '../lib/types';
 

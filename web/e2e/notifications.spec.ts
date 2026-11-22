@@ -18,7 +18,7 @@ test('account: browsers without push get an explanation instead of a button', as
   });
   await page.goto('/account');
   const card = page.getByRole('region', { name: 'Notifications on this device' });
-  await expect(card.getByTestId('push-unsupported')).toHaveText('This browser does not support push notifications.');
+  await expect(card.getByTestId('push-unsupported')).toHaveText('This browser does not support push notifications. Use a channel above instead.');
   await expect(card.getByRole('button')).toHaveCount(0);
 });
 

@@ -6,7 +6,7 @@
   import { api } from '../lib/api';
   import { failure } from '../lib/errors';
   import { t } from '../lib/i18n';
-  import { navigate } from '../lib/router';
+  import { navigate } from '../lib/router.svelte';
   import { refreshHouseholds, selectHousehold } from '../lib/session.svelte';
   import type { Household } from '../lib/types';
   import { localZone, zones } from '../lib/zones';

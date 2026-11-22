@@ -10,7 +10,7 @@
   import { failure } from '../lib/errors';
   import { t, type Key } from '../lib/i18n';
   import { nameOf } from '../lib/names';
-  import { navigate } from '../lib/router';
+  import { navigate } from '../lib/router.svelte';
   import { fromRRule, newRule, toRRule } from '../lib/rrule';
   import { app } from '../lib/session.svelte';
   import { toast } from '../lib/toast.svelte';

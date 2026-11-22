@@ -4,7 +4,7 @@
   import Field from '../../components/Field.svelte';
   import { api } from '../../lib/api';
   import { failure } from '../../lib/errors';
-  import { t } from '../../lib/i18n';
+  import { has, t, type Key } from '../../lib/i18n';
   import { withStepUp } from '../../lib/stepup.svelte';
   import { toast } from '../../lib/toast.svelte';
 
@@ -130,7 +130,7 @@
       <p class="hint">{t('admin.limitsHint')}</p>
       {#each Object.keys(s.limits) as k (k)}
         <Field
-          label={k.replace(/_/g, ' ')}
+          label={has(`limit.${k}`) ? t(`limit.${k}` as Key) : k.replace(/_/g, ' ')}
           hint={t('admin.limitDefault', { n: s.limitDefaults[k] ?? 0 })}
           type="number"
           min="0"

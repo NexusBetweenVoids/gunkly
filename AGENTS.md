@@ -39,7 +39,7 @@ Rules for any agent (human or AI) changing Gunkly. Read `docs/PRD.md` for scope 
 3. All household data access goes through `internal/store`; every new endpoint gets an isolation test and passes the architectural fitness checks.
 4. Every feature ships with tests that pass on both SQLite and Postgres (`go test -race`); `make check` and CI must be green before merge.
 5. Features go through the versioned API first; the UI never bypasses it; breaking `/api/v1` changes are forbidden.
-6. No user-facing text in code: every string goes through the translation files (`web/src/lib/i18n/*.json`; server-sent text through `internal/i18n`).
+6. No user-facing text in code: every string goes through the translation files (`web/src/lib/i18n/<locale>/<area>.json`, `core` for shell/shared text; server-sent text through `internal/i18n`).
 7. Every new countable resource goes through `internal/limits`.
 8. Use expand-and-contract migrations for breaking schema changes.
 9. Small PRs, one task each. Update `docs/PRD.md` or ADRs in the same PR when behaviour or architecture changes. If a task looks like new scope, stop and ask.

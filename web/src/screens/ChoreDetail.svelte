@@ -8,7 +8,7 @@
   import { clock, dueText, fmt, fmtTime } from '../lib/dates';
   import { failure } from '../lib/errors';
   import { formatDate, t, type Key } from '../lib/i18n';
-  import { navigate } from '../lib/router';
+  import { navigate } from '../lib/router.svelte';
   import { describe, fromRRule } from '../lib/rrule';
   import { app, currentHousehold } from '../lib/session.svelte';
   import { STATUS, UNIT } from '../lib/names';

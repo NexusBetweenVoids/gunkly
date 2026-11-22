@@ -42,7 +42,7 @@
       }
       await load();
     } catch (x) {
-      err = x instanceof DOMException ? t('push.failed') : failure(x).message;
+      err = x instanceof DOMException ? t(Notification.permission === 'denied' ? 'push.denied' : 'push.failed') : failure(x).message;
     } finally {
       busy = false;
     }
