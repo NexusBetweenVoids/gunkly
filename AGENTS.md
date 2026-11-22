@@ -52,4 +52,5 @@ Rules for any agent (human or AI) changing Gunkly. Read `docs/PRD.md` for scope 
 - Secrets (tokens, mark-done links, recovery codes): store only SHA-256 hashes; compare in constant time.
 - Never log passwords, tokens, notification URLs, VAPID keys or session IDs.
 - Errors returned to clients are generic; details go to the log (minus secrets).
+- README badges must stay accurate: when a change affects what a static badge states (license, framework version, supported databases, container), update the badge in the same PR. At the first release, add release-version and container-image badges. `make fitness` checks the Svelte badge.
 - Prefer the standard library. Small, boring code over abstractions. Delete dead code.
