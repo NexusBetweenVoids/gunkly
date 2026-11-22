@@ -155,7 +155,7 @@ func (s *Server) enforce(p policy, h handlerFunc) http.Handler {
 		info.pattern = r.Pattern
 		c := &call{ip: info.ip.String(), rip: ipKey(info.ip)}
 		if !safeMethod(r.Method) && !s.requestOK(p, r) {
-			s.fail(w, r, errCSRF)
+			s.fail(w, r, s.csrfError(r))
 			return
 		}
 		if p.rate != "" && !s.allow(w, p.rate+":ip:"+c.rip) {

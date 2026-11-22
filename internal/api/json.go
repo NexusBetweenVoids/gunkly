@@ -25,6 +25,7 @@ func errf(status int, code string) error { return &apiError{status: status, code
 
 var (
 	errCSRF               = errf(http.StatusForbidden, "csrf_failed")
+	errBaseURL            = errf(http.StatusForbidden, "base_url_mismatch")
 	errUnauthenticated    = errf(http.StatusUnauthorized, "unauthenticated")
 	errForbidden          = errf(http.StatusForbidden, "forbidden")
 	errStepUp             = errf(http.StatusForbidden, "step_up_required")

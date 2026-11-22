@@ -4,6 +4,10 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ## [Unreleased]
 
+### Changed
+
+- Opening Gunkly at an address other than `GUNKLY_BASE_URL` (or over http when it is https) now says so in the app and logs a warning naming both addresses, instead of a generic "session expired".
+
 ## [0.1.1] - 2026-11-22
 
 ### Changed

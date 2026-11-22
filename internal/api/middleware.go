@@ -164,6 +164,31 @@ func (s *Server) csrfOK(r *http.Request) bool {
 	return subtle.ConstantTimeCompare([]byte(c.Value), []byte(r.Header.Get("X-CSRF-Token"))) == 1
 }
 
+// csrfError picks the error for a rejected unsafe request. The common
+// misconfiguration — opening Gunkly at an address other than GUNKLY_BASE_URL,
+// or over http when it is https (Secure cookies are then dropped) — gets its
+// own code and a rate-limited warning naming both addresses, so admins are
+// not left with a generic "session expired".
+func (s *Server) csrfError(r *http.Request) error {
+	if s.baseURL == "" {
+		return errCSRF
+	}
+	used := r.Header.Get("Origin")
+	_, noCookie := r.Cookie(csrfCookie)
+	switch {
+	case used != "" && used != "null" && !strings.EqualFold(used, s.baseURL):
+	case noCookie != nil && strings.HasPrefix(s.baseURL, "https://") && r.TLS == nil && r.Header.Get("X-Forwarded-Proto") != "https":
+		used = "http://" + r.Host
+	default:
+		return errCSRF
+	}
+	if now := time.Now().Unix(); s.baseURLWarned.Swap(now) < now-60 {
+		s.log.Warn("request from an address that does not match GUNKLY_BASE_URL; set GUNKLY_BASE_URL to the exact address you open Gunkly at",
+			"opened_at", used, "base_url", s.baseURL)
+	}
+	return errBaseURL
+}
+
 // requestOK is the CSRF gate for unsafe methods. Session routes need the
 // double-submit cookie plus the cross-site check. Token routes (mark-done
 // links) have no cookie to submit and nothing ambient for an attacker to

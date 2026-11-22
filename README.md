@@ -85,7 +85,8 @@ services:
     environment:
       # Generate with: openssl rand -base64 32   (keep it safe and backed up)
       GUNKLY_SECRET_KEYS: "1:REPLACE_WITH_GENERATED_KEY"
-      # The address you open Gunkly at (scheme://host[:port], no path)
+      # The exact address you open Gunkly at (scheme://host[:port], no path),
+      # e.g. http://192.168.1.10:4865 — requests from any other address are refused
       GUNKLY_BASE_URL: "http://localhost:4865"
     volumes:
       - gunkly-data:/data

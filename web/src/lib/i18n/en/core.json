@@ -61,6 +61,7 @@
   "err.unknown": "Something went wrong. Please try again.",
   "err.network": "Can't reach the server. Check your connection and try again.",
   "err.csrf_failed": "Your session expired. Reload the page and try again.",
+  "err.base_url_mismatch": "This address does not match the address Gunkly is configured for (GUNKLY_BASE_URL). Open Gunkly at that address, or ask the administrator to set GUNKLY_BASE_URL to the address you use.",
   "err.unauthenticated": "Please sign in again.",
   "err.forbidden": "You don't have permission to do that.",
   "err.invalid_credentials": "Incorrect username or password.",

@@ -1181,3 +1181,24 @@ func TestInviteMaxUses(t *testing.T) {
 		t.Fatalf("list: %d %v", st, v)
 	}
 }
+
+func TestBaseURLMismatchIsExplained(t *testing.T) {
+	e := newEnv(t, func(o *Options) { o.BaseURL = "http://localhost:4865" })
+	for _, tc := range []struct{ name, origin, want string }{
+		{"other address", "http://192.168.8.1:4865", "base_url_mismatch"},
+		{"matching address, no token", "http://localhost:4865", "csrf_failed"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest("POST", "/api/v1/setup", strings.NewReader(`{}`))
+			req.Header.Set("Content-Type", "application/json")
+			if tc.origin != "" {
+				req.Header.Set("Origin", tc.origin)
+			}
+			rec := httptest.NewRecorder()
+			e.srv.Handler().ServeHTTP(rec, req)
+			if rec.Code != 403 || !strings.Contains(rec.Body.String(), tc.want) {
+				t.Fatalf("got %d %s, want 403 %s", rec.Code, rec.Body.String(), tc.want)
+			}
+		})
+	}
+}

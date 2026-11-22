@@ -14,6 +14,7 @@ import (
 	"net/netip"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/NexusBetweenVoids/gunkly/internal/auth"
@@ -65,11 +66,13 @@ type Options struct {
 
 // Server is the HTTP API. Create with New.
 type Server struct {
-	st      *store.Store
-	limits  *limits.Service
-	keyring *auth.Keyring
-	baseURL string
-	metrics *metrics.Registry
+	st *store.Store
+
+	baseURLWarned atomic.Int64 // unix time of the last base-URL mismatch warning
+	limits        *limits.Service
+	keyring       *auth.Keyring
+	baseURL       string
+	metrics       *metrics.Registry
 	// metricsTokenHash is the SHA-256 of the metrics token (zero when off).
 	metricsTokenHash [sha256.Size]byte
 	version          string
