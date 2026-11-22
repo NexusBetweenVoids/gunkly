@@ -74,7 +74,7 @@
       <li>
         <span>
           <strong>{u.displayName}</strong>
-          {#if u.isAdmin}<span class="badge">{t('admin.adminBadge')}</span>{/if}
+          {#if u.isAdmin}<span class="badge">{t('nav.admin')}</span>{/if}
           <br /><span class="muted">{u.username}{u.email ? ` · ${u.email}` : ''} · {t('admin.lastActive', { date: formatDate(new Date(u.lastActiveAt), { dateStyle: 'medium' }) })}</span>
         </span>
         {#if !u.isAdmin}<Button variant="quiet" onclick={() => (resetFor = u)}>{t('admin.reset')}</Button>{/if}
@@ -105,7 +105,7 @@
 />
 <Dialog
   open={!!newPassword}
-  title={t('admin.newPassword')}
+  title={t('password.new')}
   onclose={() => {
     newPassword = '';
     resetFor = null;

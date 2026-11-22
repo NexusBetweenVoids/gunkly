@@ -9,8 +9,8 @@
   import { toast } from '../../lib/toast.svelte';
   import type { Invite, Role } from '../../lib/types';
 
-  let { id }: { id: string } = $props();
   const roleLabel: Record<Role, Key> = { owner: 'role.owner', member: 'role.member', guest: 'role.guest' };
+  let { id }: { id: string } = $props();
   const expiries: { hours: number; label: Key }[] = [
     { hours: 24, label: 'invite.exp1' },
     { hours: 168, label: 'invite.exp7' },

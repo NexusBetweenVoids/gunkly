@@ -32,7 +32,7 @@ const (
 	MaxChangelog = 8000
 	maxTagLen    = 64
 	pollEvery    = 30 * time.Minute
-	firstDelay   = 30 * time.Second
+	firstDelay   = 2 * time.Minute
 )
 
 var tagRE = regexp.MustCompile(`^v?\d{1,6}\.\d{1,6}\.\d{1,6}(-[0-9A-Za-z.-]{1,40})?(\+[0-9A-Za-z.-]{1,40})?$`)

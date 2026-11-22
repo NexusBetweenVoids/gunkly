@@ -34,7 +34,7 @@
 </script>
 
 <section class="card" aria-labelledby="a-pw">
-  <h2 id="a-pw">{t('password.title')}</h2>
+  <h2 id="a-pw">{t('field.password')}</h2>
   <form class="stack" onsubmit={submit}>
     <Field
       label={t('password.new')}

@@ -8,7 +8,7 @@
   import Button from './Button.svelte';
 
   let { path, title, id }: { path: `/${string}`; title: string; id: string } = $props();
-  const TYPE: Record<string, Key> = { before: 'delivery.before', on_due: 'delivery.on_due', overdue: 'delivery.overdue', test: 'delivery.test' };
+  const TYPE: Record<string, Key> = { before: 'delivery.before', on_due: 'delivery.on_due', overdue: 'home.overdue', test: 'delivery.test' };
   const STATUS: Record<string, Key> = { pending: 'delivery.pending', sent: 'delivery.sent', failed: 'delivery.failed' };
   const ICON: Record<string, string> = { pending: '⏳', sent: '✓', failed: '✗' };
   let items = $state<Delivery[]>([]);

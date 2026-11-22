@@ -20,18 +20,18 @@
 
   let { id }: { id: string } = $props();
   const MAX_BYTES = 5 * 1024 * 1024;
-  const REASONS: Record<string, Key> = {
-    not_json: 'import.err.not_json',
-    format: 'import.err.format',
-    version: 'import.err.version',
-    required: 'import.err.required',
-    invalid: 'import.err.invalid',
-    too_long: 'import.err.too_long',
-    limit_chores: 'import.err.limit_chores',
-    limit_areas: 'import.err.limit_areas',
-    limit_reminders: 'import.err.limit_reminders',
-    limit_completions: 'import.err.limit_completions',
-  };
+  const REASONS: readonly string[] = [
+    'import.err.not_json',
+    'import.err.format',
+    'import.err.version',
+    'import.err.required',
+    'import.err.invalid',
+    'import.err.too_long',
+    'import.err.limit_chores',
+    'import.err.limit_areas',
+    'import.err.limit_reminders',
+    'import.err.limit_completions',
+  ];
 
   let file = $state<File | null>(null);
   let mode = $state<'new' | 'merge'>('new');
@@ -42,7 +42,7 @@
 
   function message(x: unknown): string {
     if (x instanceof ApiError && x.code === 'import_invalid') {
-      const m = t(REASONS[x.reason] ?? 'err.invalid');
+      const m = t(REASONS.includes(`import.err.${x.reason}`) ? (`import.err.${x.reason}` as Key) : 'err.invalid');
       return x.path ? t('import.errorAt', { message: m, path: x.path }) : m;
     }
     return failure(x).message;

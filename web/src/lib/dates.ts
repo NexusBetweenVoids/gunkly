@@ -35,7 +35,7 @@ export const clock = (minute: number): string =>
 export function dueText(due: string): string {
   const n = diffDays(due, today());
   if (n < 0) return t('due.overdue', { count: -n });
-  if (n === 0) return t('due.today');
+  if (n === 0) return t('home.dueToday');
   if (n === 1) return t('due.tomorrow');
   return n < 7 ? fmt(due, { weekday: 'long' }) : fmt(due);
 }

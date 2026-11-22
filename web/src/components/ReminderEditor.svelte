@@ -35,7 +35,7 @@
         bind:value={() => hm(r.minute), (v) => (r.minute = Number(v.slice(0, 2)) * 60 + Number(v.slice(3, 5)))}
         required
       />
-      <Button variant="danger" onclick={() => (items = items.filter((_, j) => j !== i))}>{t('common.remove')}</Button>
+      <Button variant="danger" onclick={() => (items = items.filter((_, j) => j !== i))}>{t('household.remove')}</Button>
     </div>
   {/each}
   <div><Button variant="quiet" onclick={() => (items = [...items, { kind: 'on', days: 1, minute: 540 }])}>{t('reminder.add')}</Button></div>

@@ -20,8 +20,8 @@
   import Feeds from './household/Feeds.svelte';
   import Invites from './household/Invites.svelte';
 
-  let { id }: { id: string } = $props();
   const roleLabel: Record<Role, Key> = { owner: 'role.owner', member: 'role.member', guest: 'role.guest' };
+  let { id }: { id: string } = $props();
 
   let hh = $state<Household | null>(null);
   let members = $state<Member[]>([]);

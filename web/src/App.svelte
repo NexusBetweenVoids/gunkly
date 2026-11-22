@@ -97,7 +97,7 @@
       {#if currentHousehold()?.role !== 'guest'}
         <li><a href="/chores/new" aria-current={here('/chores/new')}><span aria-hidden="true">+</span>{t('nav.add')}</a></li>
       {/if}
-      <li><a href="/households/{app.hhId}" aria-current={here(`/households/${app.hhId}`)}><span aria-hidden="true">&#x2699;</span>{t('nav.settings')}</a></li>
+      <li><a href="/households/{app.hhId}" aria-current={here(`/households/${app.hhId}`)}><span aria-hidden="true">&#x2699;</span>{t('household.settings')}</a></li>
     </ul>
   </nav>
 {/if}
@@ -138,8 +138,6 @@
       <Lazy load={() => import('./screens/Account.svelte')} />
     {:else if $route === '/admin' && app.user.isAdmin}
       <Lazy load={() => import('./screens/Admin.svelte')} />
-    {:else if $route === '/admin/updates' && app.user.isAdmin}
-      <Lazy load={() => import('./screens/AdminUpdates.svelte')} />
     {:else}
       <NotFound />
     {/if}

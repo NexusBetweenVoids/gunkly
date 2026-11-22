@@ -90,7 +90,7 @@
     </form>
     <p class="muted">
       {t('invite.haveAccount')}
-      <a href="/signin?next={encodeURIComponent('/invite/' + token)}">{t('signIn.submit')}</a>
+      <a href="/signin?next={encodeURIComponent('/invite/' + token)}">{t('signIn.title')}</a>
     </p>
   {/if}
 </section>

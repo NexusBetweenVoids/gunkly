@@ -8,31 +8,33 @@
   let events = $state<Ev[]>([]);
   let err = $state('');
 
-  const LABELS: Record<string, Key> = {
-    setup: 'audit.setup',
-    login_success: 'audit.login_success',
-    login_failure: 'audit.login_failure',
-    logout: 'audit.logout',
-    password_change: 'audit.password_change',
-    password_reset: 'audit.password_reset',
-    totp_enable: 'audit.totp_enable',
-    totp_disable: 'audit.totp_disable',
-    recovery_code_use: 'audit.recovery_code_use',
-    session_revoke: 'audit.session_revoke',
-    member_role_change: 'audit.member_role_change',
-    member_remove: 'audit.member_remove',
-    invite_create: 'audit.invite_create',
-    invite_accept: 'audit.invite_accept',
-    invite_revoke: 'audit.invite_revoke',
-    household_create: 'audit.household_create',
-    household_settings: 'audit.household_settings',
-    admin_user_create: 'audit.admin_user_create',
-    admin_settings: 'audit.admin_settings',
-    register_invite: 'audit.register_invite',
-    account_export: 'audit.account_export',
-    household_export: 'audit.household_export',
-    household_import: 'audit.household_import',
-  };
+  const LABELS: readonly string[] = [
+    'audit.setup',
+    'audit.login_success',
+    'audit.login_failure',
+    'audit.logout',
+    'audit.password_change',
+    'audit.password_reset',
+    'audit.totp_enable',
+    'audit.totp_disable',
+    'audit.recovery_code_use',
+    'audit.session_revoke',
+    'audit.member_role_change',
+    'audit.member_remove',
+    'audit.invite_create',
+    'audit.invite_accept',
+    'audit.invite_revoke',
+    'audit.household_create',
+    'audit.household_settings',
+    'audit.admin_user_create',
+    'audit.admin_settings',
+    'audit.register_invite',
+    'audit.account_export',
+    'audit.household_export',
+    'audit.household_import',
+  ];
+
+  const label = (ev: string) => (LABELS.includes(`audit.${ev}`) ? t(('audit.' + ev) as Key) : ev);
 
   api<Ev[]>('GET', '/account/audit')
     .then((r) => (events = r))
@@ -49,7 +51,7 @@
     <ul class="list">
       {#each events as e, i (i)}
         <li>
-          <span>{LABELS[e.event] ? t(LABELS[e.event]) : e.event}</span>
+          <span>{label(e.event)}</span>
           <span class="muted">{formatDate(new Date(e.createdAt), { dateStyle: 'medium', timeStyle: 'short' })} · {e.ip}</span>
         </li>
       {/each}

@@ -113,7 +113,7 @@
         <strong>{c.name}</strong>
         <span class="muted" class:late={c.status === 'overdue'}>
           {#if areaName(c.areaId)}{areaName(c.areaId)} &middot; {/if}
-          {#if c.status === 'paused'}{t('chore.paused')}{:else if c.status === 'none' || c.status === 'archived'}{t(c.status === 'none' ? 'chore.noDue' : 'chore.archived')}{:else}{dueText(c.dueDate)}{/if}
+          {#if c.status === 'paused'}{t('status.paused')}{:else if c.status === 'none' || c.status === 'archived'}{t(c.status === 'none' ? 'status.none' : 'home.archived')}{:else}{dueText(c.dueDate)}{/if}
         </span>
       </a>
       <Initials names={who(c)} />

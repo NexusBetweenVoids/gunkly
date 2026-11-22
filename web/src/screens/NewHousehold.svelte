@@ -38,7 +38,7 @@
 </script>
 
 <section class="card narrow">
-  <h1>{t('household.new')}</h1>
+  <h1>{t('nav.newHousehold')}</h1>
   <form class="stack" onsubmit={submit}>
     <Field label={t('household.name')} bind:value={name} required maxlength={100} />
     <TimeZone bind:value={timezone} error={tzErr} />

@@ -81,7 +81,7 @@
       />
     {/if}
     {#if err.code !== 'invalid_credentials' && err.code !== 'invalid_code'}<Alert message={err.message} />{/if}
-    <Button type="submit" {busy}>{needSecond ? t('signIn.verify') : t('signIn.submit')}</Button>
+    <Button type="submit" {busy}>{needSecond ? t('signIn.verify') : t('signIn.title')}</Button>
     {#if needSecond}
       <Button
         variant="quiet"

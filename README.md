@@ -77,6 +77,27 @@ Pending database migrations are applied on start (`GUNKLY_AUTO_MIGRATE=true`, th
    It creates the schema at the same version, copies every table in foreign-key order from one consistent read snapshot, then compares per-table row counts and a SHA-256 over the rows (ordered by primary key, values normalised across both databases) inside the same target transaction. It commits only if everything matches; on any mismatch or error nothing is left in the target (rerun after fixing the cause) and the exit status is non-zero.
 5. Set `GUNKLY_DATABASE_URL` to the Postgres URL (compose: use `compose.postgres.yml`), keep the same `GUNKLY_SECRET_KEYS`, and start Gunkly. Keep the SQLite file until you are satisfied; it is untouched.
 
+## Monitoring
+
+Set `GUNKLY_METRICS_TOKEN` (16 or more characters, for example `openssl rand -hex 24`) to serve Prometheus metrics at `/metrics`. Without it the route does not exist. Scrape with the token as a bearer token:
+
+```yaml
+scrape_configs:
+  - job_name: gunkly
+    authorization: {type: Bearer, credentials: <your token>}
+    static_configs: [{targets: ['gunkly:8080']}]
+```
+
+The series are build info, HTTP requests by route and status class, a request duration histogram, deliveries by channel kind, scheduler tick age, delivery queue depth and open database connections. Nothing is labelled by user or household. Keep `/metrics` off the public internet if you can: block it at your reverse proxy.
+
+## Updates
+
+Administration shows the running version and the latest release with its changelog. Once every 12 hours at most, Gunkly asks the public GitHub release API for the latest release (user agent `gunkly-update-check`, no information about your server) and caches the answer. Switch it off on the same page and Gunkly makes no request at all. Gunkly never updates itself: pull the new image and restart; migrations run on start.
+
+## Browser notifications
+
+Under Account, "Enable notifications on this device" subscribes the browser to Web Push (HTTPS or localhost, and a browser with push support). Messages are encrypted to the browser and delivered through the browser vendor's push service, which sees that a message was sent and when. Push follows the same recipients, mutes and quiet hours as your other channels.
+
 ## Export and import
 
 Every user can download their own data (Account, "Export my data"; asks for the password again) and members and owners can export a household (household settings, "Export household") as JSON. The files never contain notification URLs, tokens, calendar feed links or member email addresses. A household file can be imported as a new household or merged into one you are a member of (areas with the same name are combined, chores are added as new ones, assignees are matched to members by username). Uploads are limited to 5 MiB and an import is all-or-nothing.

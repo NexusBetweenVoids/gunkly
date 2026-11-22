@@ -30,7 +30,7 @@
 </script>
 
 <fieldset class="stack">
-  <legend class="label">{t('rule.title')}</legend>
+  <legend class="label">{t('repeat.rule')}</legend>
   <div class="row">
     <Select label={t('rule.freq')} bind:value={rule.freq} options={freqs} />
     <Field label={t('rule.every')} type="number" min="1" max="1000" bind:value={() => String(rule.interval), (v) => (rule.interval = Number(v) || 1)} />
@@ -52,7 +52,7 @@
     </fieldset>
   {/if}
   {#if refine}
-    <Select label={t('rule.mode')} bind:value={rule.mode} options={modes} />
+    <Select label={t('totp.on')} bind:value={rule.mode} options={modes} />
     {#if rule.mode === 'day'}
       <Select label={t('rule.dayOfMonth')} bind:value={() => String(rule.day), (v) => (rule.day = Number(v))} options={monthDays} />
     {:else if rule.mode === 'nth'}

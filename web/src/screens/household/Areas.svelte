@@ -76,7 +76,7 @@
 </Dialog>
 <Confirm
   open={!!deleting}
-  title={t('areas.deleteTitle', { name: deleting?.name ?? '' })}
+  title={t('chore.deleteTitle', { name: deleting?.name ?? '' })}
   message={t('areas.deleteWarn')}
   confirmLabel={t('common.delete')}
   onconfirm={() => run(() => api('DELETE', `${base}/${deleting!.id}`))}

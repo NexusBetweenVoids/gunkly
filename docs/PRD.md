@@ -64,7 +64,7 @@ Gunkly tracks recurring household chores and home maintenance (gutters, washing-
 - Chores without assignees remind every non-muting member. Guests never get reminders or mark-done links.
 - Notifications carry a **mark-done link** (confirmation page; only the POST completes; see THREAT_MODEL).
 - **Delivery log** per notification; failed sends retried with backoff.
-- **Web Push** built in (provider-allowlisted, egress-guarded, VAPID keys encrypted, `404`/`410` subscriptions pruned).
+- **Web Push** built in (RFC 8030/8291/8292 in the standard library; provider-allowlisted, egress-guarded, VAPID keys encrypted and rotated with `rotate-key`, `404`/`410` subscriptions pruned). A device subscribes from Account, Notifications ("Enable notifications on this device"; needs a secure context and a browser with the Push API). A subscription is a reminder target like a channel: same recipients, mutes, quiet hours, quotas and delivery log (kind `webpush`). Metadata goes through the browser vendor's push service; the message is encrypted to the browser (privacy note in the UI).
 - **Missed reminders:** after downtime, at most one catch-up reminder per chore.
 - Every reminder has a unique delivery key (no duplicates across crash, restart or takeover).
 
@@ -93,8 +93,8 @@ Gunkly tracks recurring household chores and home maintenance (gutters, washing-
 - **Databases:** SQLite (default) or Postgres by configuration; same schema and migrations. `gunkly migrate-db --from sqlite:///data/gunkly.db --to postgres://...` (target must be empty; consistent copy; row-count and checksum verification; SQLite file untouched).
 - **Backups:** `gunkly backup` writes a consistent SQLite snapshot while running (stdout or inside `/data`). Postgres uses `pg_dump`. Never copy the volume while running.
 - **Scheduler:** one active sender. On Postgres an advisory lock with standby takeover; `--disable-scheduler` for web-only. SQLite is single instance. On SIGTERM: stop accepting, let in-flight requests and sends finish (default 30 s), release the lock, exit.
-- **Updates:** admin Updates page (running version, newer release from GitHub Releases, changelog; switchable off, sends no instance data). Migrations auto-apply on start by default (Postgres advisory lock; SQLite pre-migration snapshot). If disabled and migrations are pending, the server refuses to start until `gunkly migrate`. Never rolled back automatically. Gunkly never replaces its own image.
-- **Reverse proxy:** `X-Forwarded-For` honoured only from configured trusted proxies. Root-path hosting only in MVP. `/healthz`, `/readyz`, optional token-protected `/metrics`.
+- **Updates:** admin Updates section (running version, newer release from the GitHub Releases API, changelog as plain text; `GET /api/v1/admin/updates`). A background check runs at most every 12 hours through the egress guard with the User-Agent `gunkly-update-check` and no instance data; the result is cached in the settings table. The admin can switch it off (`updateCheck`, default on); off means no request at all. Migrations auto-apply on start by default (Postgres advisory lock; SQLite pre-migration snapshot). If disabled and migrations are pending, the server refuses to start until `gunkly migrate`. Never rolled back automatically. Gunkly never replaces its own image.
+- **Reverse proxy:** `X-Forwarded-For` honoured only from configured trusted proxies. Root-path hosting only in MVP. `/healthz`, `/readyz`, and `/metrics` (Prometheus text format, hand-written; enabled only when `GUNKLY_METRICS_TOKEN` is set, `Authorization: Bearer <token>`, 30 requests/minute per IP). Series: build info, process start time, goroutines, heap, HTTP requests by route pattern and status class, a request duration histogram, deliveries sent/failed by channel kind (including `webpush`), scheduler last-tick age, delivery queue depth and open database connections. No user or household labels.
 - **Hosted-only-by-default controls (usable by self-hosters):** egress guard, admin-selected notification service allowlist, ALTCHA sign-up proof-of-work, inactive-account lifecycle (off by default; warn then delete after configurable periods), GDPR items (privacy policy, ToS 16+, EU-only own infrastructure, breach procedure).
 
 ### Limits (all configurable via one limits service; per-household override supported)
@@ -115,6 +115,7 @@ Gunkly tracks recurring household chores and home maintenance (gutters, washing-
 | Authenticated write requests | 120/minute per user (burst 60); 300/minute per household (burst 100); fixed, not admin-tunable |
 | Active invite links per household | 20 (each link: 1-100 uses, default 1) |
 | Calendar feeds per user | 10 |
+| Push notification devices (Web Push subscriptions) per user | 10 |
 | Sign-ups per IP per hour (open sign-up on) | 5 |
 | Login attempts per IP (IPv6 by /64) and per IP + account | 5/minute (admin-tunable, applied live), then exponential backoff; never hard-lock |
 | Failed password / second-factor attempts per account, across all IPs | 5 free, then doubling delay capped at 15 minutes; success resets |

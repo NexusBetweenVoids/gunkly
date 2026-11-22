@@ -146,7 +146,7 @@ export const test = base.extend<{ world: World; csp: string[] }>({
     const admin = await signIn(creds.username, creds.password);
     await admin.call('POST', '/session/step-up', { password: creds.password }, 204);
     // The e2e SMTP server listens on loopback, which the egress guard blocks by default.
-    await admin.call('PATCH', '/admin/settings', { egressGuard: false });
+    await admin.call('PATCH', '/admin/settings', { egressGuard: false, updateCheck: false }); // and it must never ask GitHub for releases
 
     const newContext: World['newContext'] = async (opts = {}) => {
       const headers = { 'X-Forwarded-For': nextIP(), ...(opts.extraHTTPHeaders ?? {}) };

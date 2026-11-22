@@ -61,7 +61,7 @@
           {#if d.current}<span class="badge">{t('sessions.current')}</span>{/if}
           <br /><span class="muted">{t('sessions.lastSeen', { date: when(d.lastSeenAt) })}</span>
         </span>
-        <Button variant="quiet" onclick={() => revoke(d)}>{t('sessions.signOut')}</Button>
+        <Button variant="quiet" onclick={() => revoke(d)}>{t('nav.signOut')}</Button>
       </li>
     {/each}
   </ul>

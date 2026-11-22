@@ -28,5 +28,5 @@
   <h2 id="a-export">{t('export.accountTitle')}</h2>
   <p class="muted">{t('export.accountIntro')}</p>
   <div aria-live="polite"><Alert message={err} /></div>
-  <div class="mt-md"><Button onclick={run} {busy}>{t('export.accountButton')}</Button></div>
+  <div class="mt-md"><Button onclick={run} {busy}>{t('export.accountTitle')}</Button></div>
 </section>

@@ -79,12 +79,12 @@
   const list = $derived(byDate[sel] ?? []);
 </script>
 
-<h1>{t('calendar.title')}</h1>
+<h1>{t('nav.calendar')}</h1>
 <div class="row toolbar">
   <div class="row">
     <Button variant="quiet" aria-label={t('calendar.prev')} onclick={() => shift(-1)}>&lsaquo;</Button>
     <Button variant="quiet" aria-label={t('calendar.next')} onclick={() => shift(1)}>&rsaquo;</Button>
-    <Button variant="quiet" onclick={() => (sel = today())}>{t('calendar.today')}</Button>
+    <Button variant="quiet" onclick={() => (sel = today())}>{t('home.dueToday')}</Button>
   </div>
   <div role="group" aria-label={t('calendar.view')} class="row">
     <button type="button" class="btn btn-quiet" aria-pressed={view === 'month'} onclick={() => (view = 'month')}>{t('calendar.month')}</button>
@@ -122,7 +122,7 @@
             }}
           >
             <span class="num" aria-hidden="true">{+d.slice(8)}</span>
-            <span class="visually-hidden">{fmt(d, { dateStyle: 'full' })}, {t('calendar.count', { count: n })}</span>
+            <span class="visually-hidden">{fmt(d, { dateStyle: 'full' })}, {t('home.count', { count: n })}</span>
             {#if n}
               {#if view === 'week'}
                 <ul aria-hidden="true">{#each byDate[d] as e (e.choreId)}<li>{e.name}</li>{/each}</ul>

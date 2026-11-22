@@ -66,7 +66,7 @@
           <span>{t('feeds.created', { date: fmtTime(f.createdAt) })}</span>
           <span class="row">
             <Button variant="quiet" onclick={() => run(() => api('POST', `${base}/${f.id}/regenerate`))}>{t('feeds.regenerate')}</Button>
-            <Button variant="danger" onclick={() => (revoking = f.id)}>{t('feeds.revoke')}</Button>
+            <Button variant="danger" onclick={() => (revoking = f.id)}>{t('invite.revoke')}</Button>
           </span>
         </li>
       {/each}
@@ -81,7 +81,7 @@
   open={!!revoking}
   title={t('feeds.revokeTitle')}
   message={t('feeds.revokeWarn')}
-  confirmLabel={t('feeds.revoke')}
+  confirmLabel={t('invite.revoke')}
   onconfirm={() => run(() => api<void>('DELETE', `${base}/${revoking}`).then(() => toast(t('feeds.revoked'))))}
   oncancel={() => (revoking = '')}
 />

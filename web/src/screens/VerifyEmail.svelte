@@ -41,7 +41,7 @@
     {#if codes.length}
       <RecoveryCodes {codes} intro={t('verifyEmail.codesIntro')} onsaved={() => (codes = [])} />
     {:else}
-      <p><a href={app.user ? '/' : '/signin'}>{app.user ? t('verifyEmail.continue') : t('verifyEmail.signIn')}</a></p>
+      <p><a href={app.user ? '/' : '/signin'}>{app.user ? t('verifyEmail.continue') : t('signIn.title')}</a></p>
     {/if}
   {/if}
 </section>

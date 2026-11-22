@@ -60,7 +60,7 @@
         <div>
           {#if on}
             {#if !app.instance.hostedMode}
-              <Button variant="danger" onclick={() => (confirmOff = true)}>{t('emailcodes.disable')}</Button>
+              <Button variant="danger" onclick={() => (confirmOff = true)}>{t('totp.disable')}</Button>
             {/if}
           {:else}
             <Button {busy} disabled={!app.user?.emailVerified} onclick={enable}>{t('emailcodes.enable')}</Button>
@@ -73,8 +73,8 @@
   <Confirm
     open={confirmOff}
     title={t('emailcodes.disableTitle')}
-    message={t('emailcodes.disableWarn')}
-    confirmLabel={t('emailcodes.disable')}
+    message={t('totp.disableWarn')}
+    confirmLabel={t('totp.disable')}
     {busy}
     onconfirm={disable}
     oncancel={() => (confirmOff = false)}
