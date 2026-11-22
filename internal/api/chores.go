@@ -4,7 +4,9 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"regexp"
 	"slices"
+	"strconv"
 	"time"
 	"unicode/utf8"
 
@@ -173,6 +175,71 @@ type choreInput struct {
 	Schedule       scheduleIO       `json:"schedule"`
 	Assignees      []string         `json:"assignees"`
 	ReminderPreset *string          `json:"reminderPreset"`
+	// ReminderTime ("HH:MM", household time zone) sets the time of day of all
+	// the chore's reminders; absent or "" leaves the reminders as they are.
+	ReminderTime *string `json:"reminderTime"`
+}
+
+var reminderTimeRE = regexp.MustCompile(`^([01][0-9]|2[0-3]):([0-5][0-9])$`)
+
+// parseReminderTime turns "HH:MM" into minutes after midnight.
+func parseReminderTime(s string) (int, error) {
+	m := reminderTimeRE.FindStringSubmatch(s)
+	if m == nil {
+		return 0, errInvalid
+	}
+	h, _ := strconv.Atoi(m[1])
+	mi, _ := strconv.Atoi(m[2])
+	return h*60 + mi, nil
+}
+
+// reminderMinute is the requested reminder time, if any.
+func (in choreInput) reminderMinute() (int, bool, error) {
+	if in.ReminderTime == nil || *in.ReminderTime == "" {
+		return 0, false, nil
+	}
+	m, err := parseReminderTime(*in.ReminderTime)
+	return m, err == nil, err
+}
+
+// applyReminderTime turns the requested reminder time into explicit reminder
+// rows on si: the chore's effective preset (or its own custom reminders) with
+// every time of day replaced. The chore is then stored as "custom"; the editor
+// shows it as the preset again while the rows still match it apart from the
+// time. Nothing changes when there is no time or no reminders to time.
+func (s *Server) applyReminderTime(ctx context.Context, a store.Actor, hh string, in choreInput, si *store.ChoreInput, existingID, defaultPreset string) error {
+	minute, set, err := in.reminderMinute()
+	if err != nil || !set {
+		return err
+	}
+	var base []schedule.Reminder
+	switch preset := si.ReminderPreset; {
+	case preset == scheduler.PresetCustom && existingID != "":
+		if _, base, err = s.st.ChoreReminders(ctx, a, hh, existingID); err != nil {
+			return err
+		}
+	case preset == "":
+		base = scheduler.Presets[defaultPreset]
+	case preset != scheduler.PresetCustom:
+		base = scheduler.Presets[preset]
+	}
+	if len(base) == 0 {
+		return nil
+	}
+	maxR, err := s.limits.Limit(ctx, limits.RemindersPerChore, hh)
+	if err != nil {
+		return err
+	}
+	if len(base) > maxR {
+		return store.ErrLimit
+	}
+	si.Reminders = make([]schedule.Reminder, len(base))
+	for i, r := range base {
+		r.Minute = minute
+		si.Reminders[i] = r
+	}
+	si.ReminderPreset = scheduler.PresetCustom
+	return nil
 }
 
 // validPreset reports whether name is "" (household default) or a built-in preset.
@@ -246,6 +313,9 @@ func (in choreInput) build(loc *time.Location, existing *store.Chore) (store.Cho
 		out.Anchor = sc.Anchor
 	}
 
+	if _, _, err := in.reminderMinute(); err != nil {
+		return out, err
+	}
 	switch {
 	case in.ReminderPreset != nil:
 		if !validPreset(*in.ReminderPreset) {
@@ -344,6 +414,9 @@ func (s *Server) createChore(w http.ResponseWriter, r *http.Request, c *call) er
 	if err != nil {
 		return err
 	}
+	if err := s.applyReminderTime(ctx, c.actor(), c.hh, in, &si, "", h.DefaultReminderPreset); err != nil {
+		return err
+	}
 	if si.MaxChores, err = s.limits.Limit(ctx, limits.ChoresPerHousehold, c.hh); err != nil {
 		return err
 	}
@@ -380,6 +453,9 @@ func (s *Server) updateChore(w http.ResponseWriter, r *http.Request, c *call) er
 	}
 	si, err := in.build(loc, &old)
 	if err != nil {
+		return err
+	}
+	if err := s.applyReminderTime(ctx, c.actor(), c.hh, in, &si, id, h.DefaultReminderPreset); err != nil {
 		return err
 	}
 	ch, err := s.st.UpdateChore(ctx, c.actor(), c.hh, id, si)

@@ -1645,6 +1645,7 @@ components:
         schedule: {$ref: "#/components/schemas/Schedule"}
         assignees: {type: array, items: {type: string}, description: Non-guest member user IDs; empty = anyone}
         reminderPreset: {type: string, enum: ["", gentle, nag, none], description: Omitted on update keeps the current one}
+        reminderTime: {type: string, pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$', example: "07:30", description: "Optional time of day (HH:MM, household time zone) for all of the chore's reminders. The preset's reminders (or the chore's custom ones) are stored with this time and the chore's reminderPreset becomes custom; its reminders are then readable and editable at /reminders. Omitted or empty leaves reminders unchanged; ignored when there are no reminders (preset none). Invalid values give 400."}
     Chore:
       type: object
       properties:

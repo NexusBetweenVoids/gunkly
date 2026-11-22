@@ -152,6 +152,12 @@ func TestMCPToolsHappyPath(t *testing.T) {
 		t.Fatalf("one-off %v", today)
 	}
 	mustOK(t, cs, "create_chore", map[string]any{"name": "Gutters", "repeat": "every year", "first_due": "2027-03-01"})
+	// remind_at sets the reminder time of day (same server logic as reminderTime).
+	timed := mustOK(t, cs, "create_chore", map[string]any{"name": "Timed", "first_due": "2027-06-01", "remind_at": "07:30"})["chore"].(map[string]any)
+	if st, v := f.a.do("GET", f.chore(str(timed, "id"))+"/reminders", nil); st != 200 || str(v, "preset") != "custom" || minutes(t, v)[0] != 450 {
+		t.Fatalf("remind_at: %d %v", st, v)
+	}
+	mustFail(t, cs, "create_chore", map[string]any{"name": "Bad", "remind_at": "25:00"}, "remind_at")
 	// It is a normal chore in the REST API too.
 	st, v := f.a.do("GET", f.chore(plants), nil)
 	expect(t, st, v, 200, "")
@@ -161,7 +167,7 @@ func TestMCPToolsHappyPath(t *testing.T) {
 
 	// list_chores: filters.
 	all := mustOK(t, cs, "list_chores", nil)
-	if all["total"] != float64(4) || all["truncated"] != false {
+	if all["total"] != float64(5) || all["truncated"] != false {
 		t.Fatalf("all %v", all)
 	}
 	names := func(out map[string]any) []string {
@@ -177,12 +183,12 @@ func TestMCPToolsHappyPath(t *testing.T) {
 	if got := names(mustOK(t, cs, "list_chores", map[string]any{"status": "today", "household": "a"})); !slices.Equal(got, []string{"Call plumber"}) {
 		t.Fatalf("today %v", got)
 	}
-	if got := names(mustOK(t, cs, "list_chores", map[string]any{"status": "later"})); !slices.Equal(got, []string{"Bins", "Gutters"}) {
+	if got := names(mustOK(t, cs, "list_chores", map[string]any{"status": "later"})); !slices.Equal(got, []string{"Bins", "Gutters", "Timed"}) {
 		t.Fatalf("later %v", got)
 	}
 	mustFail(t, cs, "list_chores", map[string]any{"status": "someday"}, "status must be")
 	mine := names(mustOK(t, cs, "list_chores", map[string]any{"mine": true}))
-	if len(mine) != 4 { // assigned to me, or to nobody
+	if len(mine) != 5 { // assigned to me, or to nobody
 		t.Fatalf("mine %v", mine)
 	}
 

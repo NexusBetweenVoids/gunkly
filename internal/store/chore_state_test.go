@@ -174,3 +174,27 @@ func TestSnoozeSkipTransactional(t *testing.T) {
 		t.Fatalf("archived skip: %v", err)
 	}
 }
+
+func TestChoreInputReminders(t *testing.T) {
+	f := newMD(t)
+	in := choreIn("Timed")
+	in.Reminders = []schedule.Reminder{{Kind: schedule.OnDue, Minute: 450}}
+	in.ReminderPreset = "gentle" // rows need the custom preset
+	if _, err := f.s.CreateChore(f.ctx, f.m, f.hid, in); !errors.Is(err, store.ErrInvalid) {
+		t.Fatalf("rows with a named preset: %v", err)
+	}
+	in.ReminderPreset = "custom"
+	in.Reminders = []schedule.Reminder{{Kind: schedule.OnDue, Minute: 1440}}
+	if _, err := f.s.CreateChore(f.ctx, f.m, f.hid, in); !errors.Is(err, store.ErrInvalid) {
+		t.Fatalf("bad minute: %v", err)
+	}
+	in.Reminders = []schedule.Reminder{{Kind: schedule.OnDue, Minute: 450}}
+	c, err := f.s.CreateChore(f.ctx, f.m, f.hid, in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	preset, got, err := f.s.ChoreReminders(f.ctx, f.m, f.hid, c.ID)
+	if err != nil || preset != "custom" || len(got) != 1 || got[0].Minute != 450 {
+		t.Fatalf("%q %v %v", preset, got, err)
+	}
+}

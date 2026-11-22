@@ -10,6 +10,7 @@
   import { failure } from '../lib/errors';
   import { t, type Key } from '../lib/i18n';
   import { nameOf } from '../lib/names';
+  import { DEFAULT_MINUTE, derive, hm, PRESET_REMINDERS, toMinute } from '../lib/reminders';
   import { navigate } from '../lib/router.svelte';
   import { fromRRule, newRule, toRRule } from '../lib/rrule';
   import { app, currentHousehold } from '../lib/session.svelte';
@@ -50,6 +51,10 @@
   let anchor = $state<'from_completion' | 'from_scheduled'>('from_completion');
   let reminder = $state('');
   let customRem = $state<Reminder[]>([]);
+  // The simple "Remind me at" time: sent only when the user changed it or it was read from stored rows.
+  let remTime = $state(hm(DEFAULT_MINUTE));
+  let remTouched = $state(false);
+  let remStored = $state(false);
   let notes = $state('');
   let link = $state('');
   let more = $state(false);
@@ -100,7 +105,7 @@
       [n, unit] = [iv.every, iv.unit];
       repeat = Object.keys(PRESETS).find((k) => PRESETS[k][0] === iv.every && PRESETS[k][1] === iv.unit) ?? 'interval';
     }
-    more = repeat === 'rule' || repeat === 'interval' || !!notes || !!link || reminder === 'custom' ||
+    more = repeat === 'rule' || repeat === 'interval' || !!notes || !!link ||
       anchor !== (repeat === 'rule' ? 'from_scheduled' : 'from_completion');
   }
 
@@ -118,6 +123,11 @@
         applyChore(c);
         if (c.reminderPreset === 'custom') {
           customRem = (await api<{ reminders: Reminder[] }>('GET', `${base}/chores/${id}/reminders`)).reminders;
+          const d = derive(customRem);
+          remTime = d.minute === null ? '' : hm(d.minute);
+          remStored = d.minute !== null;
+          if (d.preset === 'custom') more = true;
+          else reminder = d.preset;
         }
       }
     } catch (x) {
@@ -160,6 +170,7 @@
       const recurring = repeat !== 'none';
       const [every, u] = PRESETS[repeat] ?? [n, unit];
       const custom = reminder === 'custom';
+      const sendTime = !custom && showTime && !!remTime && (remTouched || remStored);
       const body = {
         name: name.trim(), notes, link: link.trim(), ...(areasOn ? { areaId: area } : {}), assignees,
         kind: recurring ? 'recurring' : 'oneoff',
@@ -167,6 +178,7 @@
           ? { type: 'rrule', rrule: toRRule(rule), anchor, firstDue }
           : { type: 'interval', interval: { every, unit: u }, anchor, firstDue },
         reminderPreset: custom ? (id ? null : '') : reminder,
+        ...(sendTime ? { reminderTime: remTime } : {}),
       };
       const c = id ? await api<Chore>('PUT', `${base}/chores/${id}`, body) : await api<Chore>('POST', `${base}/chores`, body);
       if (custom) {
@@ -187,6 +199,25 @@
     } finally {
       busy = false;
     }
+  }
+
+  const effective = $derived(reminder || currentHousehold()?.defaultReminderPreset || '');
+  const showTime = $derived(reminder === 'custom' ? customRem.length > 0 : effective === 'gentle' || effective === 'nag');
+  const mixed = $derived(reminder === 'custom' && new Set(customRem.map((r) => r.minute)).size > 1);
+
+  function setRemTime(v: string): void {
+    if (!v) return;
+    remTime = v;
+    remTouched = true;
+    if (reminder === 'custom') customRem = customRem.map((r) => ({ ...r, minute: toMinute(v) }));
+  }
+
+  function setReminder(v: string): void {
+    const from = effective;
+    reminder = v;
+    if (v !== 'custom') return;
+    const chosen = remTouched || remStored;
+    customRem = (PRESET_REMINDERS[from] ?? []).map((r) => ({ ...r, minute: chosen ? toMinute(remTime) : r.minute }));
   }
 
   const toggle = (uid: string) => (assignees = assignees.includes(uid) ? assignees.filter((x) => x !== uid) : [...assignees, uid]);
@@ -228,7 +259,17 @@
         <p class="hint">{assignees.length ? t('chore.assigneesSome') : t('chore.anyone')}</p>
       </fieldset>
 
-      <Field label={t('chore.firstDue')} type="date" bind:value={firstDue} required />
+      <div class="row">
+        <Field label={t('chore.firstDue')} type="date" bind:value={firstDue} required />
+        {#if showTime && mixed}
+          <div class="field">
+            <span class="label">{t('chore.remindAt')}</span>
+            <p class="hint">{t('chore.remindAtMixed')}</p>
+          </div>
+        {:else if showTime}
+          <Field label={t('chore.remindAt')} type="time" bind:value={() => remTime, setRemTime} hint={t('chore.remindAtHint')} />
+        {/if}
+      </div>
       <Select
         label={t('chore.repeat')}
         bind:value={() => repeat, setRepeat}
@@ -236,7 +277,7 @@
       />
       <Select
         label={t('chore.reminders')}
-        bind:value={reminder}
+        bind:value={() => reminder, setReminder}
         options={[
           { value: '', label: t('reminder.default') },
           { value: 'gentle', label: t('reminder.gentle') },
