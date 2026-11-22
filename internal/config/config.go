@@ -84,7 +84,7 @@ func Load(lookup func(string) string) (*Config, error) {
 		AutoMigrate:      boolean("AUTO_MIGRATE", true),
 		DisableScheduler: boolean("DISABLE_SCHEDULER", false),
 		ShutdownTimeout:  30 * time.Second,
-		PoWMaxNumber:     75_000,
+		PoWMaxNumber:     250_000,
 	}
 
 	if !strings.HasPrefix(c.DatabaseURL, "sqlite://") && !strings.HasPrefix(c.DatabaseURL, "postgres://") && !strings.HasPrefix(c.DatabaseURL, "postgresql://") {

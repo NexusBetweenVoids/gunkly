@@ -30,7 +30,7 @@ const PoWTTL = 10 * time.Minute
 // Default and bounds for the difficulty (the largest number the client may
 // have to try). About 50k-100k takes a laptop around a second.
 const (
-	DefaultPoWMaxNumber = 75_000
+	DefaultPoWMaxNumber = 250_000
 	MinPoWMaxNumber     = 1_000
 	MaxPoWMaxNumber     = 1_000_000
 )

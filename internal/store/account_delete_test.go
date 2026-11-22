@@ -203,6 +203,10 @@ func TestDeleteAccount(t *testing.T) {
 	if n := e.count("SELECT count(*) FROM audit_log WHERE meta LIKE ?", "%"+w.a.UserID+"%"); n != 0 {
 		t.Errorf("audit rows naming the user: %d", n)
 	}
+	// ... but another actor's row about A keeps its actor.
+	if n := e.count("SELECT count(*) FROM audit_log WHERE event = ? AND actor_user_id = ?", store.AuditMemberRemove, w.b.UserID); n != 1 {
+		t.Errorf("B's member_remove row lost its actor: %d", n)
+	}
 	if n := e.count("SELECT count(*) FROM audit_log WHERE event = ?", store.AuditAccountDelete); n != 1 {
 		t.Errorf("account_delete audit rows: %d", n)
 	}

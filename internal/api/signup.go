@@ -5,7 +5,6 @@ import (
 	"errors"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/NexusBetweenVoids/gunkly/internal/auth"
 	"github.com/NexusBetweenVoids/gunkly/internal/limits"
@@ -49,10 +48,18 @@ func (s *Server) signupChallenge(w http.ResponseWriter, r *http.Request, _ *call
 }
 
 // signup creates an account without an invite (only when open sign-up is on).
-// Order: validate input, spend the proof of work, take the per-IP sign-up cap,
-// create the account, sign in, email the verification link. A failed attempt
-// that got past the proof of work has still spent it, so the client fetches a
-// new challenge each time.
+// Order: take the per-IP sign-up cap, check and spend the proof of work (before
+// anything expensive, so a replayed or forged solution costs one cheap
+// check), validate (hashes the password), create the account. A failed
+// attempt that got past the proof of work has spent it, so the client fetches
+// a new challenge each time.
+//
+// With email on, the answer is 202 whether the account was created or the
+// address already had one (that owner gets a "you already have an account"
+// mail instead): sign-up is not an oracle for registered addresses, and
+// nobody is signed in until the address is confirmed. A taken username still
+// answers registration_failed (usernames are visible inside households). With
+// email off the account is created and signed in at once (201).
 func (s *Server) signup(w http.ResponseWriter, r *http.Request, c *call) error {
 	var in struct {
 		newAccount
@@ -75,27 +82,6 @@ func (s *Server) signup(w http.ResponseWriter, r *http.Request, c *call) error {
 	if !localeRE.MatchString(in.Locale) || (s.emailEnabled() && in.Email == "") {
 		return errInvalid
 	}
-	// The stateless proof check comes first: it is cheap, while validating
-	// hashes the password. Spending it (single use) waits until the input is valid.
-	var challenge string
-	var expires time.Time
-	if needPoW {
-		if challenge, expires, err = s.pow.Verify(in.PoW, s.now()); err != nil {
-			return errf(http.StatusBadRequest, "pow_invalid")
-		}
-	}
-	nu, err := s.validate(ctx, in.newAccount)
-	if err != nil {
-		return err
-	}
-	nu.Locale = in.Locale
-	if needPoW {
-		if err := s.st.UsePoW(ctx, challenge, expires); errors.Is(err, store.ErrConflict) {
-			return errf(http.StatusBadRequest, "pow_invalid")
-		} else if err != nil {
-			return err
-		}
-	}
 	perHour, err := s.limits.Limit(ctx, limits.SignupsPerIPHour, "")
 	if err != nil {
 		return err
@@ -103,18 +89,62 @@ func (s *Server) signup(w http.ResponseWriter, r *http.Request, c *call) error {
 	if wait := s.counts.take(quota{"signup:ip:" + c.rip, perHour}); wait > 0 {
 		return tooMany(w, wait)
 	}
-	u, err := s.st.CreateUser(ctx, nu)
-	if errors.Is(err, store.ErrConflict) {
-		return errf(http.StatusBadRequest, "registration_failed") // same for a taken username or email
-	} else if err != nil {
+	if needPoW {
+		// Verify is a stateless check; spending the solution comes before
+		// the Argon2id hash in validate, so replaying one never costs a hash.
+		challenge, expires, err := s.pow.Verify(in.PoW, s.now())
+		if err != nil {
+			return errf(http.StatusBadRequest, "pow_invalid")
+		}
+		if err := s.st.UsePoW(ctx, challenge, expires); errors.Is(err, store.ErrConflict) {
+			return errf(http.StatusBadRequest, "pow_invalid")
+		} else if err != nil {
+			return err
+		}
+	}
+	nu, err := s.validate(ctx, in.newAccount)
+	if err != nil {
 		return err
 	}
-	if err := s.startSession(w, r, c, u, http.StatusCreated); err != nil {
+	nu.Locale = in.Locale
+	if s.emailEnabled() {
+		if taken, err := s.st.EmailTaken(ctx, in.Email, ""); err != nil {
+			return err
+		} else if taken {
+			return s.signupExists(ctx, w, c, in.Email)
+		}
+	}
+	u, err := s.st.CreateUser(ctx, nu)
+	if errors.Is(err, store.ErrConflict) {
+		if s.emailEnabled() {
+			// Lost a race for the address (or it is the username).
+			if taken, terr := s.st.EmailTaken(ctx, in.Email, ""); terr == nil && taken {
+				return s.signupExists(ctx, w, c, in.Email)
+			}
+		}
+		return errf(http.StatusBadRequest, "registration_failed")
+	} else if err != nil {
 		return err
 	}
 	s.audit(ctx, c, u.ID, store.AuditSignup, "", nil)
 	s.verifyNewAccount(ctx, c, u)
-	return nil
+	if s.emailEnabled() {
+		return accepted(w)
+	}
+	return s.startSession(w, r, c, u, http.StatusCreated)
+}
+
+// signupExists is the sign-up answer for an address that already has an
+// account: the same 202 as a fresh sign-up, plus a notice to that address
+// (per-IP, global and per-address caps; never the account's own mail bucket).
+func (s *Server) signupExists(ctx context.Context, w http.ResponseWriter, c *call, email string) error {
+	if s.rl.allow(rateSignup+":email:"+strings.ToLower(email)) == 0 {
+		if u, err := s.st.UserByLogin(ctx, email); err == nil {
+			s.queueMail(ctx, c, mailRequest{user: u, kind: "signupexists", unauth: true, params: map[string]string{
+				"signin": s.baseURL + "/signin", "reset": s.baseURL + "/forgot-password"}})
+		}
+	}
+	return accepted(w)
 }
 
 // verifyNewAccount emails the verification link of a just-created account

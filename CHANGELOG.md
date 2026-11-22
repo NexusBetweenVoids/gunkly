@@ -5,6 +5,13 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 ## [Unreleased]
 
 ### Security
+- Phase 1B security review fixes. Import (new household and merge) goes through the same access gate as creating a household. In hosted mode every household-scoped route now requires a verified email and a second factor, enforced once in the router, so an invited account has no data access until both are done (`403 email_not_verified` / `two_factor_setup_required`).
+- Mail quotas: sign-in and step-up codes have their own per-account limit (`email_codes_account_hour`, 20/h); unauthenticated reset, verification and sign-up mail count only against the per-IP and global caps, so spamming reset requests for someone can no longer lock them out of their sign-in codes. A password-reset request no longer invalidates the link already issued: up to 3 unexpired tokens per account, each single use, using one drops the rest.
+- Sign-up with email on answers `202` whether or not the address already has an account (the owner gets a "you already have an account" mail instead); nobody is signed in until the address is confirmed. A taken username still answers `registration_failed`. The reset request does its lookup, token and mail in the background for known and unknown logins alike (no timing oracle).
+- Sign-up checks the per-IP cap first, then marks the proof of work used before any hashing, so replays cost no Argon2 work. `GUNKLY_SIGNUP_POW_MAX` defaults to 250000; ADR 0008 states the proof of work is a nuisance filter and the per-IP and mail caps are the real controls.
+- Account deletion clears only meta and IP of other actors' audit rows that mention the deleted user (their actor stays).
+- Imported completions get the new source `import` (migration 0010; shown as "Imported") and are attributed to a named member only when the importer is an owner of the target household. An import file may hold at most 20,000 completions in all, and a merge import locks the household row on Postgres so the chore limit check is atomic.
+- Accounts with an email address that never verified it and belong to no household are deleted after 7 days by the retention job when email is enabled.
 - Hosted mode: creating or joining a household needs a verified email and a second factor; 2FA cannot be turned off there.
 - Rate limiter: IPv6 clients are keyed by /64; eviction only drops idle keys not in backoff and a full table refuses new keys (429); it follows the admin-set `login_attempts_per_minute`.
 - Authenticated write throttling: per-user and per-household token buckets; new limits `areas_per_household` (100) and `completions_per_chore` (1000, oldest non-reverted completions pruned).

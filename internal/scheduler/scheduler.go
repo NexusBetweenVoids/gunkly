@@ -554,7 +554,11 @@ func (w *Worker) retention(ctx context.Context, now time.Time) {
 		w.log.Error("scheduler: retention settings", "err", err)
 		return
 	}
-	n, err := w.cfg.Store.PurgeExpired(ctx, st.Policy(), now)
+	p := st.Policy()
+	if w.cfg.Mailer != nil {
+		p.UnverifiedAccounts = store.UnverifiedAccountMaxAge
+	}
+	n, err := w.cfg.Store.PurgeExpired(ctx, p, now)
 	if err != nil {
 		w.log.Error("scheduler: retention", "err", err)
 		return

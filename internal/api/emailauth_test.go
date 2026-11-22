@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"errors"
+	"fmt"
 	"regexp"
 	"strings"
 	"sync"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/NexusBetweenVoids/gunkly/internal/auth"
+	"github.com/NexusBetweenVoids/gunkly/internal/limits"
 	"github.com/NexusBetweenVoids/gunkly/internal/mail"
 	"github.com/NexusBetweenVoids/gunkly/internal/store"
 )
@@ -322,12 +324,14 @@ func TestPasswordResetExpiresAfterAnHourAndKeepsSecondFactor(t *testing.T) {
 
 func TestPasswordResetCaps(t *testing.T) {
 	e := newMailEnv(t)
-	e.user("ann", false)
+	for _, n := range []string{"u1", "u2", "u3", "u4", "u5", "u6", "u7"} {
+		e.user(n, false)
+	}
 	// Five emails per IP and hour for unauthenticated flows (PRD); every
 	// request still gets the same 202, but the sixth sends nothing.
 	sent := 0
-	for range 7 {
-		st, v := e.client().do("POST", "/api/v1/password-reset/request", map[string]string{"login": "ann"})
+	for _, n := range []string{"u1", "u2", "u3", "u4", "u5", "u6", "u7"} {
+		st, v := e.client().do("POST", "/api/v1/password-reset/request", map[string]string{"login": n})
 		expect(t, st, v, 202, "")
 		sent += len(e.mails())
 	}
@@ -336,9 +340,61 @@ func TestPasswordResetCaps(t *testing.T) {
 	}
 	// The cap slides: an hour later there is room again.
 	e.clock.Add(time.Hour + time.Second)
-	e.client().do("POST", "/api/v1/password-reset/request", map[string]string{"login": "ann"})
+	e.client().do("POST", "/api/v1/password-reset/request", map[string]string{"login": "u6"})
 	if len(e.mails()) != 1 {
 		t.Fatal("no email after the window passed")
+	}
+}
+
+// A new reset request must not invalidate the link the owner already holds,
+// and at most three are outstanding (ADR 0008).
+func TestPasswordResetKeepsEarlierLinks(t *testing.T) {
+	e := newMailEnv(t)
+	e.user("ann", false)
+	var toks []string
+	for range 4 {
+		e.client().do("POST", "/api/v1/password-reset/request", map[string]string{"login": "ann"})
+		for _, m := range e.mails() {
+			toks = append(toks, tokenIn(t, m))
+		}
+	}
+	if len(toks) != store.MaxResetTokens {
+		t.Fatalf("%d links issued, want %d", len(toks), store.MaxResetTokens)
+	}
+	st, v := e.client().do("POST", "/api/v1/password-reset/confirm", map[string]string{"token": toks[0], "password": "a much longer password"})
+	expect(t, st, v, 204, "") // the first link still works
+}
+
+// An attacker spamming reset or verification requests for a victim from
+// anywhere must not cause the victim's own sign-in codes to be refused.
+func TestMailSpamCannotLockOutSignInCodes(t *testing.T) {
+	e := newMailEnv(t)
+	e.user("ann", false)
+	e.verified("ann")
+	e.enableEmailOTP("ann")
+	e.mails()
+	u, _ := e.st.UserByLogin(context.Background(), "ann")
+	ctx := context.Background()
+	// Many attacker IPs (each within its own per-IP cap), all aimed at ann:
+	// unauthenticated sends carry no account bucket.
+	for i := range 30 {
+		if wait := e.srv.mailQuota(ctx, u.ID, fmt.Sprintf("198.51.100.%d", i), ""); wait > 0 {
+			t.Fatalf("attacker send %d refused: %v", i, wait)
+		}
+	}
+	st, v := e.client().login("ann", nil)
+	expect(t, st, v, 200, "")
+	if m := e.oneMail("ann@example.com"); !strings.Contains(m.Subject, "sign-in code") {
+		t.Fatalf("mail: %+v", m)
+	}
+	// Sign-in codes have their own account bucket: 20 an hour.
+	for i := range 19 {
+		if wait := e.srv.mailQuota(ctx, u.ID, fmt.Sprintf("203.0.113.%d", i), limits.EmailCodesAccountHour); wait > 0 {
+			t.Fatalf("code %d refused: %v", i, wait)
+		}
+	}
+	if wait := e.srv.mailQuota(ctx, u.ID, "203.0.113.99", limits.EmailCodesAccountHour); wait == 0 {
+		t.Fatal("21st code allowed")
 	}
 }
 

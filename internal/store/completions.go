@@ -17,6 +17,7 @@ const (
 	SourceApp          = "app"
 	SourceMarkDoneLink = "mark_done_link"
 	SourceAPIToken     = "api_token"
+	SourceImport       = "import" // history brought in by a data import; never created by a request
 )
 
 // Completion is one entry in a chore's history.

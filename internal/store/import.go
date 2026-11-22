@@ -67,7 +67,7 @@ func (s *Store) ImportNewHousehold(ctx context.Context, a Actor, f *transfer.Hou
 			return notFoundFK(err)
 		}
 		var err error
-		res, err = t.importInto(ctx, hhID, a.UserID, f, now)
+		res, err = t.importInto(ctx, hhID, a.UserID, true, f, now)
 		res.HouseholdName = h.Name
 		return err
 	})
@@ -78,15 +78,19 @@ func (s *Store) ImportNewHousehold(ctx context.Context, a Actor, f *transfer.Hou
 }
 
 // MergeHousehold merges a validated file into an existing household. Member
-// or owner. Household settings in the file are ignored. One transaction.
+// or owner. Household settings in the file are ignored. One transaction; on
+// Postgres the household row is locked first, so concurrent imports cannot
+// each pass the chore-limit check and together exceed it. Completions are
+// attributed to members named in the file only when the importer is an owner
+// (see importChore).
 func (s *Store) MergeHousehold(ctx context.Context, a Actor, householdID string, f *transfer.Household) (ImportResult, error) {
 	var res ImportResult
 	if f == nil {
 		return res, ErrInvalid
 	}
-	err := s.write(ctx, a, householdID, RoleMember, func(t *tx, _ Role) error {
+	err := s.manage(ctx, a, householdID, RoleMember, func(t *tx, role Role) error {
 		var err error
-		res, err = t.importInto(ctx, householdID, a.UserID, f, s.nowMS())
+		res, err = t.importInto(ctx, householdID, a.UserID, role == RoleOwner, f, s.nowMS())
 		if err != nil {
 			return err
 		}
@@ -120,8 +124,9 @@ type importMember struct {
 }
 
 // importInto adds the file's areas, chores and history to a household whose
-// membership already includes actorID.
-func (t *tx) importInto(ctx context.Context, hhID, actorID string, f *transfer.Household, now int64) (ImportResult, error) {
+// membership already includes actorID. attribute says whether completions may
+// be attributed to the members the file names (importer is an owner).
+func (t *tx) importInto(ctx context.Context, hhID, actorID string, attribute bool, f *transfer.Household, now int64) (ImportResult, error) {
 	res := ImportResult{HouseholdID: hhID}
 	var tz string
 	if err := t.queryRow(ctx, "SELECT timezone FROM households WHERE id = ?", hhID).Scan(&tz); err != nil {
@@ -213,7 +218,7 @@ func (t *tx) importInto(ctx context.Context, hhID, actorID string, f *transfer.H
 		if len(c.Completions) > maxComp {
 			return res, &ImportLimitError{Reason: transfer.ReasonLimitComp}
 		}
-		n, unassigned, err := t.importChore(ctx, hhID, actorID, c, areaIDs, members, loc, now)
+		n, unassigned, err := t.importChore(ctx, hhID, actorID, attribute, c, areaIDs, members, loc, now)
 		if err != nil {
 			return res, err
 		}
@@ -274,7 +279,7 @@ func unitOf(c *transfer.Chore) string {
 	return c.Schedule.Interval.Unit
 }
 
-func (t *tx) importChore(ctx context.Context, hhID, actorID string, c *transfer.Chore, areaIDs map[string]string,
+func (t *tx) importChore(ctx context.Context, hhID, actorID string, attribute bool, c *transfer.Chore, areaIDs map[string]string,
 	members map[string]importMember, loc *time.Location, now int64) (completions int, unassigned bool, err error) {
 	due, next, err := importedOccurrence(c, loc)
 	if err != nil {
@@ -329,10 +334,12 @@ func (t *tx) importChore(ctx context.Context, hhID, actorID string, c *transfer.
 		}
 	}
 	for _, h := range c.Completions {
-		// Attribution: the completer's username must match a member of the
-		// target household; otherwise the completion is anonymous (NULL user).
+		// Attribution: only an owner's import may name who did it, and the
+		// username must match a member of the target household; otherwise
+		// the completion is anonymous (NULL user). A member's file could
+		// otherwise forge history in another member's name.
 		var by any
-		if h.By != nil {
+		if attribute && h.By != nil {
 			if m, found := members[userMatch(h.By.Username)]; found {
 				by = m.id
 			}
@@ -347,7 +354,7 @@ func (t *tx) importChore(ctx context.Context, hhID, actorID string, c *transfer.
 		// completion never leaves the chore without a due date.
 		if _, err := t.exec(ctx, `INSERT INTO completions (id, chore_id, user_id, completed_at, source, note, reverted_at,
 			prev_next_due, prev_due_date, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			ids.New(), id, by, at, h.Source, h.Note, reverted, ms(next), due, created); err != nil {
+			ids.New(), id, by, at, SourceImport, h.Note, reverted, ms(next), due, created); err != nil {
 			return 0, false, err
 		}
 	}

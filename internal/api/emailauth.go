@@ -10,6 +10,8 @@ import (
 
 	"github.com/NexusBetweenVoids/gunkly/internal/auth"
 	"github.com/NexusBetweenVoids/gunkly/internal/ids"
+	"github.com/NexusBetweenVoids/gunkly/internal/limits"
+	"github.com/NexusBetweenVoids/gunkly/internal/mail"
 	"github.com/NexusBetweenVoids/gunkly/internal/store"
 )
 
@@ -29,11 +31,11 @@ func (s *Server) requireEmail() error {
 // or newEmail for an email change. It returns the wait if an email cap is full
 // (then nothing is issued or sent). unauth: the request had no session.
 func (s *Server) sendVerification(ctx context.Context, c *call, u store.User, newEmail string, unauth bool) (time.Duration, error) {
-	ip := ""
+	ip, acct := "", limits.EmailsAccountHour
 	if unauth {
-		ip = c.rip
+		ip, acct = c.rip, ""
 	}
-	if wait := s.mailQuota(ctx, u.ID, ip); wait > 0 {
+	if wait := s.mailQuota(ctx, u.ID, ip, acct); wait > 0 {
 		return wait, nil
 	}
 	token := ids.Token()
@@ -52,7 +54,7 @@ func (s *Server) sendLoginCode(ctx context.Context, c *call, u store.User, unaut
 	if unauth {
 		ip = c.rip
 	}
-	if wait := s.mailQuota(ctx, u.ID, ip); wait > 0 {
+	if wait := s.mailQuota(ctx, u.ID, ip, limits.EmailCodesAccountHour); wait > 0 {
 		return wait, nil
 	}
 	challenge, code := ids.New(), auth.GenerateEmailOTP()
@@ -192,31 +194,51 @@ func (s *Server) requestPasswordReset(w http.ResponseWriter, r *http.Request, c 
 	if login == "" || len(login) > 254 {
 		return errInvalid
 	}
-	ctx := r.Context()
-	token := ids.Token()
-	hash := ids.Hash(token)
 	// Per login string over all IPs, so mail bombing one account from many
 	// addresses is capped too; over the limit it is silent (still 202).
 	throttled := s.rl.allow(rateReset+":acct:"+login) > 0
+	// Everything else, including the account lookup, happens in the
+	// background for known and unknown logins alike, so the response time
+	// reveals nothing.
+	ip := c.rip
+	s.mailWG.Add(1)
+	go func() {
+		defer s.mailWG.Done()
+		ctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), mail.SendTimeout)
+		defer cancel()
+		if err := s.sendReset(ctx, login, ip, throttled); err != nil {
+			s.log.Error("password reset request", "err", err)
+		}
+	}()
+	return accepted(w)
+}
+
+// sendReset is the background half of requestPasswordReset. Unknown logins
+// run the same steps on a dummy record. The mail counts against the per-IP
+// and global caps only, never the account's own bucket (see mailQuota).
+func (s *Server) sendReset(ctx context.Context, login, ip string, throttled bool) error {
+	token := ids.Token()
+	hash := ids.Hash(token)
 	u, err := s.st.UserByLogin(ctx, login)
-	switch {
-	case errors.Is(err, store.ErrNotFound):
-		return accepted(w)
-	case err != nil:
+	if errors.Is(err, store.ErrNotFound) {
+		s.mailQuota(ctx, "", ip, "") // comparable work; the result is moot
+		return nil
+	} else if err != nil {
 		return err
 	}
 	if u.Email == "" || throttled {
-		return accepted(w)
+		return nil
 	}
-	if wait := s.mailQuota(ctx, u.ID, c.rip); wait > 0 {
-		return accepted(w)
+	if wait := s.mailQuota(ctx, u.ID, ip, ""); wait > 0 {
+		return nil
 	}
-	if err := s.st.IssueResetToken(ctx, u.ID, hash, s.now().Add(resetTTL)); err != nil {
+	issued, err := s.st.IssueResetToken(ctx, u.ID, hash, s.now().Add(resetTTL))
+	if err != nil || !issued {
 		return err
 	}
 	s.dispatchMail(ctx, mailRequest{user: u, kind: "reset", params: map[string]string{
 		"link": s.link("/reset-password", token), "hours": strconv.Itoa(int(resetTTL.Hours()))}})
-	return accepted(w)
+	return nil
 }
 
 // confirmPasswordReset sets a new password with a reset token. The token is

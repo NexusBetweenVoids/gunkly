@@ -196,7 +196,7 @@ func TestResetPasswordIsAtomicAndSingleUse(t *testing.T) {
 	a := mkUser(t, s, "ann")
 	sess := must(s.CreateSession(ctx, store.NewSession{UserID: a.UserID, TokenHash: "th", ExpiresAt: clk.t.Add(time.Hour)}))
 	_ = sess
-	noErr(t, s.IssueResetToken(ctx, a.UserID, "r1", clk.t.Add(time.Hour)))
+	mustIssue(t, s, ctx, a.UserID, "r1", clk.t.Add(time.Hour))
 	// An empty hash is refused and must not consume the token.
 	if _, err := s.ResetPassword(ctx, "r1", ""); err == nil {
 		t.Fatal("empty password hash accepted")
@@ -214,13 +214,13 @@ func TestResetPasswordIsAtomicAndSingleUse(t *testing.T) {
 	if _, err := s.ResetPassword(ctx, "r1", "again"); !errors.Is(err, store.ErrNotFound) {
 		t.Fatalf("reuse: %v", err)
 	}
-	noErr(t, s.IssueResetToken(ctx, a.UserID, "r2", clk.t.Add(time.Hour)))
+	mustIssue(t, s, ctx, a.UserID, "r2", clk.t.Add(time.Hour))
 	clk.t = clk.t.Add(time.Hour + time.Second)
 	if _, err := s.ResetPassword(ctx, "r2", "late"); !errors.Is(err, store.ErrNotFound) {
 		t.Fatalf("expired: %v", err)
 	}
 	// A reset token cannot verify an email, and vice versa.
-	noErr(t, s.IssueResetToken(ctx, a.UserID, "r3", clk.t.Add(time.Hour)))
+	mustIssue(t, s, ctx, a.UserID, "r3", clk.t.Add(time.Hour))
 	if _, _, err := s.VerifyEmail(ctx, "r3", false, nil); !errors.Is(err, store.ErrNotFound) {
 		t.Fatalf("purpose mix-up: %v", err)
 	}
@@ -239,4 +239,43 @@ func TestUsePoWOnce(t *testing.T) {
 		t.Fatal(err)
 	}
 	noErr(t, s.UsePoW(ctx, "c1", clk.t.Add(time.Minute)))
+}
+
+func mustIssue(t *testing.T, s *store.Store, ctx context.Context, userID, hash string, exp time.Time) bool {
+	t.Helper()
+	ok, err := s.IssueResetToken(ctx, userID, hash, exp)
+	noErr(t, err)
+	return ok
+}
+
+// A new reset request keeps earlier unexpired tokens valid (up to the cap), so
+// a stranger spamming requests cannot invalidate the owner's link.
+func TestResetTokensCoexistUpToTheCap(t *testing.T) {
+	ctx := context.Background()
+	s, clk := emailStore(t)
+	a := mkUser(t, s, "ann")
+	exp := clk.t.Add(time.Hour)
+	for _, h := range []string{"t1", "t2", "t3"} {
+		if !mustIssue(t, s, ctx, a.UserID, h, exp) {
+			t.Fatalf("%s not issued", h)
+		}
+	}
+	if mustIssue(t, s, ctx, a.UserID, "t4", exp) {
+		t.Fatal("issued beyond the cap")
+	}
+	// The oldest is still good; using it drops the others.
+	if _, err := s.ResetPassword(ctx, "t1", "newhash"); err != nil {
+		t.Fatalf("oldest token: %v", err)
+	}
+	if _, err := s.ResetPassword(ctx, "t2", "x"); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("sibling token survived: %v", err)
+	}
+	// Expired tokens free their slots.
+	for _, h := range []string{"u1", "u2", "u3"} {
+		mustIssue(t, s, ctx, a.UserID, h, exp)
+	}
+	clk.t = clk.t.Add(2 * time.Hour)
+	if !mustIssue(t, s, ctx, a.UserID, "u4", clk.t.Add(time.Hour)) {
+		t.Fatal("expired tokens still count")
+	}
 }

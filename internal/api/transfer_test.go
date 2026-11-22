@@ -419,3 +419,54 @@ func TestExportUser(t *testing.T) {
 		t.Fatal("export not audited")
 	}
 }
+
+// Imported history is marked as imported and only an owner's import may name
+// who did it: a member's file cannot forge completions in other names.
+func TestImportAttribution(t *testing.T) {
+	f, doc := transferFixture(t)
+	importedBy := func(c *client) (n, attributed int) {
+		st, v := c.do("POST", f.base()+"/import", doc)
+		expect(t, st, v, 200, "")
+		_, cl := f.a.do("GET", f.base()+"/chores", nil)
+		for _, ch := range list(t, cl) {
+			for _, h := range f.completions(t, str(ch, "id")) {
+				if str(h, "source") != "import" {
+					continue
+				}
+				n++
+				if field(h, "userId") != nil {
+					attributed++
+				}
+			}
+		}
+		return n, attributed
+	}
+	if n, attr := importedBy(f.m); n != 2 || attr != 0 {
+		t.Fatalf("member import: %d imported, %d attributed; want 2, 0", n, attr)
+	}
+	if n, attr := importedBy(f.a); n != 4 || attr != 2 {
+		t.Fatalf("owner import: %d imported in total, %d attributed; want 4, 2", n, attr)
+	}
+}
+
+// A file may not carry more than ImportMaxCompletions history entries in all.
+func TestImportTotalCompletionsCap(t *testing.T) {
+	f, doc := transferFixture(t)
+	chore := doc.(map[string]any)["chores"].([]any)[0].(map[string]any)
+	comp := chore["completions"].([]any)[0]
+	comps := make([]any, 1000)
+	for i := range comps {
+		comps[i] = comp
+	}
+	chore["completions"] = comps
+	chores := make([]any, 21)
+	for i := range chores {
+		chores[i] = chore
+	}
+	doc.(map[string]any)["chores"] = chores
+	st, v := f.a.do("POST", f.base()+"/import", doc)
+	expect(t, st, v, 409, "import_invalid")
+	if field(field(v, "error"), "reason") != "limit_completions" {
+		t.Fatalf("reason: %v", v)
+	}
+}

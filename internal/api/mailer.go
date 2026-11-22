@@ -105,11 +105,16 @@ func (s *Server) Mailer() Mailer { return s.mailer }
 // emailEnabled reports whether this instance sends email.
 func (s *Server) emailEnabled() bool { return s.mailer != nil }
 
-// mailQuota takes the outbound email caps (PRD Limits): per account, per IP
-// for requests without a session (ip empty for authenticated ones) and
-// global, each admin-overridable through internal/limits. It returns how long
-// to wait when one is full.
-func (s *Server) mailQuota(ctx context.Context, accountID, ip string) time.Duration {
+// mailQuota takes the outbound email caps (PRD Limits): global, per IP for
+// requests without a session (ip empty for authenticated ones) and, when
+// acct is a kind, the per-account bucket of that kind. Unauthenticated
+// requests (reset, sign-up, verification) pass no account kind: anyone can
+// send them for any victim, so they must not be able to fill the victim's own
+// bucket and lock them out of their sign-in codes. Sign-in and step-up codes
+// have their own account bucket (EmailCodesAccountHour). Each cap is
+// admin-overridable through internal/limits. It returns how long to wait when
+// one is full.
+func (s *Server) mailQuota(ctx context.Context, accountID, ip string, acct limits.Kind) time.Duration {
 	qs := make([]quota, 0, 3)
 	add := func(kind limits.Kind, key string) {
 		n, err := s.limits.Limit(ctx, kind, "")
@@ -122,8 +127,8 @@ func (s *Server) mailQuota(ctx context.Context, accountID, ip string) time.Durat
 	if ip != "" {
 		add(limits.EmailsIPHour, "mail:ip:"+ip)
 	}
-	if accountID != "" {
-		add(limits.EmailsAccountHour, "mail:acct:"+accountID)
+	if accountID != "" && acct != "" {
+		add(acct, "mail:"+string(acct)+":"+accountID)
 	}
 	return s.counts.take(qs...)
 }
@@ -142,11 +147,11 @@ type mailRequest struct {
 // response does not wait on (or reveal anything about) the SMTP server. It
 // returns the wait when a quota is full (nothing is sent then).
 func (s *Server) queueMail(ctx context.Context, c *call, r mailRequest) time.Duration {
-	ip := ""
+	ip, acct := "", limits.EmailsAccountHour
 	if r.unauth {
-		ip = c.rip
+		ip, acct = c.rip, ""
 	}
-	if wait := s.mailQuota(ctx, r.user.ID, ip); wait > 0 {
+	if wait := s.mailQuota(ctx, r.user.ID, ip, acct); wait > 0 {
 		return wait
 	}
 	s.dispatchMail(ctx, r)

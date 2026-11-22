@@ -22,6 +22,8 @@
   "mail.verify.body": "Hello {name},\n\nConfirm your email address to finish setting up your Gunkly account:\n\n{link}\n\nThe link works once and expires in {hours} hours. If you did not ask for this, you can ignore this message.\n",
   "mail.reset.subject": "Reset your Gunkly password",
   "mail.reset.body": "Hello {name},\n\nSomeone asked to reset the password of your Gunkly account. To choose a new password, open:\n\n{link}\n\nThe link works once and expires in {hours} hour. Signing in again on all devices will be needed afterwards. If you did not ask for this, ignore this message: your password has not changed.\n",
+  "mail.signupexists.subject": "You already have a Gunkly account",
+  "mail.signupexists.body": "Hello {name},\n\nSomeone just tried to sign up for Gunkly with this email address, but it already belongs to your account, so nothing was created.\n\nIf it was you, sign in at {signin} or choose a new password at {reset}. If it was not, you can ignore this message: your account is unchanged.\n",
   "mail.otp.subject": "Your Gunkly sign-in code",
   "mail.otp.body": "Hello {name},\n\nYour Gunkly code is {code}\n\nIt works once and expires in {minutes} minutes. Gunkly never asks you to share it. If you did not try to sign in, change your password.\n",
   "mail.emailchange.subject": "Your Gunkly email address is being changed",

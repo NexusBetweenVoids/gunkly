@@ -32,7 +32,7 @@ Gunkly tracks recurring household chores and home maintenance (gutters, washing-
 
 - A **household** owns and isolates all chores, areas and history. A user can belong to several households and switch between them.
 - Roles: **owner** (members, settings, deletion), **member** (manages and completes chores), **guest** (view only; no reminders, cannot complete chores, including via notification links). No child accounts.
-- Joining is via **invite links** that expire and can be revoked. Open sign-up (`POST /api/v1/signup`, with an ALTCHA-compatible proof of work, `require_pow`) is an instance setting: off by default self-hosted, on for hosted. With email on, the address is verified by link: unverified users can sign in and see a banner but in hosted mode cannot create or join households. A valid invite still lets an invitee register when open sign-up is off, unless an admin restricts registration to admin-created accounts.
+- Joining is via **invite links** that expire and can be revoked. Open sign-up (`POST /api/v1/signup`, with an ALTCHA-compatible proof of work, `require_pow`) is an instance setting: off by default self-hosted, on for hosted. With email on, the address is verified by link: unverified users can sign in and see a banner but in hosted mode cannot create or join households, import data or reach any household data (invite registration included: the gate, verified email plus 2FA, applies to every household route). With email on, sign-up answers the same 202 ("Check your email to finish signing up") whether or not the address already has an account and signs nobody in. A valid invite still lets an invitee register when open sign-up is off, unless an admin restricts registration to admin-created accounts.
 - Sign-in: email (or username when email is disabled) plus password, optional **TOTP** with single-use recovery codes. Users with a verified email may choose email one-time codes instead of TOTP. Hosted: 2FA mandatory (TOTP or email one-time code; verifying the address enrols email codes automatically); users are warned that hosted has no manual admin reset if authenticator and recovery codes are both lost. Self-hosted admins can run `gunkly admin reset-2fa <user>`. Passkeys and SSO are Later.
 - The **instance admin** manages users, limits and instance settings but cannot read household content (chores, notes, history, notification settings) through the app.
 - **Leaving a household / deleting an account:** chores assigned only to that person become unassigned ("anyone"); they are removed from other chores' assignees; past completions stay but are anonymised (`user_id` NULL, shown as "Deleted user"). When a household's last owner leaves, ownership transfers only to non-guest members; guests are never promoted. A household with no non-guest members left is deleted, and the app warns and asks confirmation first.
@@ -87,7 +87,7 @@ Gunkly tracks recurring household chores and home maintenance (gutters, washing-
 - **Import:** create a new household or merge into one where the user is owner/member. Merge combines same-name areas, adds chores as new, turns non-member assignees into "anyone". Upload size cap; limits validated and the whole import runs in one transaction (all or nothing).
   - Formats are versioned (`gunkly-user-export` / `gunkly-household-export`, version 1); unknown formats, versions and fields are rejected. Household files carry assignee and completer display names and usernames as matching hints (usernames are visible to every household member in the file; no emails, URLs, tokens or feeds).
   - Upload cap 5 MiB (import routes only). Every field is validated like the normal create paths (names, http/https links, RRULE, intervals, time zone, reminders); chores, areas, reminders per chore and completions per chore are checked against the target's limits.
-  - Merge details: areas match by case-insensitive name; chores always get new IDs; assignees match by username among non-guest members, else the chore stays "anyone"; a completer is attributed only when the username matches a member, otherwise the history entry is anonymous; the due date comes from the file (recomputed from the schedule if absent, and the instant always in the target's time zone); the target's own settings are never changed. Creating a new household applies the file's settings and makes the importer the only member (owner).
+  - Merge details: areas match by case-insensitive name; chores always get new IDs; assignees match by username among non-guest members, else the chore stays "anyone"; imported history gets the source `import` (shown as "Imported"); a completer is attributed only when the importer is an owner of the target household and the username matches a member, otherwise the history entry is anonymous (at most 20,000 history entries per file); the due date comes from the file (recomputed from the schedule if absent, and the instant always in the target's time zone); the target's own settings are never changed. Creating a new household applies the file's settings and makes the importer the only member (owner).
 
 ### Instance operations
 
@@ -116,7 +116,8 @@ Legal and compliance documents for the maintainer's hosted service live in `docs
 | Notifications sent per household | 100/hour, 250/day |
 | Notifications sent per user (all households) | 500/day |
 | Overdue reminder repeat cadence | at most once per 24 h per chore |
-| Outbound SMTP emails | 10/hour per account (5/hour per IP unauthenticated); 500/hour global |
+| Outbound SMTP emails | 10/hour per account for authenticated actions; 5/hour per IP for requests without a session (these never count against the account); 20/hour per account for sign-in and step-up codes; 500/hour global |
+| Completions per import file | 20,000 in all |
 | Areas per household | 100 |
 | Completions kept per chore (oldest non-reverted pruned beyond this) | 1,000 |
 | Authenticated write requests | 120/minute per user (burst 60); 300/minute per household (burst 100); fixed, not admin-tunable |
@@ -134,6 +135,7 @@ Legal and compliance documents for the maintainer's hosted service live in `docs
 | Audit log | 90 days |
 | Notification delivery log | 30 days |
 | Expired sessions, tokens, invite links | Deleted once expired |
+| Accounts with an unverified email address and no household (email enabled only) | Deleted after 7 days |
 
 SQLite space is reclaimed with bounded `PRAGMA incremental_vacuum` batches, never a full `VACUUM`.
 

@@ -15,6 +15,7 @@
   let email = $state('');
   let password = $state('');
   let busy = $state(false);
+  let sent = $state(false); // email instances: nobody is signed in until the address is confirmed
   let percent = $state(-1); // -1: not solving
   let err = $state({ code: '', message: '' });
   const pwCodes = ['password_too_short', 'password_too_long', 'password_invalid'];
@@ -29,9 +30,13 @@
         percent = 0;
         pow = await solveChallenge((f) => (percent = Math.floor(f * 100)));
       }
-      const s = await api<SessionView>('POST', '/signup', { username, email, displayName, password, locale, pow });
-      await adopt(s);
-      navigate('/', true);
+      const s = await api<SessionView | { accepted: true }>('POST', '/signup', { username, email, displayName, password, locale, pow });
+      if ('accepted' in s) {
+        sent = true;
+      } else {
+        await adopt(s);
+        navigate('/', true);
+      }
     } catch (x) {
       err = failure(x);
     } finally {
@@ -45,6 +50,10 @@
   <h1>{t('signIn.createAccount')}</h1>
   {#if !app.instance.openSignup}
     <p class="muted">{t('signup.closed')}</p>
+    <p><a href="/signin">{t('signIn.title')}</a></p>
+  {:else if sent}
+    <p role="status">{t('signup.checkEmail')}</p>
+    <p class="muted">{t('signup.checkEmailHint')}</p>
     <p><a href="/signin">{t('signIn.title')}</a></p>
   {:else}
     <p class="muted">{t('signup.intro')}</p>
