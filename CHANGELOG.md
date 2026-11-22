@@ -4,6 +4,14 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ## [Unreleased]
 
+### Added
+
+- Updates page: "Check now" button (`POST /api/v1/admin/updates/check`) and a "Checking for updates…" state. `GET /api/v1/admin/updates` gains `checking` and `ahead`.
+
+### Fixed
+
+- After an upgrade the Updates page could say "You are up to date. Latest release: v0.1.1" because the cached check predated the release. The page now refreshes the check in the background when the cache is missing, over an hour old or older than the running version (at most one GitHub request per 5 minutes), and never claims "up to date" while the cached release is older than the running version.
+
 ## [0.2.0] - 2026-11-22
 
 ### Added

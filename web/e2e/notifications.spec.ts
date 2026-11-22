@@ -29,6 +29,9 @@ test('admin: the Updates section shows the running version and the check can be 
   await page.goto('/admin');
   const card = page.getByRole('region', { name: 'Updates' });
   await expect(card.getByText(/^Running version: /)).toBeVisible();
+  // The e2e server has the check off: the button is there but disabled, with an explanation.
+  await expect(card.getByRole('button', { name: 'Check now' })).toBeDisabled();
+  await expect(card.getByText('Turn on the background check to look for updates.')).toBeVisible();
   const box = card.getByRole('checkbox', { name: 'Check for updates' });
   try {
     await box.check();

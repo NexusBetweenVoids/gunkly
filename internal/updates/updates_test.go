@@ -198,3 +198,25 @@ func TestNewer(t *testing.T) {
 		}
 	}
 }
+
+func TestAheadAndStale(t *testing.T) {
+	for _, c := range []struct {
+		running, latest string
+		ahead           bool
+	}{
+		{"v0.2.0", "v0.1.1", true}, {"0.2.0", "v0.2.0", false}, {"v0.2.0", "v0.3.0", false},
+		{"v0.2.1-rc1", "v0.2.0", true}, {"v0.2.0-rc1", "v0.2.0", false}, {"dev", "v0.1.0", false},
+	} {
+		if got := Ahead(c.running, c.latest); got != c.ahead {
+			t.Errorf("Ahead(%q,%q)=%v", c.running, c.latest, got)
+		}
+	}
+	now := time.Date(2026, 11, 22, 12, 0, 0, 0, time.UTC)
+	fresh := store.UpdateCache{Latest: "v0.2.0", CheckedAt: now.Add(-59 * time.Minute)}
+	if Stale(fresh, "v0.2.0", now) || Stale(fresh, "dev", now) {
+		t.Error("fresh cache reported stale")
+	}
+	if !Stale(fresh, "v0.3.0-rc1", now.Add(2*time.Minute)) || !Stale(fresh, "v0.2.1", now) || !Stale(store.UpdateCache{}, "dev", now) {
+		t.Error("stale cache not reported")
+	}
+}

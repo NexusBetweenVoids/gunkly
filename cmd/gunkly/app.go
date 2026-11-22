@@ -19,6 +19,7 @@ import (
 	"github.com/NexusBetweenVoids/gunkly/internal/limits"
 	"github.com/NexusBetweenVoids/gunkly/internal/mail"
 	"github.com/NexusBetweenVoids/gunkly/internal/store"
+	"github.com/NexusBetweenVoids/gunkly/internal/updates"
 )
 
 // app wires the long-lived components shared by serve and the CLI commands.
@@ -31,6 +32,7 @@ type app struct {
 	store   *store.Store
 	keyring *auth.Keyring
 	limits  *limits.Service
+	updater *updates.Checker
 
 	sqlitePath string // empty on Postgres
 	dbExisted  bool   // the SQLite file existed before opening (snapshot worthwhile)

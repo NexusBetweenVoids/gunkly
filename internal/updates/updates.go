@@ -17,6 +17,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/NexusBetweenVoids/gunkly/internal/store"
@@ -28,6 +29,12 @@ const (
 	LatestReleaseURL = "https://api.github.com/repos/NexusBetweenVoids/gunkly/releases/latest"
 	UserAgent        = "gunkly-update-check"
 	Interval         = 12 * time.Hour
+	// StaleAfter is how old the cache may get before a visit to the Updates
+	// page refreshes it; MinGap is the floor between two requests to GitHub,
+	// whatever triggered them and whether they failed or not.
+	StaleAfter = time.Hour
+	MinGap     = 5 * time.Minute
+	fetchLimit = 30 * time.Second
 	// MaxChangelog caps the stored release notes, in characters.
 	MaxChangelog = 8000
 	maxTagLen    = 64
@@ -44,6 +51,82 @@ type Checker struct {
 	URL    string           // "" = LatestReleaseURL
 	Now    func() time.Time // nil = time.Now
 	Log    *slog.Logger     // nil = slog.Default()
+
+	mu       sync.Mutex
+	inflight bool
+	lastCall time.Time // last request started by this process
+}
+
+// Checking reports whether a request to GitHub is in flight.
+func (c *Checker) Checking() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.inflight
+}
+
+// Stale reports whether the cache should be refreshed when somebody looks at
+// it: never checked, older than StaleAfter, or showing a release older than
+// the running version (the cache predates an upgrade).
+func Stale(c store.UpdateCache, running string, now time.Time) bool {
+	return c.Latest == "" || c.CheckedAt.IsZero() || now.Sub(c.CheckedAt) > StaleAfter || Ahead(running, c.Latest)
+}
+
+// Refresh starts a background request to GitHub and returns at once. It
+// reports whether a refresh is in flight afterwards. Nothing is started while
+// one is already running or if the last request, by any instance, was less
+// than MinGap ago. Unless force is set, the cache must also be Stale.
+func (c *Checker) Refresh(cache store.UpdateCache, running string, force bool) bool {
+	now := c.now()
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.inflight {
+		return true
+	}
+	if !force && !Stale(cache, running, now) {
+		return false
+	}
+	for _, last := range []time.Time{cache.AttemptedAt, c.lastCall} {
+		if !last.IsZero() && now.Sub(last) < MinGap && !last.After(now) {
+			return false
+		}
+	}
+	c.inflight, c.lastCall = true, now
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), fetchLimit)
+		defer cancel()
+		if err := c.attempt(ctx); err != nil {
+			c.log().Warn("update check failed", "err", err)
+		}
+		c.mu.Lock()
+		c.inflight = false
+		c.mu.Unlock()
+	}()
+	return true
+}
+
+func (c *Checker) log() *slog.Logger {
+	if c.Log != nil {
+		return c.Log
+	}
+	return slog.Default()
+}
+
+// attempt asks GitHub and stores the outcome (a failure only moves AttemptedAt).
+func (c *Checker) attempt(ctx context.Context) error {
+	cache, err := c.Store.UpdateCache(ctx)
+	if err != nil {
+		return err
+	}
+	now := c.now()
+	cache.AttemptedAt = now
+	latest, notes, err := c.fetch(ctx)
+	if err == nil {
+		cache.Latest, cache.Changelog, cache.CheckedAt = latest, notes, now
+	}
+	if serr := c.Store.SetUpdateCache(ctx, cache); serr != nil {
+		return errors.Join(err, serr)
+	}
+	return err
 }
 
 func (c *Checker) now() time.Time {
@@ -57,10 +140,7 @@ func (c *Checker) now() time.Time {
 // Interval, until ctx ends. Safe on every instance: the cache is shared, so
 // instances mostly find it fresh.
 func (c *Checker) Run(ctx context.Context) {
-	log := c.Log
-	if log == nil {
-		log = slog.Default()
-	}
+	log := c.log()
 	t := time.NewTimer(firstDelay)
 	defer t.Stop()
 	for {
@@ -96,15 +176,19 @@ func (c *Checker) CheckIfDue(ctx context.Context) error {
 	if !last.IsZero() && now.Sub(last) < Interval && !last.After(now) {
 		return nil
 	}
-	cache.AttemptedAt = now
-	latest, notes, err := c.fetch(ctx)
-	if err == nil {
-		cache.Latest, cache.Changelog, cache.CheckedAt = latest, notes, now
+	c.mu.Lock()
+	if c.inflight {
+		c.mu.Unlock()
+		return nil
 	}
-	if serr := c.Store.SetUpdateCache(ctx, cache); serr != nil {
-		return errors.Join(err, serr)
-	}
-	return err
+	c.inflight, c.lastCall = true, now
+	c.mu.Unlock()
+	defer func() {
+		c.mu.Lock()
+		c.inflight = false
+		c.mu.Unlock()
+	}()
+	return c.attempt(ctx)
 }
 
 func (c *Checker) fetch(ctx context.Context) (tag, notes string, err error) {
@@ -176,6 +260,13 @@ func Newer(running, latest string) bool {
 		}
 	}
 	return r.pre != "" && l.pre == "" // 1.2.0 is newer than 1.2.0-rc1
+}
+
+// Ahead reports whether the running version is newer than release latest, which
+// means a cached latest that predates the running version (or a pre-release or
+// development build). Unparseable versions are never ahead.
+func Ahead(running, latest string) bool {
+	return Newer(latest, running)
 }
 
 type version struct {

@@ -24,6 +24,7 @@ import (
 	"github.com/NexusBetweenVoids/gunkly/internal/metrics"
 	"github.com/NexusBetweenVoids/gunkly/internal/notify"
 	"github.com/NexusBetweenVoids/gunkly/internal/store"
+	"github.com/NexusBetweenVoids/gunkly/internal/updates"
 )
 
 // Options configures a Server.
@@ -40,6 +41,9 @@ type Options struct {
 	// Version is the running release ("dev" for a development build), shown on
 	// the admin Updates page.
 	Version string
+	// Updates refreshes the cached release check on demand. Nil: the Updates
+	// page only reads the cache (tests, so nothing ever calls out).
+	Updates *updates.Checker
 	// HostedMode forces the egress guard on, whatever the admin setting says.
 	HostedMode bool
 	// Sender delivers test notifications. Nil builds the Shoutrrr sender
@@ -76,6 +80,7 @@ type Server struct {
 	// metricsTokenHash is the SHA-256 of the metrics token (zero when off).
 	metricsTokenHash [sha256.Size]byte
 	version          string
+	updates          *updates.Checker
 	hosted           bool
 	sender           notify.Sender
 	push             *notify.WebPush
@@ -121,7 +126,7 @@ type Server struct {
 func New(o Options) *Server {
 	s := &Server{
 		st: o.Store, limits: o.Limits, keyring: o.Keyring,
-		baseURL: o.BaseURL, version: o.Version, secure: strings.HasPrefix(o.BaseURL, "https://"),
+		baseURL: o.BaseURL, version: o.Version, updates: o.Updates, secure: strings.HasPrefix(o.BaseURL, "https://"),
 		proxies: o.TrustedProxies, log: o.Logger, ready: o.Ready, static: o.Static, now: o.Now,
 		hashPassword: auth.HashPassword, verifyPassword: auth.VerifyPassword,
 		mux: http.NewServeMux(), bodyLimits: map[string]int64{},

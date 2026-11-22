@@ -184,7 +184,7 @@
   "err.email_otp_already_enabled": "Email codes are already on.",
   "push.denied": "Notifications are blocked for this site. Allow them in your browser settings and try again.",
   "updates.off": "The update check is off. Nothing is sent to anyone.",
-  "updates.never": "No update check has completed yet. It runs in the background at most every 12 hours.",
+  "updates.never": "No update check has completed yet. It runs in the background when you open this page and at most every 12 hours.",
   "updates.checked": "Checked {date}",
   "updates.changelog": "What changed",
   "err.owner_required": "Choose a new owner first.",

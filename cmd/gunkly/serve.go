@@ -46,8 +46,10 @@ func serve(ctx context.Context, logOut io.Writer) error {
 	if a.cfg.MetricsToken != "" {
 		reg = a.newMetrics()
 	}
+	a.updater = &updates.Checker{Store: a.store, Client: egress.NewClient(egress.Guard{Enabled: true}), Log: a.log}
 	srv := api.New(api.Options{
-		Store: a.store, Limits: a.limits, Keyring: a.keyring, BaseURL: a.cfg.BaseURL,
+		Updates: a.updater,
+		Store:   a.store, Limits: a.limits, Keyring: a.keyring, BaseURL: a.cfg.BaseURL,
 		TrustedProxies: a.cfg.TrustedProxies, Logger: a.log, Ready: a.ready, Static: dist, HostedMode: a.cfg.HostedMode,
 		Metrics: reg, MetricsToken: a.cfg.MetricsToken, Version: version,
 		PoWMaxNumber: a.cfg.PoWMaxNumber, SMTP: a.smtp(),
@@ -192,11 +194,11 @@ func (a *app) newMetrics() *metrics.Registry {
 	return reg
 }
 
-// startUpdateCheck runs the background release check (admin Updates page). It
+// startUpdateCheck runs (a.updater, also used by the Updates page for refreshes) the background release check (admin Updates page). It
 // uses the always-guarded egress client and asks only if the admin has not
 // switched the check off.
 func (a *app) startUpdateCheck(ctx context.Context) {
-	c := &updates.Checker{Store: a.store, Client: egress.NewClient(egress.Guard{Enabled: true}), Log: a.log}
+	c := a.updater
 	uctx, cancel := context.WithCancel(context.WithoutCancel(ctx))
 	done := make(chan struct{})
 	go func() {

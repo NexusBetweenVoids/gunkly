@@ -1142,10 +1142,23 @@ paths:
       tags: [admin]
       summary: Running version and the latest release (admin)
       description: |
-        Reads the cached result of the background release check, which asks the GitHub Releases API at most
-        every 12 hours with the User-Agent "gunkly-update-check" and no instance data. It never makes a request
-        itself. With updateCheck off, nothing is shown (enabled false). changelog is plain text: show it as
-        text, never as HTML.
+        Returns the cached result of the release check at once. If the cache is missing, older than one hour or
+        older than the running version, a refresh from the GitHub Releases API (User-Agent "gunkly-update-check",
+        no instance data) starts in the background and checking is true until it ends; ask again in a few
+        seconds. At most one request is in flight and at most one is made per 5 minutes. With updateCheck off,
+        nothing is shown and GitHub is never asked (enabled false). changelog is plain text: show it as text,
+        never as HTML.
+      responses:
+        "200": {description: OK, content: {application/json: {schema: {$ref: "#/components/schemas/Updates"}}}}
+        "403": {$ref: "#/components/responses/Forbidden"}
+  /admin/updates/check:
+    post:
+      tags: [admin]
+      summary: Check for a new release now (admin)
+      description: |
+        Starts the same background refresh as GET /admin/updates, even if the cache is fresh. Within 5 minutes
+        of the previous request to GitHub, or with updateCheck off, nothing is requested. Returns the current
+        state; checking is true while a refresh is running.
       responses:
         "200": {description: OK, content: {application/json: {schema: {$ref: "#/components/schemas/Updates"}}}}
         "403": {$ref: "#/components/responses/Forbidden"}
@@ -1536,6 +1549,8 @@ components:
         running: {type: string, description: "Version of this server (dev for development builds)"}
         latest: {type: string, description: "Latest release tag; empty if never checked or the check is off"}
         newer: {type: boolean, description: "latest is newer than running"}
+        ahead: {type: boolean, description: "running is newer than latest: a stale cache or a pre-release/development build; latest is not confirmed"}
+        checking: {type: boolean, description: "A refresh from GitHub is in flight"}
         changelog: {type: string, description: "Release notes, plain text, at most 8000 characters"}
         checkedAt: {type: string, format: date-time, nullable: true}
         enabled: {type: boolean, description: "The updateCheck setting"}
