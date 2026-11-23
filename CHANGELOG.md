@@ -6,6 +6,7 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ### Changed
 
+- Account, household settings and Administration are split into a few groups (Account: Profile & email, Sign-in & security, Notifications, Integrations, Your data; household: General, People, Notifications, Connections, Data; Administration: Users, Sign-up & sign-in, Connections, Data & retention, Limits, Updates). Each group has its own address (for example `/account/security`); phones show the list of groups and open one at a time, wider screens keep the list at the side. Old links (`/account`, `/admin`, `/households/{id}`) still work.
 - Chore page: the actions are calmer. **Done** stays a labelled button; snooze, skip, pause/resume, mute, edit and archive are now a row of quiet icon buttons (each named for screen readers and with a tooltip), and Delete is a small bin icon at the end of the row. On touch screens (no tooltips) each icon has a short caption, in two rows of four on narrow phones.
 
 ## [0.4.0] - 2026-11-23

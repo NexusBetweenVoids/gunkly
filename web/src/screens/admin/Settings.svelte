@@ -32,6 +32,9 @@
     inactiveWarnAfterDays: number;
     inactiveDeleteAfterDays: number;
   };
+  // Which group of the admin screen this form shows; saving sends every value,
+  // so the parts never overwrite each other with stale data.
+  let { part, title }: { part: 'signin' | 'connections' | 'data' | 'limits'; title: string } = $props();
   let s = $state<S | null>(null);
   let minLen = $state('8');
   let idleDays = $state('30');
@@ -116,64 +119,68 @@
   }
 </script>
 
-<section class="card" aria-labelledby="ad-settings">
-  <h2 id="ad-settings">{t('admin.settings')}</h2>
+<section class="card" aria-labelledby="ad-{part}">
+  <h2 id="ad-{part}">{title}</h2>
   {#if s}
     <form class="stack" onsubmit={save}>
-      <label class="check"><input type="checkbox" bind:checked={s.openSignup} />{t('admin.openSignup')}</label>
-      <label class="check"><input type="checkbox" bind:checked={s.requirePow} />{t('admin.requirePow')}</label>
-      <label class="check"><input type="checkbox" bind:checked={s.inviteRegistration} />{t('admin.inviteRegistration')}</label>
-      <div class="stack-sm">
-        <label class="check"><input type="checkbox" bind:checked={s.mcpEnabled} aria-describedby="mcp-hint" />{t('admin.mcpEnabled')}</label>
-        <p class="hint" id="mcp-hint">{t('admin.mcpHint')}</p>
-      </div>
-      <div class="stack-sm">
-        <label class="check"><input type="checkbox" bind:checked={s.oauthEnabled} disabled={!s.oauthPossible && !s.oauthEnabled} aria-describedby="oauth-hint" />{t('admin.oauthEnabled')}</label>
-        <p class="hint" id="oauth-hint">{t('admin.oauthHint')} {s.oauthPossible ? '' : t('admin.oauthNeedsHttps')}</p>
-      </div>
-      <div class="stack-sm">
-        <label class="check"><input type="checkbox" bind:checked={s.webhooksEnabled} aria-describedby="webhooks-hint" />{t('admin.webhooksEnabled')}</label>
-        <p class="hint" id="webhooks-hint">{t('admin.webhooksHint')}</p>
-      </div>
-      <Field label={t('admin.minPassword')} type="number" bind:value={minLen} min="8" max="128" required />
-      <h3>{t('admin.sessions')}</h3>
-      <Field label={t('admin.sessionIdle')} hint={t('admin.sessionIdleHint')} type="number" bind:value={idleDays} min="1" max="365" required />
-      <Field label={t('admin.sessionMax')} hint={t('admin.sessionMaxHint')} type="number" bind:value={maxDays} min="1" max="730" required />
-      <h3>{t('admin.retention')}</h3>
-      <p class="hint">{t('admin.retentionHint')}</p>
-      <Field label={t('admin.auditRetention')} type="number" bind:value={auditDays} min="1" max="3650" required />
-      <Field label={t('admin.deliveryRetention')} type="number" bind:value={deliveryDays} min="1" max="3650" required />
-      <h3>{t('admin.inactive')}</h3>
-      <p class="hint">{t('admin.inactiveHint')}</p>
-      <label class="check"><input type="checkbox" bind:checked={s.inactiveEnabled} />{t('admin.inactiveEnabled')}</label>
-      <Field label={t('admin.inactiveWarn')} type="number" bind:value={inactiveWarn} min="30" max="3650" required />
-      <Field label={t('admin.inactiveDelete')} hint={t('admin.inactiveDeleteHint')} type="number" bind:value={inactiveDelete} min="60" max="3650" required />
-      <fieldset class="stack-sm">
-        <legend class="label">{t('admin.kinds')}</legend>
-        <p class="hint">{t('admin.kindsHint')}</p>
-        <div class="row">
-          {#each s.availableNotificationKinds as k (k)}
-            <label class="check"><input type="checkbox" value={k} bind:group={s.enabledNotificationKinds} />{k}</label>
-          {/each}
+      {#if part === 'signin'}
+        <label class="check"><input type="checkbox" bind:checked={s.openSignup} />{t('admin.openSignup')}</label>
+        <label class="check"><input type="checkbox" bind:checked={s.requirePow} />{t('admin.requirePow')}</label>
+        <label class="check"><input type="checkbox" bind:checked={s.inviteRegistration} />{t('admin.inviteRegistration')}</label>
+        <Field label={t('admin.minPassword')} type="number" bind:value={minLen} min="8" max="128" required />
+        <h3>{t('admin.sessions')}</h3>
+        <Field label={t('admin.sessionIdle')} hint={t('admin.sessionIdleHint')} type="number" bind:value={idleDays} min="1" max="365" required />
+        <Field label={t('admin.sessionMax')} hint={t('admin.sessionMaxHint')} type="number" bind:value={maxDays} min="1" max="730" required />
+      {:else if part === 'connections'}
+        <div class="stack-sm">
+          <label class="check"><input type="checkbox" bind:checked={s.mcpEnabled} aria-describedby="mcp-hint" />{t('admin.mcpEnabled')}</label>
+          <p class="hint" id="mcp-hint">{t('admin.mcpHint')}</p>
         </div>
-        <div><Button variant="quiet" {busy} onclick={resetKinds}>{t('admin.kindsReset')}</Button></div>
-      </fieldset>
-      <div class="stack-sm">
-        <label class="check"><input type="checkbox" bind:checked={s.egressGuard} disabled={s.egressGuardLocked} aria-describedby="eg-hint" />{t('admin.egressGuard')}</label>
-        <p class="hint" id="eg-hint">{s.egressGuardLocked ? t('admin.egressLocked') : t('admin.egressHint')}</p>
-      </div>
-      <h3>{t('admin.limits')}</h3>
-      <p class="hint">{t('admin.limitsHint')}</p>
-      {#each Object.keys(s.limits) as k (k)}
-        <Field
-          label={has(`limit.${k}`) ? t(`limit.${k}` as Key) : k.replace(/_/g, ' ')}
-          hint={t('admin.limitDefault', { n: s.limitDefaults[k] ?? 0 })}
-          type="number"
-          min="0"
-          max="1000000"
-          bind:value={limitInputs[k]}
-        />
-      {/each}
+        <div class="stack-sm">
+          <label class="check"><input type="checkbox" bind:checked={s.oauthEnabled} disabled={!s.oauthPossible && !s.oauthEnabled} aria-describedby="oauth-hint" />{t('admin.oauthEnabled')}</label>
+          <p class="hint" id="oauth-hint">{t('admin.oauthHint')} {s.oauthPossible ? '' : t('admin.oauthNeedsHttps')}</p>
+        </div>
+        <div class="stack-sm">
+          <label class="check"><input type="checkbox" bind:checked={s.webhooksEnabled} aria-describedby="webhooks-hint" />{t('admin.webhooksEnabled')}</label>
+          <p class="hint" id="webhooks-hint">{t('admin.webhooksHint')}</p>
+        </div>
+        <fieldset class="stack-sm">
+          <legend class="label">{t('admin.kinds')}</legend>
+          <p class="hint">{t('admin.kindsHint')}</p>
+          <div class="row">
+            {#each s.availableNotificationKinds as k (k)}
+              <label class="check"><input type="checkbox" value={k} bind:group={s.enabledNotificationKinds} />{k}</label>
+            {/each}
+          </div>
+          <div><Button variant="quiet" {busy} onclick={resetKinds}>{t('admin.kindsReset')}</Button></div>
+        </fieldset>
+        <div class="stack-sm">
+          <label class="check"><input type="checkbox" bind:checked={s.egressGuard} disabled={s.egressGuardLocked} aria-describedby="eg-hint" />{t('admin.egressGuard')}</label>
+          <p class="hint" id="eg-hint">{s.egressGuardLocked ? t('admin.egressLocked') : t('admin.egressHint')}</p>
+        </div>
+      {:else if part === 'data'}
+        <h3>{t('admin.retention')}</h3>
+        <p class="hint">{t('admin.retentionHint')}</p>
+        <Field label={t('admin.auditRetention')} type="number" bind:value={auditDays} min="1" max="3650" required />
+        <Field label={t('admin.deliveryRetention')} type="number" bind:value={deliveryDays} min="1" max="3650" required />
+        <h3>{t('admin.inactive')}</h3>
+        <p class="hint">{t('admin.inactiveHint')}</p>
+        <label class="check"><input type="checkbox" bind:checked={s.inactiveEnabled} />{t('admin.inactiveEnabled')}</label>
+        <Field label={t('admin.inactiveWarn')} type="number" bind:value={inactiveWarn} min="30" max="3650" required />
+        <Field label={t('admin.inactiveDelete')} hint={t('admin.inactiveDeleteHint')} type="number" bind:value={inactiveDelete} min="60" max="3650" required />
+      {:else}
+        <p class="hint">{t('admin.limitsHint')}</p>
+        {#each Object.keys(s.limits) as k (k)}
+          <Field
+            label={has(`limit.${k}`) ? t(`limit.${k}` as Key) : k.replace(/_/g, ' ')}
+            hint={t('admin.limitDefault', { n: s.limitDefaults[k] ?? 0 })}
+            type="number"
+            min="0"
+            max="1000000"
+            bind:value={limitInputs[k]}
+          />
+        {/each}
+      {/if}
       <Alert message={err} />
       <div><Button type="submit" {busy}>{t('common.save')}</Button></div>
     </form>

@@ -16,7 +16,7 @@ test('household settings: areas, calendar feed, notification channel from the se
   const u = await world.newUser();
   const h = await world.household(u, undefined, { areas: true });
   const { page } = await u.open();
-  await page.goto(`/households/${h.id}`);
+  await page.goto(`/households/${h.id}/general`);
 
   // Areas: add, rename, delete.
   const areas = page.getByRole('region', { name: 'Areas' });
@@ -33,6 +33,7 @@ test('household settings: areas, calendar feed, notification channel from the se
   await expect(areas.getByText(`${name} 2`, { exact: true })).toHaveCount(0);
 
   // Feed: create (address shown once), regenerate, revoke.
+  await page.goto(`/households/${h.id}/connections`);
   const feeds = page.getByRole('region', { name: 'Calendar feeds' });
   await feeds.getByRole('button', { name: 'Create feed' }).click();
   await expect(feeds.getByText(/\/ical\/.+\.ics$/)).toBeVisible();
@@ -47,6 +48,7 @@ test('household settings: areas, calendar feed, notification channel from the se
   const enabled = (await u.api.get<{ enabledNotificationKinds: string[] }>('/notification-kinds')).enabledNotificationKinds;
   expect(enabled).toContain('discord');
   expect(enabled).not.toContain('gotify');
+  await page.goto(`/households/${h.id}/notifications`);
   const channels = page.getByRole('region', { name: 'Household notification channels' });
   await channels.getByRole('button', { name: 'Add channel' }).click();
   const dlg = page.getByRole('dialog');
@@ -69,7 +71,7 @@ test('household settings: areas, calendar feed, notification channel from the se
 test('account: change password (with step-up) and sign in with the new one', async ({ world }) => {
   const u = await world.newUser();
   const { page } = await u.open();
-  await page.goto('/account');
+  await page.goto('/account/security');
   const next = `${PASSWORD} again`;
   const section = page.getByRole('region', { name: 'Password' });
   await section.getByLabel('New password', { exact: true }).fill(next);
@@ -93,7 +95,7 @@ test('admin: create a user and manage instance notification services', async ({ 
 async function adminFlow(world: World): Promise<void> {
   const admin = await world.newUser({ admin: true });
   const { page } = await admin.open();
-  await page.goto('/admin');
+  await page.goto('/admin/users');
 
   const users = page.getByRole('region', { name: 'Users' });
   const username = uniq('made');
@@ -105,7 +107,8 @@ async function adminFlow(world: World): Promise<void> {
   await world.signIn(username, PASSWORD);
 
   // Settings only send the notification kinds when the admin changed them.
-  const settings = page.getByRole('region', { name: 'Instance settings' });
+  await page.goto('/admin/connections');
+  const settings = page.getByRole('region', { name: 'Connections' });
   const patches: Record<string, unknown>[] = [];
   page.on('request', (r: Request) => {
     if (r.method() === 'PATCH' && r.url().endsWith('/admin/settings')) patches.push(r.postDataJSON());

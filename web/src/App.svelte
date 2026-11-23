@@ -19,7 +19,11 @@
   const invite = $derived(route.path.match(/^\/invite\/([^/]+)$/)?.[1]);
   const choreId = $derived(route.path.match(/^\/chores\/([^/]+)$/)?.[1]);
   const editId = $derived(route.path.match(/^\/chores\/([^/]+)\/edit$/)?.[1]);
-  const hhId = $derived(route.path.match(/^\/households\/([^/]+)$/)?.[1]);
+  const hhMatch = $derived(route.path.match(/^\/households\/([^/]+)(?:\/([a-z]+))?$/));
+  const hhId = $derived(hhMatch?.[1] !== 'new' ? hhMatch?.[1] : undefined);
+  // Settings screens take an optional group: /account/security, /admin/limits, /households/{id}/people.
+  const accountMatch = $derived(route.path.match(/^\/account(?:\/([a-z]+))?$/));
+  const adminMatch = $derived(route.path.match(/^\/admin(?:\/([a-z]+))?$/));
   // Public screens: signed-out users may see them (the last two also signed in: emailed links).
   const PUBLIC = ['/signin', '/setup', '/signup', '/forgot-password', '/reset-password', '/verify-email'];
   const isPublic = $derived(PUBLIC.includes(route.path) || !!invite);
@@ -41,7 +45,7 @@
     await signOut();
     navigate('/signin');
   }
-  const here = (p: string) => (route.path === p ? 'page' : undefined);
+  const here = (p: string) => (route.path === p || (p !== '/' && route.path.startsWith(`${p}/`)) ? 'page' : undefined);
 
   // Hosted only: signed in with an address that isn't confirmed yet (self-hosted
   // instances never require it; the Account screen has a quiet note instead).
@@ -137,11 +141,11 @@
     {:else if route.path === '/households/new'}
       <Lazy load={() => import('./screens/NewHousehold.svelte')} ns={['household']} />
     {:else if hhId}
-      {#key hhId}<Lazy load={() => import('./screens/Household.svelte')} ns={['household', 'channels']} props={{ id: hhId }} />{/key}
-    {:else if route.path === '/account'}
-      <Lazy load={() => import('./screens/Account.svelte')} ns={['account', 'channels']} />
-    {:else if route.path === '/admin' && app.user.isAdmin}
-      <Lazy load={() => import('./screens/Admin.svelte')} ns={['admin']} />
+      {#key hhId}<Lazy load={() => import('./screens/Household.svelte')} ns={['household', 'channels']} props={{ id: hhId, section: hhMatch?.[2] }} />{/key}
+    {:else if accountMatch}
+      <Lazy load={() => import('./screens/Account.svelte')} ns={['account', 'channels']} props={{ section: accountMatch[1] }} />
+    {:else if adminMatch && app.user.isAdmin}
+      <Lazy load={() => import('./screens/Admin.svelte')} ns={['admin']} props={{ section: adminMatch[1] }} />
     {:else}
       <NotFound />
     {/if}

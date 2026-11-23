@@ -6,7 +6,7 @@ test('integrations: create an access token in the UI, use it as a bearer, revoke
   const h = await world.household(u);
   const chore = await world.chore(u, h);
   const { page } = await u.open();
-  await page.goto('/account');
+  await page.goto('/account/integrations');
 
   const section = page.getByRole('region', { name: 'Integrations' });
   await expect(section.getByText(/Home Assistant/)).toBeVisible();
@@ -73,7 +73,7 @@ test('integrations: guided Claude Code setup creates a working token, then revok
   const h = await world.household(u);
   const { page } = await u.open();
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/account');
+  await page.goto('/account/integrations');
 
   const card = page.getByRole('region', { name: 'Connect an AI assistant' });
   await expect(card.getByText(/can only use the households and actions you allow/)).toBeVisible();

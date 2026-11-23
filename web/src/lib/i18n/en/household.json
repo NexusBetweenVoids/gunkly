@@ -150,5 +150,15 @@
   "webhook.rotateTitle": "Create a new signing secret?",
   "webhook.rotateWarn": "The old secret stops working at once. Update whatever checks the messages with the new one.",
   "webhook.deleteTitle": "Delete this webhook?",
-  "webhook.deleteWarn": "Gunkly stops sending to it and its log is deleted."
+  "webhook.deleteWarn": "Gunkly stops sending to it and its log is deleted.",
+  "household.group.general": "General",
+  "household.group.generalHint": "Name, time zone, reminders, areas, quiet hours",
+  "household.group.people": "People",
+  "household.group.peopleHint": "Members, roles, invites",
+  "household.group.notifications": "Notifications",
+  "household.group.notificationsHint": "Shared channels, delivery log",
+  "household.group.connections": "Connections",
+  "household.group.connectionsHint": "Calendar feeds, webhooks",
+  "household.group.data": "Data",
+  "household.group.dataHint": "Export and import, new household, leave"
 }

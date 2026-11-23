@@ -209,7 +209,7 @@ docker compose -f compose.sqlite.yml pull
 docker compose -f compose.sqlite.yml up -d
 ```
 
-Pending database migrations are applied on start (`GUNKLY_AUTO_MIGRATE=true`, the default); with SQLite a snapshot is written to `/data/backups/pre-migrate-<timestamp>.db` first. Set it to `false` to apply them yourself with `docker compose -f compose.sqlite.yml run --rm gunkly migrate`. Back up before upgrading. Administration shows the running version and the latest release (see [Updates](#updates)).
+Pending database migrations are applied on start (`GUNKLY_AUTO_MIGRATE=true`, the default); with SQLite a snapshot is written to `/data/backups/pre-migrate-<timestamp>.db` first. Set it to `false` to apply them yourself with `docker compose -f compose.sqlite.yml run --rm gunkly migrate`. Back up before upgrading. Administration, Updates shows the running version and the latest release (see [Updates](#updates)).
 
 ## Switching from SQLite to Postgres
 
@@ -242,7 +242,7 @@ The series are build info, HTTP requests by route and status class, a request du
 
 ## Updates
 
-Administration shows the running version and the latest release with its changelog. Once every 12 hours at most, Gunkly asks the public GitHub release API for the latest release (user agent `gunkly-update-check`, no information about your server) and caches the answer. Switch it off on the same page and Gunkly makes no request at all. Gunkly never updates itself: pull the new image and restart; migrations run on start.
+Administration, Updates shows the running version and the latest release with its changelog. Once every 12 hours at most, Gunkly asks the public GitHub release API for the latest release (user agent `gunkly-update-check`, no information about your server) and caches the answer. Switch it off on the same page and Gunkly makes no request at all. Gunkly never updates itself: pull the new image and restart; migrations run on start.
 
 ## Browser notifications
 
@@ -261,7 +261,7 @@ Requests with a token need no cookies or CSRF header. See [api/openapi.yaml](api
 
 ## Outgoing webhooks
 
-Gunkly can POST a signed JSON message to a web address when a chore is completed, becomes overdue, is created, changed, deleted, snoozed or skipped, so home automation and scripts can react without polling. Optional and **off by default**: an admin turns it on under Administration, "Instance settings"; while off nothing is sent and the routes answer 404. Household owners then add webhooks under the household settings, "Webhooks (advanced)" (https addresses only, unless the admin switched the egress guard off for self-hosting). Every request is signed (`Gunkly-Signature: t=<unix>,v1=<HMAC-SHA256 of "<t>.<body>">`, with a per-webhook secret shown once), goes through the egress guard, never follows redirects, retries with backoff and is logged (last 50 per webhook); 20 failures in a row switch the webhook off. Payloads, signature checks in shell, Python and Node, and the retry rules are in [docs/webhooks.md](docs/webhooks.md); design in [ADR 0017](docs/adr/0017-outgoing-webhooks.md).
+Gunkly can POST a signed JSON message to a web address when a chore is completed, becomes overdue, is created, changed, deleted, snoozed or skipped, so home automation and scripts can react without polling. Optional and **off by default**: an admin turns it on under Administration, "Connections"; while off nothing is sent and the routes answer 404. Household owners then add webhooks under the household settings, "Webhooks (advanced)" (https addresses only, unless the admin switched the egress guard off for self-hosting). Every request is signed (`Gunkly-Signature: t=<unix>,v1=<HMAC-SHA256 of "<t>.<body>">`, with a per-webhook secret shown once), goes through the egress guard, never follows redirects, retries with backoff and is logged (last 50 per webhook); 20 failures in a row switch the webhook off. Payloads, signature checks in shell, Python and Node, and the retry rules are in [docs/webhooks.md](docs/webhooks.md); design in [ADR 0017](docs/adr/0017-outgoing-webhooks.md).
 
 ## Home Assistant
 
@@ -291,13 +291,13 @@ Any client that takes a JSON configuration (Claude Desktop through a remote-serv
 }
 ```
 
-Tools, by the permission they need (the assistant only sees the ones its token allows): `list_households`, `list_chores`, `get_chore` and `upcoming` (`chores:read`); `complete_chore`, `undo_completion`, `snooze_chore` and `skip_chore` (`chores:complete`); `create_chore` (`chores:write`). Everything goes through the same household and role checks as the app, completions are recorded as made by the token and appear in the audit log, and the usual per-token rate limits apply. Chore names and notes are text your household typed: a client should treat them as data, never as instructions. An instance admin can switch the endpoint off under Administration, "Instance settings". See [ADR 0015](docs/adr/0015-mcp-server.md).
+Tools, by the permission they need (the assistant only sees the ones its token allows): `list_households`, `list_chores`, `get_chore` and `upcoming` (`chores:read`); `complete_chore`, `undo_completion`, `snooze_chore` and `skip_chore` (`chores:complete`); `create_chore` (`chores:write`). Everything goes through the same household and role checks as the app, completions are recorded as made by the token and appear in the audit log, and the usual per-token rate limits apply. Chore names and notes are text your household typed: a client should treat them as data, never as instructions. An instance admin can switch the endpoint off under Administration, "Connections". See [ADR 0015](docs/adr/0015-mcp-server.md).
 
-Assistants that cannot take an access key (ChatGPT custom connectors, Claude's "Add custom connector") sign in with OAuth 2.1 instead: optional and **off by default**, an admin turns it on under "Instance settings" (it needs `GUNKLY_BASE_URL` to be a public `https://` address). Users then approve the app on a Gunkly consent page, pick the households and actions it may use, and can disconnect it under Account, "Integrations". Its tokens work for `/mcp` only. See [ADR 0016](docs/adr/0016-oauth-for-mcp.md) and [Connect an AI assistant](docs/ai-assistants.md#chatgpt-and-claude-connectors).
+Assistants that cannot take an access key (ChatGPT custom connectors, Claude's "Add custom connector") sign in with OAuth 2.1 instead: optional and **off by default**, an admin turns it on under Administration, "Connections" (it needs `GUNKLY_BASE_URL` to be a public `https://` address). Users then approve the app on a Gunkly consent page, pick the households and actions it may use, and can disconnect it under Account, "Integrations". Its tokens work for `/mcp` only. See [ADR 0016](docs/adr/0016-oauth-for-mcp.md) and [Connect an AI assistant](docs/ai-assistants.md#chatgpt-and-claude-connectors).
 
 ## Export and import
 
-Every user can download their own data (Account, "Export my data"; asks for the password again) and members and owners can export a household (household settings, "Export household") as JSON. The files never contain notification URLs, tokens, calendar feed links or member email addresses. A household file can be imported as a new household or merged into one you are a member of (areas with the same name are combined, chores are added as new ones, assignees are matched to members by username). Uploads are limited to 5 MiB and an import is all-or-nothing.
+Every user can download their own data (Account, Your data, "Export my data"; asks for the password again) and members and owners can export a household (household settings, Data, "Export household") as JSON. The files never contain notification URLs, tokens, calendar feed links or member email addresses. A household file can be imported as a new household or merged into one you are a member of (areas with the same name are combined, chores are added as new ones, assignees are matched to members by username). Uploads are limited to 5 MiB and an import is all-or-nothing.
 
 ## Releases and verification
 

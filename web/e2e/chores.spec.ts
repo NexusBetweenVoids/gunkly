@@ -21,7 +21,7 @@ test('areas are off for a new household and can be switched on and off without l
   // On: the section appears with an "Add starter areas" button; chips and the editor field follow.
   await page.goto('/');
   const hh = (await u.api.get<{ id: string; name: string }[]>('/households')).find((x) => x.name === name)!;
-  await page.goto(`/households/${hh.id}`);
+  await page.goto(`/households/${hh.id}/general`);
   await page.getByLabel('Group chores by area').check();
   await page.getByRole('button', { name: 'Save' }).first().click();
   await expect(areas).toBeVisible();
@@ -37,7 +37,7 @@ test('areas are off for a new household and can be switched on and off without l
   await expect(page.getByLabel('Area', { exact: true })).toBeVisible();
 
   // Off again: hidden everywhere, and editing a chore keeps its area.
-  await page.goto(`/households/${hh.id}`);
+  await page.goto(`/households/${hh.id}/general`);
   await page.getByLabel('Group chores by area').uncheck();
   await page.getByRole('button', { name: 'Save' }).first().click();
   await expect(areas).toHaveCount(0);

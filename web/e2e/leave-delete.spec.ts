@@ -8,7 +8,7 @@ test('leaving as the last owner asks who takes over, then hands the household on
   await heir.api.post(`/invites/${inv.token}/accept`);
 
   const { page } = await owner.open();
-  await page.goto(`/households/${h.id}`);
+  await page.goto(`/households/${h.id}/data`);
   await page.getByRole('region', { name: 'Leave household' }).getByRole('button', { name: 'Leave household' }).click();
   await page.getByRole('dialog', { name: `Leave ${h.name}?` }).getByRole('button', { name: 'Leave household' }).click();
 
@@ -27,7 +27,7 @@ test('leaving as the only member asks to confirm deleting the household', async 
   const u = await world.newUser();
   const h = await world.household(u);
   const { page } = await u.open();
-  await page.goto(`/households/${h.id}`);
+  await page.goto(`/households/${h.id}/data`);
   await page.getByRole('region', { name: 'Leave household' }).getByRole('button', { name: 'Leave household' }).click();
   await page.getByRole('dialog', { name: `Leave ${h.name}?` }).getByRole('button', { name: 'Leave household' }).click();
 
@@ -47,7 +47,7 @@ test('delete my account: preview, new owner, username confirmation, then signed 
   await heir.api.post(`/invites/${inv.token}/accept`);
 
   const { page } = await u.open();
-  await page.goto('/account');
+  await page.goto('/account/data');
   const section = page.getByRole('region', { name: 'Delete account' });
   await section.getByRole('button', { name: 'Delete my account...' }).click();
   await expect(section.getByText(solo.name)).toBeVisible();

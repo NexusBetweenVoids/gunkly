@@ -25,7 +25,7 @@ test('open sign-up solves the proof of work in a worker, signs in at once, and t
     // Self-hosted: signed in right away, no banner, and households work without confirming.
     await expect(page.getByRole('heading', { name: 'Chores' })).toBeVisible();
     await expect(page.getByText(/Confirm your email address: we sent a link/)).toHaveCount(0);
-    await page.goto('/account');
+    await page.goto('/account/profile');
     await expect(page.getByText('Not confirmed')).toBeVisible();
     await expect(page.getByText(/Confirm it with the link we emailed/)).toBeVisible();
 
@@ -39,7 +39,7 @@ test('open sign-up solves the proof of work in a worker, signs in at once, and t
     await page.goto(m.link);
     await expect(page.getByText(/This link is not valid any more/)).toBeVisible();
 
-    await page.goto('/account');
+    await page.goto('/account/profile');
     await expect(page.getByText('Confirmed', { exact: true })).toBeVisible();
   } finally {
     await world.admin.call('PATCH', '/admin/settings', { openSignup: false, requirePow: false });
@@ -110,12 +110,12 @@ test('email codes: turn them on in the account screen, then sign in with an emai
   await expect(page.getByText(/Confirm your email address: we sent a link/)).toHaveCount(0); // self-hosted: no banner
 
   const section = () => page.getByRole('region', { name: 'Email codes' });
-  await page.goto('/account');
+  await page.goto('/account/security');
   await expect(section().getByRole('button', { name: 'Use email codes' })).toBeDisabled(); // not confirmed yet
 
   await page.goto(verify.link);
   await expect(page.getByText('Your email address is confirmed.')).toBeVisible();
-  await page.goto('/account');
+  await page.goto('/account/security');
   await section().getByRole('button', { name: 'Use email codes' }).click();
   const dialog = page.getByRole('dialog');
   await dialog.getByLabel('Password').fill(PASSWORD);

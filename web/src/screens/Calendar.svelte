@@ -142,7 +142,7 @@
   {:else}
     <p class="muted">{t('calendar.none')}</p>
   {/if}
-  <p class="hint mt-md"><a href="/households/{app.hhId}">{t('calendar.feeds')}</a></p>
+  <p class="hint mt-md"><a href="/households/{app.hhId}/connections">{t('calendar.feeds')}</a></p>
 </section>
 
 <style>

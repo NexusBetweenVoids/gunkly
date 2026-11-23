@@ -35,8 +35,16 @@ test('axe WCAG 2.2 AA and no overflow on every main screen, light and dark', asy
     [`/chores/${c.id}`, 'chore detail', 'History'],
     [`/chores/${c.id}/edit`, 'edit chore', 'Notes'],
     ['/households/new', 'new household', 'Create household'],
-    [`/households/${h.id}`, 'household settings', 'Calendar feeds'],
-    ['/account', 'account', 'Recent account activity'],
+    [`/households/${h.id}/general`, 'household settings', /^Time zone$/],
+    [`/households/${h.id}/people`, 'household people', /^Invites$/],
+    [`/households/${h.id}/notifications`, 'household notifications', 'Household delivery log'],
+    [`/households/${h.id}/connections`, 'household connections', /^Calendar feeds$/],
+    [`/households/${h.id}/data`, 'household data', /^Export and import$/],
+    ['/account/profile', 'account', /^Display name$/],
+    ['/account/security', 'account security', 'Recent account activity'],
+    ['/account/notifications', 'account notifications', 'Email me reminders'],
+    ['/account/integrations', 'account integrations', /^Connect an AI assistant$/],
+    ['/account/data', 'account data', /^Delete account$/],
     ['/nope', 'not found', 'Page not found'],
   ];
   for (const [path, what, ready] of screens) {
@@ -45,7 +53,7 @@ test('axe WCAG 2.2 AA and no overflow on every main screen, light and dark', asy
   }
 
   // Dialogs are screens too.
-  await page.goto(`/households/${h.id}`);
+  await page.goto(`/households/${h.id}/notifications`);
   await page.getByRole('region', { name: 'Household notification channels' }).getByRole('button', { name: 'Add channel' }).click();
   await expect(page.getByRole('dialog').getByLabel('Service', { exact: true })).toBeVisible();
   for (const theme of ['light', 'dark'] as const) {
@@ -64,8 +72,28 @@ test('axe WCAG 2.2 AA and no overflow on every main screen, light and dark', asy
   // Admin screens.
   const admin = await world.newUser({ admin: true });
   const ap = (await admin.open()).page;
+  for (const [path, ready] of [
+    ['/admin/users', 'Create user'],
+    ['/admin/signin', /^Sessions$/],
+    ['/admin/connections', 'Allowed notification services'],
+    ['/admin/data', /^Inactive accounts$/],
+    ['/admin/limits', /built-in default/],
+    ['/admin/updates', 'Running version'],
+  ] as const) {
+    await ap.goto(path);
+    await check(ap, `admin ${path}`, ready);
+  }
+  // Phones: the bare URL is the list of groups, a group URL shows that group with a way back.
+  await ap.setViewportSize({ width: 390, height: 800 });
   await ap.goto('/admin');
-  await check(ap, 'admin', 'Instance settings');
+  await expect(ap.getByRole('navigation', { name: 'Administration' }).getByRole('link', { name: /Limits/ })).toBeVisible();
+  await expect(ap.getByRole('region', { name: 'Users' })).toBeHidden();
+  await ap.getByRole('link', { name: /Limits/ }).click();
+  await expect(ap).toHaveURL(/\/admin\/limits$/);
+  await expect(ap.getByRole('navigation', { name: 'Administration' })).toBeHidden();
+  await ap.getByRole('link', { name: 'Administration' }).last().click();
+  await expect(ap).toHaveURL(/\/admin$/);
+  await noOverflow(ap, 'admin list on a phone');
   await ap.goto('/');
   await check(ap, 'home without a household', 'You are not in a household yet.');
 

@@ -23,8 +23,8 @@ test('oauth: admin enables it, a user approves an app, sees it under Connected a
     // The admin turns it on in Administration.
     const admin = await world.newUser({ admin: true });
     const ap = (await admin.open()).page;
-    await ap.goto('/admin');
-    const settings = ap.getByRole('region', { name: 'Instance settings' });
+    await ap.goto('/admin/connections');
+    const settings = ap.getByRole('region', { name: 'Connections' });
     const box = settings.getByLabel('Let apps such as ChatGPT sign in with Gunkly (OAuth)');
     await expect(box).not.toBeChecked();
     await expect(box).toBeEnabled(); // the e2e base URL is http on loopback, which is allowed for development
@@ -105,7 +105,7 @@ test('oauth: admin enables it, a user approves an app, sees it under Connected a
 
     // Connected apps (Account, Integrations) lists it; Disconnect ends it at once.
     const { page: acct } = await u.open();
-    await acct.goto('/account');
+    await acct.goto('/account/integrations');
     const apps = acct.getByRole('region', { name: 'Connected apps' });
     const row = apps.getByRole('listitem').filter({ hasText: name });
     await expect(row).toContainText(h.name);

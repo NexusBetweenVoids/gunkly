@@ -10,7 +10,7 @@ test('export a household, import it as a new household: the same chores appear',
   await world.chore(u, h, { name: b, kind: 'oneoff', schedule: { firstDue: ymd(5) } });
 
   const { page } = await u.open();
-  await page.goto(`/households/${h.id}`);
+  await page.goto(`/households/${h.id}/data`);
   const section = page.getByRole('region', { name: 'Export and import' });
   await axe(page, 'household settings with export and import');
 
@@ -51,7 +51,7 @@ test('export a household, import it as a new household: the same chores appear',
   expect(await names(copies[0].id)).toEqual([a, b].sort());
 
   // Merge back into the original: chores are added as new ones.
-  await page.goto(`/households/${h.id}`);
+  await page.goto(`/households/${h.id}/data`);
   await section.getByLabel('Household file').setInputFiles(file);
   await section.getByLabel('Merge into this household').check();
   await section.getByRole('button', { name: 'Import' }).click();
@@ -66,7 +66,7 @@ test('guests cannot export or import a household', async ({ world }) => {
   const inv = await owner.api.post<{ token: string }>(`/households/${h.id}/invites`, { role: 'guest' });
   await guest.api.post(`/invites/${inv.token}/accept`);
   const { page } = await guest.open();
-  await page.goto(`/households/${h.id}`);
+  await page.goto(`/households/${h.id}/data`);
   await expect(page.getByRole('heading', { level: 1, name: h.name })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Export and import' })).toHaveCount(0);
   await guest.api.call('GET', `/households/${h.id}/export`, undefined, 403);
@@ -77,7 +77,7 @@ test('export my data asks for the password and downloads the file', async ({ wor
   const h = await world.household(u);
   await world.chore(u, h);
   const { page } = await u.open();
-  await page.goto('/account');
+  await page.goto('/account/data');
   const section = page.getByRole('region', { name: 'Export my data' });
   await section.getByRole('button', { name: 'Export my data' }).click();
   const dialog = page.getByRole('dialog', { name: "Confirm it's you" });

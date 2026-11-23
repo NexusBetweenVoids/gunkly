@@ -112,7 +112,7 @@ test('household switcher: name only with one household, select with two, onboard
   await expect(page.getByTestId('hh-name')).toContainText(h1.name);
   await expect(nav.getByRole('combobox')).toHaveCount(0);
   await expect(nav.getByRole('link', { name: 'New household' })).toHaveCount(0);
-  await page.goto(`/households/${h1.id}`);
+  await page.goto(`/households/${h1.id}/data`);
   await page.getByRole('region', { name: 'Households' }).getByRole('link', { name: 'Create another household' }).click();
   await expect(page).toHaveURL(/\/households\/new$/);
 

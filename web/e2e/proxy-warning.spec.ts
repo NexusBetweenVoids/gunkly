@@ -30,6 +30,6 @@ test('admin panel shows no proxy warning when every forwarding peer is trusted',
   const admin = await world.newUser({ admin: true });
   const { page } = await admin.open();
   await page.goto('/admin');
-  await expect(page.getByRole('heading', { name: 'Instance settings' })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Administration' }).getByRole('link', { name: /Limits/ })).toBeVisible();
   await expect(page.getByText('Reverse proxy not trusted')).toHaveCount(0);
 });

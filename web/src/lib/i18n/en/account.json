@@ -221,5 +221,15 @@
   "audit.webhook_update": "Webhook changed",
   "audit.webhook_delete": "Webhook deleted",
   "audit.webhook_rotate": "Webhook secret replaced",
-  "audit.webhook_auto_disable": "Webhook switched off after repeated failures"
+  "audit.webhook_auto_disable": "Webhook switched off after repeated failures",
+  "account.group.profile": "Profile & email",
+  "account.group.profileHint": "Name, language, theme, email",
+  "account.group.security": "Sign-in & security",
+  "account.group.securityHint": "Password, two-factor, sessions, activity",
+  "account.group.notifications": "Notifications",
+  "account.group.notificationsHint": "Push, email reminders, other apps",
+  "account.group.integrations": "Integrations",
+  "account.group.integrationsHint": "Access tokens, AI assistants, connected apps",
+  "account.group.data": "Your data",
+  "account.group.dataHint": "Export, delete account"
 }

@@ -8,7 +8,7 @@
   let btn = $state<HTMLButtonElement>();
   let panel = $state<HTMLElement>();
   const uid = $props.id();
-  const here = (p: string) => (route.path === p ? 'page' : undefined);
+  const here = (p: string) => (route.path === p || route.path.startsWith(`${p}/`) ? 'page' : undefined);
   const items = () => [...(panel?.querySelectorAll<HTMLElement>('a, button') ?? [])];
 
   function close(refocus: boolean): void {

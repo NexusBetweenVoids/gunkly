@@ -58,7 +58,7 @@ test('account: notifications are ordered this device, email, then messaging apps
   const u = await world.newUser();
   const h = await world.household(u);
   const { page } = await u.open();
-  await page.goto('/account');
+  await page.goto('/account/notifications');
   const device = page.getByRole('region', { name: 'This device' });
   const email = page.getByRole('region', { name: 'Email me reminders' });
   await expect(device.getByRole('button', { name: 'Turn on reminders on this device' })).toBeVisible();
@@ -80,7 +80,7 @@ test('account: notifications are ordered this device, email, then messaging apps
     // @ts-expect-error simulate a browser without the Push API
     delete window.PushManager;
   });
-  await plain.page.goto('/account');
+  await plain.page.goto('/account/notifications');
   const card = plain.page.getByRole('region', { name: 'This device' });
   await expect(card.getByTestId('push-unsupported')).toHaveText("This browser can't show reminders. Use email or a messaging app below instead.");
   await expect(card.getByRole('button')).toHaveCount(0);
@@ -95,12 +95,12 @@ test('account: notifications are ordered this device, email, then messaging apps
     // @ts-expect-error Safari tabs have no Push API
     delete window.PushManager;
   });
-  await iosPage.goto('/account');
+  await iosPage.goto('/account/notifications');
   await expect(iosPage.getByTestId('push-unsupported')).toContainText('Add to Home Screen');
   await expect(iosPage.getByTestId('push-unsupported')).toContainText('Safari');
 
   // Household settings explain what a household channel does.
-  await page.goto(`/households/${h.id}`);
+  await page.goto(`/households/${h.id}/notifications`);
   await expect(page.getByRole('region', { name: 'Household notification channels' }).getByText(/family Telegram or Discord group/)).toBeVisible();
 });
 
@@ -114,7 +114,7 @@ test('account: turning on reminders saves a real-shaped subscription (Apple and 
     await askable(page);
     await stubRealSubscription(page, endpoint);
     const saved = page.waitForResponse((r) => r.url().endsWith('/account/push-subscriptions') && r.request().method() === 'POST');
-    await page.goto('/account');
+    await page.goto('/account/notifications');
     const card = page.getByRole('region', { name: 'This device' });
     await card.getByRole('button', { name: 'Turn on reminders on this device' }).click();
     expect((await saved).status()).toBe(201);
@@ -133,7 +133,7 @@ test('account: the email reminders switch needs a confirmed address and then wor
   const sent = await nextMail(email, /Confirm your email address/, mark);
   const ctx = await world.newContext({ storageState: await api.storageState() });
   const page = await ctx.newPage();
-  await page.goto('/account');
+  await page.goto('/account/notifications');
   const card = page.getByRole('region', { name: 'Email me reminders' });
   await expect(card.getByTestId('email-reminders-hint')).toContainText('add your email address and confirm it first');
   await expect(card.getByRole('checkbox')).toHaveCount(0);
@@ -217,7 +217,7 @@ test('admin: the Updates section shows the running version and the check can be 
   const admin = await world.newUser({ admin: true });
   await admin.api.call('POST', '/session/step-up', { password: admin.password }, 204);
   const { page } = await admin.open();
-  await page.goto('/admin');
+  await page.goto('/admin/updates');
   const card = page.getByRole('region', { name: 'Updates' });
   await expect(card.getByText(/^Running version: /)).toBeVisible();
   // The e2e server has the check off: the button is there but disabled, with an explanation.

@@ -1,15 +1,31 @@
 <script lang="ts">
+  import SettingsLayout, { type Group } from '../components/SettingsLayout.svelte';
   import { t } from '../lib/i18n';
   import ProxyWarning from './admin/ProxyWarning.svelte';
   import Settings from './admin/Settings.svelte';
   import Updates from './admin/Updates.svelte';
   import Users from './admin/Users.svelte';
+
+  let { section }: { section?: string } = $props();
+  const groups: Group[] = [
+    { id: 'users', label: t('admin.group.users'), hint: t('admin.group.usersHint'), icon: 'users' },
+    { id: 'signin', label: t('admin.group.signin'), hint: t('admin.group.signinHint'), icon: 'lock' },
+    { id: 'connections', label: t('admin.group.connections'), hint: t('admin.group.connectionsHint'), icon: 'plug' },
+    { id: 'data', label: t('admin.group.data'), hint: t('admin.group.dataHint'), icon: 'clock' },
+    { id: 'limits', label: t('admin.group.limits'), hint: t('admin.group.limitsHint'), icon: 'gauge' },
+    { id: 'updates', label: t('admin.group.updates'), hint: t('admin.group.updatesHint'), icon: 'refresh' },
+  ];
 </script>
 
-<h1>{t('admin.title')}</h1>
-<ProxyWarning />
-<div class="sections">
-  <Users />
-  <Settings />
-  <Updates />
-</div>
+<SettingsLayout title={t('admin.title')} base="/admin" {groups} {section}>
+  {#snippet intro()}<ProxyWarning />{/snippet}
+  {#snippet children(g: string)}
+    {#if g === 'users'}
+      <Users />
+    {:else if g === 'updates'}
+      <Updates />
+    {:else}
+      <Settings part={g as 'signin' | 'connections' | 'data' | 'limits'} title={groups.find((x) => x.id === g)!.label} />
+    {/if}
+  {/snippet}
+</SettingsLayout>

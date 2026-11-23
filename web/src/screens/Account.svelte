@@ -2,6 +2,7 @@
   import Channels from '../components/Channels.svelte';
   import Deliveries from '../components/Deliveries.svelte';
   import Lazy from '../components/Lazy.svelte';
+  import SettingsLayout, { type Group } from '../components/SettingsLayout.svelte';
   import { t } from '../lib/i18n';
   import Audit from './account/Audit.svelte';
   import Email from './account/Email.svelte';
@@ -12,26 +13,42 @@
   import Profile from './account/Profile.svelte';
   import Sessions from './account/Sessions.svelte';
   import Totp from './account/Totp.svelte';
+
+  let { section }: { section?: string } = $props();
+  const groups: Group[] = [
+    { id: 'profile', label: t('account.group.profile'), hint: t('account.group.profileHint'), icon: 'user' },
+    { id: 'security', label: t('account.group.security'), hint: t('account.group.securityHint'), icon: 'lock' },
+    { id: 'notifications', label: t('account.group.notifications'), hint: t('account.group.notificationsHint'), icon: 'bell' },
+    { id: 'integrations', label: t('account.group.integrations'), hint: t('account.group.integrationsHint'), icon: 'plug' },
+    { id: 'data', label: t('account.group.data'), hint: t('account.group.dataHint'), icon: 'download' },
+  ];
 </script>
 
-<h1>{t('nav.account')}</h1>
-<div class="sections">
-  <Profile />
-  <Email />
-  <Password />
-  <Totp />
-  <EmailCodes />
-  <PushNotifications />
-  <EmailReminders />
-  <details class="card advanced">
-    <summary>{t('channels.advancedTitle')}</summary>
-    <p class="hint">{t('channels.advancedHint')}</p>
-    <Channels base="/account/channels" title={t('channels.personalTitle')} id="me" bare />
-  </details>
-  <Deliveries path="/account/deliveries" title={t('delivery.personalTitle')} id="me" />
-  <Sessions />
-  <Lazy load={() => import('./account/Integrations.svelte')} />
-  <Lazy load={() => import('./account/ExportData.svelte')} />
-  <Lazy load={() => import('./account/DeleteAccount.svelte')} />
-  <Audit />
-</div>
+<SettingsLayout title={t('nav.account')} base="/account" {groups} {section}>
+  {#snippet children(g: string)}
+    {#if g === 'profile'}
+      <Profile />
+      <Email />
+    {:else if g === 'security'}
+      <Password />
+      <Totp />
+      <EmailCodes />
+      <Sessions />
+      <Audit />
+    {:else if g === 'notifications'}
+      <PushNotifications />
+      <EmailReminders />
+      <details class="card advanced">
+        <summary>{t('channels.advancedTitle')}</summary>
+        <p class="hint">{t('channels.advancedHint')}</p>
+        <Channels base="/account/channels" title={t('channels.personalTitle')} id="me" bare />
+      </details>
+      <Deliveries path="/account/deliveries" title={t('delivery.personalTitle')} id="me" />
+    {:else if g === 'integrations'}
+      <Lazy load={() => import('./account/Integrations.svelte')} />
+    {:else}
+      <Lazy load={() => import('./account/ExportData.svelte')} />
+      <Lazy load={() => import('./account/DeleteAccount.svelte')} />
+    {/if}
+  {/snippet}
+</SettingsLayout>

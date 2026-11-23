@@ -5,7 +5,7 @@ test('invite link: owner creates it, a second user registers in a new context, t
   const h = await world.household(owner);
   const c = await world.chore(owner, h, { name: uniq('Shared ') });
   const { page } = await owner.open();
-  await page.goto(`/households/${h.id}`);
+  await page.goto(`/households/${h.id}/people`);
 
   const invites = page.getByRole('region', { name: 'Invites' });
   await invites.getByLabel('Role').selectOption('guest');
@@ -57,7 +57,7 @@ test('TOTP: enrol in the account screen, then sign in with a code', async ({ wor
   await expect(page).toHaveURL(/\/$/);
 
   // Enrol; the step-up dialog asks for the password first.
-  await page.goto('/account');
+  await page.goto('/account/security');
   const section = page.getByRole('region', { name: 'Two-factor authentication' });
   await section.getByRole('button', { name: 'Set up' }).click();
   const dialog = page.getByRole('dialog');
@@ -102,7 +102,7 @@ test('theme override: light, dark and following the system', async ({ world }) =
   await world.household(u);
   const { page } = await u.open();
   await page.emulateMedia({ colorScheme: 'light' });
-  await page.goto('/account');
+  await page.goto('/account/profile');
   const bg = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
   const set = async (v: string) => {
     await page.getByLabel('Appearance').selectOption(v);

@@ -25,16 +25,16 @@ test('webhooks: admin enables, owner adds one, secret shown once, test is delive
     const { page } = await owner.open();
 
     // Off by default: nothing is offered and the routes do not exist.
-    await page.goto(`/households/${h.id}`);
-    await expect(page.getByRole('heading', { name: 'Households', level: 2 })).toBeVisible();
+    await page.goto(`/households/${h.id}/connections`);
+    await expect(page.getByRole('heading', { name: 'Calendar feeds', level: 2 })).toBeVisible();
     await expect(page.getByText('Webhooks (advanced)')).toHaveCount(0);
     expect((await owner.api.ctx.get(`/api/v1/households/${h.id}/webhooks`)).status()).toBe(404);
 
     // The admin turns it on in Administration.
     const admin = await world.newUser({ admin: true });
     const ap = (await admin.open()).page;
-    await ap.goto('/admin');
-    const settings = ap.getByRole('region', { name: 'Instance settings' });
+    await ap.goto('/admin/connections');
+    const settings = ap.getByRole('region', { name: 'Connections' });
     const box = settings.getByLabel('Let household owners add outgoing webhooks');
     await expect(box).not.toBeChecked();
     await box.check();
