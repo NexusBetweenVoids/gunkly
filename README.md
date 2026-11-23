@@ -250,7 +250,7 @@ Under Account, "Enable notifications on this device" subscribes the browser to W
 
 ## Integrations / API tokens
 
-Under Account, "Integrations", create an access token for Home Assistant, a script or an AI assistant (via an MCP server). A token is bound to the households you choose and to the permissions you give it: see and read chores (`chores:read`), mark them done, snooze, skip and pause them (`chores:complete`), and add, change or delete them (`chores:write`). It never exceeds your own role in a household (a guest's token can only read), can expire, is shown once and can be revoked at any time. It can never change members, settings, notification channels or your account.
+Under Account, "Integrations", create an access token for Home Assistant, a script or an AI assistant (via an MCP server). A token is bound to the households you choose and to the permissions you give it: see and read chores (`chores:read`), mark them done, snooze, skip and pause them, and change whose turn it is on a chore that takes turns (`chores:complete`), and add, change or delete them (`chores:write`). It never exceeds your own role in a household (a guest's token can only read), can expire, is shown once and can be revoked at any time. It can never change members, settings, notification channels or your account.
 
 ```sh
 curl -H "Authorization: Bearer gk_..." https://gunkly.example.com/api/v1/token

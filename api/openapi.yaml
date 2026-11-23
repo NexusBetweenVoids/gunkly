@@ -709,7 +709,7 @@ paths:
       security: [{cookieAuth: []}, {bearerAuth: [chores:complete]}]
       tags: [chores]
       summary: Set whose turn it is on a chore that takes turns (member)
-      description: Body {turnUserId}, one of the chore's assignees. 409 when the chore does not take turns or is archived.
+      description: Body {turnUserId}, one of the chore's assignees. 409 when the chore does not take turns or is archived. API tokens need `chores:complete`.
       requestBody:
         required: true
         content: {application/json: {schema: {type: object, required: [turnUserId], properties: {turnUserId: {type: string}}}}}
