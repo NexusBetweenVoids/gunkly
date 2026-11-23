@@ -25,7 +25,7 @@ func validRedirectURI(raw string) bool {
 		return false
 	}
 	for i := 0; i < len(raw); i++ {
-		if c := raw[i]; c <= ' ' || c >= 0x7f || c == '\\' || c == '*' || c == '#' {
+		if c := raw[i]; c <= ' ' || c >= 0x7f || c == '\\' || c == '*' || c == '#' || c == ';' || c == ',' { // ;, would split a CSP source list
 			return false
 		}
 	}

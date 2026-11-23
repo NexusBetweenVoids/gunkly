@@ -6,6 +6,7 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ### Security
 
+- OAuth client registration now also refuses redirect URIs containing `;` or `,` (found by the nightly fuzzer; not exploitable, since redirect URIs match exactly and the consent CSP names only the origin, but it keeps the validator and its stated rules in step).
 - Every response now carries `Cross-Origin-Embedder-Policy: require-corp` (next to the existing same-origin Opener and Resource policies). Gunkly only serves and loads same-origin resources, so the app, service worker, push, icons, QR codes and mark-done pages are unaffected.
 
 ### Changed
