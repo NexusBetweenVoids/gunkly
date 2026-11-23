@@ -4,6 +4,10 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ## [Unreleased]
 
+### Changed
+
+- Chore page: the actions are calmer. **Done** stays a labelled button; snooze, skip, pause/resume, mute, edit and archive are now a row of quiet icon buttons (each named for screen readers and with a tooltip), and Delete is a small bin icon at the end of the row.
+
 ## [0.4.0] - 2026-11-23
 
 ### Security

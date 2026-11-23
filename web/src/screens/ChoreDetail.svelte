@@ -3,6 +3,7 @@
   import Button from '../components/Button.svelte';
   import Confirm from '../components/Confirm.svelte';
   import DateDialog from '../components/DateDialog.svelte';
+  import Icon from '../components/Icon.svelte';
   import Initials from '../components/Initials.svelte';
   import Select from '../components/Select.svelte';
   import { api } from '../lib/api';
@@ -143,24 +144,30 @@
 
   {#if canEdit}
     <section class="card mt-md" aria-labelledby="c-act">
-      <h2 id="c-act">{t('chore.actions')}</h2>
-      <div class="row">
+      <h2 id="c-act" class="visually-hidden">{t('chore.actions')}</h2>
+      {#snippet remove()}
+        <Button variant="quiet" class="btn-icon remove" aria-label={t('common.delete')} title={t('common.delete')} onclick={() => (dlg = 'delete')}><Icon name="trash" /></Button>
+      {/snippet}
+      <div class="actions">
         {#if !c.archivedAt}
           {#if !paused}<Button onclick={done} {busy}>{t('common.done')}</Button>{/if}
-          <Button variant="quiet" onclick={() => (dlg = 'snooze')}>{t('chore.snooze')}</Button>
-          {#if c.kind === 'recurring'}<Button variant="quiet" {busy} onclick={() => act(post('skip'), 'chore.skipped')}>{t('chore.skip')}</Button>{/if}
-          {#if paused}
-            <Button variant="quiet" {busy} onclick={() => act(post('resume'), 'chore.resumed')}>{t('chore.resume')}</Button>
-          {:else}
-            <Button variant="quiet" onclick={() => (dlg = 'pause')}>{t('chore.pause')}</Button>
-          {/if}
-          <a class="btn btn-quiet" href="/chores/{id}/edit">{t('chore.edit')}</a>
-          <Button variant="quiet" {busy} onclick={mute}>{c.muted ? t('chore.unmute') : t('chore.mute')}</Button>
-          <Button variant="quiet" {busy} onclick={() => act(() => api<void>('POST', `${base}/chores/${id}/archive`).then(load), 'chore.archivedMsg')}>{t('chore.archive')}</Button>
+          <div class="icons">
+            <Button variant="quiet" class="btn-icon" aria-label={t('chore.snooze')} title={t('chore.snooze')} onclick={() => (dlg = 'snooze')}><Icon name="snooze" /></Button>
+            {#if c.kind === 'recurring'}<Button variant="quiet" class="btn-icon" aria-label={t('chore.skip')} title={t('chore.skip')} {busy} onclick={() => act(post('skip'), 'chore.skipped')}><Icon name="skip" /></Button>{/if}
+            {#if paused}
+              <Button class="btn-icon" aria-label={t('chore.resume')} title={t('chore.resume')} {busy} onclick={() => act(post('resume'), 'chore.resumed')}><Icon name="resume" /></Button>
+            {:else}
+              <Button variant="quiet" class="btn-icon" aria-label={t('chore.pause')} title={t('chore.pause')} onclick={() => (dlg = 'pause')}><Icon name="pause" /></Button>
+            {/if}
+            <Button variant="quiet" class="btn-icon" aria-label={c.muted ? t('chore.unmute') : t('chore.mute')} title={c.muted ? t('chore.unmute') : t('chore.mute')} {busy} onclick={mute}><Icon name={c.muted ? 'bell' : 'bellOff'} /></Button>
+            <a class="btn btn-quiet btn-icon" href="/chores/{id}/edit" aria-label={t('chore.edit')} title={t('chore.edit')}><Icon name="edit" /></a>
+            <Button variant="quiet" class="btn-icon" aria-label={t('chore.archive')} title={t('chore.archive')} {busy} onclick={() => act(() => api<void>('POST', `${base}/chores/${id}/archive`).then(load), 'chore.archivedMsg')}><Icon name="archive" /></Button>
+            {@render remove()}
+          </div>
         {:else}
           <Button {busy} onclick={() => act(post('unarchive'), 'chore.unarchivedMsg')}>{t('chore.unarchive')}</Button>
+          <div class="icons">{@render remove()}</div>
         {/if}
-        <Button variant="danger" onclick={() => (dlg = 'delete')}>{t('common.delete')}</Button>
       </div>
     </section>
   {/if}
@@ -224,6 +231,35 @@
 {/if}
 
 <style>
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+  /* Icons stay together; on narrow screens they drop below Done as one row. */
+  .icons {
+    display: flex;
+    flex: 1 1 auto;
+    flex-wrap: wrap;
+  }
+  .icons :global(.btn-icon) {
+    min-inline-size: 40px;
+    inline-size: 40px;
+  }
+  .icons :global(.btn-quiet) {
+    background: transparent;
+    color: var(--text-2);
+  }
+  .icons :global(.btn-quiet:hover) {
+    opacity: 1;
+    background: var(--surface-2);
+    color: var(--text);
+  }
+  .icons :global(.remove) {
+    margin-inline-start: auto;
+    color: var(--danger);
+  }
   .facts {
     display: grid;
     grid-template-columns: max-content 1fr;

@@ -479,3 +479,9 @@ input[type="radio"] {
 .facts dd {
   margin-inline: 0;
 }
+
+/* Square icon-only button; its accessible name comes from aria-label. */
+.btn-icon {
+  padding-inline: 0;
+  inline-size: var(--tap);
+}

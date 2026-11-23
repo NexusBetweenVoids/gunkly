@@ -7,12 +7,12 @@
     busy?: boolean;
     children: Snippet;
   };
-  let { variant = 'primary', busy = false, type = 'button', children, ...rest }: Props = $props();
+  let { variant = 'primary', busy = false, type = 'button', class: cls = '', children, ...rest }: Props = $props();
 </script>
 
 <button
   {type}
-  class="btn"
+  class="btn {cls}"
   class:btn-quiet={variant === 'quiet'}
   class:btn-danger={variant === 'danger'}
   aria-busy={busy || undefined}
