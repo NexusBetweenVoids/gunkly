@@ -36,6 +36,7 @@ const (
 	OAuthClients               Kind = "oauth_clients"       // registered OAuth clients, instance-wide
 	OAuthGrantsPerUser         Kind = "oauth_grants_per_user"
 	OAuthUnusedClientsPerIP    Kind = "oauth_unused_clients_per_ip" // registered, never approved clients per registering IP
+	WebhooksPerHousehold       Kind = "webhooks_per_household"
 )
 
 // Defaults is the PRD limits table.
@@ -64,6 +65,7 @@ var Defaults = map[Kind]int{
 	OAuthClients:               1000,
 	OAuthGrantsPerUser:         20,
 	OAuthUnusedClientsPerIP:    20,
+	WebhooksPerHousehold:       10,
 }
 
 // Per-IP request rates of the unauthenticated link endpoints. Fixed, not

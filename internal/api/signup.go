@@ -39,6 +39,9 @@ func (s *Server) getInstance(w http.ResponseWriter, r *http.Request, _ *call) er
 	if s.oauthEnabled(r.Context()) {
 		out["oauthEnabled"] = true // absent while off: nothing about OAuth is advertised
 	}
+	if s.webhooksEnabled(r.Context()) {
+		out["webhooksEnabled"] = true // absent while off
+	}
 	return ok(w, out)
 }
 

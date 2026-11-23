@@ -52,6 +52,7 @@ func (s *Store) PurgeExpired(ctx context.Context, p RetentionPolicy, now time.Ti
 	}{
 		{"audit_log", "id", "created_at < ?", now.Add(-p.AuditLog).UnixMilli(), p.AuditLog <= 0},
 		{"deliveries", "id", "created_at < ?", now.Add(-p.Deliveries).UnixMilli(), p.Deliveries <= 0},
+		{"webhook_deliveries", "id", "created_at < ?", now.Add(-p.Deliveries).UnixMilli(), p.Deliveries <= 0},
 		{"sessions", "id", "expires_at < ?", n, false},
 		{"sessions", "id", "last_seen_at < ?", now.Add(-p.SessionIdle).UnixMilli(), p.SessionIdle <= 0},
 		{"sessions", "id", "created_at < ?", now.Add(-p.SessionMax).UnixMilli(), p.SessionMax <= 0},

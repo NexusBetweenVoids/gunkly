@@ -341,7 +341,7 @@ func (s *Store) UndoWithToken(ctx context.Context, token string) (UndoResult, er
 			WHERE u.token_hash = ?`, h).Scan(&res.CompletionID, &res.HouseholdID); err != nil {
 			return notFound(err)
 		}
-		return t.revertCompletion(ctx, res.HouseholdID, res.CompletionID, now)
+		return t.revertCompletion(ctx, res.HouseholdID, res.CompletionID, "", now)
 	})
 	if err != nil {
 		return UndoResult{}, err

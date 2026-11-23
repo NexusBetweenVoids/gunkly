@@ -25,6 +25,7 @@ Rules for any agent (human or AI) changing Gunkly. Read `docs/PRD.md` for scope 
 | `internal/limits` | All usage limits |
 | `internal/scheduler` | In-process reminder worker: due reminders, delivery with retries, daily retention |
 | `internal/notify` | Notification channel URL validation (Shoutrrr), sealing, rendering, sending |
+| `internal/webhook` | Outgoing webhooks: URL validation, sealed signing secret, HMAC signature, guarded sender (ADR 0017) |
 | `internal/webpush` | Web Push sending (VAPID, RFC 8291 encryption) |
 | `internal/mail` | Optional SMTP transactional email |
 | `internal/transfer` | Portable export/import file formats |

@@ -113,7 +113,10 @@ func (t *tx) complete(ctx context.Context, householdID, choreID, userID string, 
 	if _, err = t.exec(ctx, "DELETE FROM mark_done_tokens WHERE chore_id = ?", choreID); err != nil {
 		return Completion{}, err
 	}
-	return c, t.pruneCompletions(ctx, householdID, choreID)
+	if err := t.pruneCompletions(ctx, householdID, choreID); err != nil {
+		return Completion{}, err
+	}
+	return c, t.emitWebhook(ctx, householdID, EventChoreCompleted, webhookEvent{choreID: choreID, completion: &c, actorID: userID}, now)
 }
 
 // effectiveLimit resolves a limit inside t the way limits.Service does (plan
@@ -196,12 +199,12 @@ func (s *Store) ListCompletions(ctx context.Context, a Actor, householdID, chore
 // ErrConflict if already reverted.
 func (s *Store) RevertCompletion(ctx context.Context, a Actor, householdID, completionID string) error {
 	return s.write(ctx, a, householdID, RoleMember, func(t *tx, _ Role) error {
-		return t.revertCompletion(ctx, householdID, completionID, s.nowMS())
+		return t.revertCompletion(ctx, householdID, completionID, a.UserID, s.nowMS())
 	})
 }
 
 // revertCompletion is RevertCompletion's body inside t, after authorization.
-func (t *tx) revertCompletion(ctx context.Context, householdID, completionID string, now int64) error {
+func (t *tx) revertCompletion(ctx context.Context, householdID, completionID, actorID string, now int64) error {
 	var choreID, prevDueDate, kind string
 	var prevNext, reverted sql.NullInt64
 	var prevTurn sql.NullString
@@ -219,29 +222,38 @@ func (t *tx) revertCompletion(ctx context.Context, householdID, completionID str
 		ORDER BY created_at DESC, id DESC LIMIT 1`, choreID).Scan(&latest); err != nil {
 		return err
 	}
+	var doneAt int64
+	comp := Completion{ID: completionID, ChoreID: choreID, RevertedAt: time.UnixMilli(now).UTC()}
+	if err := t.queryRow(ctx, "SELECT completed_at, source FROM completions WHERE id = ?", completionID).Scan(&doneAt, &comp.Source); err != nil {
+		return err
+	}
+	comp.CompletedAt = time.UnixMilli(doneAt).UTC()
 	if err := t.execOne(ctx, "UPDATE completions SET reverted_at = ? WHERE id = ?", now, completionID); err != nil {
 		return err
 	}
 	if _, err := t.exec(ctx, "DELETE FROM mark_done_tokens WHERE chore_id = ?", choreID); err != nil {
 		return err
 	}
-	if latest != completionID {
-		return nil
+	if latest == completionID {
+		var err error
+		if kind == KindOneOff {
+			err = t.execOne(ctx, "UPDATE chores SET archived_at = NULL, updated_at = ? WHERE id = ? AND household_id = ?",
+				now, choreID, householdID)
+		} else {
+			err = t.execOne(ctx, "UPDATE chores SET next_due = ?, due_date = ?, updated_at = ? WHERE id = ? AND household_id = ?",
+				prevNext, prevDueDate, now, choreID, householdID)
+		}
+		if err != nil {
+			return err
+		}
+		if kind != KindOneOff && prevTurn.Valid {
+			// Give the turn back, unless that person has left the rotation since.
+			if _, err := t.exec(ctx, `UPDATE chores SET turn_user_id = ? WHERE id = ? AND rotation = TRUE
+				AND EXISTS (SELECT 1 FROM chore_assignees WHERE chore_id = ? AND user_id = ?)`,
+				prevTurn.String, choreID, choreID, prevTurn.String); err != nil {
+				return err
+			}
+		}
 	}
-	if kind == KindOneOff {
-		return t.execOne(ctx, "UPDATE chores SET archived_at = NULL, updated_at = ? WHERE id = ? AND household_id = ?",
-			now, choreID, householdID)
-	}
-	if err := t.execOne(ctx, "UPDATE chores SET next_due = ?, due_date = ?, updated_at = ? WHERE id = ? AND household_id = ?",
-		prevNext, prevDueDate, now, choreID, householdID); err != nil {
-		return err
-	}
-	if !prevTurn.Valid {
-		return nil
-	}
-	// Give the turn back, unless that person has left the rotation since.
-	_, err = t.exec(ctx, `UPDATE chores SET turn_user_id = ? WHERE id = ? AND rotation = TRUE
-		AND EXISTS (SELECT 1 FROM chore_assignees WHERE chore_id = ? AND user_id = ?)`,
-		prevTurn.String, choreID, choreID, prevTurn.String)
-	return err
+	return t.emitWebhook(ctx, householdID, EventChoreCompletionRevert, webhookEvent{choreID: choreID, completion: &comp, actorID: actorID}, now)
 }

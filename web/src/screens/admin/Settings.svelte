@@ -6,6 +6,7 @@
   import { failure } from '../../lib/errors';
   import { has, t, type Key } from '../../lib/i18n';
   import { withStepUp } from '../../lib/stepup.svelte';
+  import { app } from '../../lib/session.svelte';
   import { toast } from '../../lib/toast.svelte';
 
   type S = {
@@ -26,6 +27,7 @@
     mcpEnabled: boolean;
     oauthEnabled: boolean;
     oauthPossible: boolean;
+    webhooksEnabled: boolean;
     inactiveEnabled: boolean;
     inactiveWarnAfterDays: number;
     inactiveDeleteAfterDays: number;
@@ -45,6 +47,7 @@
 
   function adopt(v: S): void {
     s = v;
+    app.instance = { ...app.instance, webhooksEnabled: v.webhooksEnabled }; // the household screens follow at once
     savedKinds = [...v.enabledNotificationKinds].sort().join();
     minLen = String(v.minPasswordLength);
     idleDays = String(v.sessionIdleDays);
@@ -88,6 +91,7 @@
             inviteRegistration: s!.inviteRegistration,
             mcpEnabled: s!.mcpEnabled,
             oauthEnabled: s!.oauthEnabled,
+            webhooksEnabled: s!.webhooksEnabled,
             minPasswordLength: Number(minLen),
             sessionIdleDays: Number(idleDays),
             sessionMaxDays: Number(maxDays),
@@ -126,6 +130,10 @@
       <div class="stack-sm">
         <label class="check"><input type="checkbox" bind:checked={s.oauthEnabled} disabled={!s.oauthPossible && !s.oauthEnabled} aria-describedby="oauth-hint" />{t('admin.oauthEnabled')}</label>
         <p class="hint" id="oauth-hint">{t('admin.oauthHint')} {s.oauthPossible ? '' : t('admin.oauthNeedsHttps')}</p>
+      </div>
+      <div class="stack-sm">
+        <label class="check"><input type="checkbox" bind:checked={s.webhooksEnabled} aria-describedby="webhooks-hint" />{t('admin.webhooksEnabled')}</label>
+        <p class="hint" id="webhooks-hint">{t('admin.webhooksHint')}</p>
       </div>
       <Field label={t('admin.minPassword')} type="number" bind:value={minLen} min="8" max="128" required />
       <h3>{t('admin.sessions')}</h3>

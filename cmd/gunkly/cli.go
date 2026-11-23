@@ -15,6 +15,7 @@ import (
 	"github.com/NexusBetweenVoids/gunkly/internal/db"
 	"github.com/NexusBetweenVoids/gunkly/internal/notify"
 	"github.com/NexusBetweenVoids/gunkly/internal/store"
+	"github.com/NexusBetweenVoids/gunkly/internal/webhook"
 )
 
 func splitHostPort(addr string) (string, string, error) {
@@ -104,6 +105,7 @@ var rotators = []rotator{
 	}},
 	{name: "notification channel URLs", run: notify.RotateSecrets},
 	{name: "web push keys", run: notify.RotatePushSecrets},
+	{name: "webhook URLs and signing secrets", run: webhook.RotateSecrets},
 }
 
 // reencrypt returns ct unchanged if it already uses the current key.

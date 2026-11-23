@@ -126,6 +126,7 @@ Legal and compliance documents for the maintainer's hosted service are kept outs
 | API token requests | 120/minute per token (burst 60); 300/minute per client IP (burst 100); fixed, not admin-tunable |
 | Active invite links per household | 20 (each link: 1-100 uses, default 1) |
 | Calendar feeds per user | 10 |
+| Outgoing webhooks per household (only while the admin enables webhooks) | 10 |
 | API tokens per user (active) | 20 |
 | Push notification devices (Web Push subscriptions) per user | 10 |
 | Sign-ups per IP per hour (open sign-up on) | 5 |
@@ -170,6 +171,7 @@ Every feature goes through `/api/v1` first; no business logic only in the front 
 | **1B. Public Hosted Launch** | Web Push; transactional JSON export/import; `migrate-db`; ALTCHA; email-OTP 2FA; inactive-account lifecycle; Updates page with optional auto-migrations; Prometheus `/metrics`; production canary rollout; external security review; GDPR documentation |
 | **0.2** | API tokens, built-in MCP server with guided setup, Home Assistant integration (separate repo) |
 | **0.3 (next)** | OAuth 2.1 "sign in with Gunkly" for MCP, so ChatGPT custom connectors and one-click connector setups (e.g. Claude Desktop connectors) work without copying tokens. Implemented (ADR 0016): optional, off by default (instance setting, needs a public https base URL), public clients with dynamic registration, PKCE S256, short-lived access tokens for `/mcp` only, rotating refresh tokens, a "Connected apps" list |
-| **Later** | Passkeys and SSO, personal quiet hours, sub-path hosting, outgoing webhooks, native mobile apps, more languages (CJK, RTL) via reviewed translations |
+| **0.4** | Outgoing webhooks (ADR 0017, `docs/webhooks.md`): optional, off by default (instance setting `webhooks_enabled`); owner-managed per household; signed (HMAC-SHA256, per-webhook secret) JSON for chore events; https only unless the egress guard is off, always through the egress guard, no redirects; outbox with retries, auto-disable after 20 consecutive failures, delivery log of the last 50. Rotating assignees ("Take turns"), email retry queue, COEP header |
+| **Later** | Passkeys and SSO, personal quiet hours, sub-path hosting, native mobile apps, more languages (CJK, RTL) via reviewed translations |
 
 **Definition of done (1A / 1B):** a chore can be completed in under 3 taps from the home screen on a phone, in either theme, in every enabled language, passing WCAG 2.2 AA checks, with every item in the applicable security sections in place.

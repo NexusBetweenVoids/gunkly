@@ -25,6 +25,7 @@ import (
 	"github.com/NexusBetweenVoids/gunkly/internal/notify"
 	"github.com/NexusBetweenVoids/gunkly/internal/store"
 	"github.com/NexusBetweenVoids/gunkly/internal/updates"
+	"github.com/NexusBetweenVoids/gunkly/internal/webhook"
 )
 
 // Options configures a Server.
@@ -84,6 +85,7 @@ type Server struct {
 	hosted           bool
 	sender           notify.Sender
 	push             *notify.WebPush
+	webhooks         *webhook.Sender
 	secure           bool // cookies get Secure; HSTS is sent
 	proxies          []netip.Prefix
 	untrusted        untrustedProxies
@@ -148,6 +150,7 @@ func New(o Options) *Server {
 		subject = o.BaseURL
 	}
 	s.push = notify.NewWebPush(s.st, s.keyring, subject, s.EgressGuardEnabled, s.now)
+	s.webhooks = webhook.NewSender(s.EgressGuardEnabled, s.version, s.now)
 	if s.ready == nil {
 		s.ready = func(context.Context) error { return nil }
 	}

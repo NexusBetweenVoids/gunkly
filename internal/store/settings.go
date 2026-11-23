@@ -25,6 +25,7 @@ const (
 	settingUpdateCheck        = "update_check"
 	settingMCPEnabled         = "mcp_enabled"
 	settingOAuthEnabled       = "oauth_enabled"
+	settingWebhooksEnabled    = "webhooks_enabled"
 	settingInactiveEnabled    = "inactive_enabled"
 	settingInactiveWarnDays   = "inactive_warn_after_days"
 	settingInactiveDeleteDays = "inactive_delete_after_days"
@@ -59,6 +60,9 @@ type InstanceSettings struct {
 	// OAuthEnabled serves the OAuth endpoints MCP clients sign in with (ADR
 	// 0016). Default false, also when hosted.
 	OAuthEnabled bool
+	// WebhooksEnabled lets owners add outgoing webhooks (ADR 0017). Default
+	// false: while off the webhook routes are 404 and nothing is sent.
+	WebhooksEnabled bool
 	// Inactive-account lifecycle (PRD "Inactive accounts"; default off):
 	// warn after InactiveWarnAfterDays without activity, delete after
 	// InactiveDeleteAfterDays.
@@ -98,6 +102,7 @@ type SettingsUpdate struct {
 	UpdateCheck       *bool
 	MCPEnabled        *bool
 	OAuthEnabled      *bool
+	WebhooksEnabled   *bool
 	InactiveEnabled   *bool
 	// Inactive-account periods; the delete period must exceed the warn period
 	// by at least MinInactiveGapDays (checked against the stored value for
@@ -146,6 +151,8 @@ func (s *Store) InstanceSettings(ctx context.Context) (InstanceSettings, error) 
 				out.MCPEnabled = v != "false"
 			case k == settingOAuthEnabled:
 				out.OAuthEnabled = v == "true"
+			case k == settingWebhooksEnabled:
+				out.WebhooksEnabled = v == "true"
 			case k == settingInactiveEnabled:
 				out.InactiveEnabled = v == "true"
 			case k == settingInactiveWarnDays:
@@ -265,6 +272,9 @@ func (s *Store) UpdateInstanceSettings(ctx context.Context, u SettingsUpdate) er
 		}
 		if err == nil && u.OAuthEnabled != nil {
 			err = set(settingOAuthEnabled, strconv.FormatBool(*u.OAuthEnabled))
+		}
+		if err == nil && u.WebhooksEnabled != nil {
+			err = set(settingWebhooksEnabled, strconv.FormatBool(*u.WebhooksEnabled))
 		}
 		if err == nil && u.InactiveEnabled != nil {
 			err = set(settingInactiveEnabled, strconv.FormatBool(*u.InactiveEnabled))
