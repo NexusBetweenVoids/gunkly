@@ -77,6 +77,8 @@ type Config struct {
 	Pusher notify.Pusher
 	// Mailer sends inactivity warnings by email; nil = no email.
 	Mailer Mailer
+	// Webhooks sends outgoing webhook deliveries (ADR 0017); nil sends none.
+	Webhooks WebhookSender
 	// Hosted enables the purge of unverified, household-less accounts (only
 	// meaningful where sign-up requires an email address).
 	Hosted bool
@@ -97,6 +99,7 @@ type Worker struct {
 	leading       atomic.Bool
 	lastRetention time.Time
 	lastInactive  time.Time
+	webhooksOn    *bool // the setting as of the last tick; nil before the first
 }
 
 // New returns a Worker for cfg.
@@ -228,11 +231,15 @@ func (w *Worker) tick(ctx context.Context) error {
 		if err := w.enqueue(ctx, last, now, now.Sub(last) >= catchUpAfter); err != nil {
 			return err
 		}
+		if err := w.cfg.Store.EmitOverdueWebhooks(ctx, last, now); err != nil {
+			w.log.Error("scheduler: overdue webhooks", "err", err)
+		}
 		if err := w.cfg.Store.SetLastSchedulerTick(ctx, now); err != nil {
 			return err
 		}
 	}
 	w.send(ctx)
+	w.sendWebhooks(ctx)
 	if now.Sub(w.lastRetention) >= retentionEvery {
 		w.lastRetention = now
 		w.retention(ctx, now)

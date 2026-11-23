@@ -696,6 +696,10 @@ func newHH(t *testing.T, mutate ...func(*Options)) *hhFixture {
 	e := newEnv(t, mutate...)
 	f := &hhFixture{e: e}
 	ctx := context.Background()
+	on := true // the isolation walker must reach the webhook routes
+	if err := e.st.UpdateInstanceSettings(ctx, store.SettingsUpdate{WebhooksEnabled: &on}); err != nil {
+		t.Fatal(err)
+	}
 	for _, n := range []string{"a", "m", "g", "b", "x"} {
 		e.user(n, false)
 	}
@@ -748,6 +752,11 @@ func validBody(pattern string) any {
 // guest level, and household A is unchanged afterwards.
 func TestHouseholdIsolation(t *testing.T) {
 	f := newHH(t)
+	// Step-up is checked before membership, so give the other callers a recent
+	// one: the walker is about who may touch household A, not about step-up.
+	for name, c := range map[string]*client{"b": f.b, "x": f.x, "g": f.g, "m": f.m} {
+		f.e.stepUp(c, name)
+	}
 	n := 0
 	for _, r := range f.e.srv.routes {
 		if r.policy.auth != authHousehold {

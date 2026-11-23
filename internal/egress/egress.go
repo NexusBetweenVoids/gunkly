@@ -146,3 +146,17 @@ func (r *capReader) Read(p []byte) (int, error) {
 }
 
 func (r *capReader) Close() error { return r.rc.Close() }
+
+// NewNoRedirectClient is NewClient that never follows a redirect: the 3xx
+// response is returned as it is. Webhooks use it, so a target cannot bounce a
+// signed delivery to another address.
+func NewNoRedirectClient(g Guard) *http.Client {
+	c := NewClient(g)
+	c.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	return c
+}
+
+// AddrBlocked reports whether the guard forbids connecting to a. It lets
+// validators reject a literal IP address early; the dial hook stays the
+// authority.
+func AddrBlocked(a netip.Addr) bool { return blocked(a) }

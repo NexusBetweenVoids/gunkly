@@ -26,7 +26,7 @@ var ErrNoNextOccurrence = errors.New("store: no next occurrence")
 // write happen in one transaction (the chore row is locked on Postgres), so a
 // concurrent edit is never overwritten.
 func (s *Store) SnoozeChore(ctx context.Context, a Actor, householdID, choreID string, until schedule.Date) (Chore, error) {
-	return s.moveOccurrence(ctx, a, householdID, choreID, func(_ Chore, _ *time.Location, today schedule.Date) (schedule.Date, error) {
+	return s.moveOccurrence(ctx, a, householdID, choreID, EventChoreSnoozed, func(_ Chore, _ *time.Location, today schedule.Date) (schedule.Date, error) {
 		if until.Before(today) || until.Year > 9000 {
 			return schedule.Date{}, ErrInvalid
 		}
@@ -39,7 +39,7 @@ func (s *Store) SnoozeChore(ctx context.Context, a Actor, householdID, choreID s
 // ErrInvalid, an ended series ErrNoNextOccurrence. Member or owner; archived
 // chores are ErrConflict. Transactional like SnoozeChore.
 func (s *Store) SkipChore(ctx context.Context, a Actor, householdID, choreID string) (Chore, error) {
-	return s.moveOccurrence(ctx, a, householdID, choreID, func(c Chore, _ *time.Location, today schedule.Date) (schedule.Date, error) {
+	return s.moveOccurrence(ctx, a, householdID, choreID, EventChoreSkipped, func(c Chore, _ *time.Location, today schedule.Date) (schedule.Date, error) {
 		rule, err := RuleOf(c)
 		if err != nil {
 			return schedule.Date{}, err
@@ -56,7 +56,7 @@ func (s *Store) SkipChore(ctx context.Context, a Actor, householdID, choreID str
 	})
 }
 
-func (s *Store) moveOccurrence(ctx context.Context, a Actor, householdID, choreID string,
+func (s *Store) moveOccurrence(ctx context.Context, a Actor, householdID, choreID, event string,
 	pick func(c Chore, loc *time.Location, today schedule.Date) (schedule.Date, error)) (Chore, error) {
 	var out Chore
 	err := s.write(ctx, a, householdID, RoleMember, func(t *tx, _ Role) error {
@@ -89,7 +89,10 @@ func (s *Store) moveOccurrence(ctx context.Context, a Actor, householdID, choreI
 			d.String(), ms(OccurrenceInstant(d, loc)), s.nowMS(), choreID, householdID); err != nil {
 			return err
 		}
-		return t.finishState(ctx, householdID, choreID, &out)
+		if err := t.finishState(ctx, householdID, choreID, &out); err != nil {
+			return err
+		}
+		return t.emitWebhook(ctx, householdID, event, webhookEvent{choreID: choreID, chore: &out, actorID: a.UserID}, s.nowMS())
 	})
 	return out, err
 }
@@ -208,7 +211,7 @@ func (s *Store) RevertChoreCompletion(ctx context.Context, a Actor, householdID,
 		if n == 0 {
 			return ErrNotFound
 		}
-		if err := t.revertCompletion(ctx, householdID, completionID, s.nowMS()); err != nil {
+		if err := t.revertCompletion(ctx, householdID, completionID, a.UserID, s.nowMS()); err != nil {
 			return err
 		}
 		var err error

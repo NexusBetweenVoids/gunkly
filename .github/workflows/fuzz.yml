@@ -30,6 +30,8 @@ jobs:
             target: FuzzBlocked
           - pkg: ./internal/egress
             target: FuzzWebPushAllowed
+          - pkg: ./internal/webhook
+            target: FuzzValidateURL
           - pkg: ./internal/transfer
             target: FuzzImport
           - pkg: ./internal/api

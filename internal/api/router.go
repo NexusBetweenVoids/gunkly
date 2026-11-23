@@ -54,6 +54,10 @@ type policy struct {
 	// 0016): otherwise it answers 404 like an unknown path, before anything
 	// else is looked at.
 	oauth bool
+	// webhooks marks a route that exists only while the webhooks_enabled
+	// instance setting is on (ADR 0017): otherwise it answers 404 like an
+	// unknown path, before anything else is looked at.
+	webhooks bool
 	// formCSRF is the CSRF check of an HTML form post: the gunkly_csrf cookie
 	// must equal the hidden "csrf" form field (a form cannot set the header
 	// the SPA uses), plus the cross-site request check. The handler reads the
@@ -92,6 +96,9 @@ func (p policy) withTokenAuth() policy { p.tokenAuth = true; return p }
 
 // oauthOnly makes the route exist only while OAuth is enabled.
 func (p policy) oauthOnly() policy { p.oauth = true; return p }
+
+// webhooksOnly makes the route exist only while webhooks are enabled.
+func (p policy) webhooksOnly() policy { p.webhooks = true; return p }
 
 // withFormCSRF declares an HTML form post protected by the form-field CSRF check.
 func (p policy) withFormCSRF() policy { p.formCSRF = true; return p }
@@ -199,6 +206,8 @@ func (p policy) validate(pattern string) error {
 		return fmt.Errorf("api: OAuth client route %q must be oauthOnly", pattern)
 	case p.oauth && p.auth != authPublic && p.auth != authClient:
 		return fmt.Errorf("api: oauthOnly route %q must be public or an OAuth client route", pattern)
+	case p.webhooks && p.auth != authHousehold:
+		return fmt.Errorf("api: webhooksOnly route %q must be household-scoped", pattern)
 	case p.formCSRF && (p.auth != authPublic || p.rate == "" || p.tokenAuth || safeMethod(strings.SplitN(pattern, " ", 2)[0])):
 		return fmt.Errorf("api: form route %q must be a rate-limited public unsafe route", pattern)
 	case p.tokenAuth && (p.auth != authPublic || p.rate == ""):
@@ -225,6 +234,10 @@ func (s *Server) enforce(p policy, h handlerFunc) http.Handler {
 		secret, bearer := bearerFrom(r)
 		bearer = bearer && p.auth >= authSession && p.auth != authMetrics && p.auth != authClient
 		if p.oauth && !s.oauthEnabled(r.Context()) {
+			s.fail(w, r, errNotFound) // off: the route does not exist
+			return
+		}
+		if p.webhooks && !s.webhooksEnabled(r.Context()) {
 			s.fail(w, r, errNotFound) // off: the route does not exist
 			return
 		}

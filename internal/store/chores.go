@@ -205,8 +205,10 @@ func (s *Store) CreateChore(ctx context.Context, a Actor, householdID string, in
 			}
 		}
 		var err error
-		c, err = t.chore(ctx, householdID, id)
-		return err
+		if c, err = t.chore(ctx, householdID, id); err != nil {
+			return err
+		}
+		return t.emitWebhook(ctx, householdID, EventChoreCreated, webhookEvent{choreID: id, chore: &c, actorID: a.UserID}, s.nowMS())
 	})
 	return c, err
 }
@@ -364,8 +366,10 @@ func (s *Store) UpdateChore(ctx context.Context, a Actor, householdID, choreID s
 				return err
 			}
 		}
-		c, err = t.chore(ctx, householdID, choreID)
-		return err
+		if c, err = t.chore(ctx, householdID, choreID); err != nil {
+			return err
+		}
+		return t.emitWebhook(ctx, householdID, EventChoreUpdated, webhookEvent{choreID: choreID, chore: &c, actorID: a.UserID}, s.nowMS())
 	})
 	return c, err
 }
@@ -386,6 +390,13 @@ func (s *Store) ArchiveChore(ctx context.Context, a Actor, householdID, choreID 
 // DeleteChore deletes a chore and its history. Member or owner.
 func (s *Store) DeleteChore(ctx context.Context, a Actor, householdID, choreID string) error {
 	return s.write(ctx, a, householdID, RoleMember, func(t *tx, _ Role) error {
+		c, err := t.chore(ctx, householdID, choreID) // the event carries the chore as it was
+		if err != nil {
+			return err
+		}
+		if err := t.emitWebhook(ctx, householdID, EventChoreDeleted, webhookEvent{choreID: choreID, chore: &c, actorID: a.UserID}, s.nowMS()); err != nil {
+			return err
+		}
 		return t.execOne(ctx, "DELETE FROM chores WHERE id = ? AND household_id = ?", choreID, householdID)
 	})
 }

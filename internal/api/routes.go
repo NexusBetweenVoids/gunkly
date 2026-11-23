@@ -137,6 +137,7 @@ func (s *Server) registerRoutes() {
 	s.handle("POST /api/v1/admin/updates/check", admin.noToken(), s.adminUpdatesCheck)
 
 	s.registerLinkAndNotifyRoutes()
+	s.registerWebhookRoutes()
 	s.registerTransferRoutes()
 }
 

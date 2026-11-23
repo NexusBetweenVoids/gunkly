@@ -61,7 +61,7 @@ func oauthBaseURLOK(base string) bool {
 }
 
 // features is the cached pair of instance settings that gate MCP and OAuth.
-type features struct{ mcp, oauth bool }
+type features struct{ mcp, oauth, webhooks bool }
 
 func (s *Server) features(ctx context.Context) features {
 	s.mcpMu.Lock()
@@ -72,12 +72,16 @@ func (s *Server) features(ctx context.Context) features {
 			s.log.Error("feature settings", "err", err)
 			return s.feat // the last known values; off until the first read succeeds
 		}
-		s.feat, s.mcpAt = features{mcp: st.MCPEnabled, oauth: st.OAuthEnabled && st.MCPEnabled && oauthBaseURLOK(s.baseURL)}, time.Now()
+		s.feat, s.mcpAt = features{mcp: st.MCPEnabled, oauth: st.OAuthEnabled && st.MCPEnabled && oauthBaseURLOK(s.baseURL), webhooks: st.WebhooksEnabled}, time.Now()
 	}
 	return s.feat
 }
 
 func (s *Server) oauthEnabled(ctx context.Context) bool { return s.features(ctx).oauth }
+
+// webhooksEnabled reports the webhooks_enabled instance setting (default off),
+// cached briefly like the others.
+func (s *Server) webhooksEnabled(ctx context.Context) bool { return s.features(ctx).webhooks }
 
 func (s *Server) resourceURL() string { return s.baseURL + "/mcp" }
 

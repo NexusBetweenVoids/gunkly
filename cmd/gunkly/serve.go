@@ -146,7 +146,7 @@ func (a *app) startScheduler(ctx context.Context, srv *api.Server, reg *metrics.
 		Store: a.store, DB: a.db, Keyring: a.keyring, Limits: a.limits, BaseURL: a.cfg.BaseURL, Logger: a.log,
 		// The server's sender and allowlist follow the admin settings (egress
 		// guard, enabled notification kinds), read at send time.
-		Sender: srv.Sender(), EnabledKinds: srv.EnabledKinds, Pusher: srv.Pusher(), Mailer: srv.Mailer(), Hosted: a.cfg.HostedMode,
+		Sender: srv.Sender(), EnabledKinds: srv.EnabledKinds, Pusher: srv.Pusher(), Mailer: srv.Mailer(), Hosted: a.cfg.HostedMode, Webhooks: srv.WebhookSender(),
 	}
 	if reg != nil {
 		cfg.OnDelivery = reg.Delivery
