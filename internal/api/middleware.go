@@ -76,6 +76,9 @@ func (s *Server) middleware(next http.Handler) http.Handler {
 		h.Set("X-Frame-Options", "DENY")
 		h.Set("Cross-Origin-Opener-Policy", "same-origin")
 		h.Set("Cross-Origin-Resource-Policy", "same-origin")
+		// Everything Gunkly serves and loads is same-origin (CSP 'self' and data: only),
+		// so require-corp breaks nothing: pages, service worker, icons and QR codes.
+		h.Set("Cross-Origin-Embedder-Policy", "require-corp")
 		h.Set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()")
 		if s.secure {
 			h.Set("Strict-Transport-Security", "max-age=31536000")

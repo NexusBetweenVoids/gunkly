@@ -4,6 +4,10 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ## [Unreleased]
 
+### Security
+
+- Every response now carries `Cross-Origin-Embedder-Policy: require-corp` (next to the existing same-origin Opener and Resource policies). Gunkly only serves and loads same-origin resources, so the app, service worker, push, icons, QR codes and mark-done pages are unaffected.
+
 ### Changed
 
 - Transactional email (verification, password reset, sign-in codes, notices) goes through a persisted outbox with retries instead of a fire-and-forget send (ADR 0008, migration 0017): a failed send is retried after 1 minute, 5 minutes, 30 minutes, 2 hours and 6 hours, then given up with an audit event `mail_gave_up` (no address or text). Queued mail survives restarts, is sealed at rest and deleted once sent or given up, never outlives the code or link it carries, and the email caps are counted when a message is queued, not per retry.

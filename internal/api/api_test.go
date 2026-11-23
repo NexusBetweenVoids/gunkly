@@ -279,6 +279,7 @@ func TestSecurityHeadersAndStatic(t *testing.T) {
 		{"/assets/missing.js", "no-store", "application/json", 404},
 		{"/manifest.webmanifest", "no-cache", "application/manifest+json", 200},
 		{"/sw.js", "no-cache", "text/javascript", 200},
+		{"/done/unknown-token", "no-store", "text/html", 404}, // mark-done page
 	}
 	for _, c := range cases {
 		resp, err := http.Get(e.ts.URL + c.path)
@@ -292,7 +293,8 @@ func TestSecurityHeadersAndStatic(t *testing.T) {
 		}
 		if h.Get("Content-Security-Policy") != csp || h.Get("X-Content-Type-Options") != "nosniff" ||
 			h.Get("Referrer-Policy") != "no-referrer" || h.Get("X-Frame-Options") != "DENY" ||
-			h.Get("Cross-Origin-Opener-Policy") != "same-origin" || h.Get("Permissions-Policy") == "" {
+			h.Get("Cross-Origin-Opener-Policy") != "same-origin" || h.Get("Cross-Origin-Embedder-Policy") != "require-corp" ||
+			h.Get("Cross-Origin-Resource-Policy") != "same-origin" || h.Get("Permissions-Policy") == "" {
 			t.Errorf("%s: missing security headers: %v", c.path, h)
 		}
 		if h.Get("Strict-Transport-Security") != "" {
