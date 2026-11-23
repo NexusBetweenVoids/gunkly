@@ -146,22 +146,22 @@
     <section class="card mt-md" aria-labelledby="c-act">
       <h2 id="c-act" class="visually-hidden">{t('chore.actions')}</h2>
       {#snippet remove()}
-        <Button variant="quiet" class="btn-icon remove" aria-label={t('common.delete')} title={t('common.delete')} onclick={() => (dlg = 'delete')}><Icon name="trash" /></Button>
+        <Button variant="quiet" class="btn-icon remove" aria-label={t('common.delete')} title={t('common.delete')} onclick={() => (dlg = 'delete')}><Icon name="trash" /><span class="cap" aria-hidden="true">{t('common.delete')}</span></Button>
       {/snippet}
       <div class="actions">
         {#if !c.archivedAt}
           {#if !paused}<Button onclick={done} {busy}>{t('common.done')}</Button>{/if}
           <div class="icons">
-            <Button variant="quiet" class="btn-icon" aria-label={t('chore.snooze')} title={t('chore.snooze')} onclick={() => (dlg = 'snooze')}><Icon name="snooze" /></Button>
-            {#if c.kind === 'recurring'}<Button variant="quiet" class="btn-icon" aria-label={t('chore.skip')} title={t('chore.skip')} {busy} onclick={() => act(post('skip'), 'chore.skipped')}><Icon name="skip" /></Button>{/if}
+            <Button variant="quiet" class="btn-icon" aria-label={t('chore.snooze')} title={t('chore.snooze')} onclick={() => (dlg = 'snooze')}><Icon name="snooze" /><span class="cap" aria-hidden="true">{t('chore.snooze')}</span></Button>
+            {#if c.kind === 'recurring'}<Button variant="quiet" class="btn-icon" aria-label={t('chore.skip')} title={t('chore.skip')} {busy} onclick={() => act(post('skip'), 'chore.skipped')}><Icon name="skip" /><span class="cap" aria-hidden="true">{t('chore.short.skip')}</span></Button>{/if}
             {#if paused}
-              <Button class="btn-icon" aria-label={t('chore.resume')} title={t('chore.resume')} {busy} onclick={() => act(post('resume'), 'chore.resumed')}><Icon name="resume" /></Button>
+              <Button class="btn-icon" aria-label={t('chore.resume')} title={t('chore.resume')} {busy} onclick={() => act(post('resume'), 'chore.resumed')}><Icon name="resume" /><span class="cap" aria-hidden="true">{t('chore.resume')}</span></Button>
             {:else}
-              <Button variant="quiet" class="btn-icon" aria-label={t('chore.pause')} title={t('chore.pause')} onclick={() => (dlg = 'pause')}><Icon name="pause" /></Button>
+              <Button variant="quiet" class="btn-icon" aria-label={t('chore.pause')} title={t('chore.pause')} onclick={() => (dlg = 'pause')}><Icon name="pause" /><span class="cap" aria-hidden="true">{t('chore.pause')}</span></Button>
             {/if}
-            <Button variant="quiet" class="btn-icon" aria-label={c.muted ? t('chore.unmute') : t('chore.mute')} title={c.muted ? t('chore.unmute') : t('chore.mute')} {busy} onclick={mute}><Icon name={c.muted ? 'bell' : 'bellOff'} /></Button>
-            <a class="btn btn-quiet btn-icon" href="/chores/{id}/edit" aria-label={t('chore.edit')} title={t('chore.edit')}><Icon name="edit" /></a>
-            <Button variant="quiet" class="btn-icon" aria-label={t('chore.archive')} title={t('chore.archive')} {busy} onclick={() => act(() => api<void>('POST', `${base}/chores/${id}/archive`).then(load), 'chore.archivedMsg')}><Icon name="archive" /></Button>
+            <Button variant="quiet" class="btn-icon" aria-label={c.muted ? t('chore.unmute') : t('chore.mute')} title={c.muted ? t('chore.unmute') : t('chore.mute')} {busy} onclick={mute}><Icon name={c.muted ? 'bell' : 'bellOff'} /><span class="cap" aria-hidden="true">{c.muted ? t('chore.short.unmute') : t('chore.short.mute')}</span></Button>
+            <a class="btn btn-quiet btn-icon" href="/chores/{id}/edit" aria-label={t('chore.edit')} title={t('chore.edit')}><Icon name="edit" /><span class="cap" aria-hidden="true">{t('chore.short.edit')}</span></a>
+            <Button variant="quiet" class="btn-icon" aria-label={t('chore.archive')} title={t('chore.archive')} {busy} onclick={() => act(() => api<void>('POST', `${base}/chores/${id}/archive`).then(load), 'chore.archivedMsg')}><Icon name="archive" /><span class="cap" aria-hidden="true">{t('chore.archive')}</span></Button>
             {@render remove()}
           </div>
         {:else}
@@ -251,10 +251,52 @@
     background: transparent;
     color: var(--text-2);
   }
-  .icons :global(.btn-quiet:hover) {
-    opacity: 1;
-    background: var(--surface-2);
-    color: var(--text);
+  @media (hover: hover) {
+    .icons :global(.btn-quiet:hover) {
+      opacity: 1;
+      background: var(--surface-2);
+      color: var(--text);
+    }
+  }
+  /* Touch screens have no tooltips: show a short caption under each icon. */
+  .cap {
+    display: none;
+  }
+  @media (hover: none) {
+    .icons {
+      flex-wrap: nowrap;
+      inline-size: 100%;
+    }
+    .icons :global(.btn-icon) {
+      flex: 1 1 0;
+      flex-direction: column;
+      gap: 2px;
+      min-inline-size: 0;
+      inline-size: auto;
+      min-block-size: 52px;
+      padding-block: 6px;
+    }
+    .cap {
+      display: block;
+      font-size: 0.6875rem;
+      font-weight: 500;
+      line-height: 1.1;
+      white-space: nowrap;
+    }
+    .icons :global(.btn-icon.remove) {
+      margin-inline-start: 0;
+    }
+  }
+  /* Narrow phones: captions need more room than one row gives, so use two rows of four. */
+  @media (hover: none) and (max-width: 28rem) {
+    .icons {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 4px;
+    }
+    .icons :global(.btn-icon.remove) {
+      grid-column-end: -1;
+    }
   }
   .icons :global(.remove) {
     margin-inline-start: auto;
