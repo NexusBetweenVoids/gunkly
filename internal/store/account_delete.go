@@ -312,6 +312,7 @@ var userOwnedStatements = []string{
 	"DELETE FROM push_subscriptions WHERE user_id = ?",
 	"DELETE FROM notification_channels WHERE scope = 'user' AND user_id = ?",
 	"DELETE FROM deliveries WHERE user_id = ?",
+	"DELETE FROM mail_outbox WHERE user_id = ?",
 	"DELETE FROM chore_assignees WHERE user_id = ?",
 	"DELETE FROM chore_mutes WHERE user_id = ?",
 	"UPDATE completions SET user_id = NULL WHERE user_id = ?",

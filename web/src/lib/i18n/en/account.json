@@ -66,6 +66,7 @@
   "audit.household_export": "Exported a household",
   "audit.household_import": "Imported a household file",
   "audit.inactive_warn": "Inactivity warning sent",
+  "audit.mail_gave_up": "An email could not be delivered",
   "push.title": "This device",
   "push.privacy": "Browser notifications are delivered through your browser vendor's push service (Google, Apple or Mozilla). The message is end-to-end encrypted, but the vendor can see that a notification was sent to your device and when.",
   "push.enable": "Turn on reminders on this device",

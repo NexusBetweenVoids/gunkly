@@ -43,7 +43,7 @@ func (s *Server) sendVerification(ctx context.Context, c *call, u store.User, ne
 		return 0, err
 	}
 	s.dispatchMail(ctx, mailRequest{user: u, to: newEmail, kind: "verify", params: map[string]string{
-		"link": s.link("/verify-email", token), "hours": strconv.Itoa(int(verifyTTL.Hours()))}})
+		"link": s.link("/verify-email", token), "hours": strconv.Itoa(int(verifyTTL.Hours()))}, ttl: verifyTTL})
 	return 0, nil
 }
 
@@ -62,7 +62,7 @@ func (s *Server) sendLoginCode(ctx context.Context, c *call, u store.User, unaut
 		return 0, err
 	}
 	s.dispatchMail(ctx, mailRequest{user: u, kind: "otp", params: map[string]string{
-		"code": code, "minutes": strconv.Itoa(int(otpTTL.Minutes()))}})
+		"code": code, "minutes": strconv.Itoa(int(otpTTL.Minutes()))}, ttl: otpTTL})
 	return 0, nil
 }
 
@@ -237,7 +237,7 @@ func (s *Server) sendReset(ctx context.Context, login, ip string, throttled bool
 		return err
 	}
 	s.dispatchMail(ctx, mailRequest{user: u, kind: "reset", params: map[string]string{
-		"link": s.link("/reset-password", token), "hours": strconv.Itoa(int(resetTTL.Hours()))}})
+		"link": s.link("/reset-password", token), "hours": strconv.Itoa(int(resetTTL.Hours()))}, ttl: resetTTL})
 	return nil
 }
 

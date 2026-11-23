@@ -13,6 +13,7 @@ import (
 	"github.com/NexusBetweenVoids/gunkly/internal/auth"
 	"github.com/NexusBetweenVoids/gunkly/internal/limits"
 	"github.com/NexusBetweenVoids/gunkly/internal/mail"
+	"github.com/NexusBetweenVoids/gunkly/internal/scheduler"
 	"github.com/NexusBetweenVoids/gunkly/internal/store"
 )
 
@@ -37,18 +38,21 @@ func (f *fakeMailer) Send(_ context.Context, m mail.Message) error {
 type mailEnv struct {
 	*env
 	fm *fakeMailer
+	ob *scheduler.Outbox // what the scheduler's outbox pass does, driven by hand
 }
 
 func newMailEnv(t *testing.T, mutate ...func(*Options)) *mailEnv {
 	t.Helper()
 	fm := &fakeMailer{}
 	e := newEnv(t, append([]func(*Options){func(o *Options) { o.Mailer = fm; o.BaseURL = "http://app.test"; o.PoWMaxNumber = 1000 }}, mutate...)...)
-	return &mailEnv{env: e, fm: fm}
+	return &mailEnv{env: e, fm: fm, ob: &scheduler.Outbox{Store: e.st, Mailer: fm, Sealer: e.srv.keyring, Now: e.srv.now}}
 }
 
-// mails waits for background sends and returns (and clears) what was sent.
+// mails waits for background work, runs the outbox once and returns (and
+// clears) what was sent.
 func (e *mailEnv) mails() []mail.Message {
 	e.srv.mailWG.Wait()
+	e.ob.Process(context.Background())
 	e.fm.mu.Lock()
 	defer e.fm.mu.Unlock()
 	out := e.fm.sent

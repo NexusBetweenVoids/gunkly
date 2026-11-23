@@ -97,6 +97,7 @@ type Worker struct {
 	leading       atomic.Bool
 	lastRetention time.Time
 	lastInactive  time.Time
+	outbox        *Outbox // nil = no email
 }
 
 // New returns a Worker for cfg.
@@ -190,6 +191,8 @@ func (w *Worker) release(conn *sql.Conn) {
 func (w *Worker) lead(ctx context.Context, conn *sql.Conn) {
 	t := time.NewTicker(w.cfg.Tick)
 	defer t.Stop()
+	mailTick := time.NewTicker(min(MailEvery, w.cfg.Tick))
+	defer mailTick.Stop()
 	for {
 		if conn != nil {
 			if err := conn.PingContext(ctx); err != nil {
@@ -202,12 +205,28 @@ func (w *Worker) lead(ctx context.Context, conn *sql.Conn) {
 		if err := w.tick(ctx); err != nil && ctx.Err() == nil {
 			w.log.Error("scheduler tick failed", "err", err)
 		}
-		select {
-		case <-ctx.Done():
-			return
-		case <-t.C:
+		for waiting := true; waiting; {
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.C:
+				waiting = false
+			case <-mailTick.C:
+				w.sendMail(ctx)
+			}
 		}
 	}
+}
+
+// sendMail sends the queued emails that are due (the outbox, see outbox.go).
+func (w *Worker) sendMail(ctx context.Context) {
+	if w.cfg.Mailer == nil {
+		return
+	}
+	if w.outbox == nil {
+		w.outbox = &Outbox{Store: w.cfg.Store, Mailer: w.cfg.Mailer, Sealer: w.cfg.Keyring, Now: w.cfg.Now, Logger: w.log}
+	}
+	w.outbox.Process(ctx)
 }
 
 // tick processes the window since the last tick, sends what is due and runs
@@ -233,6 +252,7 @@ func (w *Worker) tick(ctx context.Context) error {
 		}
 	}
 	w.send(ctx)
+	w.sendMail(ctx)
 	if now.Sub(w.lastRetention) >= retentionEvery {
 		w.lastRetention = now
 		w.retention(ctx, now)

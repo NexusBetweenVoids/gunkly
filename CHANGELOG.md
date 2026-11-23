@@ -4,6 +4,10 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ## [Unreleased]
 
+### Changed
+
+- Transactional email (verification, password reset, sign-in codes, notices) goes through a persisted outbox with retries instead of a fire-and-forget send (ADR 0008, migration 0017): a failed send is retried after 1 minute, 5 minutes, 30 minutes, 2 hours and 6 hours, then given up with an audit event `mail_gave_up` (no address or text). Queued mail survives restarts, is sealed at rest and deleted once sent or given up, never outlives the code or link it carries, and the email caps are counted when a message is queued, not per retry.
+
 ### Added
 
 - **Take turns** (rotating assignees, PRD "Chores & scheduling"): a recurring chore with 2+ assignees can rotate in the assignee order (editor: "Take turns" with up/down controls). The chore has a current-turn person: Home shows a "Sam's turn" badge and "Mine" means my turn (or unassigned), reminders go to the person whose turn it is only (household channels are unchanged), and completing passes the turn to the next person (option "move on only when the person whose turn it is does the chore"). Undo gives the turn back; skip and snooze keep it; a member who leaves, deletes their account or becomes a guest leaves the rotation. The chore page shows the turn and lets you change it ("It's Sam's turn now").

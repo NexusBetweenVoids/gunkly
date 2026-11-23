@@ -1,6 +1,7 @@
 package api
 
 import (
+	"cmp"
 	"context"
 	"net/http"
 	"strconv"
@@ -8,6 +9,7 @@ import (
 	"time"
 
 	"github.com/NexusBetweenVoids/gunkly/internal/i18n"
+	"github.com/NexusBetweenVoids/gunkly/internal/ids"
 	"github.com/NexusBetweenVoids/gunkly/internal/limits"
 	"github.com/NexusBetweenVoids/gunkly/internal/mail"
 	"github.com/NexusBetweenVoids/gunkly/internal/store"
@@ -139,13 +141,16 @@ type mailRequest struct {
 	to     string     // address; empty means user.Email
 	kind   string     // i18n key stem: "verify", "reset", "otp", "emailchange"
 	params map[string]string
+	// ttl is how long the email is still worth sending: retries stop when it
+	// has passed (the lifetime of the code or link it carries). 0 = a day.
+	ttl time.Duration
 	// unauth marks a request without a session: the per-IP cap applies too.
 	unauth bool
 }
 
-// queueMail takes the quotas and sends the email in the background, so the
-// response does not wait on (or reveal anything about) the SMTP server.
-// Nothing is sent when a quota is full.
+// queueMail takes the quotas and queues the email, so the response does not
+// wait on (or reveal anything about) the SMTP server. Nothing is queued when a
+// quota is full.
 func (s *Server) queueMail(ctx context.Context, c *call, r mailRequest) {
 	ip, acct := "", limits.EmailsAccountHour
 	if r.unauth {
@@ -157,8 +162,10 @@ func (s *Server) queueMail(ctx context.Context, c *call, r mailRequest) {
 	s.dispatchMail(ctx, r)
 }
 
-// dispatchMail sends r in the background without taking a quota (the caller
-// already did, so it could act only when the email is certain to go out).
+// dispatchMail queues r in the persisted outbox without taking a quota (the
+// caller already did, so it could act only when the email is certain to go
+// out; retries never count again). The scheduler sends it, with retries and
+// backoff, until it succeeds, runs out of attempts or r.ttl passes (ADR 0008).
 func (s *Server) dispatchMail(ctx context.Context, r mailRequest) {
 	to := r.to
 	if to == "" {
@@ -173,15 +180,14 @@ func (s *Server) dispatchMail(ctx context.Context, r mailRequest) {
 		Subject: i18n.T(r.user.Locale, "mail."+r.kind+".subject", r.params),
 		Body:    i18n.T(r.user.Locale, "mail."+r.kind+".body", r.params),
 	}
-	s.mailWG.Add(1)
-	go func() {
-		defer s.mailWG.Done()
-		sctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), mail.SendTimeout)
-		defer cancel()
-		if err := s.mailer.Send(sctx, msg); err != nil {
-			s.log.Error("send email", "kind", r.kind, "err", err)
-		}
-	}()
+	now, id := s.now(), ids.New()
+	err := s.st.EnqueueMail(context.WithoutCancel(ctx), store.OutboxMail{
+		ID: id, Kind: r.kind, UserID: r.user.ID, Payload: mail.Seal(s.keyring, id, msg),
+		ExpiresAt: now.Add(cmp.Or(r.ttl, 24*time.Hour)),
+	}, now)
+	if err != nil {
+		s.log.Error("queue email", "kind", r.kind, "err", err)
+	}
 }
 
 // tooMany answers a refused email or sign-up with 429 and Retry-After.
