@@ -64,3 +64,13 @@ Rules for any agent (human or AI) changing Gunkly. Read `docs/PRD.md` for scope 
 - Errors returned to clients are generic; details go to the log (minus secrets).
 - README badges must stay accurate: when a change affects what a static badge states (license, framework version, supported databases, container), update the badge in the same PR. `make fitness` checks the Svelte badge.
 - Prefer the standard library. Small, boring code over abstractions. Delete dead code.
+
+## Releases
+
+Only after the user approves. Before tagging:
+
+1. Move `[Unreleased]` in `CHANGELOG.md` to the new version and date.
+2. If the UI changed, run `cd web && npm run screenshots` (rewrites `docs/assets/screens/*.png` with demo data), look at every image and commit them.
+3. Check the docs (`README.md`, `docs/*.md`) still name screens and settings the way the app does.
+
+After the release is published, update the website (`../website`, local only): `npm run sync -- vX.Y.Z` pins its docs to the new tag and copies the screenshots, then `npm run build && npm run check`, look at the pages and commit there. Never deploy the website without the user.

@@ -36,7 +36,7 @@ A self-hostable, **AI-friendly** chore tracker for recurring household chores an
 
 | Calendar, desktop (dark) | Chore editor, desktop (light) |
 |-|-|
-| <img alt="Month calendar with the chores due on the selected day" src="docs/assets/screens/calendar-desktop-dark.png" width="420"> | <img alt="Edit chore form: name, area, assignees, schedule and reminders" src="docs/assets/screens/chore-editor-desktop-light.png" width="420"> |
+| <img alt="Month calendar with the chores due on the selected day" src="docs/assets/screens/calendar-desktop-dark.png" width="420"> | <img alt="Edit chore form: name, area, assignees taking turns, first due date and schedule" src="docs/assets/screens/chore-editor-desktop-light.png" width="420"> |
 
 <p align="center"><img alt="Household settings, People group: the settings groups on the side, members and invites next to them" src="docs/assets/screens/household-desktop-light.png" width="420"><br><sub>Household settings (light): grouped into General, People, Notifications, Connections and Data.</sub></p>
 

@@ -160,8 +160,8 @@
           {#if areaName(c.areaId)}{areaName(c.areaId)} &middot; {/if}
           {#if c.status === 'paused'}{t('status.paused')}{:else if c.status === 'none' || c.status === 'archived'}{t(c.status === 'none' ? 'status.none' : 'home.archived')}{:else}{dueText(c.dueDate)}{/if}
         </span>
+        {#if turnName(c)}<span class="badge turn">{t('chore.turnOf', { name: turnName(c) })}</span>{/if}
       </a>
-      {#if turnName(c)}<span class="badge">{t('chore.turnOf', { name: turnName(c) })}</span>{/if}
       <Initials names={who(c)} />
       {#if canEdit && !archived && c.status !== 'paused' && c.status !== 'none'}
         <Button onclick={() => done(c)} aria-label={t('home.doneFor', { name: c.name })}>{t('common.done')}</Button>
@@ -277,6 +277,10 @@
     align-content: center;
     color: var(--text);
     text-decoration: none;
+  }
+  .turn {
+    justify-self: start;
+    margin-block-start: 4px;
   }
   .late {
     color: var(--danger);
