@@ -38,7 +38,7 @@ A self-hostable, **AI-friendly** chore tracker for recurring household chores an
 |-|-|
 | <img alt="Month calendar with the chores due on the selected day" src="docs/assets/screens/calendar-desktop-dark.png" width="420"> | <img alt="Edit chore form: name, area, assignees, schedule and reminders" src="docs/assets/screens/chore-editor-desktop-light.png" width="420"> |
 
-<p align="center"><img alt="Household settings: members, areas, calendar feeds and notification channels" src="docs/assets/screens/household-desktop-light.png" width="420"><br><sub>Household settings (light): members, areas, calendar feeds, notification channels.</sub></p>
+<p align="center"><img alt="Household settings, People group: the settings groups on the side, members and invites next to them" src="docs/assets/screens/household-desktop-light.png" width="420"><br><sub>Household settings (light): grouped into General, People, Notifications, Connections and Data.</sub></p>
 
 All screenshots show synthetic demo data.
 
@@ -188,7 +188,7 @@ Everything is set through environment variables, all documented with their defau
 | `GUNKLY_METRICS_TOKEN` | Enables `/metrics` |
 | `GUNKLY_AUTO_MIGRATE` | Apply migrations on start (default `true`) |
 
-Limits, sign-up, sessions, retention, allowed notification services and the egress guard are admin settings in the app (Admin).
+Limits, sign-up, sessions, retention, allowed notification services and the egress guard are admin settings in the app (Administration: Sign-up & sign-in, Connections, Data & retention, Limits).
 
 ## Backups
 
@@ -246,7 +246,7 @@ Administration, Updates shows the running version and the latest release with it
 
 ## Browser notifications
 
-Under Account, "Enable notifications on this device" subscribes the browser to Web Push (HTTPS or localhost, and a browser with push support). Messages are encrypted to the browser and delivered through the browser vendor's push service, which sees that a message was sent and when. Push follows the same recipients, mutes and quiet hours as your other channels.
+Under Account, Notifications, "Turn on reminders on this device" subscribes the browser to Web Push (HTTPS or localhost, and a browser with push support). Messages are encrypted to the browser and delivered through the browser vendor's push service, which sees that a message was sent and when. Push follows the same recipients, mutes and quiet hours as your other channels.
 
 ## Integrations / API tokens
 
@@ -261,7 +261,7 @@ Requests with a token need no cookies or CSRF header. See [api/openapi.yaml](api
 
 ## Outgoing webhooks
 
-Gunkly can POST a signed JSON message to a web address when a chore is completed, becomes overdue, is created, changed, deleted, snoozed or skipped, so home automation and scripts can react without polling. Optional and **off by default**: an admin turns it on under Administration, "Connections"; while off nothing is sent and the routes answer 404. Household owners then add webhooks under the household settings, "Webhooks (advanced)" (https addresses only, unless the admin switched the egress guard off for self-hosting). Every request is signed (`Gunkly-Signature: t=<unix>,v1=<HMAC-SHA256 of "<t>.<body>">`, with a per-webhook secret shown once), goes through the egress guard, never follows redirects, retries with backoff and is logged (last 50 per webhook); 20 failures in a row switch the webhook off. Payloads, signature checks in shell, Python and Node, and the retry rules are in [docs/webhooks.md](docs/webhooks.md); design in [ADR 0017](docs/adr/0017-outgoing-webhooks.md).
+Gunkly can POST a signed JSON message to a web address when a chore is completed, becomes overdue, is created, changed, deleted, snoozed or skipped, so home automation and scripts can react without polling. Optional and **off by default**: an admin turns it on under Administration, "Connections"; while off nothing is sent and the routes answer 404. Household owners then add webhooks under the household settings, Connections, "Webhooks (advanced)" (https addresses only, unless the admin switched the egress guard off for self-hosting). Every request is signed (`Gunkly-Signature: t=<unix>,v1=<HMAC-SHA256 of "<t>.<body>">`, with a per-webhook secret shown once), goes through the egress guard, never follows redirects, retries with backoff and is logged (last 50 per webhook); 20 failures in a row switch the webhook off. Payloads, signature checks in shell, Python and Node, and the retry rules are in [docs/webhooks.md](docs/webhooks.md); design in [ADR 0017](docs/adr/0017-outgoing-webhooks.md).
 
 ## Home Assistant
 
@@ -323,7 +323,7 @@ Verify a binary: `sha256sum -c --ignore-missing SHA256SUMS`.
 
 The maintainer runs a free, non-commercial hosted instance; its operations and legal texts live outside this repository. Self-hosters run their own instance and are responsible for their own data.
 
-Every instance can delete accounts (Account, "Delete account") and can optionally remove accounts that stay inactive: an admin switches it on in the instance settings (default off; warning after 365 days, deletion after 548 days without activity, a final warning 30 days before; instance admins are never deleted).
+Every instance can delete accounts (Account, Your data, "Delete account") and can optionally remove accounts that stay inactive: an admin switches it on under Administration, "Data & retention" (default off; warning after 365 days, deletion after 548 days without activity, a final warning 30 days before; instance admins are never deleted).
 
 ## Documentation
 

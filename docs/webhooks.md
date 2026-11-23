@@ -5,7 +5,7 @@ Gunkly can send a signed JSON message to a web address when something happens to
 ## Turn it on
 
 1. An instance admin ticks **Let household owners add outgoing webhooks** under Administration, Connections (`webhooksEnabled` in the API). While it is off, nothing is sent and every webhook route answers `404`.
-2. A household **owner** opens the household's settings, expands **Webhooks (advanced)** and adds a webhook: the address, the events and an optional description. Creating, changing or switching one on or off asks for the password again (step-up) unless you confirmed it in the last 15 minutes.
+2. A household **owner** opens the household's settings, **Connections**, expands **Webhooks (advanced)** and adds a webhook: the address, the events and an optional description. Creating, changing or switching one on or off asks for the password again (step-up) unless you confirmed it in the last 15 minutes.
 3. Gunkly shows the **signing secret** (`whsec_...`) once. Copy it; it can not be shown again. **New secret** replaces it (the old one stops signing immediately).
 4. **Send test** posts a signed `ping` event right away and shows the result in the log.
 
@@ -98,7 +98,7 @@ function verify(secret, header, body /* Buffer, the raw body */, tolerance = 300
 - Answer with any `2xx` quickly (Gunkly waits 15 seconds) and do slow work afterwards. The response body is ignored (at most 4 KiB is read).
 - **Redirects are not followed**: a `3xx` counts as a failure. Give Gunkly the final address.
 - `5xx`, `408`, `425`, `429`, timeouts and connection errors are retried after 1, 2, 4, 8 and 16 minutes (6 attempts in all). Other `4xx` responses fail at once.
-- After **20 consecutive failed attempts** the webhook is switched off, an audit event is written and the household settings show a notice. Turn it on again after fixing the receiver; a single success resets the count.
+- After **20 consecutive failed attempts** the webhook is switched off, an audit event is written and the household settings (Connections) show a notice. Turn it on again after fixing the receiver; a single success resets the count.
 - Each webhook keeps a log of its last 50 attempts: event, time, HTTP status, duration and a short error ("HTTP 503", "timed out", "connection failed", "destination address not allowed"). Errors never contain the address or what the receiver answered.
 - Delivery is at least once. Order is not guaranteed across retries.
 
