@@ -232,6 +232,17 @@ func (c *Chore) normalise(p string, areas map[string]string, o Options) error {
 			return err
 		}
 	}
+	if c.RotationAdvance != "" && c.RotationAdvance != "any" && c.RotationAdvance != "assignee" {
+		return bad(ReasonInvalid, p+".rotationAdvance")
+	}
+	if c.Rotation && len(c.Assignees) < 2 || c.Turn != nil && !c.Rotation {
+		return bad(ReasonInvalid, p+".rotation")
+	}
+	if c.Turn != nil {
+		if c.Turn.DisplayName, c.Turn.Username, err = person(p+".turn", *c.Turn); err != nil {
+			return err
+		}
+	}
 	if len(c.Completions) > o.MaxCompletions {
 		return bad(ReasonLimitComp, p+".completions")
 	}

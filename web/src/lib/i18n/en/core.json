@@ -105,6 +105,7 @@
   "home.allAreas": "All areas",
   "home.completed": "Done: {name}",
   "home.undone": "Undone: {name}",
+  "chore.turnOf": "{name}'s turn",
   "home.doneFor": "Mark {name} as done",
   "home.other": "Paused or unscheduled",
   "home.welcome": "Welcome to Gunkly",

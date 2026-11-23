@@ -15,6 +15,7 @@ Due-date math has many edge cases (overdue, early completion, month ends, DST). 
 - **DST:** a nonexistent local time shifts to the next valid time; an ambiguous time uses the first occurrence.
 - **Time zone:** reminder times are evaluated in the household's IANA zone (0011).
 - **Missed reminders:** one catch-up per chore after downtime.
+- **Rotating assignees ("Take turns"):** this is store logic, not scheduling math: the current-turn person (`chores.turn_user_id`, always one of the ordered `chore_assignees`) is part of the chore's state, changed in the same transaction as the due date. Completion moves the turn to the completer's successor (or, with `rotation_advance = 'assignee'`, only when the completer holds the turn); the turn held before is stored on the completion (`prev_turn_user_id`) so reverting the latest completion restores it together with the previous due date. Skip and snooze change the occurrence only and keep the turn. Reminders resolve their recipient from the turn when the reminder fires (`ReminderTargets`), so a turn change takes effect for pending reminders. Leaving, account deletion and demotion to guest remove the person from the rotation and move the turn on; fewer than two people left switches rotation off.
 
 **Supported RRULE subset** (anything else is rejected at validation):
 

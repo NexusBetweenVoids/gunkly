@@ -97,6 +97,7 @@ func (t *tx) exportChores(ctx context.Context, hh string, areaName map[string]st
 			NextDue:     timeOrNil(c.NextDue),
 			PausedUntil: timeOrNil(c.PausedUntil), PausedIndefinitely: c.PausedIndefinitely,
 			ArchivedAt: timeOrNil(c.ArchivedAt), ReminderPreset: c.ReminderPreset,
+			Rotation:  c.Rotation,
 			Reminders: []transfer.Reminder{}, Assignees: []transfer.Person{}, Completions: []transfer.Completion{},
 		}
 		if c.Kind == KindRecurring {
@@ -105,6 +106,9 @@ func (t *tx) exportChores(ctx context.Context, hh string, areaName map[string]st
 			} else {
 				ec.Schedule.Interval = &transfer.Interval{Every: c.IntervalN, Unit: c.IntervalUnit}
 			}
+		}
+		if c.Rotation {
+			ec.RotationAdvance = c.RotationAdvance
 		}
 		idx[c.ID] = len(out.Chores)
 		out.Chores = append(out.Chores, ec)
@@ -142,9 +146,11 @@ func (t *tx) exportReminders(ctx context.Context, hh string, idx map[string]int,
 }
 
 func (t *tx) exportAssignees(ctx context.Context, hh string, idx map[string]int, out *transfer.Household) error {
-	rows, err := t.query(ctx, `SELECT ca.chore_id, u.display_name, u.username FROM chore_assignees ca
+	rows, err := t.query(ctx, `SELECT ca.chore_id, u.display_name, u.username,
+			CASE WHEN c.rotation = TRUE AND ca.user_id = c.turn_user_id THEN 1 ELSE 0 END
+		FROM chore_assignees ca
 		JOIN chores c ON c.id = ca.chore_id JOIN users u ON u.id = ca.user_id
-		WHERE c.household_id = ? ORDER BY ca.chore_id, u.username_lower`, hh)
+		WHERE c.household_id = ? ORDER BY ca.chore_id, ca.position, u.username_lower`, hh)
 	if err != nil {
 		return err
 	}
@@ -152,11 +158,15 @@ func (t *tx) exportAssignees(ctx context.Context, hh string, idx map[string]int,
 	for rows.Next() {
 		var id string
 		var p transfer.Person
-		if err := rows.Scan(&id, &p.DisplayName, &p.Username); err != nil {
+		var turn int
+		if err := rows.Scan(&id, &p.DisplayName, &p.Username, &turn); err != nil {
 			return err
 		}
 		c := &out.Chores[idx[id]]
 		c.Assignees = append(c.Assignees, p)
+		if turn == 1 {
+			c.Turn = &p
+		}
 	}
 	return rows.Err()
 }

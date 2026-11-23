@@ -862,6 +862,7 @@ func TestChoreRoutesRejectForeignIDs(t *testing.T) {
 	bodies := map[string]any{
 		"PATCH /areas/{area}":           map[string]string{"name": "Pwned"},
 		"PUT /chores/{chore}":           intervalBody("Pwned", "2026-11-21"),
+		"PATCH /chores/{chore}":         map[string]string{"turnUserId": f.hB},
 		"POST /chores/{chore}/snooze":   map[string]string{"until": "2026-12-01"},
 		"POST /chores/{chore}/pause":    map[string]string{"until": "2026-12-01"},
 		"PUT /chores/{chore}/reminders": map[string]any{"preset": "nag"},

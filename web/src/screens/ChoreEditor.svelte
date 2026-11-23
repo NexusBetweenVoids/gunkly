@@ -43,6 +43,8 @@
   let areaId = $state('');
   let newArea = $state('');
   let assignees = $state<string[]>([]);
+  let rotation = $state(false);
+  let onlyTurn = $state(false); // advance only when the person whose turn it is completes
   let firstDue = $state(today());
   let repeat = $state('weekly');
   let n = $state(1);
@@ -91,6 +93,8 @@
     name = c.name;
     areaId = c.areaId ?? '';
     assignees = c.assignees;
+    rotation = c.rotation;
+    onlyTurn = c.advanceOn === 'assignee';
     firstDue = c.schedule.firstDue;
     notes = c.notes;
     link = c.link;
@@ -173,6 +177,7 @@
       const sendTime = !custom && showTime && !!remTime && (remTouched || remStored);
       const body = {
         name: name.trim(), notes, link: link.trim(), ...(areasOn ? { areaId: area } : {}), assignees,
+        rotation: takesTurns, advanceOn: onlyTurn ? 'assignee' : 'any',
         kind: recurring ? 'recurring' : 'oneoff',
         schedule: repeat === 'rule'
           ? { type: 'rrule', rrule: toRRule(rule), anchor, firstDue }
@@ -220,6 +225,13 @@
     customRem = (PRESET_REMINDERS[from] ?? []).map((r) => ({ ...r, minute: chosen ? toMinute(remTime) : r.minute }));
   }
 
+  const takesTurns = $derived(rotation && assignees.length >= 2 && repeat !== 'none');
+  const memberName = (uid: string) => members.find((m) => m.userId === uid)?.displayName ?? '';
+  function move(i: number, by: -1 | 1): void {
+    const a = [...assignees];
+    [a[i], a[i + by]] = [a[i + by], a[i]];
+    assignees = a;
+  }
   const toggle = (uid: string) => (assignees = assignees.includes(uid) ? assignees.filter((x) => x !== uid) : [...assignees, uid]);
   const repeatKeys = $derived(Object.keys(PRESET_LABELS).filter((k) => more || (k !== 'interval' && k !== 'rule') || repeat === k));
 </script>
@@ -257,6 +269,22 @@
           <label class="check"><input type="checkbox" checked={assignees.includes(m.userId)} onchange={() => toggle(m.userId)} />{m.displayName}</label>
         {/each}
         <p class="hint">{assignees.length ? t('chore.assigneesSome') : t('chore.anyone')}</p>
+        {#if assignees.length >= 2 && repeat !== 'none'}
+          <label class="check"><input type="checkbox" bind:checked={rotation} />{t('chore.takeTurns')}</label>
+          {#if rotation}
+            <p class="hint">{t('chore.takeTurnsHint')}</p>
+            <ol class="order" aria-label={t('chore.turnOrder')}>
+              {#each assignees as uid, i (uid)}
+                <li>
+                  <span>{memberName(uid)}</span>
+                  <Button variant="quiet" disabled={i === 0} aria-label={t('chore.moveUp', { name: memberName(uid) })} onclick={() => move(i, -1)}>&uarr;</Button>
+                  <Button variant="quiet" disabled={i === assignees.length - 1} aria-label={t('chore.moveDown', { name: memberName(uid) })} onclick={() => move(i, 1)}>&darr;</Button>
+                </li>
+              {/each}
+            </ol>
+            <label class="check"><input type="checkbox" bind:checked={onlyTurn} />{t('chore.advanceOnly')}</label>
+          {/if}
+        {/if}
       </fieldset>
 
       <Field label={t('chore.firstDue')} type="date" bind:value={firstDue} required />
@@ -322,3 +350,19 @@
     </form>
   {/if}
 </section>
+
+<style>
+  .order {
+    list-style: decimal inside;
+    margin: 0;
+    padding: 0;
+  }
+  .order > li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .order > li > span {
+    flex: 1;
+  }
+</style>

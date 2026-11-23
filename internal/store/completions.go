@@ -70,10 +70,12 @@ func (s *Store) CompleteChore(ctx context.Context, a Actor, householdID, choreID
 func (t *tx) complete(ctx context.Context, householdID, choreID, userID string, in CompletionInput, now int64) (Completion, error) {
 	c := Completion{ID: ids.New(), ChoreID: choreID, UserID: userID, CompletedAt: in.CompletedAt.UTC().Truncate(time.Millisecond),
 		Source: in.Source, TokenID: in.TokenID, Note: in.Note}
-	var kind, dueDate string
+	var kind, dueDate, advance, turn string
 	var next, archived sql.NullInt64
-	err := t.queryRow(ctx, "SELECT kind, due_date, next_due, archived_at FROM chores WHERE id = ? AND household_id = ?",
-		choreID, householdID).Scan(&kind, &dueDate, &next, &archived)
+	var rotation bool
+	err := t.queryRow(ctx, `SELECT kind, due_date, next_due, archived_at, rotation, rotation_advance, COALESCE(turn_user_id, '')
+		FROM chores WHERE id = ? AND household_id = ?`,
+		choreID, householdID).Scan(&kind, &dueDate, &next, &archived, &rotation, &advance, &turn)
 	if err != nil {
 		return Completion{}, notFound(err)
 	}
@@ -81,8 +83,9 @@ func (t *tx) complete(ctx context.Context, householdID, choreID, userID string, 
 		return Completion{}, ErrConflict
 	}
 	if _, err := t.exec(ctx, `INSERT INTO completions (id, chore_id, user_id, completed_at, source, token_id, note,
-		prev_next_due, prev_due_date, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		c.ID, choreID, nullStr(userID), c.CompletedAt.UnixMilli(), in.Source, nullStr(in.TokenID), in.Note, next, dueDate, now); err != nil {
+		prev_next_due, prev_due_date, prev_turn_user_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		c.ID, choreID, nullStr(userID), c.CompletedAt.UnixMilli(), in.Source, nullStr(in.TokenID), in.Note, next, dueDate,
+		nullStr(turn), now); err != nil {
 		return Completion{}, err
 	}
 	if kind == KindOneOff {
@@ -97,6 +100,15 @@ func (t *tx) complete(ctx context.Context, householdID, choreID, userID string, 
 	}
 	if err != nil {
 		return Completion{}, err
+	}
+	if rotation && kind != KindOneOff {
+		newTurn, err := t.advanceTurn(ctx, choreID, advance, turn, userID)
+		if err != nil {
+			return Completion{}, err
+		}
+		if _, err := t.exec(ctx, "UPDATE chores SET turn_user_id = ? WHERE id = ?", nullStr(newTurn), choreID); err != nil {
+			return Completion{}, err
+		}
 	}
 	if _, err = t.exec(ctx, "DELETE FROM mark_done_tokens WHERE chore_id = ?", choreID); err != nil {
 		return Completion{}, err
@@ -192,9 +204,10 @@ func (s *Store) RevertCompletion(ctx context.Context, a Actor, householdID, comp
 func (t *tx) revertCompletion(ctx context.Context, householdID, completionID string, now int64) error {
 	var choreID, prevDueDate, kind string
 	var prevNext, reverted sql.NullInt64
-	err := t.queryRow(ctx, `SELECT c.chore_id, c.prev_next_due, c.prev_due_date, c.reverted_at, ch.kind
+	var prevTurn sql.NullString
+	err := t.queryRow(ctx, `SELECT c.chore_id, c.prev_next_due, c.prev_due_date, c.reverted_at, ch.kind, c.prev_turn_user_id
 		FROM completions c JOIN chores ch ON ch.id = c.chore_id
-		WHERE c.id = ? AND ch.household_id = ?`, completionID, householdID).Scan(&choreID, &prevNext, &prevDueDate, &reverted, &kind)
+		WHERE c.id = ? AND ch.household_id = ?`, completionID, householdID).Scan(&choreID, &prevNext, &prevDueDate, &reverted, &kind, &prevTurn)
 	if err != nil {
 		return notFound(err)
 	}
@@ -219,6 +232,16 @@ func (t *tx) revertCompletion(ctx context.Context, householdID, completionID str
 		return t.execOne(ctx, "UPDATE chores SET archived_at = NULL, updated_at = ? WHERE id = ? AND household_id = ?",
 			now, choreID, householdID)
 	}
-	return t.execOne(ctx, "UPDATE chores SET next_due = ?, due_date = ?, updated_at = ? WHERE id = ? AND household_id = ?",
-		prevNext, prevDueDate, now, choreID, householdID)
+	if err := t.execOne(ctx, "UPDATE chores SET next_due = ?, due_date = ?, updated_at = ? WHERE id = ? AND household_id = ?",
+		prevNext, prevDueDate, now, choreID, householdID); err != nil {
+		return err
+	}
+	if !prevTurn.Valid {
+		return nil
+	}
+	// Give the turn back, unless that person has left the rotation since.
+	_, err = t.exec(ctx, `UPDATE chores SET turn_user_id = ? WHERE id = ? AND rotation = TRUE
+		AND EXISTS (SELECT 1 FROM chore_assignees WHERE chore_id = ? AND user_id = ?)`,
+		prevTurn.String, choreID, choreID, prevTurn.String)
+	return err
 }

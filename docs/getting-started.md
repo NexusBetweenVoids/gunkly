@@ -39,7 +39,7 @@ To share it, open the household's Settings and create an invite link (choose a r
 
 ## 4. Add chores
 
-Use "Add" and either start from a template or fill in the form: name, assignees, first due date (and an area, if your household uses areas), how it repeats (every N days, weeks or months, or a calendar rule such as "every April and October") a reminder preset and the time of day to be reminded ("Remind me at"). "More options" holds notes, a link and the advanced settings. Completing a chore from Home schedules the next due date; Undo is shown right after.
+Use "Add" and either start from a template or fill in the form: name, assignees, first due date (and an area, if your household uses areas), how it repeats (every N days, weeks or months, or a calendar rule such as "every April and October") a reminder preset and the time of day to be reminded ("Remind me at"). Select two or more assignees and a "Take turns" option appears: the people take turns in the order shown (use the arrows to change it), only the person whose turn it is gets reminders and sees the chore under "Mine", and after someone completes it the turn passes to the next person. The chore page shows whose turn it is and lets you change it. "More options" holds notes, a link and the advanced settings. Completing a chore from Home schedules the next due date; Undo is shown right after.
 
 ## 5. Get reminders
 

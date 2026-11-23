@@ -47,7 +47,7 @@ All screenshots show synthetic demo data.
 **Chores and schedules**
 - Recurring (every N days, weeks or months, or a calendar rule such as "every Saturday" or "every April and October") and one-off chores.
 - Next due date from completion or from the scheduled date; monthly rules on the 29th to 31st fall on the month's last day; time zone and DST aware.
-- Assignees (none, one or many); one completion by anyone completes it for everyone.
+- Assignees (none, one or many); one completion by anyone completes it for everyone. Optionally take turns: the turn, and its reminders, rotate through the assignees.
 - Snooze, skip once, pause, archive; undo right after completing, revert later from history; optional areas (off by default), notes, link, starter templates.
 - Home screen grouped Overdue / Today / This week / Later, with "Mine / Everyone" (and area filters if you turn areas on).
 

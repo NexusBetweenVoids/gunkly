@@ -233,6 +233,9 @@ func (t *tx) applyLeave(ctx context.Context, h HouseholdRef, userID, chosen stri
 	if err = t.execOne(ctx, "DELETE FROM memberships WHERE household_id = ? AND user_id = ?", h.ID, userID); err != nil {
 		return false, "", nil, err
 	}
+	if err = t.leaveRotations(ctx, h.ID, userID); err != nil {
+		return false, "", nil, err
+	}
 	for _, q := range []string{
 		"DELETE FROM chore_assignees WHERE user_id = ? AND chore_id IN (SELECT id FROM chores WHERE household_id = ?)",
 		"DELETE FROM chore_mutes WHERE user_id = ? AND chore_id IN (SELECT id FROM chores WHERE household_id = ?)",

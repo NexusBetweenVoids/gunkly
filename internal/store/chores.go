@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"net/url"
+	"slices"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -23,6 +24,12 @@ const (
 
 	AnchorFromCompletion = "from_completion"
 	AnchorFromScheduled  = "from_scheduled"
+
+	// Rotation advance modes: the turn passes on when anyone completes the
+	// chore (the completer's successor is next) or only when the person whose
+	// turn it is completes it.
+	AdvanceAny      = "any"
+	AdvanceAssignee = "assignee"
 )
 
 // Chore is a household chore. Scheduling math lives in internal/schedule;
@@ -47,7 +54,10 @@ type Chore struct {
 	PausedIndefinitely bool
 	ArchivedAt         time.Time
 	ReminderPreset     string
-	Assignees          []string // user IDs; empty = anyone
+	Assignees          []string // user IDs in rotation order; empty = anyone
+	Rotation           bool     // "Take turns": needs 2+ assignees and a recurring chore
+	RotationAdvance    string   // AdvanceAny | AdvanceAssignee
+	TurnUserID         string   // current-turn assignee while Rotation, else ""
 	CreatedAt          time.Time
 	UpdatedAt          time.Time
 }
@@ -73,7 +83,12 @@ type ChoreInput struct {
 	// Reminders, when non-nil, replaces the chore's reminder rows in the same
 	// transaction; ReminderPreset must then be "custom".
 	Reminders []schedule.Reminder
-	Assignees []string
+	Assignees []string // in rotation order
+	// Rotation turns "Take turns" on (2+ assignees, recurring); RotationAdvance
+	// is AdvanceAny (default) or AdvanceAssignee. The current turn is kept
+	// while that person is still an assignee, otherwise it is the first one.
+	Rotation        bool
+	RotationAdvance string
 	// MaxChores is the household's ChoresPerHousehold limit, resolved by the
 	// caller from internal/limits; CreateChore returns ErrLimit when the
 	// household already has that many (archived ones included). 0 = no cap.
@@ -81,6 +96,13 @@ type ChoreInput struct {
 }
 
 func (in *ChoreInput) validate() bool {
+	if in.RotationAdvance == "" {
+		in.RotationAdvance = AdvanceAny
+	}
+	if in.RotationAdvance != AdvanceAny && in.RotationAdvance != AdvanceAssignee ||
+		in.Rotation && (len(in.Assignees) < 2 || in.Kind != KindRecurring) {
+		return false
+	}
 	if in.Reminders != nil {
 		if in.ReminderPreset != "custom" {
 			return false
@@ -165,8 +187,8 @@ func (t *tx) setAssignees(ctx context.Context, choreID string, users []string) e
 	if _, err := t.exec(ctx, "DELETE FROM chore_assignees WHERE chore_id = ?", choreID); err != nil {
 		return err
 	}
-	for _, u := range users {
-		if _, err := t.exec(ctx, "INSERT INTO chore_assignees (chore_id, user_id) VALUES (?, ?)", choreID, u); err != nil {
+	for i, u := range users {
+		if _, err := t.exec(ctx, "INSERT INTO chore_assignees (chore_id, user_id, position) VALUES (?, ?, ?)", choreID, u, i); err != nil {
 			return err
 		}
 	}
@@ -199,6 +221,9 @@ func (s *Store) CreateChore(ctx context.Context, a Actor, householdID string, in
 		if err := t.setAssignees(ctx, id, in.Assignees); err != nil {
 			return err
 		}
+		if err := t.setTurn(ctx, id, in, ""); err != nil {
+			return err
+		}
 		if in.Reminders != nil {
 			if err := t.replaceReminders(ctx, id, in.Reminders); err != nil {
 				return err
@@ -215,17 +240,31 @@ func (s *Store) CreateChore(ctx context.Context, a Actor, householdID string, in
 func (t *tx) insertChore(ctx context.Context, id, householdID, createdBy string, in ChoreInput, now int64) error {
 	_, err := t.exec(ctx, `INSERT INTO chores (id, household_id, area_id, name, notes, link, kind, schedule_type,
 		interval_n, interval_unit, rrule, anchor, first_due, due_date, next_due, paused_until, paused_indefinitely,
-		reminder_preset, created_by, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		reminder_preset, rotation, rotation_advance, created_by, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		id, householdID, nullStr(in.AreaID), in.Name, in.Notes, in.Link, in.Kind, in.ScheduleType,
 		nullInt(in.IntervalN), nullStr(in.IntervalUnit), in.RRule, in.Anchor, in.FirstDue, in.DueDate,
-		ms(in.NextDue), ms(in.PausedUntil), in.PausedIndefinitely, in.ReminderPreset, createdBy, now, now)
+		ms(in.NextDue), ms(in.PausedUntil), in.PausedIndefinitely, in.ReminderPreset, in.Rotation, in.RotationAdvance, createdBy, now, now)
+	return err
+}
+
+// setTurn stores the rotation's current-turn person: keep (when still an
+// assignee) or the first assignee, or none when rotation is off.
+func (t *tx) setTurn(ctx context.Context, choreID string, in ChoreInput, keep string) error {
+	turn := sql.NullString{}
+	if in.Rotation {
+		turn = nullStr(in.Assignees[0])
+		if slices.Contains(in.Assignees, keep) {
+			turn = nullStr(keep)
+		}
+	}
+	_, err := t.exec(ctx, "UPDATE chores SET turn_user_id = ? WHERE id = ?", turn, choreID)
 	return err
 }
 
 const choreCols = `id, household_id, COALESCE(area_id, ''), name, notes, link, kind, schedule_type,
 	COALESCE(interval_n, 0), COALESCE(interval_unit, ''), rrule, anchor, first_due, due_date, next_due, paused_until,
-	paused_indefinitely, archived_at, reminder_preset, created_at, updated_at`
+	paused_indefinitely, archived_at, reminder_preset, rotation, rotation_advance, COALESCE(turn_user_id, ''), created_at, updated_at`
 
 func scanChore(row interface{ Scan(...any) error }) (Chore, error) {
 	var c Chore
@@ -233,7 +272,7 @@ func scanChore(row interface{ Scan(...any) error }) (Chore, error) {
 	var created, updated int64
 	err := row.Scan(&c.ID, &c.HouseholdID, &c.AreaID, &c.Name, &c.Notes, &c.Link, &c.Kind, &c.ScheduleType,
 		&c.IntervalN, &c.IntervalUnit, &c.RRule, &c.Anchor, &c.FirstDue, &c.DueDate, &next, &paused,
-		&c.PausedIndefinitely, &archived, &c.ReminderPreset, &created, &updated)
+		&c.PausedIndefinitely, &archived, &c.ReminderPreset, &c.Rotation, &c.RotationAdvance, &c.TurnUserID, &created, &updated)
 	if err != nil {
 		return Chore{}, notFound(err)
 	}
@@ -248,7 +287,7 @@ func (t *tx) chore(ctx context.Context, householdID, choreID string) (Chore, err
 	if err != nil {
 		return Chore{}, err
 	}
-	rows, err := t.query(ctx, "SELECT user_id FROM chore_assignees WHERE chore_id = ? ORDER BY user_id", choreID)
+	rows, err := t.query(ctx, "SELECT user_id FROM chore_assignees WHERE chore_id = ? ORDER BY position, user_id", choreID)
 	if err != nil {
 		return Chore{}, err
 	}
@@ -304,7 +343,7 @@ func (s *Store) ListChores(ctx context.Context, a Actor, householdID string, inc
 			return err
 		}
 		rows, err := t.query(ctx, `SELECT ca.chore_id, ca.user_id FROM chore_assignees ca
-			JOIN chores c ON c.id = ca.chore_id WHERE c.household_id = ? ORDER BY ca.user_id`, householdID)
+			JOIN chores c ON c.id = ca.chore_id WHERE c.household_id = ? ORDER BY ca.position, ca.user_id`, householdID)
 		if err != nil {
 			return err
 		}
@@ -341,14 +380,17 @@ func (s *Store) UpdateChore(ctx context.Context, a Actor, householdID, choreID s
 		}
 		if err := t.execOne(ctx, `UPDATE chores SET area_id = ?, name = ?, notes = ?, link = ?, kind = ?, schedule_type = ?,
 			interval_n = ?, interval_unit = ?, rrule = ?, anchor = ?, first_due = ?, due_date = ?, next_due = ?,
-			paused_until = ?, paused_indefinitely = ?, reminder_preset = ?, updated_at = ?
+			paused_until = ?, paused_indefinitely = ?, reminder_preset = ?, rotation = ?, rotation_advance = ?, updated_at = ?
 			WHERE id = ? AND household_id = ?`,
 			nullStr(in.AreaID), in.Name, in.Notes, in.Link, in.Kind, in.ScheduleType, nullInt(in.IntervalN),
 			nullStr(in.IntervalUnit), in.RRule, in.Anchor, in.FirstDue, in.DueDate, ms(in.NextDue), ms(in.PausedUntil),
-			in.PausedIndefinitely, in.ReminderPreset, s.nowMS(), choreID, householdID); err != nil {
+			in.PausedIndefinitely, in.ReminderPreset, in.Rotation, in.RotationAdvance, s.nowMS(), choreID, householdID); err != nil {
 			return err
 		}
 		if err := t.setAssignees(ctx, choreID, in.Assignees); err != nil {
+			return err
+		}
+		if err := t.setTurn(ctx, choreID, in, old.TurnUserID); err != nil {
 			return err
 		}
 		if in.Reminders != nil {

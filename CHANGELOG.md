@@ -4,6 +4,11 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ## [Unreleased]
 
+### Added
+
+- **Take turns** (rotating assignees, PRD "Chores & scheduling"): a recurring chore with 2+ assignees can rotate in the assignee order (editor: "Take turns" with up/down controls). The chore has a current-turn person: Home shows a "Sam's turn" badge and "Mine" means my turn (or unassigned), reminders go to the person whose turn it is only (household channels are unchanged), and completing passes the turn to the next person (option "move on only when the person whose turn it is does the chore"). Undo gives the turn back; skip and snooze keep it; a member who leaves, deletes their account or becomes a guest leaves the rotation. The chore page shows the turn and lets you change it ("It's Sam's turn now").
+- API (additive): chores carry `rotation`, `advanceOn` (`any`|`assignee`) and `turnUserId`; `PUT` accepts `rotation` and `advanceOn`; new `PATCH /households/{hh}/chores/{chore}` with `turnUserId` (scope `chores:complete`). MCP `list_chores`/`get_chore` show `takesTurns`, `turnUserId` and `myTurn`, and `mine` follows the turn. Household export and import carry the rotation (`rotation`, `rotationAdvance`, `turn`; assignee order is kept). Migration 0016.
+
 ## [0.3.0] - 2026-11-23
 
 ### Added

@@ -69,7 +69,8 @@
     mine = false; // a new household starts on Everyone
   });
   // "Mine" (assigned to me or to anyone) only differs from Everyone when someone else has a chore of their own.
-  const mineOk = (c: Chore) => !c.assignees.length || c.assignees.includes(app.user?.id ?? '');
+  // For a chore that takes turns, only the person whose turn it is.
+  const mineOk = (c: Chore) => (c.rotation ? c.turnUserId === app.user?.id : !c.assignees.length || c.assignees.includes(app.user?.id ?? ''));
   const mineUseful = $derived(chores.some((c) => !mineOk(c)));
   const showMine = $derived(mine && mineUseful);
   $effect(() => {
@@ -77,6 +78,7 @@
   });
 
   const areaName = (id: string | null) => !areasOn ? '' : areas.find((a) => a.id === id)?.name ?? '';
+  const turnName = (c: Chore) => (c.rotation && c.turnUserId ? members.find((m) => m.userId === c.turnUserId)?.displayName ?? '' : '');
   const who = (c: Chore) => c.assignees.map((id) => members.find((m) => m.userId === id)?.displayName ?? '').filter(Boolean);
   const needle = $derived(q.trim().toLocaleLowerCase());
   const matches = (c: Chore) => !needle || [c.name, areaName(c.areaId), ...who(c)].some((s) => s.toLocaleLowerCase().includes(needle));
@@ -159,6 +161,7 @@
           {#if c.status === 'paused'}{t('status.paused')}{:else if c.status === 'none' || c.status === 'archived'}{t(c.status === 'none' ? 'status.none' : 'home.archived')}{:else}{dueText(c.dueDate)}{/if}
         </span>
       </a>
+      {#if turnName(c)}<span class="badge">{t('chore.turnOf', { name: turnName(c) })}</span>{/if}
       <Initials names={who(c)} />
       {#if canEdit && !archived && c.status !== 'paused' && c.status !== 'none'}
         <Button onclick={() => done(c)} aria-label={t('home.doneFor', { name: c.name })}>{t('common.done')}</Button>

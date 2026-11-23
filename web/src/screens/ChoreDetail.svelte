@@ -4,6 +4,7 @@
   import Confirm from '../components/Confirm.svelte';
   import DateDialog from '../components/DateDialog.svelte';
   import Initials from '../components/Initials.svelte';
+  import Select from '../components/Select.svelte';
   import { api } from '../lib/api';
   import { clock, dueText, fmt, fmtTime } from '../lib/dates';
   import { failure } from '../lib/errors';
@@ -29,6 +30,7 @@
   let next = $state<string | null>(null);
   let err = $state('');
   let busy = $state(false);
+  let changingTurn = $state(false);
   let dlg = $state<'' | 'snooze' | 'pause' | 'delete'>('');
 
   const who = (uid: string | null) => members.find((m) => m.userId === uid)?.displayName ?? t('chore.someone');
@@ -83,6 +85,15 @@
       return r.chore;
     });
   }
+  function setTurn(uid: string): void {
+    changingTurn = false;
+    if (!uid || uid === c?.turnUserId) return;
+    void act(async () => {
+      const r = await api<Chore>('PATCH', `${base}/chores/${id}`, { turnUserId: uid });
+      toast(t('chore.turnSet', { name: who(uid) }));
+      return r;
+    });
+  }
   const mute = () =>
     act(() => api<void>(c!.muted ? 'DELETE' : 'PUT', `${base}/chores/${id}/mute`).then(() => ({ ...c!, muted: !c!.muted })), c!.muted ? 'chore.muteOff' : 'chore.muteOn');
   const remText = (r: Reminder) =>
@@ -106,6 +117,18 @@
       <dt>{t('chore.repeat')}</dt><dd>{repeatText(c)}</dd>
       <dt>{t('chore.assignees')}</dt>
       <dd>{#if c.assignees.length}<Initials names={c.assignees.map(who)} />{:else}{t('chore.anyone')}{/if}</dd>
+      {#if c.rotation && c.turnUserId}
+        <dt>{t('chore.turn')}</dt>
+        <dd>
+          {who(c.turnUserId)}
+          {#if canEdit && !c.archivedAt}
+            <Button variant="quiet" {busy} aria-expanded={changingTurn} onclick={() => (changingTurn = !changingTurn)}>{t('chore.turnChange')}</Button>
+            {#if changingTurn}
+              <Select label={t('chore.turnWhose')} bind:value={() => c!.turnUserId ?? '', setTurn} options={c.assignees.map((u) => ({ value: u, label: who(u) }))} />
+            {/if}
+          {/if}
+        </dd>
+      {/if}
       {#if rem}
         <dt>{t('chore.reminders')}</dt>
         <dd>

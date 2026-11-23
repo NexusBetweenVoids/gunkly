@@ -218,6 +218,9 @@ func (s *Store) ChangeRole(ctx context.Context, a Actor, householdID, userID str
 			return err
 		}
 		if role == RoleGuest {
+			if err := t.leaveRotations(ctx, householdID, userID); err != nil {
+				return err
+			}
 			return t.dropMemberTokens(ctx, householdID, userID)
 		}
 		return nil
@@ -245,6 +248,9 @@ func (s *Store) RemoveMember(ctx context.Context, a Actor, householdID, userID s
 			}
 		}
 		if err := t.execOne(ctx, "DELETE FROM memberships WHERE household_id = ? AND user_id = ?", householdID, userID); err != nil {
+			return err
+		}
+		if err := t.leaveRotations(ctx, householdID, userID); err != nil {
 			return err
 		}
 		for _, q := range []string{

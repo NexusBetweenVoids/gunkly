@@ -312,18 +312,38 @@ func (t *tx) importChore(ctx context.Context, hhID, actorID string, attribute bo
 		}
 	}
 	// Assignees: matched by username among non-guest members; others dropped.
+	// The rotation survives only with 2+ matched assignees on a recurring
+	// chore; the turn is the exported one when matched, else the first.
 	seen := map[string]bool{}
+	var order []string
+	turn := ""
 	for _, p := range c.Assignees {
 		m, found := members[userMatch(p.Username)]
 		if !found || !m.role.AtLeast(RoleMember) || seen[m.id] {
 			continue
 		}
 		seen[m.id] = true
-		if _, err := t.exec(ctx, "INSERT INTO chore_assignees (chore_id, user_id) VALUES (?, ?)", id, m.id); err != nil {
+		if _, err := t.exec(ctx, "INSERT INTO chore_assignees (chore_id, user_id, position) VALUES (?, ?, ?)", id, m.id, len(order)); err != nil {
 			return 0, false, err
+		}
+		order = append(order, m.id)
+		if c.Turn != nil && userMatch(c.Turn.Username) == userMatch(p.Username) {
+			turn = m.id
 		}
 	}
 	unassigned = len(c.Assignees) > 0 && len(seen) == 0
+	if c.Rotation && len(order) >= 2 && c.Kind == KindRecurring {
+		if turn == "" {
+			turn = order[0]
+		}
+		adv := c.RotationAdvance
+		if adv == "" {
+			adv = AdvanceAny
+		}
+		if _, err := t.exec(ctx, "UPDATE chores SET rotation = TRUE, rotation_advance = ?, turn_user_id = ? WHERE id = ?", adv, turn, id); err != nil {
+			return 0, false, err
+		}
+	}
 	for _, r := range c.Reminders {
 		days := r.Days
 		if r.Kind == "on" {

@@ -94,21 +94,26 @@ type Completion struct {
 
 // Chore is a chore with its reminders, assignees and history.
 type Chore struct {
-	Name               string       `json:"name"`
-	Notes              string       `json:"notes"`
-	Link               string       `json:"link"`
-	Area               string       `json:"area"` // name of an entry of Household.Areas, "" = none
-	Kind               string       `json:"kind"` // recurring | oneoff
-	Schedule           Schedule     `json:"schedule"`
-	DueDate            string       `json:"dueDate"`
-	NextDue            *time.Time   `json:"nextDue"`
-	PausedUntil        *time.Time   `json:"pausedUntil"`
-	PausedIndefinitely bool         `json:"pausedIndefinitely"`
-	ArchivedAt         *time.Time   `json:"archivedAt"`
-	ReminderPreset     string       `json:"reminderPreset"` // "" = household default | built-in preset | custom
-	Reminders          []Reminder   `json:"reminders"`
-	Assignees          []Person     `json:"assignees"`
-	Completions        []Completion `json:"completions"`
+	Name               string     `json:"name"`
+	Notes              string     `json:"notes"`
+	Link               string     `json:"link"`
+	Area               string     `json:"area"` // name of an entry of Household.Areas, "" = none
+	Kind               string     `json:"kind"` // recurring | oneoff
+	Schedule           Schedule   `json:"schedule"`
+	DueDate            string     `json:"dueDate"`
+	NextDue            *time.Time `json:"nextDue"`
+	PausedUntil        *time.Time `json:"pausedUntil"`
+	PausedIndefinitely bool       `json:"pausedIndefinitely"`
+	ArchivedAt         *time.Time `json:"archivedAt"`
+	ReminderPreset     string     `json:"reminderPreset"` // "" = household default | built-in preset | custom
+	Reminders          []Reminder `json:"reminders"`
+	Assignees          []Person   `json:"assignees"` // in rotation order
+	// Rotation ("Take turns"): RotationAdvance is "any" or "assignee" and Turn
+	// the person whose turn it is (one of Assignees; "" / null when not rotating).
+	Rotation        bool         `json:"rotation,omitempty"`
+	RotationAdvance string       `json:"rotationAdvance,omitempty"`
+	Turn            *Person      `json:"turn,omitempty"`
+	Completions     []Completion `json:"completions"`
 }
 
 // User is the personal data export file. It never contains credentials,

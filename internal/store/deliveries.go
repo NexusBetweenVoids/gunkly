@@ -123,14 +123,21 @@ type ReminderTarget struct {
 // ReminderTargets resolves where a chore's reminders go: the personal
 // channels, Web Push subscriptions and (opted in, verified) email address of its non-guest assignees (or, with no
 // assignees, of every non-guest member) who have not muted it, plus the
-// household's channels. Guests never receive reminders.
+// household's channels. A chore that takes turns reminds only the person whose
+// turn it is (household channels are unchanged). Guests never receive reminders.
 func (s *Store) ReminderTargets(ctx context.Context, householdID, choreID string) ([]ReminderTarget, error) {
 	var out []ReminderTarget
 	err := s.inTx(ctx, false, func(t *tx) error {
+		var turn string
+		if err := t.queryRow(ctx, "SELECT COALESCE(turn_user_id, '') FROM chores WHERE id = ? AND household_id = ? AND rotation = TRUE",
+			choreID, householdID).Scan(&turn); err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return err
+		}
 		const eligible = `m.household_id = ? AND m.role <> 'guest'
 			AND NOT EXISTS (SELECT 1 FROM chore_mutes cm WHERE cm.user_id = m.user_id AND cm.chore_id = ?)
 			AND (NOT EXISTS (SELECT 1 FROM chore_assignees ca WHERE ca.chore_id = ?)
-				OR EXISTS (SELECT 1 FROM chore_assignees ca WHERE ca.chore_id = ? AND ca.user_id = m.user_id))`
+				OR EXISTS (SELECT 1 FROM chore_assignees ca WHERE ca.chore_id = ? AND ca.user_id = m.user_id))
+			AND (? = '' OR m.user_id = ?)`
 		rows, err := t.query(ctx, `SELECT m.user_id, nc.id, '', 0 FROM memberships m
 			JOIN notification_channels nc ON nc.scope = 'user' AND nc.user_id = m.user_id
 			WHERE `+eligible+`
@@ -144,8 +151,8 @@ func (s *Store) ReminderTargets(ctx context.Context, householdID, choreID string
 			WHERE `+eligible+`
 			UNION ALL
 			SELECT '', id, '', 0 FROM notification_channels WHERE scope = 'household' AND household_id = ?
-			ORDER BY 1, 2, 3, 4`, householdID, choreID, choreID, choreID, householdID, choreID, choreID, choreID,
-			householdID, choreID, choreID, choreID, householdID)
+			ORDER BY 1, 2, 3, 4`, householdID, choreID, choreID, choreID, turn, turn, householdID, choreID, choreID, choreID, turn, turn,
+			householdID, choreID, choreID, choreID, turn, turn, householdID)
 		if err != nil {
 			return err
 		}

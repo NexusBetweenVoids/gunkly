@@ -235,6 +235,7 @@ var tokenRoutes = map[string]string{
 	"POST /api/v1/households/{hh}/chores/{chore}/pause":                           scComplete,
 	"POST /api/v1/households/{hh}/chores/{chore}/resume":                          scComplete,
 	"POST /api/v1/households/{hh}/chores/{chore}/completions/{completion}/revert": scComplete,
+	"PATCH /api/v1/households/{hh}/chores/{chore}":                                scComplete,
 	"POST /api/v1/households/{hh}/chores":                                         scWrite,
 	"PUT /api/v1/households/{hh}/chores/{chore}":                                  scWrite,
 	"DELETE /api/v1/households/{hh}/chores/{chore}":                               scWrite,

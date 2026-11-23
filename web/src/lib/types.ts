@@ -56,6 +56,9 @@ export type Chore = {
   archivedAt: string | null;
   reminderPreset: string;
   assignees: string[];
+  rotation: boolean;
+  advanceOn: 'any' | 'assignee';
+  turnUserId: string | null;
   muted: boolean;
 };
 export type Area = { id: string; name: string };

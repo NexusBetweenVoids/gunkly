@@ -56,7 +56,10 @@ type choreView struct {
 	PausedIndefinitely bool       `json:"pausedIndefinitely"`
 	ArchivedAt         *time.Time `json:"archivedAt"`
 	ReminderPreset     string     `json:"reminderPreset"`
-	Assignees          []string   `json:"assignees"`
+	Assignees          []string   `json:"assignees"` // in rotation order
+	Rotation           bool       `json:"rotation"`  // "Take turns": the assignees take turns
+	AdvanceOn          string     `json:"advanceOn"` // any | assignee: who completing passes the turn on
+	TurnUserID         *string    `json:"turnUserId"`
 	Muted              bool       `json:"muted"`
 	CreatedAt          time.Time  `json:"createdAt"`
 	UpdatedAt          time.Time  `json:"updatedAt"`
@@ -145,7 +148,7 @@ func (v viewCtx) view(c store.Chore) choreView {
 		ID: c.ID, Name: c.Name, Notes: c.Notes, Link: c.Link, Kind: c.Kind, DueDate: c.DueDate,
 		NextDue: timePtr(c.NextDue), Status: dueStatus(c, v.now, v.today, v.weekStart),
 		PausedUntil: timePtr(c.PausedUntil), PausedIndefinitely: c.PausedIndefinitely, ArchivedAt: timePtr(c.ArchivedAt),
-		ReminderPreset: c.ReminderPreset, Assignees: c.Assignees, Muted: v.muted[c.ID], CreatedAt: c.CreatedAt, UpdatedAt: c.UpdatedAt,
+		ReminderPreset: c.ReminderPreset, Assignees: c.Assignees, Rotation: c.Rotation, AdvanceOn: c.RotationAdvance, Muted: v.muted[c.ID], CreatedAt: c.CreatedAt, UpdatedAt: c.UpdatedAt,
 		Schedule: scheduleIO{Type: c.ScheduleType, Anchor: c.Anchor, FirstDue: c.FirstDue},
 	}
 	if out.Assignees == nil {
@@ -153,6 +156,9 @@ func (v viewCtx) view(c store.Chore) choreView {
 	}
 	if c.AreaID != "" {
 		out.AreaID = &c.AreaID
+	}
+	if c.TurnUserID != "" {
+		out.TurnUserID = &c.TurnUserID
 	}
 	if c.Kind == store.KindRecurring {
 		if c.ScheduleType == store.ScheduleRRule {
@@ -174,6 +180,8 @@ type choreInput struct {
 	Kind           string           `json:"kind"`   // recurring (default) | oneoff
 	Schedule       scheduleIO       `json:"schedule"`
 	Assignees      []string         `json:"assignees"`
+	Rotation       *bool            `json:"rotation"` // absent on update = keep
+	AdvanceOn      *string          `json:"advanceOn"`
 	ReminderPreset *string          `json:"reminderPreset"`
 	// ReminderTime ("HH:MM", household time zone) sets the time of day of all
 	// the chore's reminders; absent or "" leaves the reminders as they are.
@@ -276,6 +284,28 @@ func (in choreInput) build(loc *time.Location, existing *store.Chore) (store.Cho
 	if len(in.Assignees) > 100 {
 		return out, errInvalid
 	}
+	out.RotationAdvance = store.AdvanceAny
+	if existing != nil && existing.RotationAdvance != "" {
+		out.RotationAdvance = existing.RotationAdvance
+	}
+	if in.AdvanceOn != nil {
+		if *in.AdvanceOn != store.AdvanceAny && *in.AdvanceOn != store.AdvanceAssignee {
+			return out, errInvalid
+		}
+		out.RotationAdvance = *in.AdvanceOn
+	}
+	// Turning rotation on explicitly needs 2+ assignees and a recurring chore;
+	// one kept from before simply stops when they no longer hold.
+	out.Rotation = existing != nil && existing.Rotation
+	if in.Rotation != nil {
+		out.Rotation = *in.Rotation
+		if out.Rotation && (len(in.Assignees) < 2 || out.Kind != store.KindRecurring) {
+			return out, errInvalid
+		}
+	}
+	if len(in.Assignees) < 2 || out.Kind != store.KindRecurring {
+		out.Rotation = false
+	}
 	switch {
 	case in.AreaID.set && in.AreaID.Value != nil:
 		out.AreaID = *in.AreaID.Value
@@ -370,12 +400,21 @@ func (s *Server) listChores(w http.ResponseWriter, r *http.Request, c *call) err
 		switch {
 		case ch.ArchivedAt.IsZero() == archived:
 		case area != "" && ch.AreaID != area:
-		case mine && len(ch.Assignees) > 0 && !slices.Contains(ch.Assignees, c.user.ID):
+		case mine && !isMine(ch, c.user.ID):
 		default:
 			out = append(out, vc.view(ch))
 		}
 	}
 	return ok(w, out)
+}
+
+// isMine reports whether the chore is the user's to do: unassigned, assigned
+// to them, or (when the assignees take turns) their turn.
+func isMine(c store.Chore, userID string) bool {
+	if c.Rotation {
+		return c.TurnUserID == userID
+	}
+	return len(c.Assignees) == 0 || slices.Contains(c.Assignees, userID)
 }
 
 // choreView loads one chore as the caller sees it.
@@ -459,6 +498,25 @@ func (s *Server) updateChore(w http.ResponseWriter, r *http.Request, c *call) er
 		return err
 	}
 	ch, err := s.st.UpdateChore(ctx, c.actor(), c.hh, id, si)
+	if err != nil {
+		return err
+	}
+	return s.respondChore(w, r, c, ch)
+}
+
+// setChoreTurn is PATCH on a chore: today only turnUserId, "It's <name>'s turn
+// now" for a chore whose assignees take turns.
+func (s *Server) setChoreTurn(w http.ResponseWriter, r *http.Request, c *call) error {
+	var in struct {
+		TurnUserID string `json:"turnUserId"`
+	}
+	if err := decode(r, &in); err != nil {
+		return err
+	}
+	if in.TurnUserID == "" {
+		return errInvalid
+	}
+	ch, err := s.st.SetChoreTurn(r.Context(), c.actor(), c.hh, r.PathValue("chore"), in.TurnUserID)
 	if err != nil {
 		return err
 	}

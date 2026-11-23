@@ -81,6 +81,7 @@ func (s *Server) registerRoutes() {
 	s.handle("POST /api/v1/households/{hh}/chores", member.withToken(store.ScopeWrite), s.createChore)
 	s.handle("GET /api/v1/households/{hh}/chores/{chore}", guest.withToken(store.ScopeRead), s.getChore)
 	s.handle("PUT /api/v1/households/{hh}/chores/{chore}", member.withToken(store.ScopeWrite), s.updateChore)
+	s.handle("PATCH /api/v1/households/{hh}/chores/{chore}", member.withToken(store.ScopeComplete), s.setChoreTurn)
 	s.handle("DELETE /api/v1/households/{hh}/chores/{chore}", member.withToken(store.ScopeWrite), s.deleteChore)
 	s.handle("POST /api/v1/households/{hh}/chores/{chore}/archive", member.withToken(store.ScopeWrite), s.archiveChore)
 	s.handle("POST /api/v1/households/{hh}/chores/{chore}/unarchive", member.withToken(store.ScopeWrite), s.unarchiveChore)
