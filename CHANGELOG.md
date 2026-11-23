@@ -4,6 +4,8 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-23
+
 ### Security
 
 - OAuth client registration now also refuses redirect URIs containing `;` or `,` (found by the nightly fuzzer; not exploitable, since redirect URIs match exactly and the consent CSP names only the origin, but it keeps the validator and its stated rules in step).
