@@ -215,5 +215,10 @@
   "mcp.connExpect": "You will sign in to Gunkly and choose what it may use. No access key is needed; leave any client ID or secret empty.",
   "mcp.connPublic": "Gunkly must be reachable at a public HTTPS address.",
   "mcp.connOff": "Sign-in for apps such as ChatGPT is off on this server. Ask its administrator to turn it on (Administration, Instance settings).",
-  "mcp.connSteps": "In {app}, open Settings, then Connectors, add a custom connector and paste this address."
+  "mcp.connSteps": "In {app}, open Settings, then Connectors, add a custom connector and paste this address.",
+  "audit.webhook_create": "Webhook added",
+  "audit.webhook_update": "Webhook changed",
+  "audit.webhook_delete": "Webhook deleted",
+  "audit.webhook_rotate": "Webhook secret replaced",
+  "audit.webhook_auto_disable": "Webhook switched off after repeated failures"
 }

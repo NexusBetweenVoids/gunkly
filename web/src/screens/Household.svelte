@@ -233,6 +233,9 @@
       <Deliveries path="/households/{id}/deliveries" title={t('delivery.householdTitle')} id="hh" />
     {/if}
     {#if isOwner}<Invites {id} />{/if}
+    {#if isOwner && app.instance.webhooksEnabled}
+      <Lazy load={() => import('./household/Webhooks.svelte')} ns={['household']} props={{ id }} />
+    {/if}
     {#if hh.role !== 'guest'}<Lazy load={() => import('./household/Transfer.svelte')} props={{ id }} />{/if}
 
     <section class="card" aria-labelledby="h-more">

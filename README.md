@@ -56,6 +56,7 @@ All screenshots show synthetic demo data.
 - Channels per user and per household through [Shoutrrr](https://containrrr.dev/shoutrrr/) service URLs: Discord, Slack, Telegram, Pushover, Pushbullet, Google Chat and ntfy.sh on by default; self-hosted ntfy, generic webhook, SMTP, MQTT, Matrix, Gotify and more can be enabled by the admin.
 - Built-in Web Push to browsers and installed PWAs; no third-party account needed.
 - Scoped API tokens for Home Assistant, scripts and AI assistants (see Integrations / API tokens).
+- Optional signed outgoing webhooks for chore events (off by default, admin switch; see [Outgoing webhooks](#outgoing-webhooks)).
 - Reminders carry a mark-done link (confirmation page, single use, 5-minute undo); delivery log with retries and backoff.
 
 **Calendar and iCal feeds**
@@ -258,6 +259,10 @@ curl -X POST -H "Authorization: Bearer gk_..." https://gunkly.example.com/api/v1
 
 Requests with a token need no cookies or CSRF header. See [api/openapi.yaml](api/openapi.yaml) (`bearerAuth`) and [ADR 0014](docs/adr/0014-api-tokens.md). Treat a token like a password.
 
+## Outgoing webhooks
+
+Gunkly can POST a signed JSON message to a web address when a chore is completed, becomes overdue, is created, changed, deleted, snoozed or skipped, so home automation and scripts can react without polling. Optional and **off by default**: an admin turns it on under Administration, "Instance settings"; while off nothing is sent and the routes answer 404. Household owners then add webhooks under the household settings, "Webhooks (advanced)" (https addresses only, unless the admin switched the egress guard off for self-hosting). Every request is signed (`Gunkly-Signature: t=<unix>,v1=<HMAC-SHA256 of "<t>.<body>">`, with a per-webhook secret shown once), goes through the egress guard, never follows redirects, retries with backoff and is logged (last 50 per webhook); 20 failures in a row switch the webhook off. Payloads, signature checks in shell, Python and Node, and the retry rules are in [docs/webhooks.md](docs/webhooks.md); design in [ADR 0017](docs/adr/0017-outgoing-webhooks.md).
+
 ## Home Assistant
 
 The [Gunkly integration for Home Assistant](https://github.com/NexusBetweenVoids/gunkly-homeassistant) (installable through HACS as a custom repository) adds a to-do list per household — ticking an item completes the chore — plus overdue and due-today sensors, a calendar, actions to complete, snooze or skip chores, and an event when a chore becomes overdue. Create an API token with the `chores:read` and `chores:complete` scopes (add `chores:write` to create chores from Home Assistant).
@@ -325,6 +330,7 @@ Every instance can delete accounts (Account, "Delete account") and can optionall
 | | |
 |-|-|
 | [docs/getting-started.md](docs/getting-started.md) | First-run walkthrough |
+| [docs/webhooks.md](docs/webhooks.md) | Outgoing webhooks: payloads, signatures, retries |
 | [docs/PRD.md](docs/PRD.md) | Scope and requirements |
 | [docs/adr/](docs/adr/) | Architecture decisions |
 | [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) | Threat model |

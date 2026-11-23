@@ -84,5 +84,8 @@
   "admin.oauthNeedsHttps": "Unavailable: GUNKLY_BASE_URL is not https.",
   "limit.oauth_clients": "Registered OAuth apps (instance)",
   "limit.oauth_grants_per_user": "Connected apps per user",
-  "limit.oauth_unused_clients_per_ip": "Unapproved OAuth apps per address"
+  "limit.oauth_unused_clients_per_ip": "Unapproved OAuth apps per address",
+  "admin.webhooksEnabled": "Let household owners add outgoing webhooks",
+  "admin.webhooksHint": "Gunkly then sends signed JSON to the web addresses owners add, for example to a home automation system. Off by default: while off, nothing is sent and the settings are hidden.",
+  "limit.webhooks_per_household": "Webhooks per household"
 }

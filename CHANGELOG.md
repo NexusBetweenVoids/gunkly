@@ -4,6 +4,13 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ## [Unreleased]
 
+### Added
+
+- Outgoing webhooks (ADR 0017, [docs/webhooks.md](docs/webhooks.md)). Optional and off by default: the new instance setting `webhooksEnabled` (`GET/PATCH /api/v1/admin/settings`, Administration, Instance settings) turns it on. While it is off every webhook route answers 404, `GET /api/v1/instance` omits `webhooksEnabled`, nothing is queued or sent and pending deliveries are dropped.
+- Household owners manage webhooks (Household settings, "Webhooks (advanced)"; `GET/POST /api/v1/households/{hh}/webhooks`, `GET/PATCH/DELETE .../{id}`, `POST .../{id}/rotate-secret`, `POST .../{id}/test`, `GET .../{id}/deliveries`; owners only, never API tokens; creating and rotating the secret need a step-up): an https address (http too when the admin switched the egress guard off), the events (`chore.completed`, `chore.completion_reverted`, `chore.overdue`, `chore.created`, `chore.updated`, `chore.deleted`, `chore.snoozed`, `chore.skipped`), an active flag and a description. New limit `webhooks_per_household` (default 10); migration 0015.
+- Each delivery is stable, versioned JSON (`id`, `type`, `version` 1, `createdAt`, `householdId`, `data.chore`, `data.completion`, `data.actor`; no secrets or email addresses) with the headers `Gunkly-Event`, `Gunkly-Delivery`, `User-Agent: Gunkly-Webhook/<version>` and `Gunkly-Signature: t=<unix>,v1=<HMAC-SHA256 of "<t>.<body>">`. The per-webhook secret is shown once at creation and on rotation, stored encrypted and re-encrypted by `gunkly rotate-key`. Verification in shell, Python and Node and a 5-minute replay window are documented.
+- Deliveries are queued with the event, sent by the scheduler through the egress guard (no redirects, response ignored), retried with exponential backoff (6 attempts), de-duplicated per event, logged (last 50 per webhook: status, HTTP code, duration, redacted error) and switched off after 20 consecutive failures (audit event `webhook_auto_disable`, notice in the settings). A test button sends a signed `ping`.
+
 ## [0.3.0] - 2026-11-23
 
 ### Added
