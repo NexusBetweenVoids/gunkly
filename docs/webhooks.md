@@ -5,7 +5,7 @@ Gunkly can send a signed JSON message to a web address when something happens to
 ## Turn it on
 
 1. An instance admin ticks **Let household owners add outgoing webhooks** under Administration, Instance settings (`webhooksEnabled` in the API). While it is off, nothing is sent and every webhook route answers `404`.
-2. A household **owner** opens the household's settings, expands **Webhooks (advanced)** and adds a webhook: the address, the events and an optional description. Creating one asks for the password again (step-up).
+2. A household **owner** opens the household's settings, expands **Webhooks (advanced)** and adds a webhook: the address, the events and an optional description. Creating, changing or switching one on or off asks for the password again (step-up) unless you confirmed it in the last 15 minutes.
 3. Gunkly shows the **signing secret** (`whsec_...`) once. Copy it; it can not be shown again. **New secret** replaces it (the old one stops signing immediately).
 4. **Send test** posts a signed `ping` event right away and shows the result in the log.
 

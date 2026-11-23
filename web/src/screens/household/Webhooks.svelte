@@ -103,7 +103,7 @@ printf '%s.%s' "$ts" "$body" | openssl dgst -sha256 -hmac "$secret"`;
       err = problem(x);
     }
   }
-  const toggle = (h: Hook) => run(() => api('PATCH', `${base}/${h.id}`, { active: !h.active }));
+  const toggle = (h: Hook) => run(() => withStepUp(() => api('PATCH', `${base}/${h.id}`, { active: !h.active })));
   const test = (h: Hook) =>
     run(async () => {
       const r = await api<Attempt>('POST', `${base}/${h.id}/test`);

@@ -188,6 +188,7 @@ func TestWebhookCRUDSecretAndAudit(t *testing.T) {
 	expect(t, st, v, 409, "limit_reached")
 
 	// Another household cannot see, change or delete it.
+	f.e.stepUp(f.b, "b") // so a 404 proves isolation, not a missing step-up
 	for _, m := range []string{"GET", "PATCH", "DELETE"} {
 		if st, v = f.b.do(m, "/api/v1/households/"+f.hB+"/webhooks/"+id, map[string]any{"active": true}); st != 404 {
 			t.Errorf("%s through another household: %d %v", m, st, v)

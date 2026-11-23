@@ -24,7 +24,7 @@ func (s *Server) registerWebhookRoutes() {
 	s.handle("GET "+base, owner, s.listWebhooks)
 	s.handle("POST "+base, owner.withStepUp(), s.createWebhook)
 	s.handle("GET "+base+"/{id}", owner, s.getWebhook)
-	s.handle("PATCH "+base+"/{id}", owner, s.patchWebhook)
+	s.handle("PATCH "+base+"/{id}", owner.withStepUp(), s.patchWebhook) // can redirect signed events
 	s.handle("DELETE "+base+"/{id}", owner, s.deleteWebhook)
 	s.handle("POST "+base+"/{id}/rotate-secret", owner.withStepUp(), s.rotateWebhookSecret)
 	s.handle("POST "+base+"/{id}/test", owner, s.testWebhook)

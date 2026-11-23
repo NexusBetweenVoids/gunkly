@@ -80,8 +80,10 @@ func (s *Store) SetChoreTurn(ctx context.Context, a Actor, householdID, choreID,
 			userID, s.nowMS(), choreID, householdID); err != nil {
 			return err
 		}
-		out, err = t.chore(ctx, householdID, choreID)
-		return err
+		if out, err = t.chore(ctx, householdID, choreID); err != nil {
+			return err
+		}
+		return t.emitWebhook(ctx, householdID, EventChoreUpdated, webhookEvent{choreID: choreID, chore: &out, actorID: a.UserID}, s.nowMS())
 	})
 	return out, err
 }
