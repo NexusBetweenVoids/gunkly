@@ -4,6 +4,8 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-23
+
 ### Added
 
 - OAuth 2.1 sign-in for MCP clients (ADR 0016), so ChatGPT custom connectors and Claude's "Add custom connector" connect by address and "sign in with Gunkly". Optional and off by default: the new instance setting `oauthEnabled` (`GET/PATCH /api/v1/admin/settings`, Administration, Instance settings) turns it on and needs `GUNKLY_BASE_URL` to be https (or http://localhost for development), otherwise `400 oauth_requires_https`. While it is off, every OAuth endpoint and metadata document answers 404, nothing is advertised and `/mcp` keeps its plain `Bearer` challenge.
