@@ -132,13 +132,18 @@
       >
     {/if}
   </form>
-  {#if !needSecond && passkeyReady}
-    <Button variant="quiet" {busy} onclick={() => withPasskey(false)}>{t('signIn.passkey')}</Button>
-  {/if}
-  {#if !needSecond && app.instance.sso}
-    <a class="btn btn-quiet" href="/api/v1/auth/oidc/start?next={encodeURIComponent(next)}"
-      >{app.instance.sso.name ? t('signIn.ssoNamed', { name: app.instance.sso.name }) : t('signIn.sso')}</a
-    >
+  {#if !needSecond && (passkeyReady || app.instance.sso)}
+    <div class="stack-sm alternatives">
+      <p class="or">{t('signIn.or')}</p>
+      {#if passkeyReady}
+        <Button variant="quiet" {busy} onclick={() => withPasskey(false)}>{t('signIn.passkey')}</Button>
+      {/if}
+      {#if app.instance.sso}
+        <a class="btn btn-quiet" href="/api/v1/auth/oidc/start?next={encodeURIComponent(next)}"
+          >{app.instance.sso.name ? t('signIn.ssoNamed', { name: app.instance.sso.name }) : t('signIn.sso')}</a
+        >
+      {/if}
+    </div>
   {/if}
   {#if !needSecond}
     <div class="row">
@@ -147,3 +152,23 @@
     </div>
   {/if}
 </section>
+
+<style>
+  .alternatives {
+    margin-block: var(--space);
+  }
+  .or {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0;
+    color: var(--text-2);
+    font-size: 0.875rem;
+  }
+  .or::before,
+  .or::after {
+    content: '';
+    flex: 1;
+    border-block-start: 1px solid var(--border);
+  }
+</style>

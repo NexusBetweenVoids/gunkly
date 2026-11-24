@@ -203,6 +203,7 @@
   "home.push.notNow": "Not now",
   "home.push.on": "Reminders are on for this device.",
   "err.oauth_requires_https": "Sign-in for apps needs GUNKLY_BASE_URL to be an https address (or http://localhost for development).",
+  "signIn.or": "or",
   "signIn.passkey": "Sign in with a passkey",
   "signIn.passkeyPrompt": "Confirm with the passkey on this device to finish signing in.",
   "twofa.usePasskey": "Use a passkey",

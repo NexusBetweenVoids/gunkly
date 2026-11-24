@@ -60,9 +60,16 @@ test('README and website screenshots', async ({ world, browser }) => {
   {
     const context = await world.newContext({ viewport: { width: 420, height: 820 }, deviceScaleFactor: 1.5, colorScheme: 'light' });
     const page = await context.newPage();
+    // Show a realistic provider name in the docs instead of the e2e fake provider's "Test IdP".
+    await page.route('**/api/v1/instance', async (route) => {
+      const res = await route.fetch();
+      const body = await res.json();
+      if (body.sso) body.sso.name = 'Authelia';
+      await route.fulfill({ response: res, json: body });
+    });
     await page.goto('/signin');
     await expect(page.getByRole('button', { name: 'Sign in with a passkey' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Sign in with Test IdP' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Sign in with Authelia' })).toBeVisible();
     await setTheme(page, 'light');
     await page.waitForTimeout(400);
     await page.screenshot({ path: OUT + 'signin-passkey-sso-phone-light.png' });
@@ -95,10 +102,15 @@ test('README and website screenshots', async ({ world, browser }) => {
     await expect(section.getByText('Alex’s laptop')).toBeVisible();
     await setTheme(page, 'dark');
     await expect(page.getByText('Passkey added.')).toHaveCount(0); // the toast is gone
-    await section.evaluate((el) => el.scrollIntoView({ block: 'start' }));
-    await page.evaluate(() => window.scrollBy(0, -80)); // keep the section heading below the header
     await page.waitForTimeout(400);
-    await page.screenshot({ path: OUT + 'account-security-passkey-desktop-dark.png' });
+    // Just the Passkeys card, cropped from a window tall enough that the page never scrolls, so the
+    // sticky header can't overlap it.
+    await page.setViewportSize({ width: 1000, height: 2400 });
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.waitForTimeout(300);
+    const box = await section.boundingBox();
+    if (!box) throw new Error('Passkeys card not visible');
+    await page.screenshot({ path: OUT + 'account-security-passkey-desktop-dark.png', clip: { x: box.x - 16, y: box.y - 16, width: box.width + 32, height: box.height + 32 } });
     await context.close();
   }
 });
