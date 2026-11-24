@@ -1,0 +1,32 @@
+name: Site security check
+
+# Weekly regression check of the live gunkly.app website (TLS, security headers, security.txt,
+# DNSSEC, CAA, mail anti-spoofing, Mozilla Observatory grade): catches drift such as a changed
+# Cloudflare setting, an expiring certificate or security.txt. The website deploy runs the same script.
+on:
+  schedule:
+    - cron: '23 6 * * 1'   # Mondays 06:23 UTC
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/site-check.sh'
+      - '.github/workflows/site-check.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: site-check
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: gunkly.app
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: bash scripts/site-check.sh
