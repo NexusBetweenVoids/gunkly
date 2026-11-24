@@ -103,9 +103,9 @@ test('oauth: admin enables it, a user approves an app, sees it under Connected a
     expect(JSON.stringify(await list.json())).toContain('complete_chore');
     expect((await client.get('/api/v1/households', { headers: auth })).status()).toBe(401);
 
-    // Connected apps (Account, Integrations) lists it; Disconnect ends it at once.
+    // Connected apps (Settings, AI) lists it; Disconnect ends it at once.
     const { page: acct } = await u.open();
-    await acct.goto('/account/integrations');
+    await acct.goto('/settings/ai');
     const apps = acct.getByRole('region', { name: 'Connected apps' });
     const row = apps.getByRole('listitem').filter({ hasText: name });
     await expect(row).toContainText(h.name);

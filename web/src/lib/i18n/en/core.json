@@ -22,7 +22,6 @@
   "notFound.back": "Go to Home",
   "nav.household": "Household",
   "nav.newHousehold": "New household",
-  "nav.account": "Account",
   "nav.admin": "Admin",
   "nav.signOut": "Sign out",
   "nav.menu": "Menu",
@@ -50,7 +49,6 @@
   "twofa.recoveryHint": "Each recovery code works once.",
   "twofa.useApp": "Use authenticator code instead",
   "twofa.useRecovery": "Use a recovery code instead",
-  "household.settings": "Settings",
   "household.remove": "Remove",
   "password.new": "New password",
   "totp.on": "On",
@@ -218,8 +216,9 @@
   "err.sso_failed": "Single sign-on didn't work. Try again, or sign in another way.",
   "err.sso_denied": "Single sign-on was cancelled.",
   "err.sso_unavailable": "The single sign-on provider can't be reached right now.",
-  "err.sso_no_account": "No Gunkly account is linked to that single sign-on user. Sign in with your password and link it under Account, Sign-in & security, or ask an administrator.",
+  "err.sso_no_account": "No Gunkly account is linked to that single sign-on user. Sign in with your password and link it under Settings, Sign-in & security, or ask an administrator.",
   "err.sso_already_linked": "That single sign-on user (or this account) is already linked.",
   "err.sso_last_login": "Add a password or a passkey first: without one, you could no longer sign in.",
-  "err.passkey_last_login": "This passkey is your only way to sign in. Set a password or link single sign-on first."
+  "err.passkey_last_login": "This passkey is your only way to sign in. Set a password or link single sign-on first.",
+  "nav.settings": "Settings"
 }

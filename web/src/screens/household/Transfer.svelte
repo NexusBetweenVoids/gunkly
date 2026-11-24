@@ -115,7 +115,7 @@
 
   function open(hid: string): void {
     selectHousehold(hid);
-    navigate(`/households/${hid}`);
+    navigate('/settings/household');
   }
 </script>
 

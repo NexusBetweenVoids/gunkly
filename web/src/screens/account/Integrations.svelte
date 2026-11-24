@@ -1,6 +1,5 @@
 <script lang="ts">
-  import AssistantConnect from './AssistantConnect.svelte';
-  import ConnectedApps from './ConnectedApps.svelte';
+  import HomeAssistant, { HA_ADD } from './HomeAssistant.svelte';
   import Alert from '../../components/Alert.svelte';
   import Button from '../../components/Button.svelte';
   import Confirm from '../../components/Confirm.svelte';
@@ -13,6 +12,7 @@
   import { withStepUp } from '../../lib/stepup.svelte';
   import { toast } from '../../lib/toast.svelte';
   import type { Household } from '../../lib/types';
+  import { app } from '../../lib/session.svelte';
 
   type Scope = 'chores:read' | 'chores:complete' | 'chores:write';
   type Token = {
@@ -38,6 +38,7 @@
   ];
   const when = (s: string) => formatDate(new Date(s), { dateStyle: 'medium' });
 
+  const base = $derived((app.instance.baseUrl || location.origin).replace(/\/+$/, ''));
   let tokens = $state<Token[]>([]);
   let households = $state<Household[]>([]);
   let err = $state('');
@@ -60,10 +61,13 @@
   }
   void load();
 
-  function openCreate(): void {
-    name = '';
-    picked = households.length === 1 ? [households[0]!.id] : [];
-    granted = ['chores:read', 'chores:complete'];
+  // forHA: the Home Assistant card's shortcut, prefilled with what the integration uses.
+  let forHA = $state(false);
+  function openCreate(ha = false): void {
+    forHA = ha;
+    name = ha ? 'Home Assistant' : '';
+    picked = ha || households.length === 1 ? households.map((h) => h.id) : [];
+    granted = ha ? ['chores:read', 'chores:complete', 'chores:write'] : ['chores:read', 'chores:complete'];
     days = '365';
     cerr = '';
     creating = true;
@@ -109,9 +113,7 @@
   }
 </script>
 
-<AssistantConnect {households} oncreated={load} />
-
-<ConnectedApps />
+<HomeAssistant {households} oncreate={() => openCreate(true)} />
 
 <section class="card" aria-labelledby="a-tokens">
   <h2 id="a-tokens">{t('tokens.title')}</h2>
@@ -140,7 +142,7 @@
   {#if households.length === 0}
     <p class="hint">{t('tokens.needHouseholdFirst')}</p>
   {:else}
-    <div class="mt-md"><Button onclick={openCreate}>{t('tokens.create')}</Button></div>
+    <div class="mt-md"><Button onclick={() => openCreate()}>{t('tokens.create')}</Button></div>
   {/if}
 </section>
 
@@ -149,6 +151,14 @@
     <div class="stack">
       <p class="mono" aria-label={t('tokens.secretLabel')}>{secret}</p>
       <p>{t('tokens.once')}</p>
+      {#if forHA}
+        <dl class="facts">
+          <dt>{t('ha.address')}</dt>
+          <dd><span class="mono">{base}</span> <Button variant="quiet" onclick={() => copyText(base)}>{t('common.copy')}</Button></dd>
+        </dl>
+        <p>{t('ha.nextStep')}</p>
+        <p><a class="btn btn-quiet" href={HA_ADD} target="_blank" rel="noopener noreferrer">{t('ha.add')}</a></p>
+      {/if}
       <div class="row">
         <Button onclick={() => copyText(secret)}>{t('common.copy')}</Button>
         <Button variant="quiet" onclick={close}>{t('common.done')}</Button>

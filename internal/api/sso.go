@@ -143,7 +143,7 @@ func landing(st ssoState, ok bool, code string) string {
 	case ok, strings.HasPrefix(st.Next, consentNextPrefix):
 		return withParam(st.Next, code) // failures too: back to the consent page, which says so
 	}
-	return "/account/security?sso=" + code
+	return "/settings/security?sso=" + code
 }
 
 func redirect(w http.ResponseWriter, r *http.Request, to string) {
@@ -443,7 +443,7 @@ func (s *Server) linkSSO(w http.ResponseWriter, r *http.Request, c *call) error 
 	} else if !errors.Is(err, store.ErrNotFound) {
 		return err
 	}
-	return s.beginSessionFlow(w, r, c, ssoModeLink, "/account/security")
+	return s.beginSessionFlow(w, r, c, ssoModeLink, "/settings/security")
 }
 
 func (s *Server) unlinkSSO(w http.ResponseWriter, r *http.Request, c *call) error {

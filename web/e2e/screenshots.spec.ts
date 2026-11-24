@@ -54,7 +54,7 @@ test('README and website screenshots', async ({ world, browser }) => {
   await shot('/', 'home-phone-dark.png', 'dark', phone, 1.5, 'Descale the kettle');
   await shot('/calendar', 'calendar-desktop-dark.png', 'dark', { width: 1100, height: 760 }, 1, 'Subscribe from your own calendar app');
   await shot(`/chores/${gutters}/edit`, 'chore-editor-desktop-light.png', 'light', { width: 1100, height: 900 }, 1, 'Take turns');
-  await shot(`/households/${h.id}/people`, 'household-desktop-light.png', 'light', { width: 1000, height: 830 }, 1, /^Invites$/);
+  await shot('/settings/household-people', 'household-desktop-light.png', 'light', { width: 1000, height: 830 }, 1, /^Invites$/);
 
   // The sign-in page with the passkey and single sign-on buttons (signed out, narrow screen).
   {
@@ -90,7 +90,7 @@ test('README and website screenshots', async ({ world, browser }) => {
     await cdp.send('WebAuthn.addVirtualAuthenticator', {
       options: { protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
     });
-    await page.goto('/account/security');
+    await page.goto('/settings/security');
     const section = page.getByRole('region', { name: 'Passkeys' });
     await section.getByRole('button', { name: 'Add a passkey' }).click();
     await section.getByLabel('Name').fill('Alex’s laptop');

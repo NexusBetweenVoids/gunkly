@@ -35,7 +35,7 @@ Optional: turn on authenticator-app two-factor under Account.
 
 Choose "New household" in the header (or the menu on a phone), give it a name and a time zone (it defaults to your browser's). Areas are off by default; to group chores by area, turn on "Group chores by area" in the household's Settings, General, where you can also add starter areas such as Kitchen and Bathroom. Reminder times use the household time zone.
 
-To share it, open the household's Settings, People and create an invite link (choose a role: member, or guest for view-only). Send the link; the other person signs up or signs in and accepts it. Open sign-up is off by default on a self-hosted instance, so create their account under Administration, Users first, or turn sign-up on under Administration, Sign-up & sign-in.
+To share it, open the household's part of Settings, People and create an invite link (choose a role: member, or guest for view-only). Send the link; the other person signs up or signs in and accepts it. Open sign-up is off by default on a self-hosted instance, so create their account under Administration, Users first, or turn sign-up on under Administration, Sign-up & sign-in.
 
 ## 4. Add chores
 
@@ -45,11 +45,11 @@ Use "Add" and either start from a template or fill in the form: name, assignees,
 
 New households remind on the due date at 09:00 ("Gentle"); change it per chore, or for the whole household in its Settings. Reminders are optional and each person chooses how to get theirs. Everyone, including non-technical family members, can do this in under a minute:
 
-1. **On this phone or computer:** open Gunkly, and on Home tap "Turn on" in "Get reminders on this device?" (or Account, Notifications, "This device", "Turn on reminders on this device"), then allow notifications. It needs HTTPS. On an iPhone or iPad, first open Gunkly in Safari, tap Share, choose "Add to Home Screen", then open Gunkly from the Home Screen and turn reminders on there.
-2. **By email** (when the server sends email): Account, add and confirm your email address, then switch on "Email me reminders". Each email has a link to mark the chore as done.
-3. **For the whole household:** an owner or member can add a household channel in the household's Settings, Notifications, for example your family Telegram or Discord group; reminders then reach everyone without anyone setting anything up.
+1. **On this phone or computer:** open Gunkly, and on Home tap "Turn on" in "Get reminders on this device?" (or Settings, Notifications, "This device", "Turn on reminders on this device"), then allow notifications. It needs HTTPS. On an iPhone or iPad, first open Gunkly in Safari, tap Share, choose "Add to Home Screen", then open Gunkly from the Home Screen and turn reminders on there.
+2. **By email** (when the server sends email): Settings, Profile & email, add and confirm your email address, then switch on "Email me reminders". Each email has a link to mark the chore as done.
+3. **For the whole household:** an owner or member can add a household channel in the household's part of Settings, Notifications, for example your family Telegram or Discord group; reminders then reach everyone without anyone setting anything up.
 
-Advanced: Account, Notifications, "Messaging apps (advanced)" holds personal channels. Choose "Add channel", pick a service (Discord, Slack, Telegram, Pushover, Pushbullet, Google Chat, ntfy.sh; the admin can enable more) and paste its [Shoutrrr](https://containrrr.dev/shoutrrr/) URL. Use "Send test" to check it. The URL is stored encrypted and never shown again.
+Advanced: Settings, Notifications, "Messaging apps (advanced)" holds personal channels. Choose "Add channel", pick a service (Discord, Slack, Telegram, Pushover, Pushbullet, Google Chat, ntfy.sh; the admin can enable more) and paste its [Shoutrrr](https://containrrr.dev/shoutrrr/) URL. Use "Send test" to check it. The URL is stored encrypted and never shown again.
 
 Set quiet hours, the household default preset and per-chore presets as needed. Reminder messages contain chore names and dates, so only use services you trust.
 
@@ -61,7 +61,7 @@ Open Gunkly over HTTPS in a supported browser and use its "Install" or "Add to H
 
 ## 7. Subscribe to the calendar feed
 
-Open the household's Settings, Connections, "Calendar feeds", "Create feed" and copy the address (also reachable from "Subscribe from your own calendar app" on the Calendar screen). Add it as a subscription calendar in Google Calendar, Apple Calendar or Outlook. The feed is read-only and lists chore names, dates and, if areas are on, areas only. "New address" replaces the link and "Revoke" turns it off.
+Open the household's part of Settings, Connections, "Calendar feeds", "Create feed" and copy the address (also reachable from "Subscribe from your own calendar app" on the Calendar screen). Add it as a subscription calendar in Google Calendar, Apple Calendar or Outlook. The feed is read-only and lists chore names, dates and, if areas are on, areas only. "New address" replaces the link and "Revoke" turns it off.
 
 ## Next steps
 

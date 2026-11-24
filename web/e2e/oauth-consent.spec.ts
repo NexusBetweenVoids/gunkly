@@ -52,7 +52,7 @@ test('oauth consent: a passkey confirms the app, no password typed', async ({ wo
     options: { protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
   });
   // Register a passkey (this step-up is the password's), then sign in with it: a session that has not stepped up.
-  await page.goto('/account/security');
+  await page.goto('/settings/security');
   const section = page.getByRole('region', { name: 'Passkeys' });
   await section.getByRole('button', { name: 'Add a passkey' }).click();
   await section.getByLabel('Name').fill('Consent key');

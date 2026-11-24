@@ -252,7 +252,7 @@ func TestSSOLinkThenSignInAndNoSecondFactor(t *testing.T) {
 	e.user("ann", false)
 	c := e.signedInStepUp("ann")
 	other := e.signedIn("ann")
-	if loc := e.link(c, "sub-ann"); loc != "/account/security?sso=linked" {
+	if loc := e.link(c, "sub-ann"); loc != "/settings/security?sso=linked" {
 		t.Fatalf("link landed on %q", loc)
 	}
 	if st, _ := other.do("GET", "/api/v1/me", nil); st != 401 {
@@ -478,7 +478,7 @@ func TestSSOUnlinkNeedsAnotherWayIn(t *testing.T) {
 		t.Fatalf("me: %d %v", st, v)
 	}
 	// Step-up for it goes through the provider, which is asked to authenticate again.
-	st, v := nc.do("POST", "/api/v1/session/step-up/sso", map[string]string{"next": "/account/security"})
+	st, v := nc.do("POST", "/api/v1/session/step-up/sso", map[string]string{"next": "/settings/security"})
 	expect(t, st, v, 200, "")
 	authURL := field(v, "url").(string)
 	u, _ := url.Parse(authURL)
@@ -489,7 +489,7 @@ func TestSSOUnlinkNeedsAnotherWayIn(t *testing.T) {
 		t.Fatalf("password change before step-up: %d %v", st, v)
 	}
 	cb, _ := e.idp.authorize(authURL, claims("sub-new"))
-	if st, loc, _ := nc.follow("GET", cb, nil); st != 303 || loc != "/account/security?sso=stepup" {
+	if st, loc, _ := nc.follow("GET", cb, nil); st != 303 || loc != "/settings/security?sso=stepup" {
 		t.Fatalf("step-up callback: %d %q", st, loc)
 	}
 	if st, v := nc.do("DELETE", "/api/v1/account/sso", nil); st != 409 || code(v) != "sso_last_login" {
@@ -507,7 +507,7 @@ func TestSSOStepUpOnlyForTheLinkedIdentity(t *testing.T) {
 	_, v := nc.do("POST", "/api/v1/session/step-up/sso", map[string]string{})
 	// Authenticating as somebody else at the provider does not confirm this account.
 	cb, _ := e.idp.authorize(field(v, "url").(string), claims("sub-2"))
-	if st, loc, _ := nc.follow("GET", cb, nil); st != 303 || loc != "/account/security?sso=failed" {
+	if st, loc, _ := nc.follow("GET", cb, nil); st != 303 || loc != "/settings/security?sso=failed" {
 		t.Fatalf("wrong identity: %d %q", st, loc)
 	}
 	if st, _ := nc.do("POST", "/api/v1/account/tokens", map[string]any{}); st != 403 {
@@ -516,7 +516,7 @@ func TestSSOStepUpOnlyForTheLinkedIdentity(t *testing.T) {
 	// An old authentication (the provider ignoring prompt=login) is not a step-up.
 	_, v = nc.do("POST", "/api/v1/session/step-up/sso", map[string]string{})
 	cb, _ = e.idp.authorize(field(v, "url").(string), claims("sub-1", map[string]any{"auth_time": e.clock.Now().Add(-time.Hour).Unix()}))
-	if st, loc, _ := nc.follow("GET", cb, nil); st != 303 || loc != "/account/security?sso=failed" {
+	if st, loc, _ := nc.follow("GET", cb, nil); st != 303 || loc != "/settings/security?sso=failed" {
 		t.Fatalf("stale auth_time: %d %q", st, loc)
 	}
 	// A user without a linked identity has no SSO step-up.
@@ -533,7 +533,7 @@ func TestSSOLinkConflictAndSession(t *testing.T) {
 	e.user("bob", false)
 	a, b := e.signedInStepUp("ann"), e.signedInStepUp("bob")
 	e.link(a, "shared")
-	if loc := e.link(b, "shared"); loc != "/account/security?sso=already_linked" {
+	if loc := e.link(b, "shared"); loc != "/settings/security?sso=already_linked" {
 		t.Fatalf("one identity, two accounts: %q", loc)
 	}
 	if st, v := a.do("POST", "/api/v1/account/sso/link", nil); st != 409 || code(v) != "sso_already_linked" {
@@ -546,7 +546,7 @@ func TestSSOLinkConflictAndSession(t *testing.T) {
 	_, v := c.do("POST", "/api/v1/account/sso/link", nil)
 	cb, _ := e.idp.authorize(field(v, "url").(string), claims("sub-cy"))
 	e.clock.Add(2 * time.Minute) // and runs out while the user is at the provider
-	if st, loc, _ := c.follow("GET", cb, nil); st != 303 || loc != "/account/security?sso=failed" {
+	if st, loc, _ := c.follow("GET", cb, nil); st != 303 || loc != "/settings/security?sso=failed" {
 		t.Fatalf("link after the step-up expired: %d %q", st, loc)
 	}
 	if st, _ := c.do("GET", "/api/v1/account/sso", nil); st != 200 {
@@ -724,10 +724,10 @@ func TestSSOStepUpNeedsAuthTimeAndIsAudited(t *testing.T) {
 		return loc
 	}
 	e.idp.now = nil // this provider leaves auth_time out
-	if loc := step(claims("sub-1")); loc != "/account/security?sso=failed" {
+	if loc := step(claims("sub-1")); loc != "/settings/security?sso=failed" {
 		t.Fatalf("no auth_time: %q", loc)
 	}
-	if loc := step(claims("sub-2", map[string]any{"auth_time": e.clock.Now().Unix()})); loc != "/account/security?sso=failed" {
+	if loc := step(claims("sub-2", map[string]any{"auth_time": e.clock.Now().Unix()})); loc != "/settings/security?sso=failed" {
 		t.Fatalf("other subject: %q", loc)
 	}
 	got := strings.Join(auditReasons(t, nc), ",")

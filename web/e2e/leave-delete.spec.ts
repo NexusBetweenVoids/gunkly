@@ -47,7 +47,7 @@ test('delete my account: preview, new owner, username confirmation, then signed 
   await heir.api.post(`/invites/${inv.token}/accept`);
 
   const { page } = await u.open();
-  await page.goto('/account/data');
+  await page.goto('/settings/data');
   const section = page.getByRole('region', { name: 'Delete account' });
   await section.getByRole('button', { name: 'Delete my account...' }).click();
   await expect(section.getByText(solo.name)).toBeVisible();

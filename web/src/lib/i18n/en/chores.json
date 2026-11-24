@@ -106,7 +106,7 @@
   "rule.previewLabel": "Repeats:",
   "reminder.default": "Household default",
   "reminder.customOption": "Custom",
-  "reminder.presetHint": "Reminders go to the channels you set up in Settings and Account.",
+  "reminder.presetHint": "Reminders go to the notification channels set up in Settings (yours and the household's).",
   "reminder.custom": "Custom reminders",
   "reminder.customHint": "Times are in the household's time zone.",
   "reminder.kind": "When",

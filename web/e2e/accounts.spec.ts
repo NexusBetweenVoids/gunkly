@@ -57,7 +57,7 @@ test('TOTP: enrol in the account screen, then sign in with a code', async ({ wor
   await expect(page).toHaveURL(/\/$/);
 
   // Enrol; the step-up dialog asks for the password first.
-  await page.goto('/account/security');
+  await page.goto('/settings/security');
   const section = page.getByRole('region', { name: 'Two-factor authentication' });
   await section.getByRole('button', { name: 'Set up' }).click();
   const dialog = page.getByRole('dialog');
@@ -94,7 +94,7 @@ test('TOTP: enrol in the account screen, then sign in with a code', async ({ wor
   await page2.getByLabel('Authenticator code').fill(totp(secret, 1)); // the current step was used when enrolling
   await page2.getByRole('button', { name: 'Verify and sign in' }).click();
   await expect(page2).toHaveURL(/\/$/);
-  await expect(await headerItem(page2, 'link', 'Account')).toBeVisible();
+  await expect(await headerItem(page2, 'button', 'Sign out')).toBeVisible();
 });
 
 test('theme override: light, dark and following the system', async ({ world }) => {
@@ -102,7 +102,7 @@ test('theme override: light, dark and following the system', async ({ world }) =
   await world.household(u);
   const { page } = await u.open();
   await page.emulateMedia({ colorScheme: 'light' });
-  await page.goto('/account/profile');
+  await page.goto('/settings/profile');
   const bg = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
   const set = async (v: string) => {
     await page.getByLabel('Appearance').selectOption(v);
@@ -130,14 +130,14 @@ test('signed-out visitors are sent to sign in and back; sign out ends the sessio
   const u = await world.newUser();
   await world.household(u);
   const page = await (await world.newContext()).newPage();
-  await page.goto('/account');
-  await expect(page).toHaveURL(/\/signin\?next=%2Faccount/);
+  await page.goto('/settings');
+  await expect(page).toHaveURL(/\/signin\?next=%2Fsettings/);
   await page.getByLabel('Email or username').fill(u.username);
   await page.getByLabel('Password', { exact: true }).fill(u.password);
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-  await expect(page).toHaveURL(/\/account$/);
+  await expect(page).toHaveURL(/\/settings$/);
   await (await headerItem(page, 'button', 'Sign out')).click();
   await expect(page).toHaveURL(/\/signin/);
-  await page.goto('/account');
+  await page.goto('/settings');
   await expect(page).toHaveURL(/\/signin/);
 });

@@ -4,8 +4,15 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ## [Unreleased]
 
+### Changed
+
+- Settings is now one screen: your own groups (Profile & email, Sign-in & security, Notifications, AI, Integrations, Your data) and, below them, the current household's (General, People, Notifications, Connections, Data). Switching household in the header switches the household part. Administration stays a separate screen. The header's "Account" link and the household "Settings" tab became a single "Settings" (in the tab bar; in the header only without a household). Old addresses (`/account/...`, `/households/<id>/...`) redirect to `/settings/...`, so bookmarks and emailed links keep working.
+- Access tokens are listed under Settings, Integrations as "Access tokens"; connecting an AI assistant moved to the new AI group.
+
 ### Added
 
+- Settings, AI: explains in plain words what connecting an AI assistant (Claude, ChatGPT, Gemini, other MCP apps) does, with example requests and the setup steps, followed by the guided setup and the connected apps. If an admin has switched MCP off, it says so (and admins get a link to turn it on).
+- Settings, Integrations, Home Assistant: a guided setup with "Open in Home Assistant" (installs the integration through HACS via My Home Assistant) and "Add to Home Assistant" (starts adding the Gunkly integration), and a key prefilled for Home Assistant (all your households; see, complete and add chores) that shows this server's address next to it.
 - Administration, Sign-up & sign-in has a "Single sign-on (SSO)" section. Single sign-on is still configured only through `GUNKLY_OIDC_*` environment variables (it needs the client secret); the section now says so. When it is off, it explains the setup step by step with this server's redirect URI; when it is on, it shows the provider, client ID, scopes and redirect URI (never the secret). `GET /admin/settings` adds `ssoAvailable`, `ssoIssuer`, `ssoClientId`, `ssoScopes` and `ssoCallback`.
 
 ## [0.5.1] - 2026-11-24

@@ -1,6 +1,8 @@
 <script lang="ts" module>
   import type { IconName } from './Icon.svelte';
   export type Group = { id: string; label: string; hint: string; icon: IconName };
+  /** A labelled run of groups in the list (Settings: "You", then the household). */
+  export type GroupSet = { id: string; label: string; hint?: string; groups: Group[] };
 </script>
 
 <script lang="ts">
@@ -10,34 +12,43 @@
   // A settings screen split into groups, each at its own URL (base/group).
   // Phones: the bare URL lists the groups; a group URL shows only that group
   // with a back link. Wide screens: the list stays on the side and the bare URL
-  // shows the first group.
+  // shows the first group. Pass groups, or sets for a list with headings.
   let {
     title,
     base,
-    groups,
+    groups = [],
+    sets,
     section,
     intro,
     children,
-  }: { title: string; base: string; groups: Group[]; section?: string; intro?: Snippet; children: Snippet<[string]> } = $props();
+  }: { title: string; base: string; groups?: Group[]; sets?: GroupSet[]; section?: string; intro?: Snippet; children: Snippet<[string]> } = $props();
 
-  const picked = $derived(groups.find((g) => g.id === section));
-  const active = $derived(picked ?? groups[0]);
+  const lists = $derived(sets ?? [{ id: 'all', label: '', groups }]);
+  const all = $derived(lists.flatMap((l) => l.groups));
+  const picked = $derived(all.find((g) => g.id === section));
+  const active = $derived(picked ?? all[0]);
 </script>
 
 <h1>{title}</h1>
 {@render intro?.()}
 <div class="settings" class:bare={!picked}>
   <nav aria-label={title}>
-    <ul>
-      {#each groups as g (g.id)}
-        <li>
-          <a href="{base}/{g.id}" aria-current={g.id === active?.id ? 'page' : undefined}>
-            <Icon name={g.icon} />
-            <span><strong>{g.label}</strong><small>{g.hint}</small></span>
-          </a>
-        </li>
-      {/each}
-    </ul>
+    {#each lists as l (l.id)}
+      {#if l.label}
+        <h2 class="set" id="set-{l.id}">{l.label}</h2>
+        {#if l.hint}<p class="set-hint">{l.hint}</p>{/if}
+      {/if}
+      <ul aria-labelledby={l.label ? `set-${l.id}` : undefined}>
+        {#each l.groups as g (g.id)}
+          <li>
+            <a href="{base}/{g.id}" aria-current={g.id === active?.id ? 'page' : undefined}>
+              <Icon name={g.icon} />
+              <span><strong>{g.label}</strong><small>{g.hint}</small></span>
+            </a>
+          </li>
+        {/each}
+      </ul>
+    {/each}
   </nav>
   {#if active}
     <div class="content">
@@ -49,6 +60,24 @@
 </div>
 
 <style>
+  .set {
+    margin-block: var(--space) 8px;
+    padding-inline: 4px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-2);
+  }
+  .set:first-child {
+    margin-block-start: 0;
+  }
+  .set-hint {
+    margin-block: -6px 8px;
+    padding-inline: 4px;
+    font-size: 0.8125rem;
+    color: var(--text-2);
+  }
   nav ul {
     list-style: none;
     margin: 0;
@@ -125,7 +154,7 @@
     nav a::after {
       content: none;
     }
-    nav small {
+    nav a small {
       display: none;
     }
     nav a[aria-current='page'] {

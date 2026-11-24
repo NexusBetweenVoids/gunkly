@@ -19,7 +19,7 @@ test('passkeys: add one, sign in without a password, use it as second factor, re
     },
   });
 
-  await page.goto('/account/security');
+  await page.goto('/settings/security');
   const section = page.getByRole('region', { name: 'Passkeys' });
   await expect(section.getByRole('button', { name: 'Add a passkey' })).toBeEnabled();
   await section.getByRole('button', { name: 'Add a passkey' }).click();
@@ -43,7 +43,7 @@ test('passkeys: add one, sign in without a password, use it as second factor, re
   await axe(page, 'sign-in with passkey button');
   await page.getByRole('button', { name: 'Sign in with a passkey' }).click();
   await expect(page).not.toHaveURL(/signin/);
-  await page.goto('/account/security');
+  await page.goto('/settings/security');
   await expect(page.getByRole('region', { name: 'Passkeys' }).getByText(/last used/)).toBeVisible();
 
   // As the second factor after a password.
@@ -56,7 +56,7 @@ test('passkeys: add one, sign in without a password, use it as second factor, re
   await expect(page).not.toHaveURL(/signin/);
 
   // Removing needs a step-up, which a passkey can give on its own.
-  await page.goto('/account/security');
+  await page.goto('/settings/security');
   const list = page.getByRole('region', { name: 'Passkeys' });
   await list.getByRole('button', { name: 'Delete' }).click();
   await page.getByRole('dialog', { name: 'Remove this passkey?' }).getByRole('button', { name: 'Delete' }).click();

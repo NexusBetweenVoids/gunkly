@@ -6,9 +6,9 @@ test('integrations: create an access token in the UI, use it as a bearer, revoke
   const h = await world.household(u);
   const chore = await world.chore(u, h);
   const { page } = await u.open();
-  await page.goto('/account/integrations');
+  await page.goto('/settings/integrations');
 
-  const section = page.getByRole('region', { name: 'Integrations' });
+  const section = page.getByRole('region', { name: 'Access tokens' });
   await expect(section.getByText(/Home Assistant/)).toBeVisible();
   await section.getByRole('button', { name: 'Create access token' }).click();
 
@@ -73,7 +73,7 @@ test('integrations: guided Claude Code setup creates a working token, then revok
   const h = await world.household(u);
   const { page } = await u.open();
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/account/integrations');
+  await page.goto('/settings/ai');
 
   const card = page.getByRole('region', { name: 'Connect an AI assistant' });
   await expect(card.getByText(/can only use the households and actions you allow/)).toBeVisible();
@@ -104,8 +104,8 @@ test('integrations: guided Claude Code setup creates a working token, then revok
   const auth = { Authorization: `Bearer ${secret}` };
   expect((await api.get('/api/v1/token', { headers: auth })).status()).toBe(200);
 
-  await page.reload();
-  const row = page.getByRole('region', { name: 'Integrations' }).getByRole('listitem').filter({ hasText: 'Claude Code (MCP)' });
+  await page.goto('/settings/integrations');
+  const row = page.getByRole('region', { name: 'Access tokens' }).getByRole('listitem').filter({ hasText: 'Claude Code (MCP)' });
   await row.getByRole('button', { name: 'Revoke' }).click();
   await page.getByRole('dialog', { name: 'Revoke Claude Code (MCP)?' }).getByRole('button', { name: 'Revoke' }).click();
   await expect(page.getByText('Token revoked.')).toBeVisible();

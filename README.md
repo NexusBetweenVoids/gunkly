@@ -38,7 +38,7 @@ A self-hostable, **AI-friendly** chore tracker for recurring household chores an
 |-|-|
 | <img alt="Month calendar with the chores due on the selected day" src="docs/assets/screens/calendar-desktop-dark.png" width="420"> | <img alt="Edit chore form: name, area, assignees taking turns, first due date and schedule" src="docs/assets/screens/chore-editor-desktop-light.png" width="420"> |
 
-<p align="center"><img alt="Household settings, People group: the settings groups on the side, members and invites next to them" src="docs/assets/screens/household-desktop-light.png" width="420"><br><sub>Household settings (light): grouped into General, People, Notifications, Connections and Data.</sub></p>
+<p align="center"><img alt="Settings, the household's People group: your settings groups and the household's on the side, members and invites next to them" src="docs/assets/screens/household-desktop-light.png" width="420"><br><sub>Settings (light): your own groups, then the current household's General, People, Notifications, Connections and Data.</sub></p>
 
 All screenshots show synthetic demo data.
 
@@ -247,11 +247,11 @@ Administration, Updates shows the running version and the latest release with it
 
 ## Browser notifications
 
-Under Account, Notifications, "Turn on reminders on this device" subscribes the browser to Web Push (HTTPS or localhost, and a browser with push support). Messages are encrypted to the browser and delivered through the browser vendor's push service, which sees that a message was sent and when. Push follows the same recipients, mutes and quiet hours as your other channels.
+Under Settings, Notifications, "Turn on reminders on this device" subscribes the browser to Web Push (HTTPS or localhost, and a browser with push support). Messages are encrypted to the browser and delivered through the browser vendor's push service, which sees that a message was sent and when. Push follows the same recipients, mutes and quiet hours as your other channels.
 
 ## Integrations / API tokens
 
-Under Account, "Integrations", create an access token for Home Assistant, a script or an AI assistant (via an MCP server). A token is bound to the households you choose and to the permissions you give it: see and read chores (`chores:read`), mark them done, snooze, skip and pause them, and change whose turn it is on a chore that takes turns (`chores:complete`), and add, change or delete them (`chores:write`). It never exceeds your own role in a household (a guest's token can only read), can expire, is shown once and can be revoked at any time. It can never change members, settings, notification channels or your account.
+Under Settings, "Integrations", create an access token for Home Assistant, a script or an AI assistant (via an MCP server). A token is bound to the households you choose and to the permissions you give it: see and read chores (`chores:read`), mark them done, snooze, skip and pause them, and change whose turn it is on a chore that takes turns (`chores:complete`), and add, change or delete them (`chores:write`). It never exceeds your own role in a household (a guest's token can only read), can expire, is shown once and can be revoked at any time. It can never change members, settings, notification channels or your account.
 
 ```sh
 curl -H "Authorization: Bearer gk_..." https://gunkly.example.com/api/v1/token
@@ -262,15 +262,15 @@ Requests with a token need no cookies or CSRF header. See [api/openapi.yaml](api
 
 ## Outgoing webhooks
 
-Gunkly can POST a signed JSON message to a web address when a chore is completed, becomes overdue, is created, changed, deleted, snoozed or skipped, so home automation and scripts can react without polling. Optional and **off by default**: an admin turns it on under Administration, "Connections"; while off nothing is sent and the routes answer 404. Household owners then add webhooks under the household settings, Connections, "Webhooks (advanced)" (https addresses only, unless the admin switched the egress guard off for self-hosting). Every request is signed (`Gunkly-Signature: t=<unix>,v1=<HMAC-SHA256 of "<t>.<body>">`, with a per-webhook secret shown once), goes through the egress guard, never follows redirects, retries with backoff and is logged (last 50 per webhook); 20 failures in a row switch the webhook off. Payloads, signature checks in shell, Python and Node, and the retry rules are in [docs/webhooks.md](docs/webhooks.md); design in [ADR 0017](docs/adr/0017-outgoing-webhooks.md).
+Gunkly can POST a signed JSON message to a web address when a chore is completed, becomes overdue, is created, changed, deleted, snoozed or skipped, so home automation and scripts can react without polling. Optional and **off by default**: an admin turns it on under Administration, "Connections"; while off nothing is sent and the routes answer 404. Household owners then add webhooks under Settings, the household's Connections, "Webhooks (advanced)" (https addresses only, unless the admin switched the egress guard off for self-hosting). Every request is signed (`Gunkly-Signature: t=<unix>,v1=<HMAC-SHA256 of "<t>.<body>">`, with a per-webhook secret shown once), goes through the egress guard, never follows redirects, retries with backoff and is logged (last 50 per webhook); 20 failures in a row switch the webhook off. Payloads, signature checks in shell, Python and Node, and the retry rules are in [docs/webhooks.md](docs/webhooks.md); design in [ADR 0017](docs/adr/0017-outgoing-webhooks.md).
 
 ## Home Assistant
 
-The [Gunkly integration for Home Assistant](https://github.com/NexusBetweenVoids/gunkly-homeassistant) (installable through HACS as a custom repository) adds a to-do list per household — ticking an item completes the chore — plus overdue and due-today sensors, a calendar, actions to complete, snooze or skip chores, and an event when a chore becomes overdue. Create an API token with the `chores:read` and `chores:complete` scopes (add `chores:write` to create chores from Home Assistant).
+The [Gunkly integration for Home Assistant](https://github.com/NexusBetweenVoids/gunkly-homeassistant) (installable through HACS as a custom repository) adds a to-do list per household — ticking an item completes the chore — plus overdue and due-today sensors, a calendar, actions to complete, snooze or skip chores, and an event when a chore becomes overdue. Settings, "Integrations" has a guided setup: buttons that open your Home Assistant (through My Home Assistant) to install the integration from HACS and to add it, and a ready-made access token. To do it by hand, create an API token with the `chores:read` and `chores:complete` scopes (add `chores:write` to create chores from Home Assistant).
 
 ## Use with AI assistants (MCP)
 
-Gunkly has a built-in [MCP](https://modelcontextprotocol.io) server, so an AI assistant can list, complete, snooze, skip and add chores for you. It is the Streamable HTTP endpoint `https://<host>/mcp` and uses an [access token](#integrations--api-tokens) from Account, "Integrations": give the token only the households and permissions the assistant needs.
+Gunkly has a built-in [MCP](https://modelcontextprotocol.io) server, so an AI assistant can list, complete, snooze, skip and add chores for you. It is the Streamable HTTP endpoint `https://<host>/mcp` and uses an [access token](#integrations--api-tokens) from Settings, "Integrations" (Settings, "AI" walks you through it): give the token only the households and permissions the assistant needs.
 
 Claude Code:
 
@@ -294,11 +294,11 @@ Any client that takes a JSON configuration (Claude Desktop through a remote-serv
 
 Tools, by the permission they need (the assistant only sees the ones its token allows): `list_households`, `list_chores`, `get_chore`, `upcoming` and `list_areas` (`chores:read`); `complete_chore`, `undo_completion`, `snooze_chore` and `skip_chore` (`chores:complete`); `create_chore`, `update_chore`, `archive_chore`, `unarchive_chore`, `create_area` and `rename_area` (`chores:write`; deleting chores or areas is not offered over MCP). Everything goes through the same household and role checks as the app, completions are recorded as made by the token and appear in the audit log, and the usual per-token rate limits apply. Chore names and notes are text your household typed: a client should treat them as data, never as instructions. An instance admin can switch the endpoint off under Administration, "Connections". See [ADR 0015](docs/adr/0015-mcp-server.md).
 
-Assistants that cannot take an access key (ChatGPT custom connectors, Claude's "Add custom connector") sign in with OAuth 2.1 instead: optional and **off by default**, an admin turns it on under Administration, "Connections" (it needs `GUNKLY_BASE_URL` to be a public `https://` address). Users then approve the app on a Gunkly consent page, pick the households and actions it may use, and can disconnect it under Account, "Integrations". Its tokens work for `/mcp` only. See [ADR 0016](docs/adr/0016-oauth-for-mcp.md) and [Connect an AI assistant](docs/ai-assistants.md#chatgpt-and-claude-connectors).
+Assistants that cannot take an access key (ChatGPT custom connectors, Claude's "Add custom connector") sign in with OAuth 2.1 instead: optional and **off by default**, an admin turns it on under Administration, "Connections" (it needs `GUNKLY_BASE_URL` to be a public `https://` address). Users then approve the app on a Gunkly consent page, pick the households and actions it may use, and can disconnect it under Settings, "AI". Its tokens work for `/mcp` only. See [ADR 0016](docs/adr/0016-oauth-for-mcp.md) and [Connect an AI assistant](docs/ai-assistants.md#chatgpt-and-claude-connectors).
 
 ## Export and import
 
-Every user can download their own data (Account, Your data, "Export my data"; asks for the password again) and members and owners can export a household (household settings, Data, "Export household") as JSON. The files never contain notification URLs, tokens, calendar feed links or member email addresses. An owner's household file also lists the household's webhooks (name, events, address and on/off state, never the signing secret); webhook addresses can embed credentials, so keep that file private. Importing re-creates them switched off with new secrets, for you to review ([docs/webhooks.md](docs/webhooks.md)). A household file can be imported as a new household or merged into one you are a member of (areas with the same name are combined, chores are added as new ones, assignees are matched to members by username). Uploads are limited to 5 MiB and an import is all-or-nothing.
+Every user can download their own data (Settings, Your data, "Export my data"; asks for the password again) and members and owners can export a household (Settings, the household's Data group, "Export household") as JSON. The files never contain notification URLs, tokens, calendar feed links or member email addresses. An owner's household file also lists the household's webhooks (name, events, address and on/off state, never the signing secret); webhook addresses can embed credentials, so keep that file private. Importing re-creates them switched off with new secrets, for you to review ([docs/webhooks.md](docs/webhooks.md)). A household file can be imported as a new household or merged into one you are a member of (areas with the same name are combined, chores are added as new ones, assignees are matched to members by username). Uploads are limited to 5 MiB and an import is all-or-nothing.
 
 ## Releases and verification
 
@@ -324,7 +324,7 @@ Verify a binary: `sha256sum -c --ignore-missing SHA256SUMS`.
 
 The maintainer runs a free, non-commercial hosted instance; its operations and legal texts live outside this repository. Self-hosters run their own instance and are responsible for their own data.
 
-Every instance can delete accounts (Account, Your data, "Delete account") and can optionally remove accounts that stay inactive: an admin switches it on under Administration, "Data & retention" (default off; warning after 365 days, deletion after 548 days without activity, a final warning 30 days before; instance admins are never deleted).
+Every instance can delete accounts (Settings, Your data, "Delete account") and can optionally remove accounts that stay inactive: an admin switches it on under Administration, "Data & retention" (default off; warning after 365 days, deletion after 548 days without activity, a final warning 30 days before; instance admins are never deleted).
 
 ## Documentation
 

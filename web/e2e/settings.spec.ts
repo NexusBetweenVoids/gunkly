@@ -71,7 +71,7 @@ test('household settings: areas, calendar feed, notification channel from the se
 test('account: change password (with step-up) and sign in with the new one', async ({ world }) => {
   const u = await world.newUser();
   const { page } = await u.open();
-  await page.goto('/account/security');
+  await page.goto('/settings/security');
   const next = `${PASSWORD} again`;
   const section = page.getByRole('region', { name: 'Password' });
   await section.getByLabel('New password', { exact: true }).fill(next);

@@ -21,7 +21,9 @@
   const editId = $derived(route.path.match(/^\/chores\/([^/]+)\/edit$/)?.[1]);
   const hhMatch = $derived(route.path.match(/^\/households\/([^/]+)(?:\/([a-z]+))?$/));
   const hhId = $derived(hhMatch?.[1] !== 'new' ? hhMatch?.[1] : undefined);
-  // Settings screens take an optional group: /account/security, /admin/limits, /households/{id}/people.
+  // Settings screens take an optional group: /settings/security, /settings/household-people, /admin/limits.
+  const settingsMatch = $derived(route.path.match(/^\/settings(?:\/([a-z-]+))?$/));
+  // Addresses from before Settings was one screen (bookmarks, emails): /account/x, /households/{id}/x.
   const accountMatch = $derived(route.path.match(/^\/account(?:\/([a-z]+))?$/));
   const adminMatch = $derived(route.path.match(/^\/admin(?:\/([a-z]+))?$/));
   // Public screens: signed-out users may see them (the last two also signed in: emailed links).
@@ -38,6 +40,17 @@
       navigate('/setup', true);
     } else if (app.user && ['/signin', '/setup', '/signup', '/forgot-password'].includes(route.path)) {
       navigate('/', true);
+    }
+  });
+
+  // Old settings addresses move to /settings, keeping the group and the query (?sso=…).
+  $effect(() => {
+    if (!app.ready || !app.user) return;
+    if (accountMatch) {
+      navigate(`/settings${accountMatch[1] ? `/${accountMatch[1]}` : ''}${location.search}`, true);
+    } else if (hhId && app.households.some((h) => h.id === hhId)) {
+      selectHousehold(hhId);
+      navigate(`/settings/household${hhMatch?.[2] ? `-${hhMatch[2]}` : ''}${location.search}`, true);
     }
   });
 
@@ -92,7 +105,8 @@
         </div>
       {/if}
       <ul class="links">
-        <li><a href="/account" aria-current={here('/account')}>{t('nav.account')}</a></li>
+        <!-- With a household, Settings is in the tab bar. -->
+        {#if !app.hhId}<li><a href="/settings" aria-current={here('/settings')}>{t('nav.settings')}</a></li>{/if}
         {#if app.user.isAdmin}
           <li><a href="/admin" aria-current={here('/admin')}>{t('nav.admin')}</a></li>
         {/if}
@@ -118,7 +132,7 @@
       {#if currentHousehold()?.role !== 'guest'}
         <li><a href="/chores/new" aria-current={here('/chores/new')}><span aria-hidden="true">+</span>{t('nav.add')}</a></li>
       {/if}
-      <li><a href="/households/{app.hhId}" aria-current={here(`/households/${app.hhId}`)}><span aria-hidden="true">&#x2699;</span>{t('household.settings')}</a></li>
+      <li><a href="/settings" aria-current={here('/settings')}><span aria-hidden="true">&#x2699;</span>{t('nav.settings')}</a></li>
     </ul>
   </nav>
 {/if}
@@ -153,10 +167,10 @@
       {#key `${app.hhId}/${editId}`}<Lazy load={() => import('./screens/ChoreEditor.svelte')} ns={['chores']} props={{ id: editId }} />{/key}
     {:else if route.path === '/households/new'}
       <Lazy load={() => import('./screens/NewHousehold.svelte')} ns={['household']} />
-    {:else if hhId}
-      {#key hhId}<Lazy load={() => import('./screens/Household.svelte')} ns={['household', 'channels']} props={{ id: hhId, section: hhMatch?.[2] }} />{/key}
-    {:else if accountMatch}
-      <Lazy load={() => import('./screens/Account.svelte')} ns={['account', 'channels']} props={{ section: accountMatch[1] }} />
+    {:else if settingsMatch}
+      {#key app.hhId}<Lazy load={() => import('./screens/Settings.svelte')} ns={['account', 'household', 'channels']} props={{ section: settingsMatch[1] }} />{/key}
+    {:else if accountMatch || (hhId && app.households.some((h) => h.id === hhId))}
+      <p role="status" class="muted">{t('common.loading')}</p>
     {:else if adminMatch && app.user.isAdmin}
       <Lazy load={() => import('./screens/Admin.svelte')} ns={['admin']} props={{ section: adminMatch[1] }} />
     {:else}

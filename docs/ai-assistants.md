@@ -6,7 +6,7 @@ The assistant only gets what you give it: the households you pick, and the actio
 
 ## Set it up
 
-1. Sign in to Gunkly and open **Account**, then **Integrations**.
+1. Sign in to Gunkly and open **Settings**, then **AI**.
 2. In the card **Connect an AI assistant**, press **Connect an assistant**.
 3. Choose your assistant: Claude Code, Claude Desktop, Gemini CLI, Other MCP app, ChatGPT or Claude (connector). The last two are explained in [ChatGPT and Claude connectors](#chatgpt-and-claude-connectors); they need no access key.
 4. Choose which households it may use (all of yours are ticked at first).
@@ -45,7 +45,7 @@ Add an MCP server with the address shown (ending in `/mcp`), transport "Streamab
 ChatGPT custom connectors and the "Add custom connector" option of Claude (claude.ai and the desktop apps) do not take an access key. They connect by address and ask you to sign in, using OAuth. Gunkly supports this, but it is **off by default** and an instance admin has to turn it on:
 
 1. **Admin:** open Administration, **Connections**, tick **Let apps such as ChatGPT sign in with Gunkly (OAuth)** and save. This needs `GUNKLY_BASE_URL` to be an `https://` address (for development `http://localhost` also works), and because these services connect from their own servers, Gunkly must be reachable on the public internet at that address. Without it the option cannot be turned on. While it is off, every `/oauth/...` address and the `/.well-known/oauth-...` documents answer 404 and nothing about OAuth is advertised.
-2. **You:** in Account, Integrations, press **Connect an assistant**, choose **ChatGPT** or **Claude (connector)** and copy the address shown (ending in `/mcp`).
+2. **You:** in Settings, AI, press **Connect an assistant**, choose **ChatGPT** or **Claude (connector)** and copy the address shown (ending in `/mcp`).
 3. In ChatGPT (Settings, Connectors, with Developer mode on if asked) or Claude (Settings, Connectors, Add custom connector), add a connector with that address. Leave any client ID or secret fields empty: the app registers itself.
 4. The app sends you to Gunkly. Sign in if asked, read who is asking, choose the households and actions it may use (seeing chores is always on; "Mark chores done" and "Create and edit chores, manage areas" are separate boxes), and press **Allow**.
 
@@ -53,7 +53,7 @@ The consent page says **Unverified app**: any app can register under any name, a
 
 Only apps that run on a server or on your device can connect: browser-based clients (web pages that would call Gunkly from the visitor's browser, which needs CORS) are not supported, because Gunkly sends no CORS headers.
 
-Apps you approved are listed under **Connected apps** in Account, Integrations, with **Disconnect**. Changing your password or removing a second factor disconnects all of them.
+Apps you approved are listed under **Connected apps** in Settings, AI, with **Disconnect**. Changing your password or removing a second factor disconnects all of them.
 
 ## Things to try
 
@@ -72,7 +72,7 @@ Apps you approved are listed under **Connected apps** in Account, Integrations, 
 
 ## Take access away
 
-Open **Account**, **Integrations**, find the entry (for example "Claude Code (MCP)") and press **Revoke**. It stops working at once. Changing your password or removing a second factor also revokes all access keys and disconnects all connected apps.
+Open **Settings**, **Integrations**, find the entry under **Access tokens** (for example "Claude Code (MCP)") and press **Revoke**. It stops working at once. Changing your password or removing a second factor also revokes all access keys and disconnects all connected apps.
 
 ## Troubleshooting
 

@@ -8,7 +8,8 @@ test('areas are off for a new household and can be switched on and off without l
   const name = uniq('Flat ');
   await page.getByLabel('Household name').fill(name);
   await page.getByRole('button', { name: 'Create household' }).click();
-  await expect(page.getByRole('heading', { level: 1, name })).toBeVisible();
+  await expect(page).toHaveURL(/\/settings\/household$/);
+  await expect(page.getByRole('region', { name: 'General' }).getByLabel('Name')).toHaveValue(name);
   const areas = page.getByRole('region', { name: 'Areas' });
   await expect(areas).toHaveCount(0);
 

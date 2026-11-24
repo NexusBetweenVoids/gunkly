@@ -21,7 +21,7 @@ test('single sign-on: link an account, sign in with it, unlink', async ({ world 
 
   // Linking needs a fresh password check, then the provider takes over and brings us back.
   await asProviderUser({ sub, preferred_username: u.username });
-  await page.goto('/account/security');
+  await page.goto('/settings/security');
   const section = page.getByRole('region', { name: 'Single sign-on' });
   await expect(section.getByText('Not linked.')).toBeVisible();
   await axe(page, 'single sign-on section');
@@ -30,7 +30,7 @@ test('single sign-on: link an account, sign in with it, unlink', async ({ world 
   await confirm.getByLabel('Password').fill(u.password);
   await confirm.getByRole('button', { name: 'Confirm' }).click();
   await expect(page.getByText('Single sign-on linked.')).toBeVisible();
-  await expect(page).toHaveURL(/\/account\/security$/);
+  await expect(page).toHaveURL(/\/settings\/security$/);
   await expect(section.getByText(/Linked since/)).toBeVisible();
 
   // Signed out, the button on the sign-in page signs in as the linked account, no password asked.
@@ -40,11 +40,11 @@ test('single sign-on: link an account, sign in with it, unlink', async ({ world 
   await asProviderUser({ sub, preferred_username: 'whatever' });
   await page.getByRole('link', { name: 'Sign in with Test IdP' }).click();
   await expect(page.getByRole('heading', { name: 'Sign in' })).toHaveCount(0);
-  await page.goto('/account/profile');
+  await page.goto('/settings/profile');
   await expect(page.getByLabel('Display name')).toHaveValue(u.displayName);
 
   // Unlinking (step-up again) goes back to "not linked"; the same sign-in is now a stranger.
-  await page.goto('/account/security');
+  await page.goto('/settings/security');
   await section.getByRole('button', { name: 'Unlink' }).click();
   await page.getByRole('dialog', { name: 'Unlink single sign-on?' }).getByRole('button', { name: 'Unlink' }).click();
   const again = page.getByRole('dialog', { name: "Confirm it's you" });
@@ -75,10 +75,10 @@ test('single sign-on: an unknown user gets a friendly message, or an account whe
     await page.goto('/signin');
     await page.getByRole('link', { name: 'Sign in with Test IdP' }).click();
     await expect(page.getByRole('heading', { name: 'Sign in' })).toHaveCount(0);
-    await page.goto('/account/profile');
+    await page.goto('/settings/profile');
     await expect(page.getByLabel('Display name')).toHaveValue('Sunny Sso');
     // There is no password: the security page says how to add one, and the account cannot unlink yet.
-    await page.goto('/account/security');
+    await page.goto('/settings/security');
     const section = page.getByRole('region', { name: 'Single sign-on' });
     await expect(section.getByText(/no password/)).toBeVisible();
     await expect(section.getByRole('button', { name: 'Unlink' })).toBeDisabled();

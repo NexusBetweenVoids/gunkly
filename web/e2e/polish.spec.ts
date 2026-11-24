@@ -2,7 +2,7 @@ import { expect, headerItem, test, uniq } from './helpers';
 
 test('header menu on phones: keyboard open, arrow keys, Escape returns focus', async ({ world }, info) => {
   test.skip(info.project.name !== 'mobile', 'the menu only exists below the sidebar breakpoint');
-  const u = await world.newUser();
+  const u = await world.newUser({ admin: true }); // Admin and Sign out: with a household, Settings is in the tab bar
   await world.household(u);
   const { page } = await u.open();
   await page.setViewportSize({ width: 390, height: 844 });
@@ -10,18 +10,18 @@ test('header menu on phones: keyboard open, arrow keys, Escape returns focus', a
   const nav = page.getByRole('navigation', { name: 'Main' });
   const menu = nav.getByRole('button', { name: 'Menu' });
   await expect(menu).toHaveAttribute('aria-expanded', 'false');
-  await expect(nav.getByRole('link', { name: 'Account' })).toBeHidden();
+  await expect(nav.getByRole('link', { name: 'Admin' })).toBeHidden();
   const bar = await nav.boundingBox();
   expect(bar!.height).toBeLessThan(70); // one calm row
 
   await menu.focus();
   await page.keyboard.press('Enter');
   await expect(menu).toHaveAttribute('aria-expanded', 'true');
-  await expect(nav.getByRole('link', { name: 'Account' })).toBeFocused();
+  await expect(nav.getByRole('link', { name: 'Admin' })).toBeFocused();
   await page.keyboard.press('ArrowDown');
   await expect(nav.getByRole('button', { name: 'Sign out' })).toBeFocused();
   await page.keyboard.press('ArrowDown');
-  await expect(nav.getByRole('link', { name: 'Account' })).toBeFocused();
+  await expect(nav.getByRole('link', { name: 'Admin' })).toBeFocused();
   await expect(nav.getByRole('link', { name: 'New household' })).toHaveCount(0);
   await page.keyboard.press('Escape');
   await expect(menu).toHaveAttribute('aria-expanded', 'false');
@@ -32,14 +32,14 @@ test('header menu on phones: keyboard open, arrow keys, Escape returns focus', a
   await page.keyboard.press('Tab');
   await page.keyboard.press('Tab');
   await expect(menu).toHaveAttribute('aria-expanded', 'false');
-  await (await headerItem(page, 'link', 'Account')).click();
-  await expect(page).toHaveURL(/\/account$/);
+  await (await headerItem(page, 'link', 'Admin')).click();
+  await expect(page).toHaveURL(/\/admin$/);
   await expect(menu).toHaveAttribute('aria-expanded', 'false');
 });
 
 test('header menu mirrors in RTL', async ({ world }, info) => {
   test.skip(info.project.name !== 'mobile');
-  const u = await world.newUser();
+  const u = await world.newUser({ admin: true }); // Admin and Sign out: with a household, Settings is in the tab bar
   await world.household(u);
   const { page } = await u.open();
   await page.setViewportSize({ width: 390, height: 844 });
@@ -49,7 +49,7 @@ test('header menu mirrors in RTL', async ({ world }, info) => {
   const menu = nav.getByRole('button', { name: 'Menu' });
   await menu.click();
   const b = await menu.boundingBox();
-  const p = await nav.getByRole('link', { name: 'Account' }).boundingBox();
+  const p = await nav.getByRole('link', { name: 'Admin' }).boundingBox();
   expect(b!.x).toBeLessThan(100); // the button sits at the inline start edge in RTL
   expect(p!.x).toBeLessThan(150);
 });

@@ -106,7 +106,6 @@
   {#if app.instance.mcpEnabled === false}
     <p class="muted">{t('mcp.disabled')}</p>
   {:else}
-    <p>{t('mcp.intro')}</p>
     <ul class="bullets">
       <li>{t('mcp.point1')}</li>
       <li>{t('mcp.point2')}</li>

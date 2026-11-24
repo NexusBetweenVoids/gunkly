@@ -31,7 +31,7 @@ test('export a household, import it as a new household: the same chores appear',
   await section.getByRole('button', { name: 'Import' }).click();
   await expect(section.getByRole('alert')).toContainText("A value isn't valid.");
   await expect(section.getByRole('alert')).toContainText('chores[0].link');
-  await expect(page.getByRole('heading', { level: 1, name: h.name })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Settings' })).toBeVisible();
 
   // Import as a new household.
   await section.getByLabel('Household file').setInputFiles(file);
@@ -40,7 +40,7 @@ test('export a household, import it as a new household: the same chores appear',
   await expect(section.getByRole('status')).toContainText(`Created “${h.name}” from the file.`);
   await expect(section.getByText('Chores added: 2')).toBeVisible();
   await section.getByRole('button', { name: 'Open household' }).click();
-  await expect(page).toHaveURL(/\/households\/(?!.*import)/);
+  await expect(page).toHaveURL(/\/settings\/household$/);
 
   const all = await u.api.get<Household[]>('/households');
   const copies = all.filter((x) => x.name === h.name && x.id !== h.id);
@@ -67,7 +67,7 @@ test('guests cannot export or import a household', async ({ world }) => {
   await guest.api.post(`/invites/${inv.token}/accept`);
   const { page } = await guest.open();
   await page.goto(`/households/${h.id}/data`);
-  await expect(page.getByRole('heading', { level: 1, name: h.name })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Settings' })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Export and import' })).toHaveCount(0);
   await guest.api.call('GET', `/households/${h.id}/export`, undefined, 403);
 });
@@ -77,7 +77,7 @@ test('export my data asks for the password and downloads the file', async ({ wor
   const h = await world.household(u);
   await world.chore(u, h);
   const { page } = await u.open();
-  await page.goto('/account/data');
+  await page.goto('/settings/data');
   const section = page.getByRole('region', { name: 'Export my data' });
   await section.getByRole('button', { name: 'Export my data' }).click();
   const dialog = page.getByRole('dialog', { name: "Confirm it's you" });

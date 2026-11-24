@@ -5,7 +5,7 @@ Gunkly can send a signed JSON message to a web address when something happens to
 ## Turn it on
 
 1. An instance admin ticks **Let household owners add outgoing webhooks** under Administration, Connections (`webhooksEnabled` in the API). While it is off, nothing is sent and every webhook route answers `404`.
-2. A household **owner** opens the household's settings, **Connections**, expands **Webhooks (advanced)** and adds a webhook: the address, the events and an optional description. Creating, changing or switching one on or off asks for the password again (step-up) unless you confirmed it in the last 15 minutes.
+2. A household **owner** opens Settings, the household's **Connections**, expands **Webhooks (advanced)** and adds a webhook: the address, the events and an optional description. Creating, changing or switching one on or off asks for the password again (step-up) unless you confirmed it in the last 15 minutes.
 3. Gunkly shows the **signing secret** (`whsec_...`) once. Copy it; it can not be shown again. **New secret** replaces it (the old one stops signing immediately).
 4. **Send test** posts a signed `ping` event right away and shows the result in the log.
 
@@ -13,7 +13,7 @@ The address must be `https://`. An admin who has switched the egress guard off (
 
 ## Export and import
 
-A household **owner's** export file (household settings, Data, "Export household") includes each webhook's name, events, address and on/off state, but **never the signing secret**. Webhook addresses often carry a credential (a token in the path, for example), so treat that file as sensitive: do not post it, and store it like a password. Members' exports have no webhooks.
+A household **owner's** export file (Settings, the household's Data group, "Export household") includes each webhook's name, events, address and on/off state, but **never the signing secret**. Webhook addresses often carry a credential (a token in the path, for example), so treat that file as sensitive: do not post it, and store it like a password. Members' exports have no webhooks.
 
 Importing such a file (new household, or merge into one you own) re-creates the webhooks **switched off**, each with a **new signing secret**, so nothing is sent to an old address by surprise. Open **Webhooks (advanced)**, check each one, press **New secret** (which shows the secret once, for your receiver), then switch it on. A webhook is skipped, and listed in the import result, when webhooks are switched off on the server, you are not an owner of the target household, its address or events are invalid under today's rules (https only, egress guard) or the household already has its limit. A skipped webhook never stops the rest of the import.
 
@@ -104,7 +104,7 @@ function verify(secret, header, body /* Buffer, the raw body */, tolerance = 300
 - Answer with any `2xx` quickly (Gunkly waits 15 seconds) and do slow work afterwards. The response body is ignored (at most 4 KiB is read).
 - **Redirects are not followed**: a `3xx` counts as a failure. Give Gunkly the final address.
 - `5xx`, `408`, `425`, `429`, timeouts and connection errors are retried after 1, 2, 4, 8 and 16 minutes (6 attempts in all). Other `4xx` responses fail at once.
-- After **20 consecutive failed attempts** the webhook is switched off, an audit event is written and the household settings (Connections) show a notice. Turn it on again after fixing the receiver; a single success resets the count.
+- After **20 consecutive failed attempts** the webhook is switched off, an audit event is written and the household's Connections settings show a notice. Turn it on again after fixing the receiver; a single success resets the count.
 - Each webhook keeps a log of its last 50 attempts: event, time, HTTP status, duration and a short error ("HTTP 503", "timed out", "connection failed", "destination address not allowed"). Errors never contain the address or what the receiver answered.
 - Delivery is at least once. Order is not guaranteed across retries.
 

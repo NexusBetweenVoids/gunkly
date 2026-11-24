@@ -35,7 +35,7 @@
       <p class="hint">{t('emailReminders.changed')}</p>
     {:else}
       <p class="muted" data-testid="email-reminders-hint">{t('emailReminders.needVerified')}</p>
-      <p><a href="/account/profile">{t('emailReminders.addLink')}</a></p>
+      <p><a href="/settings/profile">{t('emailReminders.addLink')}</a></p>
     {/if}
     <div aria-live="polite"><Alert message={err} /></div>
   </section>

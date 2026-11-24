@@ -358,7 +358,7 @@ type createIn struct {
 func addMCPTool[In any](srv *mcp.Server, m mcpCall, t *mcp.Tool, scope string, fn func(context.Context, In) (any, error)) {
 	mcp.AddTool(srv, t, func(ctx context.Context, _ *mcp.CallToolRequest, in In) (*mcp.CallToolResult, any, error) {
 		if !m.c.tok.HasScope(scope) {
-			return nil, nil, toolErrf("this token lacks the %q permission that %s needs; create an access token with it in Gunkly (Account, Integrations)", scope, t.Name)
+			return nil, nil, toolErrf("this token lacks the %q permission that %s needs; create an access token with it in Gunkly (Settings, Integrations)", scope, t.Name)
 		}
 		out, err := fn(ctx, in)
 		if err != nil {

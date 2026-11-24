@@ -27,7 +27,7 @@
       const h = await api<Household>('POST', '/households', { name: name.trim(), timezone });
       await refreshHouseholds(h.id);
       selectHousehold(h.id);
-      navigate(`/households/${h.id}`);
+      navigate('/settings/household');
     } catch (x) {
       err = failure(x);
     } finally {

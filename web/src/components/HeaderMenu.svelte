@@ -59,7 +59,8 @@
     <svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22"><path d="M4 7h16M4 12h16M4 17h16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
   </button>
   <ul bind:this={panel} id="menu-{uid}" class="panel" hidden={!open}>
-    <li><a href="/account" aria-current={here('/account')}>{t('nav.account')}</a></li>
+    <!-- With a household, Settings is in the tab bar. -->
+        {#if !app.hhId}<li><a href="/settings" aria-current={here('/settings')}>{t('nav.settings')}</a></li>{/if}
     {#if app.user?.isAdmin}
       <li><a href="/admin" aria-current={here('/admin')}>{t('nav.admin')}</a></li>
     {/if}

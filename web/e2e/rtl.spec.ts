@@ -20,7 +20,7 @@ test('RTL: navigation mirrors and nothing overflows at 360px', async ({ world })
   const [rtlHome, rtlSettings] = [await box('Home'), await box('Settings')];
   expect(rtlHome.x).toBeGreaterThan(rtlSettings.x);
 
-  const paths = ['/', '/calendar', '/chores/new', `/chores/${c.id}`, `/households/${h.id}`, '/account'];
+  const paths = ['/', '/calendar', '/chores/new', `/chores/${c.id}`, '/settings/household', '/settings'];
   for (const p of paths) {
     await page.goto(p);
     await rtl();
