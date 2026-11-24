@@ -7,6 +7,7 @@
   import Audit from './account/Audit.svelte';
   import Email from './account/Email.svelte';
   import EmailReminders from './account/EmailReminders.svelte';
+  import QuietHours from './account/QuietHours.svelte';
   import EmailCodes from './account/EmailCodes.svelte';
   import Password from './account/Password.svelte';
   import PushNotifications from './account/PushNotifications.svelte';
@@ -38,6 +39,7 @@
     {:else if g === 'notifications'}
       <PushNotifications />
       <EmailReminders />
+      <QuietHours />
       <details class="card advanced">
         <summary>{t('channels.advancedTitle')}</summary>
         <p class="hint">{t('channels.advancedHint')}</p>

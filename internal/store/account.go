@@ -48,10 +48,15 @@ type ProfileUpdate struct {
 	DisplayName *string
 	Locale      *string
 	WeekStart   **int // set to a nil *int to clear (locale default)
+	// QuietHours: set to a nil *QuietHours to clear. Same rules as the household's.
+	QuietHours **QuietHours
 }
 
 // UpdateProfile applies p to the user's profile.
 func (s *Store) UpdateProfile(ctx context.Context, userID string, p ProfileUpdate) (User, error) {
+	if p.QuietHours != nil && *p.QuietHours != nil && !(*p.QuietHours).valid() {
+		return User{}, ErrInvalid
+	}
 	var u User
 	err := s.inTx(ctx, true, func(t *tx) error {
 		if p.DisplayName != nil {
@@ -78,6 +83,15 @@ func (s *Store) UpdateProfile(ctx context.Context, userID string, p ProfileUpdat
 				v = *ws
 			}
 			if err := t.execOne(ctx, "UPDATE users SET week_start = ? WHERE id = ?", v, userID); err != nil {
+				return err
+			}
+		}
+		if p.QuietHours != nil {
+			var start, end any
+			if q := *p.QuietHours; q != nil {
+				start, end = q.StartMin, q.EndMin
+			}
+			if err := t.execOne(ctx, "UPDATE users SET quiet_start_min = ?, quiet_end_min = ? WHERE id = ?", start, end, userID); err != nil {
 				return err
 			}
 		}

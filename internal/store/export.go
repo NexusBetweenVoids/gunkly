@@ -209,17 +209,20 @@ func (s *Store) ExportUser(ctx context.Context, userID string) (*transfer.User, 
 		Memberships: []transfer.UserMembership{}, Completions: []transfer.UserCompletion{},
 		Channels: []transfer.UserChannel{}, Sessions: []transfer.UserSession{}, Audit: []transfer.UserAudit{}}
 	err := s.inTx(ctx, false, func(t *tx) error {
-		var ws sql.NullInt64
+		var ws, qs, qe sql.NullInt64
 		var created int64
 		p, pr := &out.Profile, &out.Preferences
-		if err := t.queryRow(ctx, `SELECT username, display_name, COALESCE(email, ''), email_verified, totp_enabled, created_at, locale, week_start
-			FROM users WHERE id = ?`, userID).Scan(&p.Username, &p.DisplayName, &p.Email, &p.EmailVerified, &p.TOTPEnabled, &created, &pr.Locale, &ws); err != nil {
+		if err := t.queryRow(ctx, `SELECT username, display_name, COALESCE(email, ''), email_verified, totp_enabled, created_at, locale, week_start, quiet_start_min, quiet_end_min
+			FROM users WHERE id = ?`, userID).Scan(&p.Username, &p.DisplayName, &p.Email, &p.EmailVerified, &p.TOTPEnabled, &created, &pr.Locale, &ws, &qs, &qe); err != nil {
 			return notFound(err)
 		}
 		p.CreatedAt = time.UnixMilli(created).UTC()
 		if ws.Valid {
 			w := int(ws.Int64)
 			pr.WeekStart = &w
+		}
+		if qs.Valid && qe.Valid {
+			pr.QuietHours = &transfer.Quiet{Start: int(qs.Int64), End: int(qe.Int64)}
 		}
 		return t.exportUserRows(ctx, userID, out)
 	})

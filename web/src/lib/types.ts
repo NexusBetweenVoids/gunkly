@@ -13,6 +13,7 @@ export type Me = {
   emailOtpEnabled: boolean;
   twoFactor: '' | 'totp' | 'email';
   emailReminders: boolean;
+  quietHours: { start: number; end: number } | null;
 };
 export type SessionView = {
   authenticated: boolean;

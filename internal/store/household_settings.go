@@ -30,6 +30,10 @@ type QuietHours struct {
 	EndMin   int
 }
 
+func (q *QuietHours) valid() bool {
+	return q.StartMin >= 0 && q.StartMin <= 1439 && q.EndMin >= 0 && q.EndMin <= 1439 && q.StartMin != q.EndMin
+}
+
 // UpdateHousehold changes household settings. Owner only.
 func (s *Store) UpdateHousehold(ctx context.Context, a Actor, householdID string, u HouseholdUpdate) (Household, error) {
 	if u.Name != nil && strings.TrimSpace(*u.Name) == "" {
@@ -40,11 +44,8 @@ func (s *Store) UpdateHousehold(ctx context.Context, a Actor, householdID string
 			return Household{}, ErrInvalid
 		}
 	}
-	if u.QuietHours != nil && *u.QuietHours != nil {
-		q := **u.QuietHours
-		if q.StartMin < 0 || q.StartMin > 1439 || q.EndMin < 0 || q.EndMin > 1439 || q.StartMin == q.EndMin {
-			return Household{}, ErrInvalid
-		}
+	if u.QuietHours != nil && *u.QuietHours != nil && !(*u.QuietHours).valid() {
+		return Household{}, ErrInvalid
 	}
 	if u.DefaultReminderPreset != nil && len(*u.DefaultReminderPreset) > 32 {
 		return Household{}, ErrInvalid

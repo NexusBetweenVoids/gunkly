@@ -52,7 +52,7 @@ All screenshots show synthetic demo data.
 - Home screen grouped Overdue / Today / This week / Later, with "Mine / Everyone" (and area filters if you turn areas on).
 
 **Reminders and notification channels**
-- Per chore: before due, on the due date, repeating while overdue (at most once per 24 h); household presets and quiet hours (deferred, not dropped); per-user mutes.
+- Per chore: before due, on the due date, repeating while overdue (at most once per 24 h); household presets and quiet hours, plus personal quiet hours (deferred, not dropped); per-user mutes.
 - Channels per user and per household through [Shoutrrr](https://containrrr.dev/shoutrrr/) service URLs: Discord, Slack, Telegram, Pushover, Pushbullet, Google Chat and ntfy.sh on by default; self-hosted ntfy, generic webhook, SMTP, MQTT, Matrix, Gotify and more can be enabled by the admin.
 - Built-in Web Push to browsers and installed PWAs; no third-party account needed.
 - Scoped API tokens for Home Assistant, scripts and AI assistants (see Integrations / API tokens).

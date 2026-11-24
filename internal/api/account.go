@@ -29,6 +29,8 @@ type meView struct {
 	TwoFactor       string `json:"twoFactor"`
 	// EmailReminders: reminders go to the verified address by email.
 	EmailReminders bool `json:"emailReminders"`
+	// QuietHours are the user's own, in the household's time zone; null = none.
+	QuietHours *quietView `json:"quietHours"`
 }
 
 func viewMe(u store.User) *meView {
@@ -36,6 +38,9 @@ func viewMe(u store.User) *meView {
 		WeekStart: u.WeekStart, IsAdmin: u.IsAdmin, TOTPEnabled: u.TOTPEnabled,
 		EmailVerified: u.EmailVerified, EmailOTPEnabled: u.EmailOTPEnabled,
 		EmailReminders: u.EmailReminders && u.EmailVerified}
+	if u.QuietStartMin != nil && u.QuietEndMin != nil {
+		v.QuietHours = &quietView{Start: *u.QuietStartMin, End: *u.QuietEndMin}
+	}
 	switch {
 	case u.TOTPEnabled:
 		v.TwoFactor = "totp"
@@ -66,6 +71,8 @@ func (s *Server) patchMe(w http.ResponseWriter, r *http.Request, c *call) error 
 		WeekStart   optional[int] `json:"weekStart"`
 		// EmailReminders needs email on the instance and a verified address.
 		EmailReminders *bool `json:"emailReminders"`
+		// QuietHours: null clears. Personal routes only; household quiet hours still apply.
+		QuietHours optional[quietView] `json:"quietHours"`
 	}
 	if err := decode(r, &in); err != nil {
 		return err
@@ -85,6 +92,13 @@ func (s *Server) patchMe(w http.ResponseWriter, r *http.Request, c *call) error 
 	}
 	if in.WeekStart.set {
 		p.WeekStart = &in.WeekStart.Value
+	}
+	if in.QuietHours.set {
+		var q *store.QuietHours
+		if v := in.QuietHours.Value; v != nil {
+			q = &store.QuietHours{StartMin: v.Start, EndMin: v.End}
+		}
+		p.QuietHours = &q
 	}
 	if in.EmailReminders != nil && *in.EmailReminders && (!s.emailEnabled() || !c.user.EmailVerified) {
 		return errInvalid

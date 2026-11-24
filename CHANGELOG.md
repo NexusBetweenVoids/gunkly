@@ -7,6 +7,7 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 ### Added
 
 - Chores that take turns now carry `turnName` (the display name of the person whose turn it is) in the REST API and the MCP chore output, next to `turnUserId`. Additive; API tokens still cannot list members.
+- Personal quiet hours (Account, Notifications): your own do-not-disturb window for reminders to your devices, email and messaging apps, in the household's time zone. Reminders wait until it ends, one per chore, never dropped; household channels and the household's own quiet hours are unaffected. `PATCH /me` takes `quietHours` (session only); the account export includes it.
 
 ### Fixed
 

@@ -291,6 +291,20 @@ func DeliveryKey(choreID, dueDate string, kind schedule.ReminderKind, at time.Ti
 	return hex.EncodeToString(h[:])
 }
 
+// deferQuiet moves t past the household's quiet hours and the recipient's
+// personal ones (both in the household's time zone). One window's end can fall
+// inside the other, so it repeats until neither applies.
+func deferQuiet(t time.Time, loc *time.Location, household, personal schedule.QuietHours) time.Time {
+	for range 4 {
+		next := personal.Defer(household.Defer(t, loc), loc)
+		if next.Equal(t) {
+			break
+		}
+		t = next
+	}
+	return t
+}
+
 // enqueue turns the reminders firing in [from, to) into deliveries. After
 // downtime (catchUp) only the latest missed reminder per chore is kept.
 func (w *Worker) enqueue(ctx context.Context, from, to time.Time, catchUp bool) error {
@@ -359,12 +373,6 @@ func (w *Worker) enqueueChore(ctx context.Context, c store.ReminderChore, from, 
 		if catchUp {
 			send = to
 		}
-		release := c.Quiet.Defer(send, loc)
-		deferred := !release.Equal(send)
-		keyAt := f.At
-		if deferred {
-			keyAt = release
-		}
 		for _, tg := range targets {
 			if tg.Email && w.cfg.Mailer == nil {
 				continue // this instance sends no email
@@ -375,6 +383,12 @@ func (w *Worker) enqueueChore(ctx context.Context, c store.ReminderChore, from, 
 				target = "push:" + tg.PushID // a subscription is a target like a channel
 			case tg.Email:
 				target = "email" // with the user ID in the key: the user's own address
+			}
+			release := deferQuiet(send, loc, c.Quiet, tg.Quiet)
+			deferred := !release.Equal(send)
+			keyAt := f.At
+			if deferred {
+				keyAt = release
 			}
 			ds = append(ds, store.NewDelivery{
 				Key:         DeliveryKey(c.ID, c.DueDate, f.Kind, keyAt, deferred, target, tg.UserID),
