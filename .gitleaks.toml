@@ -1,0 +1,12 @@
+# Gitleaks: default rules, plus an allowlist for the public, synthetic
+# credentials of the CI identity providers (see test/idp/README.md).
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Test-only identity provider credentials (CI)"
+paths = [
+  '''^test/idp/''',
+  '''^web/e2e-idp/''',
+  '''^\.github/workflows/sso-idp\.yml$''',
+]
