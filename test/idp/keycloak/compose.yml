@@ -1,0 +1,15 @@
+# TEST ONLY: Keycloak for the SSO CI test (see ../README.md).
+services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.8.2
+    command: ["start-dev", "--import-realm"]
+    environment:
+      # The browser and Gunkly both reach Keycloak at this address, so the issuer is the same for both.
+      KC_HOSTNAME: http://localhost:8080
+      KC_HEALTH_ENABLED: "true"
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ci-only-admin
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./realm.json:/opt/keycloak/data/import/realm.json:ro

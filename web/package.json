@@ -15,6 +15,7 @@
     "budget": "node scripts/budget.mjs",
     "licenses": "node scripts/licenses.mjs",
     "e2e": "playwright test -c e2e/playwright.config.ts",
+    "e2e:idp": "playwright test -c e2e-idp/playwright.config.ts",
     "screenshots": "GUNKLY_SCREENSHOTS=1 playwright test -c e2e/playwright.config.ts --project=desktop screenshots && python3 scripts/shrink-png.py ../docs/assets/screens/*.png"
   },
   "devDependencies": {

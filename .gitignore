@@ -22,4 +22,4 @@ coverage.out
 
 # Playwright
 web/e2e/.out/
-web/e2e/.out/
+web/e2e-idp/.out/

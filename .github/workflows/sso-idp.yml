@@ -1,0 +1,146 @@
+name: SSO identity providers
+
+# Signs in to Gunkly through REAL Keycloak and authentik instances (pinned versions in test/idp/),
+# so single sign-on does not silently break. release.yml requires it before publishing.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'internal/api/sso*'
+      - 'internal/sso/**'
+      - 'internal/auth/**'
+      - 'internal/egress/**'
+      - 'internal/config/**'
+      - 'web/src/screens/SignIn.svelte'
+      - 'web/src/screens/Account.svelte'
+      - 'web/src/screens/account/**'
+      - 'web/src/components/StepUp.svelte'
+      - 'web/e2e-idp/**'
+      - 'test/idp/**'
+      - '.github/workflows/sso-idp.yml'
+      - 'go.mod'
+      - 'go.sum'
+  pull_request:
+    paths:
+      - 'internal/api/sso*'
+      - 'internal/sso/**'
+      - 'internal/auth/**'
+      - 'internal/egress/**'
+      - 'internal/config/**'
+      - 'web/src/screens/SignIn.svelte'
+      - 'web/src/screens/Account.svelte'
+      - 'web/src/screens/account/**'
+      - 'web/src/components/StepUp.svelte'
+      - 'web/e2e-idp/**'
+      - 'test/idp/**'
+      - '.github/workflows/sso-idp.yml'
+      - 'go.mod'
+      - 'go.sum'
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sso-idp-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  idp:
+    name: ${{ matrix.provider }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        provider: [keycloak, authentik]
+    env:
+      GUNKLY_PORT: '4865'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '26'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      # Start pulling and booting the provider first; it runs while Gunkly builds.
+      - name: Start ${{ matrix.provider }}
+        run: docker compose -f test/idp/${{ matrix.provider }}/compose.yml up -d
+
+      - name: Build the web bundle and Gunkly
+        run: |
+          (cd web && npm ci && npm run build)
+          CGO_ENABLED=0 go build -o "$RUNNER_TEMP/gunkly" ./cmd/gunkly
+      - name: Install Chromium
+        working-directory: web
+        run: npx playwright install --with-deps chromium
+
+      - name: Wait for ${{ matrix.provider }}
+        run: |
+          set -euo pipefail
+          if [ "${{ matrix.provider }}" = keycloak ]; then
+            issuer=http://localhost:8080/realms/gunkly-ci
+            for i in $(seq 1 100); do
+              curl -fsS "$issuer/.well-known/openid-configuration" >/dev/null 2>&1 && break
+              [ "$i" = 100 ] && { echo "keycloak did not become ready" >&2; exit 1; }
+              sleep 3
+            done
+          else
+            issuer=http://localhost:9000/application/o/gunkly/
+            test/idp/authentik/setup.sh
+          fi
+          curl -fsS "${issuer%/}/.well-known/openid-configuration" | jq -r .issuer
+          echo "GUNKLY_OIDC_ISSUER=$issuer" >> "$GITHUB_ENV"
+
+      - name: Start Gunkly
+        run: |
+          set -euo pipefail
+          mkdir "$RUNNER_TEMP/data"
+          export GUNKLY_DATABASE_URL="sqlite://$RUNNER_TEMP/data/gunkly.db"
+          export GUNKLY_LISTEN_ADDR="127.0.0.1:$GUNKLY_PORT"
+          export GUNKLY_BASE_URL="http://localhost:$GUNKLY_PORT"
+          export GUNKLY_SECRET_KEYS="1:$(openssl rand -base64 32)"
+          export GUNKLY_OIDC_CLIENT_ID=gunkly-ci
+          export GUNKLY_OIDC_CLIENT_SECRET=ci-only-client-secret-not-a-real-secret
+          if [ "${{ matrix.provider }}" = keycloak ]; then export GUNKLY_OIDC_NAME=Keycloak; else export GUNKLY_OIDC_NAME=authentik; fi
+          nohup "$RUNNER_TEMP/gunkly" serve > "$RUNNER_TEMP/gunkly.log" 2>&1 &
+          for i in $(seq 1 30); do
+            code=$(sed -n 's/.*setup_code"\{0,1\}[=:] *"\{0,1\}\([A-Za-z0-9-]*\).*/\1/p' "$RUNNER_TEMP/gunkly.log" | head -1)
+            [ -n "$code" ] && curl -fsS "http://localhost:$GUNKLY_PORT/healthz" >/dev/null && break
+            [ "$i" = 30 ] && { cat "$RUNNER_TEMP/gunkly.log"; exit 1; }
+            sleep 1
+          done
+          echo "GUNKLY_SETUP_CODE=$code" >> "$GITHUB_ENV"
+
+      - name: Sign in through ${{ matrix.provider }}
+        working-directory: web
+        env:
+          IDP_PROVIDER: ${{ matrix.provider }}
+          GUNKLY_URL: http://localhost:4865
+        run: npm run e2e:idp
+
+      - name: Container and server logs
+        if: failure()
+        run: |
+          mkdir -p "$RUNNER_TEMP/logs"
+          cp "$RUNNER_TEMP/gunkly.log" "$RUNNER_TEMP/logs/gunkly.log" || true
+          docker compose -f test/idp/${{ matrix.provider }}/compose.yml logs --no-color > "$RUNNER_TEMP/logs/${{ matrix.provider }}.log" 2>&1 || true
+      - name: Upload traces, screenshots and logs
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: sso-idp-${{ matrix.provider }}
+          path: |
+            web/e2e-idp/.out/
+            ${{ runner.temp }}/logs/
+          if-no-files-found: ignore
+          retention-days: 7

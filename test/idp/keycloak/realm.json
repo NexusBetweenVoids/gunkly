@@ -1,0 +1,41 @@
+{
+  "realm": "gunkly-ci",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "clients": [
+    {
+      "clientId": "gunkly-ci",
+      "name": "Gunkly (CI test)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "ci-only-client-secret-not-a-real-secret",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "consentRequired": false,
+      "redirectUris": ["http://localhost:4865/api/v1/auth/oidc/callback"],
+      "attributes": { "pkce.code.challenge.method": "S256" }
+    }
+  ],
+  "users": [
+    {
+      "username": "ci-sso-user",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Ci",
+      "lastName": "Sso",
+      "email": "ci-sso@example.test",
+      "credentials": [{ "type": "password", "value": "ci-only-password-1", "temporary": false }]
+    },
+    {
+      "username": "ci-link-user",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Ci",
+      "lastName": "Link",
+      "email": "ci-link@example.test",
+      "credentials": [{ "type": "password", "value": "ci-only-password-1", "temporary": false }]
+    }
+  ]
+}
