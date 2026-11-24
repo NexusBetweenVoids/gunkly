@@ -7,7 +7,8 @@
 <meta name="referrer" content="no-referrer">
 <title>{{.Title}}</title>
 <link rel="stylesheet" href="/done.css">
-</head>
+{{if .Passkey}}<script src="/oauth-consent.js" defer></script>
+{{end}}</head>
 <body>
 <main class="consent">
 <picture><source srcset="/icons/mark-dark.png" media="(prefers-color-scheme: dark)"><img class="mark" src="/icons/mark-light.png" alt="" width="72" height="72"></picture>
@@ -38,10 +39,14 @@
 {{if .StepUp}}<fieldset>
 <legend>{{.ConfirmLegend}}</legend>
 <p class="hint">{{.ConfirmNote}}</p>
-<label for="oauth-password">{{.PasswordLabel}}</label>
+{{if .ShowPassword}}<label for="oauth-password">{{.PasswordLabel}}</label>
 <input id="oauth-password" type="password" name="password" autocomplete="current-password" required>
 {{if .ShowCode}}<label for="oauth-code">{{.CodeLabel}}</label>
 <input id="oauth-code" type="text" name="code" autocomplete="one-time-code" inputmode="text" spellcheck="false" autocapitalize="off">
+{{end}}{{end}}{{if .Passkey}}<input type="hidden" name="passkey" id="oauth-passkey-answer" value="">
+<button type="button" id="oauth-passkey" hidden data-options="/oauth/authorize/passkey" data-error="{{.PasskeyError}}">{{.PasskeyLabel}}</button>
+<p id="oauth-passkey-error" class="err" role="alert" hidden></p>
+{{end}}{{if .SSO}}<button type="submit" name="decision" value="sso" formnovalidate>{{.SSOLabel}}</button>
 {{end}}</fieldset>
 {{end}}<div class="buttons">
 <button type="submit" name="decision" value="allow" class="primary">{{.Allow}}</button>

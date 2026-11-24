@@ -144,6 +144,8 @@ func (s *Server) registerRoutes() {
 	s.handle("POST /oauth/register", policy{auth: authClient, rate: rateOAuthReg}.oauthOnly(), s.registerClient)
 	s.handle("GET /oauth/authorize", publicRateLimited(rateOAuthAut).oauthOnly(), s.authorizeGet)
 	s.handle("POST /oauth/authorize", publicRateLimited(rateOAuthAut).oauthOnly().withFormCSRF(), s.authorizePost)
+	s.handle("POST /oauth/authorize/passkey", publicRateLimited(ratePasskey).oauthOnly().withFormCSRF(), s.consentPasskeyOptions)
+	s.handle("GET /oauth-consent.js", public.oauthOnly(), s.consentScript)
 	s.handle("POST /oauth/token", policy{auth: authClient, rate: rateOAuthTok}.oauthOnly(), s.oauthToken)
 	s.handle("POST /oauth/revoke", policy{auth: authClient, rate: rateOAuthTok}.oauthOnly(), s.oauthRevoke)
 	s.handle("GET /api/v1/account/oauth-grants", session.noToken(), s.listOAuthGrants)

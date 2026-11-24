@@ -2101,12 +2101,22 @@ x-outside-api-v1:
       resource (must equal <base>/mcp when given, RFC 8707). A bad client_id or redirect_uri shows an error page (never a
       redirect); other faults redirect to the client with error=invalid_request, unsupported_response_type, invalid_scope or
       invalid_target plus state and iss. Without a session it redirects (303) to /signin?next=... and back. Otherwise it renders
-      a server-side consent page (no scripts) where the user picks households and actions. Never cached. Rate limit 60/min per IP.
+      a server-side consent page where the user picks households and actions; it works without script, and one same-origin script (/oauth-consent.js) adds "Confirm with a passkey" for accounts that have one. Never cached. Rate limit 60/min per IP.
       404 while OAuth is off.
     "POST /oauth/authorize": |
       The consent form post (HTML form; CSRF: the gunkly_csrf cookie must equal the hidden csrf field, plus the cross-site
       check). decision=allow issues a single-use authorization code (60 s, hashed at rest) and redirects (303) to the redirect
-      URI with code, state and iss; anything else redirects with error=access_denied. Rate limit 60/min per IP. 404 while OAuth is off.
+      URI with code, state and iss; anything else redirects with error=access_denied. Unless the session re-verified in the last
+      15 minutes, allow needs the password (and second factor), or an optional passkey field: the JSON {challenge, credential}
+      of a user-verified assertion for a challenge issued to this session by POST /oauth/authorize/passkey, which the server
+      verifies itself. decision=sso redirects (303) to the identity provider to re-verify (prompt=login, max_age=0) and
+      returns to the same consent request. Rate limit 60/min per IP. 404 while OAuth is off.
+    "POST /oauth/authorize/passkey": |
+      The consent page's script asks here for the options of a passkey assertion (JSON, user verification required) for the
+      signed-in user's passkeys. The challenge is single use, five minutes, bound to the account, the session and this
+      purpose. CSRF as the consent form (csrf field). 401 without a session, 404 without passkeys or while OAuth is off.
+      Rate limit 20/min per IP.
+    "GET /oauth-consent.js": The consent page's script (progressive enhancement: passkey confirmation). 404 while OAuth is off.
     "POST /oauth/token": |
       Token endpoint (form encoded, public clients: client_id, no secret). grant_type=authorization_code with code,
       redirect_uri, code_verifier (PKCE S256) and optional resource; or grant_type=refresh_token with refresh_token. Answers

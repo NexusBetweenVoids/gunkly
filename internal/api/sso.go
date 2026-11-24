@@ -33,6 +33,11 @@ const (
 	ssoTTL     = 10 * time.Minute
 	ssoMaxAuth = 5 * time.Minute // how old auth_time may be for a step-up
 
+	// A consent page's step-up comes back to the pending authorization request,
+	// a longer path than other flows carry.
+	consentNextPrefix = "/oauth/authorize?"
+	ssoMaxConsentNext = 1800
+
 	ssoModeLogin  = "login"
 	ssoModeLink   = "link"
 	ssoModeStepUp = "stepup"
@@ -59,7 +64,7 @@ func (s *Server) ssoCookie(value string, maxAge int) *http.Cookie {
 // authorization URL.
 func (s *Server) ssoBegin(ctx context.Context, w http.ResponseWriter, mode, userID, sessionID, next string) (string, error) {
 	st := ssoState{State: ids.Token(), Nonce: ids.Token(), Verifier: sso.NewVerifier(), Mode: mode, UserID: userID, SessionID: sessionID,
-		Next: safeNext(next), Expires: s.now().Add(ssoTTL).Unix()}
+		Next: flowNext(next), Expires: s.now().Add(ssoTTL).Unix()}
 	u, err := s.sso.AuthURL(ctx, st.State, st.Nonce, st.Verifier, mode == ssoModeStepUp)
 	if err != nil {
 		return "", err
@@ -75,7 +80,7 @@ func (s *Server) ssoBegin(ctx context.Context, w http.ResponseWriter, mode, user
 // readSSOState opens and clears the flow cookie (a flow is single use).
 func (s *Server) readSSOState(w http.ResponseWriter, r *http.Request) (ssoState, bool) {
 	c, err := r.Cookie(ssoCookie)
-	if err != nil || c.Value == "" || len(c.Value) > 2048 {
+	if err != nil || c.Value == "" || len(c.Value) > 4096 {
 		return ssoState{}, false
 	}
 	http.SetCookie(w, s.ssoCookie("", -1))
@@ -93,8 +98,19 @@ func (s *Server) readSSOState(w http.ResponseWriter, r *http.Request) (ssoState,
 // safeNext keeps a post-sign-in path on this site: one path, no scheme or
 // host. Control characters are refused outright: browsers drop tabs and
 // newlines from URLs, so "/\t/evil.example" would become "//evil.example".
-func safeNext(n string) string {
-	if n == "" || len(n) > 512 || n[0] != '/' || strings.HasPrefix(n, "//") || strings.ContainsRune(n, '\\') ||
+func safeNext(n string) string { return safeNextMax(n, 512) }
+
+// flowNext is safeNext for a flow's return path: the consent page's pending
+// request may be longer.
+func flowNext(n string) string {
+	if strings.HasPrefix(n, consentNextPrefix) {
+		return safeNextMax(n, ssoMaxConsentNext)
+	}
+	return safeNext(n)
+}
+
+func safeNextMax(n string, limit int) string {
+	if n == "" || len(n) > limit || n[0] != '/' || strings.HasPrefix(n, "//") || strings.ContainsRune(n, '\\') ||
 		strings.ContainsFunc(n, func(r rune) bool { return r < 0x20 || r == 0x7f }) {
 		return "/"
 	}
@@ -123,8 +139,8 @@ func landing(st ssoState, ok bool, code string) string {
 		return st.Next
 	case st.Mode == ssoModeLogin || st.Mode == "":
 		return "/signin?sso=" + code
-	case ok:
-		return withParam(st.Next, code)
+	case ok, strings.HasPrefix(st.Next, consentNextPrefix):
+		return withParam(st.Next, code) // failures too: back to the consent page, which says so
 	}
 	return "/account/security?sso=" + code
 }

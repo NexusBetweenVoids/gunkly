@@ -208,9 +208,10 @@ func (s *Store) UsePasskey(ctx context.Context, userID, id string, signCount uin
 // Ceremony purposes of a stored challenge.
 const (
 	PasskeyRegister = "register"
-	PasskeyLogin    = "login"  // passwordless sign-in (no user yet)
-	PasskeySecond   = "second" // second factor after a password
-	PasskeyStepUp   = "stepup" // re-verification of a signed-in user
+	PasskeyLogin    = "login"   // passwordless sign-in (no user yet)
+	PasskeySecond   = "second"  // second factor after a password
+	PasskeyStepUp   = "stepup"  // re-verification of a signed-in user
+	PasskeyConsent  = "consent" // OAuth consent page; stored as "consent:<hash of the session>"
 )
 
 const passkeyChallengeTTL = 5 * time.Minute

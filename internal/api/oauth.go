@@ -19,6 +19,8 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/go-webauthn/webauthn/protocol"
+
 	"github.com/NexusBetweenVoids/gunkly/internal/i18n"
 	"github.com/NexusBetweenVoids/gunkly/internal/ids"
 	"github.com/NexusBetweenVoids/gunkly/internal/limits"
@@ -402,8 +404,13 @@ type consentPage struct {
 	OfferComplete, OfferWrite, CompleteChecked, WriteChecked                                                              bool
 	// Step-up: the password (and second factor) fields, shown when this
 	// session has not re-verified within stepUpWindow.
-	StepUp, ShowCode, OfferEmail                                       bool
+	StepUp, ShowPassword, ShowCode, OfferEmail                         bool
 	ConfirmLegend, ConfirmNote, PasswordLabel, CodeLabel, EmailCodeBtn string
+	// Passkey is offered (by the script, ADR 0016) when the account has one; SSO
+	// when the account is linked to the instance's identity provider.
+	Passkey, SSO               bool
+	PasskeyLabel, PasskeyError string
+	SSOLabel                   string
 }
 
 // sessionUser authenticates the browser session for the HTML routes, or reports
@@ -448,7 +455,20 @@ func (s *Server) authorizeGet(w http.ResponseWriter, r *http.Request, c *call) e
 	if err := s.requireAccess(ctx, u); err != nil {
 		return s.oauthNotice(w, userLocale(u, r), http.StatusForbidden, "oauth.invalid_heading", "oauth.invalid_note")
 	}
-	return s.renderConsent(w, r, consentCtx{u: u, ss: ss, req: req})
+	cc := consentCtx{u: u, ss: ss, req: req}
+	// The way back from the identity provider says only how it went. It is a
+	// message, never trusted: the step-up itself is the session's stepped-up
+	// state, set by the callback after it checked the provider's answer.
+	switch r.URL.Query().Get("sso") {
+	case "":
+	case "stepup":
+		if s.steppedUp(ss) {
+			cc.infoKey = "oauth.sso_confirmed"
+		}
+	default:
+		cc.errKey = "oauth.sso_failed"
+	}
+	return s.renderConsent(w, r, cc)
 }
 
 // consentCtx is what renderConsent needs beyond the request.
@@ -501,12 +521,22 @@ func (s *Server) renderConsent(w http.ResponseWriter, r *http.Request, cc consen
 		p.Info = t(cc.infoKey)
 	}
 	if !s.steppedUp(cc.ss) {
-		p.StepUp, p.OfferEmail = true, u.EmailOTPEnabled
-		// A passkey is a second factor but the consent page has no script: such an account
-		// (with nothing else) types a recovery code next to its password.
-		p.ShowCode = u.TOTPEnabled || cc.showCode || (u.Passkeys > 0 && !u.EmailOTPEnabled)
+		p.StepUp, p.ShowPassword = true, u.HasPassword()
+		p.OfferEmail = u.EmailOTPEnabled && p.ShowPassword
+		// Without script a passkey is no use here: such an account types a recovery
+		// code next to its password. With script the button below does the ceremony.
+		p.ShowCode = p.ShowPassword && (u.TOTPEnabled || cc.showCode || (u.Passkeys > 0 && !u.EmailOTPEnabled))
 		p.ConfirmLegend, p.ConfirmNote, p.PasswordLabel, p.CodeLabel, p.EmailCodeBtn =
 			t("oauth.confirm_legend"), t("oauth.confirm_note"), t("oauth.password"), t("oauth.code"), t("oauth.email_code")
+		if !p.ShowPassword {
+			p.ConfirmNote = t("oauth.confirm_note_other")
+		}
+		if u.Passkeys > 0 && s.passkeyRP() != nil {
+			p.Passkey, p.PasskeyLabel, p.PasskeyError = true, t("oauth.passkey_btn"), t("oauth.passkey_failed")
+		}
+		if s.ssoLinked(ctx, u) {
+			p.SSO, p.SSOLabel = true, i18n.T(loc, "oauth.sso_btn", map[string]string{"provider": s.sso.Name()})
+		}
 	}
 	for _, h := range hs {
 		role, err := s.st.Role(ctx, store.Actor{UserID: u.ID}, h.ID)
@@ -586,7 +616,7 @@ func (s *Server) authorizePost(w http.ResponseWriter, r *http.Request, c *call) 
 		return s.oauthNotice(w, loc, http.StatusBadRequest, "oauth.invalid_heading", "oauth.invalid_note")
 	}
 	decision := r.PostForm.Get("decision")
-	if decision != "allow" && decision != "email_code" {
+	if decision != "allow" && decision != "email_code" && decision != "sso" {
 		s.authzRedirect(w, r, req, map[string]string{"error": "access_denied"})
 		return nil
 	}
@@ -595,18 +625,31 @@ func (s *Server) authorizePost(w http.ResponseWriter, r *http.Request, c *call) 
 	}
 	picked := slices.Compact(slices.Sorted(slices.Values(r.PostForm["hh"])))
 	cc := consentCtx{u: u, ss: ss, req: req, picked: picked, showCode: r.PostForm.Get("code") != ""}
+	if decision == "sso" {
+		return s.consentSSO(w, r, c, cc)
+	}
 	if len(picked) == 0 || len(picked) > maxTokenHH {
 		cc.picked, cc.errKey = nil, "oauth.pick_household"
 		return s.renderConsent(w, r, cc)
 	}
 	if !s.steppedUp(ss) {
-		out, err := s.consentStepUp(w, r, c, ss, u, decision == "email_code")
+		var out stepUpOutcome
+		var err error
+		viaPasskey := r.PostForm.Get("passkey") != ""
+		if viaPasskey {
+			out, err = s.consentPasskey(w, r, c, ss, u)
+		} else {
+			out, err = s.consentStepUp(w, r, c, ss, u, decision == "email_code")
+		}
 		if err != nil || out == stepUpThrottled {
 			return err
 		}
 		switch out {
 		case stepUpFailed:
 			cc.errKey = "oauth.stepup_failed"
+			if viaPasskey {
+				cc.errKey = "oauth.passkey_failed"
+			}
 		case stepUpCodeSent:
 			cc.infoKey, cc.showCode = "oauth.code_sent", true
 		}
@@ -700,6 +743,120 @@ func (s *Server) consentStepUp(w http.ResponseWriter, r *http.Request, c *call, 
 	}
 	s.acct.reset(pwKey)
 	return stepUpOK, s.st.StepUpSession(ctx, u.ID, ss.ID)
+}
+
+// consentPurpose is the passkey ceremony purpose of one session's consent
+// page: the purpose and the hash of the session are in the challenge's
+// binding, so it works for no other purpose, account or session.
+func consentPurpose(ss store.Session) string { return store.PasskeyConsent + ":" + ids.Hash(ss.ID) }
+
+// consentPasskey re-verifies the user with a passkey assertion posted with the
+// consent form. The assertion is verified here, by the same code as the
+// step-up (user verification required, signature counter, per-account backoff),
+// against a challenge this session asked for on this page; the form carries
+// nothing a script could set to "confirmed".
+func (s *Server) consentPasskey(w http.ResponseWriter, r *http.Request, c *call, ss store.Session, u store.User) (stepUpOutcome, error) {
+	ctx := r.Context()
+	tfKey := "2fa:" + u.ID
+	wait := max(s.rl.allow(rateTwoFA+":acct:"+c.rip+"|"+u.ID), s.acct.wait(tfKey))
+	if wait > 0 {
+		return stepUpThrottled, s.slowDown(w, userLocale(u, r), wait)
+	}
+	fail := func() (stepUpOutcome, error) {
+		s.acct.fail(tfKey)
+		s.audit(ctx, c, u.ID, store.AuditLoginFailure, "", map[string]string{"via": "oauth_consent", "reason": "passkey"})
+		return stepUpFailed, nil
+	}
+	raw := r.PostForm.Get("passkey")
+	var ans passkeyAnswer
+	if len(raw) > 32<<10 || json.Unmarshal([]byte(raw), &ans) != nil {
+		return fail()
+	}
+	if err := s.verifyPasskey(ctx, c, u, &ans, consentPurpose(ss)); errors.Is(err, errInvalidPasskey) {
+		return fail()
+	} else if err != nil {
+		return stepUpFailed, err
+	}
+	s.acct.reset(tfKey)
+	return stepUpOK, s.st.StepUpSession(ctx, u.ID, ss.ID)
+}
+
+// consentPasskeyOptions is the script's first call: the options of an
+// assertion for the signed-in user's own passkeys (user verification
+// required), saved for five minutes for this session's consent page only.
+// CSRF is the consent form's (cookie against the csrf field).
+func (s *Server) consentPasskeyOptions(w http.ResponseWriter, r *http.Request, _ *call) error {
+	ss, u, signedIn := s.sessionUser(w, r)
+	if !signedIn {
+		return errUnauthenticated
+	}
+	if err := s.requireAccess(r.Context(), u); err != nil {
+		return errNotFound
+	}
+	return s.beginAssertion(w, r, u, consentPurpose(ss), protocol.VerificationRequired)
+}
+
+//go:embed oauth-consent.js
+var oauthConsentJS []byte
+
+// consentScript serves the consent page's one script (same origin, so the
+// page's script-src 'self' allows it without inline code).
+func (s *Server) consentScript(w http.ResponseWriter, _ *http.Request, _ *call) error {
+	h := w.Header()
+	h.Set("Content-Type", "text/javascript; charset=utf-8")
+	h.Set("Cache-Control", "no-cache")
+	_, err := w.Write(oauthConsentJS)
+	return err
+}
+
+// ssoLinked reports whether u can confirm through the instance's identity provider.
+func (s *Server) ssoLinked(ctx context.Context, u store.User) bool {
+	if s.sso == nil {
+		return false
+	}
+	_, err := s.st.SSOIdentityForUser(ctx, u.ID, s.sso.Issuer())
+	return err == nil
+}
+
+// consentNext is the pending authorization request as a path to come back to
+// after the provider: rebuilt from the validated request (client, redirect
+// URI, challenge, scopes), never copied from what the form posted.
+func consentNext(req authzReq) string {
+	q := url.Values{"response_type": {"code"}, "client_id": {req.client.ID}, "redirect_uri": {req.redirect},
+		"code_challenge": {req.challenge}, "code_challenge_method": {"S256"}}
+	if req.state != "" {
+		q.Set("state", req.state)
+	}
+	if req.explicit {
+		q.Set("scope", strings.Join(req.scopes, " "))
+	}
+	if req.resource != "" {
+		q.Set("resource", req.resource)
+	}
+	return consentNextPrefix + q.Encode()
+}
+
+// consentSSO sends the user to the identity provider to confirm, as a step-up
+// (prompt=login, max_age=0), and brings them back to this same consent
+// request. The way back is only a GET of the consent page, which validates the
+// request again from scratch.
+func (s *Server) consentSSO(w http.ResponseWriter, r *http.Request, c *call, cc consentCtx) error {
+	ctx := r.Context()
+	if wait := s.rl.allow(rateSSO + ":ip:" + c.rip); wait > 0 {
+		return s.slowDown(w, userLocale(cc.u, r), wait)
+	}
+	next := consentNext(cc.req)
+	cc.picked, cc.errKey = nil, "oauth.sso_failed"
+	if !s.ssoLinked(ctx, cc.u) || len(next) > ssoMaxConsentNext {
+		return s.renderConsent(w, r, cc)
+	}
+	to, err := s.ssoBegin(ctx, w, ssoModeStepUp, cc.u.ID, cc.ss.ID, next)
+	if err != nil {
+		s.log.Warn("sso consent", "err", err)
+		return s.renderConsent(w, r, cc)
+	}
+	redirect(w, r, to)
+	return nil
 }
 
 // consentSecondFactor checks one code field: six digits are an authenticator
