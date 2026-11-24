@@ -109,9 +109,11 @@ test('an account with only single sign-on confirms a sensitive action through th
   await page.goto('/signin');
   await throughProvider(page, GUNKLY, () => page.getByRole('link', { name: `Sign in with ${NAME}` }).click(), USERS.sso);
 
-  await page.goto('/account/integrations');
-  await page.getByRole('region', { name: 'Connect an AI assistant' }).getByRole('button', { name: 'Connect an assistant' }).click();
-  await page.getByRole('dialog', { name: 'Connect an AI assistant' }).getByRole('button', { name: 'Create access' }).click();
+  // Setting a password is a sensitive action; this account has none, so it must confirm through the provider.
+  await page.goto('/account/security');
+  await page.getByLabel('New password', { exact: true }).fill('another-ci-only-password');
+  await page.getByLabel('Confirm new password').fill('another-ci-only-password');
+  await page.getByRole('button', { name: 'Change password' }).click();
   const confirm = page.getByRole('dialog', { name: "Confirm it's you" });
   // The provider still has our session; Gunkly asks it to authenticate anew (prompt=login), so the form must appear.
   const { prompted } = await throughProvider(page, GUNKLY, () => confirm.getByRole('button', { name: `Confirm with ${NAME}` }).click(), USERS.sso);
