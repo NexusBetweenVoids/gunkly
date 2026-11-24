@@ -11,6 +11,11 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 - Passkeys (ADR 0018, `docs/sign-in.md`): add them under Account, Sign-in & security. A passkey signs you in without a password ("Sign in with a passkey" on the sign-in page; your device verifies you with a PIN, fingerprint or face, so it counts as password plus second factor), works as a second factor after a password next to authenticator codes and emailed codes, and can confirm sensitive actions. They need `GUNKLY_BASE_URL` to be an https address (or localhost). New dependency: `go-webauthn/webauthn`. `gunkly admin reset-2fa` removes passkeys too; the data export lists their names and dates.
 - Single sign-on with OpenID Connect (ADR 0018, `docs/sso.md`), self-hosted only: set `GUNKLY_OIDC_ISSUER`, `GUNKLY_OIDC_CLIENT_ID`, `GUNKLY_OIDC_CLIENT_SECRET` (and optionally `GUNKLY_OIDC_NAME`, `GUNKLY_OIDC_SCOPES`) and a "Sign in with ..." button appears. Works with Authelia, Authentik, Keycloak, Kanidm, Zitadel, Pocket ID and Google (authorization code with PKCE; ES256 supported). Users link it under Account, Sign-in & security; an administrator can let unknown users get an account on their first sign-in (off by default; Administration, Sign-up & sign-in). Accounts are identified by the provider's issuer and subject, never by email. A single sign-on counts as fully authenticated (the provider handles multi-factor). A provider on your LAN is reachable (only its own host bypasses the private-address block). New dependency: `coreos/go-oidc`.
 
+### Security
+
+- Dependency updates: `gorilla/websocket` (indirect, via Shoutrrr; GO-2026-6278, weak random mask key) and `go-jose` 4.1.6 (GHSA-mgcc-cww5-fp2q, oversized RSA keys in a provider's key set).
+- Single sign-on is tested in CI against real Keycloak and authentik on every SSO change, nightly and before each release; a release is not published if it fails.
+
 ### Fixed
 
 - Home on a narrow phone: a chore that takes turns no longer squeezes its name to one letter per line; the "<name>'s turn" badge now sits under the name and due date.
