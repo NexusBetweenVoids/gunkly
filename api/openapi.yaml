@@ -574,7 +574,9 @@ paths:
       description: |
         Format gunkly-household-export, version 1: settings, areas, chores (schedule, reminders, pause and archive state,
         assignee display names and usernames as hints) and completion history. Never includes notification channels, feeds,
-        tokens, invites or member emails. Audited. Rate limit 6/min per IP.
+        tokens, invites or member emails. An owner's export also carries the household's webhooks (name, events, URL, enabled flag,
+        never the signing secret). Webhook URLs can embed credentials, so treat the file as sensitive. A member's export has no
+        webhooks. Audited. Rate limit 6/min per IP.
       responses:
         "200": {description: The export file, headers: {Content-Disposition: {schema: {type: string}, description: attachment}}, content: {application/json: {schema: {$ref: "#/components/schemas/HouseholdExport"}}}}
         "403": {$ref: "#/components/responses/Forbidden"}
@@ -586,7 +588,8 @@ paths:
       summary: Create a household from an export file (the user becomes owner)
       description: |
         The body is a gunkly-household-export file (up to 5 MiB; every other route accepts 1 MiB). The whole file is
-        validated like the normal create paths and applied in one transaction. Rate limit 6/min per IP.
+        validated like the normal create paths and applied in one transaction. Webhooks in the file are re-created disabled with
+        new signing secrets (see ImportSummary.webhooksSkipped for the ones that were not). Rate limit 6/min per IP.
       requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/HouseholdExport"}}}}
       responses:
         "201": {description: Created, content: {application/json: {schema: {$ref: "#/components/schemas/ImportSummary"}}}}
@@ -602,7 +605,7 @@ paths:
       description: |
         Areas with the same name (case-insensitive) are combined; chores are added as new chores; assignees are matched to
         members by username (others become "anyone"); completers are matched by username, otherwise the completion is
-        anonymous. The household's own settings are never changed (areas in the file are added even when the household has areas turned off). One transaction: all or nothing. Rate limit 6/min per IP.
+        anonymous. Webhooks in the file are created only when the caller is an owner (disabled, new secrets). The household's own settings are never changed (areas in the file are added even when the household has areas turned off). One transaction: all or nothing. Rate limit 6/min per IP.
       requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/HouseholdExport"}}}}
       responses:
         "200": {description: Merged, content: {application/json: {schema: {$ref: "#/components/schemas/ImportSummary"}}}}
@@ -1588,6 +1591,15 @@ components:
         choresCreated: {type: integer}
         completionsImported: {type: integer}
         unassigned: {type: integer, description: Chores whose assignees were all unknown here (now "anyone")}
+        webhooksCreated: {type: integer, description: Webhooks of the file re-created; always disabled, with new signing secrets (an owner rotates the secret to see it, then enables)}
+        webhooksSkipped:
+          type: array
+          description: Webhooks of the file that were not created; not an error
+          items:
+            type: object
+            properties:
+              name: {type: string}
+              reason: {type: string, enum: [webhooks_disabled, owner_only, invalid, limit], description: "webhooks switched off on the instance; importer is not an owner; bad URL (scheme, egress rules) or events; the household's webhook limit"}
     HouseholdExport:
       type: object
       required: [format, version, household]
@@ -1605,6 +1617,17 @@ components:
             defaultReminderPreset: {type: string}
             areasEnabled: {type: boolean, description: A new household made from a file with areas turns the feature on}
         areas: {type: array, items: {type: object, properties: {name: {type: string}}}}
+        webhooks:
+          type: array
+          description: Optional, owner exports only (at most 100). URLs can carry credentials. There is no secret field.
+          items:
+            type: object
+            required: [url, events]
+            properties:
+              name: {type: string, description: The webhook's description}
+              events: {type: array, items: {type: string}}
+              url: {type: string}
+              enabled: {type: boolean, description: Ignored on import (webhooks always arrive disabled)}
         chores:
           type: array
           items:

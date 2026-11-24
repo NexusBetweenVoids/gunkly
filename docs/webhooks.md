@@ -11,6 +11,12 @@ Gunkly can send a signed JSON message to a web address when something happens to
 
 The address must be `https://`. An admin who has switched the egress guard off (to reach a service on the home network) also allows `http://`. With the guard on, addresses that point at your own machine or network (`localhost`, `127.0.0.1`, `10.x`, `192.168.x`, cloud metadata addresses and so on) are refused, both when saving and when sending. The address itself is stored encrypted and never shown again, only its host; treat it as a secret if it contains a token.
 
+## Export and import
+
+A household **owner's** export file (household settings, Data, "Export household") includes each webhook's name, events, address and on/off state, but **never the signing secret**. Webhook addresses often carry a credential (a token in the path, for example), so treat that file as sensitive: do not post it, and store it like a password. Members' exports have no webhooks.
+
+Importing such a file (new household, or merge into one you own) re-creates the webhooks **switched off**, each with a **new signing secret**, so nothing is sent to an old address by surprise. Open **Webhooks (advanced)**, check each one, press **New secret** (which shows the secret once, for your receiver), then switch it on. A webhook is skipped, and listed in the import result, when webhooks are switched off on the server, you are not an owner of the target household, its address or events are invalid under today's rules (https only, egress guard) or the household already has its limit. A skipped webhook never stops the rest of the import.
+
 Webhooks have no API-token access: they are managed by owners in a browser session ([api/openapi.yaml](../api/openapi.yaml), tag `webhooks`). Each household can have 10 (`webhooks_per_household`).
 
 ## Events

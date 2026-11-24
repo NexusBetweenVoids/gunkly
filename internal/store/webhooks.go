@@ -153,6 +153,10 @@ func validEvents(events []string) bool {
 	return true
 }
 
+// ValidWebhookEvents reports whether events is a non-empty set of known,
+// distinct webhook event types.
+func ValidWebhookEvents(events []string) bool { return validEvents(events) }
+
 // sortedEvents is the stored form: a JSON array in the order of WebhookEvents.
 func sortedEvents(events []string) string {
 	out := make([]string, 0, len(events))

@@ -148,7 +148,10 @@ var ops = []op{
 			Areas: []transfer.Area{{Name: "Imported"}},
 			Chores: []transfer.Chore{{Name: "Imported", Kind: store.KindRecurring, Area: "Imported", Schedule: transfer.Schedule{
 				Type: store.ScheduleInterval, Interval: &transfer.Interval{Every: 1, Unit: "week"}, Anchor: store.AnchorFromCompletion, FirstDue: "2026-11-21"}}},
-		}))
+		}, nil))
+	}},
+	{name: "ExportWebhooks", write: true, owner: true, run: func(ctx context.Context, s *store.Store, a store.Actor, hh string, f *fixture) error {
+		return ignore(s.ExportWebhooks(ctx, a, hh))
 	}},
 	{name: "AddMember", write: true, owner: true, run: func(ctx context.Context, s *store.Store, a store.Actor, hh string, f *fixture) error {
 		return s.AddMember(ctx, a, hh, f.x.UserID, store.RoleOwner)
@@ -227,7 +230,7 @@ func TestIsolationOutsider(t *testing.T) {
 				}
 				if c.hh == f.hB && o.owner {
 					// Targets user m, who is not a member of B.
-					if o.name == "AddMember" {
+					if o.name == "AddMember" || o.name == "ExportWebhooks" {
 						if err != nil {
 							t.Fatalf("own-household AddMember: %v", err)
 						}

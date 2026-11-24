@@ -59,6 +59,45 @@ func (s *Store) ExportHousehold(ctx context.Context, a Actor, householdID string
 	return out, nil
 }
 
+// ExportedWebhook is a webhook of the export file: the URL is still sealed
+// (the caller opens it); the signing secret is not read at all.
+type ExportedWebhook struct {
+	ID            string
+	Description   string
+	Events        []string
+	Enabled       bool
+	URLCiphertext string
+}
+
+// ExportWebhooks lists the household's webhooks for the export file. Owner
+// only (members get ErrForbidden); never selects the signing secret.
+func (s *Store) ExportWebhooks(ctx context.Context, a Actor, householdID string) ([]ExportedWebhook, error) {
+	var out []ExportedWebhook
+	err := s.inTx(ctx, false, func(t *tx) error {
+		if _, err := t.authorize(ctx, a, householdID, RoleOwner, false); err != nil {
+			return err
+		}
+		rows, err := t.query(ctx, "SELECT id, description, events, active, url_ciphertext FROM webhooks WHERE household_id = ? ORDER BY created_at, id", householdID)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var w ExportedWebhook
+			var events string
+			if err := rows.Scan(&w.ID, &w.Description, &events, &w.Enabled, &w.URLCiphertext); err != nil {
+				return err
+			}
+			if err := json.Unmarshal([]byte(events), &w.Events); err != nil {
+				return err
+			}
+			out = append(out, w)
+		}
+		return rows.Err()
+	})
+	return out, err
+}
+
 func (t *tx) exportAreas(ctx context.Context, hh string, out *transfer.Household) (map[string]string, error) {
 	names := map[string]string{}
 	rows, err := t.query(ctx, "SELECT id, name FROM areas WHERE household_id = ? ORDER BY name_lower, id", hh)

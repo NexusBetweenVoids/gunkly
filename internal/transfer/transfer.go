@@ -28,7 +28,24 @@ type Household struct {
 	Household  Settings  `json:"household"`
 	Areas      []Area    `json:"areas"`
 	Chores     []Chore   `json:"chores"`
+	// Webhooks (additive, optional; present only in an owner's export). The
+	// URL can carry credentials, so the file is sensitive; the signing secret
+	// is never exported. Import re-creates every entry disabled, with a new secret.
+	Webhooks []Webhook `json:"webhooks,omitempty"`
 }
+
+// Webhook is an outgoing webhook (ADR 0017) as exported. Name is its
+// description. There is deliberately no secret field.
+type Webhook struct {
+	Name    string   `json:"name"`
+	Events  []string `json:"events"`
+	URL     string   `json:"url"`
+	Enabled bool     `json:"enabled"`
+}
+
+// MaxWebhooks is the most webhooks a file may carry (an import re-checks the
+// household's own limit).
+const MaxWebhooks = 100
 
 // Settings are the household settings that travel with a file. A merge
 // import never applies them to the target household.

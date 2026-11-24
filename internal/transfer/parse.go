@@ -173,6 +173,20 @@ func (f *Household) normalise(o Options) error {
 		}
 	}
 	f.Areas = areas
+	if len(f.Webhooks) > MaxWebhooks {
+		return bad(ReasonTooLong, "webhooks")
+	}
+	// Events and URLs are checked at import time, where an invalid one skips
+	// that webhook instead of failing the file.
+	for i := range f.Webhooks {
+		w := &f.Webhooks[i]
+		if w.Name, err = text(idx("webhooks", i)+".name", w.Name, maxName, false); err != nil {
+			return err
+		}
+		if !utf8.ValidString(w.URL) || len(w.URL) > 4096 || len(w.Events) > 64 {
+			return bad(ReasonInvalid, idx("webhooks", i))
+		}
+	}
 	for i := range f.Chores {
 		if err := f.Chores[i].normalise(idx("chores", i), seen, o); err != nil {
 			return err

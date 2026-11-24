@@ -16,7 +16,29 @@
     choresCreated: number;
     completionsImported: number;
     unassigned: number;
+    webhooksCreated?: number;
+    webhooksSkipped?: { name: string; reason: string }[];
   };
+
+  function whReason(reason: string): string {
+    switch (reason) {
+      case 'limit':
+        return t('transfer.whReason.limit');
+      case 'owner_only':
+        return t('transfer.whReason.owner_only');
+      case 'webhooks_disabled':
+        return t('transfer.whReason.webhooks_disabled');
+      default:
+        return t('transfer.whReason.invalid');
+    }
+  }
+
+  // Skipped webhooks grouped by reason, for one line each.
+  function skippedWebhooks(sum: Summary): [string, number][] {
+    const by = new Map<string, number>();
+    for (const w of sum.webhooksSkipped ?? []) by.set(w.reason, (by.get(w.reason) ?? 0) + 1);
+    return [...by];
+  }
 
   let { id }: { id: string } = $props();
   const MAX_BYTES = 5 * 1024 * 1024;
@@ -131,6 +153,12 @@
           <li>{t('transfer.sumAreas', { created: done.summary.areasCreated, merged: done.summary.areasMerged })}</li>
           <li>{t('transfer.sumChores', { count: done.summary.choresCreated })}</li>
           <li>{t('transfer.sumCompletions', { count: done.summary.completionsImported })}</li>
+          {#if (done.summary.webhooksCreated ?? 0) > 0}
+            <li>{t('transfer.sumWebhooks', { count: done.summary.webhooksCreated ?? 0 })}</li>
+          {/if}
+          {#each skippedWebhooks(done.summary) as [reason, count] (reason)}
+            <li>{t('transfer.sumWebhooksSkipped', { count, reason: whReason(reason) })}</li>
+          {/each}
           {#if done.summary.unassigned > 0}
             <li>{t('transfer.sumUnassigned', { count: done.summary.unassigned })}</li>
           {/if}

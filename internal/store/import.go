@@ -20,7 +20,9 @@ type ImportResult struct {
 	AreasMerged         int // file areas that matched an existing area by name
 	ChoresCreated       int
 	CompletionsImported int
-	Unassigned          int // chores whose assignees were all unknown here, now "anyone"
+	Unassigned          int   // chores whose assignees were all unknown here, now "anyone"
+	WebhooksCreated     int   // always created disabled
+	WebhooksOverLimit   []int // indexes into the hooks argument not created: the household's webhook limit
 }
 
 // ImportLimitError says which limit an import would exceed. It matches ErrLimit.
@@ -34,7 +36,7 @@ func (e *ImportLimitError) Unwrap() error { return ErrLimit }
 // as its only member and owner, in one transaction: any failure leaves
 // nothing behind. maxHouseholds is the user's HouseholdsPerUser limit (0 =
 // unchecked), enforced like CreateHousehold.
-func (s *Store) ImportNewHousehold(ctx context.Context, a Actor, f *transfer.Household, maxHouseholds int) (ImportResult, error) {
+func (s *Store) ImportNewHousehold(ctx context.Context, a Actor, f *transfer.Household, maxHouseholds int, hooks []NewWebhook) (ImportResult, error) {
 	var res ImportResult
 	if a.UserID == "" || f == nil {
 		return res, ErrInvalid
@@ -67,7 +69,7 @@ func (s *Store) ImportNewHousehold(ctx context.Context, a Actor, f *transfer.Hou
 			return notFoundFK(err)
 		}
 		var err error
-		res, err = t.importInto(ctx, hhID, a.UserID, true, f, now)
+		res, err = t.importInto(ctx, hhID, a.UserID, true, f, hooks, now)
 		res.HouseholdName = h.Name
 		return err
 	})
@@ -84,14 +86,14 @@ func (s *Store) ImportNewHousehold(ctx context.Context, a Actor, f *transfer.Hou
 // each pass the chore-limit check and together exceed it. Completions are
 // attributed to members named in the file only when the importer is an owner
 // (see importChore).
-func (s *Store) MergeHousehold(ctx context.Context, a Actor, householdID string, f *transfer.Household) (ImportResult, error) {
+func (s *Store) MergeHousehold(ctx context.Context, a Actor, householdID string, f *transfer.Household, hooks []NewWebhook) (ImportResult, error) {
 	var res ImportResult
 	if f == nil {
 		return res, ErrInvalid
 	}
 	err := s.manage(ctx, a, householdID, RoleMember, func(t *tx, role Role) error {
 		var err error
-		res, err = t.importInto(ctx, householdID, a.UserID, role == RoleOwner, f, s.nowMS())
+		res, err = t.importInto(ctx, householdID, a.UserID, role == RoleOwner, f, hooks, s.nowMS())
 		if err != nil {
 			return err
 		}
@@ -127,7 +129,7 @@ type importMember struct {
 // importInto adds the file's areas, chores and history to a household whose
 // membership already includes actorID. attribute says whether completions may
 // be attributed to the members the file names (importer is an owner).
-func (t *tx) importInto(ctx context.Context, hhID, actorID string, attribute bool, f *transfer.Household, now int64) (ImportResult, error) {
+func (t *tx) importInto(ctx context.Context, hhID, actorID string, attribute bool, f *transfer.Household, hooks []NewWebhook, now int64) (ImportResult, error) {
 	res := ImportResult{HouseholdID: hhID}
 	var tz string
 	if err := t.queryRow(ctx, "SELECT timezone FROM households WHERE id = ?", hhID).Scan(&tz); err != nil {
@@ -227,6 +229,34 @@ func (t *tx) importInto(ctx context.Context, hhID, actorID string, attribute boo
 		res.CompletionsImported += n
 		if unassigned {
 			res.Unassigned++
+		}
+	}
+	// Webhooks (owners only; the caller sealed them with fresh secrets):
+	// always created disabled, up to the household's limit.
+	if attribute && len(hooks) > 0 {
+		maxHooks, err := t.effectiveLimit(ctx, limits.WebhooksPerHousehold, hhID)
+		if err != nil {
+			return res, err
+		}
+		var have int
+		if err := t.queryRow(ctx, "SELECT count(*) FROM webhooks WHERE household_id = ?", hhID).Scan(&have); err != nil {
+			return res, err
+		}
+		for i, n := range hooks {
+			if n.ID == "" || len(n.Description) > 200 || !validEvents(n.Events) {
+				return res, ErrInvalid
+			}
+			if have >= maxHooks {
+				res.WebhooksOverLimit = append(res.WebhooksOverLimit, i)
+				continue
+			}
+			if _, err := t.exec(ctx, `INSERT INTO webhooks (id, household_id, description, url_ciphertext, url_hint, secret_ciphertext,
+				events, active, failures, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, FALSE, 0, ?, ?, ?)`,
+				n.ID, hhID, n.Description, n.URLCiphertext, n.URLHint, n.SecretCiphertext, sortedEvents(n.Events), actorID, now, now); err != nil {
+				return res, err
+			}
+			have++
+			res.WebhooksCreated++
 		}
 	}
 	return res, nil

@@ -298,7 +298,7 @@ Assistants that cannot take an access key (ChatGPT custom connectors, Claude's "
 
 ## Export and import
 
-Every user can download their own data (Account, Your data, "Export my data"; asks for the password again) and members and owners can export a household (household settings, Data, "Export household") as JSON. The files never contain notification URLs, tokens, calendar feed links or member email addresses. A household file can be imported as a new household or merged into one you are a member of (areas with the same name are combined, chores are added as new ones, assignees are matched to members by username). Uploads are limited to 5 MiB and an import is all-or-nothing.
+Every user can download their own data (Account, Your data, "Export my data"; asks for the password again) and members and owners can export a household (household settings, Data, "Export household") as JSON. The files never contain notification URLs, tokens, calendar feed links or member email addresses. An owner's household file also lists the household's webhooks (name, events, address and on/off state, never the signing secret); webhook addresses can embed credentials, so keep that file private. Importing re-creates them switched off with new secrets, for you to review ([docs/webhooks.md](docs/webhooks.md)). A household file can be imported as a new household or merged into one you are a member of (areas with the same name are combined, chores are added as new ones, assignees are matched to members by username). Uploads are limited to 5 MiB and an import is all-or-nothing.
 
 ## Releases and verification
 

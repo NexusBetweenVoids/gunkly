@@ -10,11 +10,14 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 - MCP can edit and archive chores: new `update_chore` (partial update of name, notes, link, area, assignees, schedule incl. interval or RRULE, reminder preset and time, take-turns settings; same validation as the REST update, unknown or invalid fields are errors), `archive_chore` and `unarchive_chore`, all under `chores:write` with the REST role rules. Deleting stays REST-only (ADR 0015, `docs/ai-assistants.md`).
 - API tokens can manage areas: `chores:read` lists them, `chores:write` creates, renames and deletes them, with the same role rules as sessions (a token never exceeds its owner's role). New MCP tools `list_areas` (read), `create_area` and `rename_area` (write; they refuse while the household has areas turned off; deleting areas is REST-only). OpenAPI and ADR 0014 updated.
 
+- Household export/import carry webhooks (ADR 0017, `docs/webhooks.md`): an owner's export adds each webhook's name, events, URL and enabled flag, never its signing secret, and the file is documented as sensitive because URLs can embed credentials. Import re-creates them disabled with new secrets for the owner to review; it skips (and reports as `webhooksSkipped`) webhooks when the instance switch is off, when the importer is not an owner, on invalid URLs or events, or over the household limit. Export format stays version 1 (additive optional `webhooks` field).
+
 ### Fixed
 
 - OAuth consent page (ChatGPT and Claude connectors): an account whose only second factor is a passkey no longer has to type a recovery code, and an account without a password (created by single sign-on) can now approve an app at all. Accounts with a passkey see **Confirm with a passkey** (user verification required; Gunkly verifies the assertion itself); linked accounts see **Confirm with {provider}**, which re-verifies through the identity provider (`prompt=login`, `max_age=0`) and returns to the same consent request. Without script the page is the same plain form as before (password, authenticator, emailed or recovery code).
 
 ### Changed
+
 - The consent page loads one small same-origin script, only for accounts that have a passkey (`GET /oauth-consent.js`; no inline script, `script-src 'self'` as before). Offering single sign-on adds the provider's origin to that page's `form-action`. New `POST /oauth/authorize/passkey` (options for the passkey ceremony, bound to the session and the consent page). ADR 0016 and 0018, `docs/sign-in.md`, `docs/sso.md` and the threat model are updated; two new screenshots (sign-in page, Account, Sign-in & security with a passkey).
 - The "Create chores" permission is now labelled "Create and edit chores, manage areas" in the access and connect dialogs; the scope itself (`chores:write`) is unchanged.
 

@@ -6,11 +6,13 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"strconv"
 
 	"github.com/NexusBetweenVoids/gunkly/internal/limits"
 	"github.com/NexusBetweenVoids/gunkly/internal/scheduler"
 	"github.com/NexusBetweenVoids/gunkly/internal/store"
 	"github.com/NexusBetweenVoids/gunkly/internal/transfer"
+	"github.com/NexusBetweenVoids/gunkly/internal/webhook"
 )
 
 // registerTransferRoutes: personal and household data export, household
@@ -53,7 +55,26 @@ func (s *Server) exportHousehold(w http.ResponseWriter, r *http.Request, c *call
 	if err != nil {
 		return err
 	}
-	s.audit(r.Context(), c, c.user.ID, store.AuditHouseholdExport, c.hh, nil)
+	// Webhooks travel only in an owner's export; the signing secret never does.
+	// The URLs can carry credentials, so the whole file is sensitive.
+	var meta map[string]string
+	if role, err := s.st.Role(r.Context(), c.actor(), c.hh); err == nil && role == store.RoleOwner {
+		hooks, err := s.st.ExportWebhooks(r.Context(), c.actor(), c.hh)
+		if err != nil {
+			return err
+		}
+		for _, x := range hooks {
+			u, err := webhook.OpenURL(s.keyring, x.ID, x.URLCiphertext)
+			if err != nil {
+				return err
+			}
+			data.Webhooks = append(data.Webhooks, transfer.Webhook{Name: x.Description, Events: x.Events, URL: u, Enabled: x.Enabled})
+		}
+		if len(hooks) > 0 {
+			meta = map[string]string{"webhooks": strconv.Itoa(len(hooks))}
+		}
+	}
+	s.audit(r.Context(), c, c.user.ID, store.AuditHouseholdExport, c.hh, meta)
 	return s.download(w, data, "gunkly-household-export")
 }
 
@@ -64,6 +85,16 @@ type importSummary struct {
 	ChoresCreated       int             `json:"choresCreated"`
 	CompletionsImported int             `json:"completionsImported"`
 	Unassigned          int             `json:"unassigned"`
+	// Webhooks of the file are re-created disabled with new secrets (owners
+	// only, and only while the instance has webhooks on). Each one not created
+	// is listed with a reason: webhooks_disabled, owner_only, invalid, limit.
+	WebhooksCreated int              `json:"webhooksCreated"`
+	WebhooksSkipped []skippedWebhook `json:"webhooksSkipped"`
+}
+
+type skippedWebhook struct {
+	Name   string `json:"name"`
+	Reason string `json:"reason"`
 }
 
 type importHousehold struct {
@@ -71,8 +102,11 @@ type importHousehold struct {
 	Name string `json:"name"`
 }
 
-func viewImport(r store.ImportResult) importSummary {
-	return importSummary{Household: importHousehold{ID: r.HouseholdID, Name: r.HouseholdName},
+func viewImport(r store.ImportResult, skipped []skippedWebhook) importSummary {
+	if skipped == nil {
+		skipped = []skippedWebhook{}
+	}
+	return importSummary{WebhooksCreated: r.WebhooksCreated, WebhooksSkipped: skipped, Household: importHousehold{ID: r.HouseholdID, Name: r.HouseholdName},
 		AreasCreated: r.AreasCreated, AreasMerged: r.AreasMerged, ChoresCreated: r.ChoresCreated,
 		CompletionsImported: r.CompletionsImported, Unassigned: r.Unassigned}
 }
@@ -92,6 +126,39 @@ func (s *Server) importOptions(ctx context.Context, hh string) (transfer.Options
 		*dst = v
 	}
 	return o, nil
+}
+
+// prepareWebhooks seals the file's webhooks for import: each gets a fresh
+// signing secret and will be stored disabled. Entries that cannot be created
+// (webhooks switched off on the instance, importer not an owner, invalid
+// events or URL under the egress rules in force now) are reported, not fatal.
+// Items that pass here can still hit the household's limit in the store; the
+// returned names let the caller report those too.
+func (s *Server) prepareWebhooks(ctx context.Context, f *transfer.Household, owner bool) (hooks []store.NewWebhook, names []string, skipped []skippedWebhook) {
+	if len(f.Webhooks) == 0 {
+		return nil, nil, nil
+	}
+	reason := ""
+	switch {
+	case !s.webhooksEnabled(ctx):
+		reason = "webhooks_disabled"
+	case !owner:
+		reason = "owner_only"
+	}
+	guarded := s.EgressGuardEnabled(ctx)
+	for _, w := range f.Webhooks {
+		if reason != "" {
+			skipped = append(skipped, skippedWebhook{w.Name, reason})
+			continue
+		}
+		p, err := webhook.Prepare(s.keyring, w.URL, w.Name, w.Events, guarded)
+		if err != nil || !store.ValidWebhookEvents(w.Events) {
+			skipped = append(skipped, skippedWebhook{w.Name, "invalid"})
+			continue
+		}
+		hooks, names = append(hooks, p.NewWebhook), append(names, w.Name)
+	}
+	return hooks, names, skipped
 }
 
 // parseImport reads the (size-capped) upload and validates it.
@@ -142,12 +209,16 @@ func (s *Server) importNewHousehold(w http.ResponseWriter, r *http.Request, c *c
 	if err != nil {
 		return err
 	}
-	res, err := s.st.ImportNewHousehold(ctx, c.actor(), f, max)
+	hooks, names, skipped := s.prepareWebhooks(ctx, f, true)
+	res, err := s.st.ImportNewHousehold(ctx, c.actor(), f, max, hooks)
 	if err != nil {
 		return importError(err)
 	}
-	s.audit(ctx, c, c.user.ID, store.AuditHouseholdImport, res.HouseholdID, map[string]string{"mode": "new"})
-	writeJSON(w, http.StatusCreated, viewImport(res))
+	for _, i := range res.WebhooksOverLimit {
+		skipped = append(skipped, skippedWebhook{names[i], "limit"})
+	}
+	s.audit(ctx, c, c.user.ID, store.AuditHouseholdImport, res.HouseholdID, map[string]string{"mode": "new", "webhooks": strconv.Itoa(res.WebhooksCreated)})
+	writeJSON(w, http.StatusCreated, viewImport(res, skipped))
 	return nil
 }
 
@@ -160,10 +231,18 @@ func (s *Server) importMerge(w http.ResponseWriter, r *http.Request, c *call) er
 	if err != nil {
 		return err
 	}
-	res, err := s.st.MergeHousehold(ctx, c.actor(), c.hh, f)
+	role, err := s.st.Role(ctx, c.actor(), c.hh)
+	if err != nil {
+		return err
+	}
+	hooks, names, skipped := s.prepareWebhooks(ctx, f, role == store.RoleOwner)
+	res, err := s.st.MergeHousehold(ctx, c.actor(), c.hh, f, hooks)
 	if err != nil {
 		return importError(err)
 	}
-	s.audit(ctx, c, c.user.ID, store.AuditHouseholdImport, c.hh, map[string]string{"mode": "merge"})
-	return ok(w, viewImport(res))
+	for _, i := range res.WebhooksOverLimit {
+		skipped = append(skipped, skippedWebhook{names[i], "limit"})
+	}
+	s.audit(ctx, c, c.user.ID, store.AuditHouseholdImport, c.hh, map[string]string{"mode": "merge", "webhooks": strconv.Itoa(res.WebhooksCreated)})
+	return ok(w, viewImport(res, skipped))
 }
