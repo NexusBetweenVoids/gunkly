@@ -143,4 +143,5 @@ jobs:
             web/e2e-idp/.out/
             ${{ runner.temp }}/logs/
           if-no-files-found: ignore
+          include-hidden-files: true # Playwright writes to .out
           retention-days: 7
