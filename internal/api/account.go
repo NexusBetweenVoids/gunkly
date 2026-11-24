@@ -31,13 +31,15 @@ type meView struct {
 	EmailReminders bool `json:"emailReminders"`
 	// QuietHours are the user's own, in the household's time zone; null = none.
 	QuietHours *quietView `json:"quietHours"`
+	// Passkeys is the number of registered passkeys.
+	Passkeys int `json:"passkeys"`
 }
 
 func viewMe(u store.User) *meView {
 	v := &meView{ID: u.ID, Username: u.Username, Email: u.Email, DisplayName: u.DisplayName, Locale: u.Locale,
 		WeekStart: u.WeekStart, IsAdmin: u.IsAdmin, TOTPEnabled: u.TOTPEnabled,
 		EmailVerified: u.EmailVerified, EmailOTPEnabled: u.EmailOTPEnabled,
-		EmailReminders: u.EmailReminders && u.EmailVerified}
+		EmailReminders: u.EmailReminders && u.EmailVerified, Passkeys: u.Passkeys}
 	if u.QuietStartMin != nil && u.QuietEndMin != nil {
 		v.QuietHours = &quietView{Start: *u.QuietStartMin, End: *u.QuietEndMin}
 	}

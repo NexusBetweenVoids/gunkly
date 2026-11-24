@@ -201,13 +201,13 @@ func (t *tx) exportCompletions(ctx context.Context, hh string, idx map[string]in
 // ExportUser builds the caller's personal data export: profile, preferences,
 // memberships, their own completions, personal notification channels (kind
 // and label only), sessions and own audit events. It never reads password
-// hashes, TOTP or recovery material, channel URLs or ciphertext, session
+// hashes, TOTP, passkey or recovery material, channel URLs or ciphertext, session
 // tokens or calendar feed tokens.
 func (s *Store) ExportUser(ctx context.Context, userID string) (*transfer.User, error) {
 	out := &transfer.User{Format: transfer.UserFormat, Version: transfer.Version, ExportedAt: s.now().UTC().Truncate(time.Second),
 		Preferences: transfer.UserPreferences{MutedChores: []transfer.MutedItem{}},
 		Memberships: []transfer.UserMembership{}, Completions: []transfer.UserCompletion{},
-		Channels: []transfer.UserChannel{}, Sessions: []transfer.UserSession{}, Audit: []transfer.UserAudit{}}
+		Channels: []transfer.UserChannel{}, Sessions: []transfer.UserSession{}, Passkeys: []transfer.UserPasskey{}, Audit: []transfer.UserAudit{}}
 	err := s.inTx(ctx, false, func(t *tx) error {
 		var ws, qs, qe sql.NullInt64
 		var created int64
@@ -277,6 +277,21 @@ func (t *tx) exportUserRows(ctx context.Context, userID string, out *transfer.Us
 			}
 			s.CreatedAt, s.LastSeenAt, s.ExpiresAt = time.UnixMilli(c).UTC(), time.UnixMilli(l).UTC(), time.UnixMilli(e).UTC()
 			out.Sessions = append(out.Sessions, s)
+			return nil
+		}},
+		{`SELECT name, created_at, last_used_at FROM passkeys WHERE user_id = ? ORDER BY created_at, id`, func(r *sql.Rows) error {
+			var k transfer.UserPasskey
+			var c int64
+			var l sql.NullInt64
+			if err := r.Scan(&k.Name, &c, &l); err != nil {
+				return err
+			}
+			k.CreatedAt = time.UnixMilli(c).UTC()
+			if l.Valid {
+				u := time.UnixMilli(l.Int64).UTC()
+				k.LastUsedAt = &u
+			}
+			out.Passkeys = append(out.Passkeys, k)
 			return nil
 		}},
 		{`SELECT event, ip, meta, created_at FROM audit_log WHERE actor_user_id = ? ORDER BY created_at, id`, func(r *sql.Rows) error {

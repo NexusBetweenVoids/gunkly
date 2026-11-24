@@ -34,7 +34,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
       PATH: process.env.PATH,
       GUNKLY_DATABASE_URL: `sqlite://${join(dir, 'gunkly.db')}`,
       GUNKLY_LISTEN_ADDR: `127.0.0.1:${port}`,
-      GUNKLY_BASE_URL: `http://127.0.0.1:${port}`,
+      GUNKLY_BASE_URL: `http://localhost:${port}`,
       GUNKLY_SECRET_KEYS: `1:${key}`,
       // Lets tests give each simulated user their own client IP via X-Forwarded-For,
       // so the per-IP login and invite rate limits do not couple unrelated tests.

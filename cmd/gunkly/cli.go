@@ -82,7 +82,7 @@ func (a *app) adminCommand(ctx context.Context, sub, login string, stdout io.Wri
 		if err := a.store.Audit(ctx, store.AuditEvent{Event: store.AuditTOTPDisable, Meta: via}); err != nil {
 			return err
 		}
-		_, err = fmt.Fprintf(stdout, "Two-factor authentication (authenticator app, email codes, recovery codes) removed for %s.\n", u.Username)
+		_, err = fmt.Fprintf(stdout, "Two-factor authentication (authenticator app, email codes, passkeys, recovery codes) removed for %s.\n", u.Username)
 		return err
 	}
 	return fmt.Errorf("unknown admin command %q", sub)

@@ -9,6 +9,7 @@
   import EmailReminders from './account/EmailReminders.svelte';
   import QuietHours from './account/QuietHours.svelte';
   import EmailCodes from './account/EmailCodes.svelte';
+  import Passkeys from './account/Passkeys.svelte';
   import Password from './account/Password.svelte';
   import PushNotifications from './account/PushNotifications.svelte';
   import Profile from './account/Profile.svelte';
@@ -32,6 +33,7 @@
       <Email />
     {:else if g === 'security'}
       <Password />
+      <Passkeys />
       <Totp />
       <EmailCodes />
       <Sessions />

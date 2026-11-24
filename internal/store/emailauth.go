@@ -250,7 +250,7 @@ func (s *Store) DisableEmailOTP(ctx context.Context, userID, keepSessionID strin
 		if _, err := t.exec(ctx, "DELETE FROM user_tokens WHERE user_id = ? AND purpose = ?", userID, tokenEmailOTP); err != nil {
 			return err
 		}
-		if err := t.replaceRecoveryCodes(ctx, userID, nil, 0); err != nil {
+		if err := t.dropRecoveryCodesUnlessPasskeys(ctx, userID); err != nil {
 			return err
 		}
 		if err := t.revokeSessionsExcept(ctx, userID, keepSessionID); err != nil {

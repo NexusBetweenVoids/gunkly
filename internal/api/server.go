@@ -17,6 +17,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/go-webauthn/webauthn/webauthn"
+
 	"github.com/NexusBetweenVoids/gunkly/internal/auth"
 	"github.com/NexusBetweenVoids/gunkly/internal/ids"
 	"github.com/NexusBetweenVoids/gunkly/internal/limits"
@@ -99,6 +101,8 @@ type Server struct {
 	mailWG           sync.WaitGroup // in-flight background sends
 	counts           *windowCounter // hourly email and sign-up caps
 	pow              *auth.PoW
+	pkOnce           sync.Once
+	pk               *webauthn.WebAuthn // passkey relying party; nil without an https (or localhost) base URL
 
 	// Password hashing hooks; tests swap in fast fakes and counters.
 	hashPassword   func(string) string

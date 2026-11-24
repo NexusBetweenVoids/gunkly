@@ -34,7 +34,7 @@ func (s *Server) getInstance(w http.ResponseWriter, r *http.Request, _ *call) er
 	open, pow := s.signupSettings(st)
 	out := map[string]any{
 		"openSignup": open, "emailEnabled": s.emailEnabled(), "hostedMode": s.hosted, "requirePow": open && pow,
-		"baseUrl": s.baseURL, "mcpEnabled": s.mcpEnabled(r.Context()),
+		"baseUrl": s.baseURL, "mcpEnabled": s.mcpEnabled(r.Context()), "passkeysAvailable": s.passkeyRP() != nil,
 	}
 	if s.oauthEnabled(r.Context()) {
 		out["oauthEnabled"] = true // absent while off: nothing about OAuth is advertised

@@ -68,7 +68,7 @@ All screenshots show synthetic demo data.
 - Expiring, revocable invite links (1 to 100 uses). Optional open sign-up with proof of work (off by default when self-hosted).
 
 **Security and privacy**
-- Argon2id passwords, optional TOTP with recovery codes, optional email codes; step-up checks for sensitive actions; sessions you can list and revoke.
+- Argon2id passwords, optional TOTP with recovery codes, optional email codes, passkeys (sign in without a password, or as a second factor); step-up checks for sensitive actions; sessions you can list and revoke.
 - Notification URLs, TOTP secrets and push keys are encrypted at rest with your own key (`GUNKLY_SECRET_KEYS`, rotatable); other secrets are stored only as hashes.
 - Outbound requests go through an SSRF guard with a service allowlist; strict CSP, CSRF protection, rate limits and usage limits.
 - No telemetry. The optional update check can be switched off. Account deletion and optional inactive-account clean-up.

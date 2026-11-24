@@ -304,6 +304,8 @@ func (s *Store) LeaveHousehold(ctx context.Context, a Actor, householdID string,
 var userOwnedStatements = []string{
 	"DELETE FROM sessions WHERE user_id = ?",
 	"DELETE FROM recovery_codes WHERE user_id = ?",
+	"DELETE FROM passkeys WHERE user_id = ?",
+	"DELETE FROM passkey_challenges WHERE user_id = ?",
 	"DELETE FROM user_tokens WHERE user_id = ?",
 	"DELETE FROM mark_done_tokens WHERE user_id = ?",
 	"DELETE FROM calendar_feeds WHERE user_id = ?",

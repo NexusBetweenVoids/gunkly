@@ -125,6 +125,7 @@ const (
 	rateOAuthReg = "oauthreg" // OAuth dynamic client registration (ADR 0016)
 	rateOAuthTok = "oauthtok" // OAuth token and revocation endpoints
 	rateOAuthAut = "oauthaut" // OAuth authorization (consent) pages
+	ratePasskey  = "passkey"  // passkey ceremonies without a session (sign-in, second factor options)
 
 	rateUserWrite      = "uwrite" // authenticated non-GET requests, per user
 	rateHouseholdWrite = "hwrite" // household write requests, per household
@@ -135,7 +136,7 @@ const (
 // stays at the strict default.
 var bucketRates = map[string]int{
 	rateMarkDone: limits.MarkDonePerMinute, rateMetrics: limits.MetricsPerMinute, rateTransfer: limits.TransfersPerMinute, rateICal: limits.ICalPerMinute,
-	rateVerify: 20, rateReset: 10, rateSignup: 20, rateEmail: 10,
+	rateVerify: 20, rateReset: 10, rateSignup: 20, rateEmail: 10, ratePasskey: 20,
 	rateUserWrite: limits.UserWritesPerMinute, rateHouseholdWrite: limits.HouseholdWritesPerMinute,
 	rateToken: limits.TokenRequestsPerMinute, rateTokenIP: limits.TokenIPPerMinute,
 	rateOAuthReg: limits.OAuthRegisterPerMinute, rateOAuthTok: limits.OAuthTokenPerMinute, rateOAuthAut: limits.OAuthAuthorizePerMinute,

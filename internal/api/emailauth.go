@@ -326,7 +326,7 @@ func (s *Server) requireAccess(_ context.Context, u store.User) error {
 }
 
 func (s *Server) requireTwoFactor(u store.User) error {
-	if s.hosted && !u.TOTPEnabled && !u.EmailOTPEnabled {
+	if s.hosted && !u.HasSecondFactor() {
 		return errf(http.StatusForbidden, "two_factor_setup_required")
 	}
 	return nil

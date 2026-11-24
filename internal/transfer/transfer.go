@@ -128,6 +128,7 @@ type User struct {
 	Completions []UserCompletion `json:"completions"`
 	Channels    []UserChannel    `json:"channels"`
 	Sessions    []UserSession    `json:"sessions"`
+	Passkeys    []UserPasskey    `json:"passkeys"`
 	Audit       []UserAudit      `json:"audit"`
 }
 
@@ -184,6 +185,13 @@ type UserSession struct {
 	CreatedAt  time.Time `json:"createdAt"`
 	LastSeenAt time.Time `json:"lastSeenAt"`
 	ExpiresAt  time.Time `json:"expiresAt"`
+}
+
+// UserPasskey is a registered passkey: its name and dates only, no key material.
+type UserPasskey struct {
+	Name       string     `json:"name"`
+	CreatedAt  time.Time  `json:"createdAt"`
+	LastUsedAt *time.Time `json:"lastUsedAt"`
 }
 
 // UserAudit is one of the user's own audit-log events.

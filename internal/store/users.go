@@ -27,6 +27,7 @@ type User struct {
 	EmailReminders  bool // reminders by email to the verified address
 	QuietStartMin   *int // personal quiet hours (minutes after local midnight, household time zone); nil = none
 	QuietEndMin     *int
+	Passkeys        int  // registered passkeys (each is a sign-in method and a second factor)
 	CreatedAt       time.Time
 	LastActiveAt    time.Time
 }
@@ -40,6 +41,10 @@ type NewUser struct {
 	Locale       string
 	IsAdmin      bool
 }
+
+// HasSecondFactor reports whether signing in with a password also takes a
+// second factor: an authenticator app, emailed codes or a passkey.
+func (u User) HasSecondFactor() bool { return u.TOTPEnabled || u.EmailOTPEnabled || u.Passkeys > 0 }
 
 // normLogin lowercases emails and usernames for lookup and uniqueness.
 func normLogin(s string) string { return strings.ToLower(strings.TrimSpace(s)) }
@@ -79,14 +84,15 @@ func (t *tx) insertUser(ctx context.Context, in NewUser, now int64) (User, error
 }
 
 const userCols = `id, COALESCE(email, ''), username, display_name, password_hash, locale, week_start, is_admin,
-	COALESCE(totp_secret_ciphertext, ''), totp_enabled, email_verified, email_otp_enabled, email_reminders, quiet_start_min, quiet_end_min, created_at, last_active_at`
+	COALESCE(totp_secret_ciphertext, ''), totp_enabled, email_verified, email_otp_enabled, email_reminders, quiet_start_min, quiet_end_min, created_at, last_active_at,
+	(SELECT count(*) FROM passkeys WHERE user_id = users.id)`
 
 func scanUser(row interface{ Scan(...any) error }) (User, error) {
 	var u User
 	var ws, qs, qe sql.NullInt64
 	var created, active int64
 	err := row.Scan(&u.ID, &u.Email, &u.Username, &u.DisplayName, &u.PasswordHash, &u.Locale, &ws, &u.IsAdmin,
-		&u.TOTPSecret, &u.TOTPEnabled, &u.EmailVerified, &u.EmailOTPEnabled, &u.EmailReminders, &qs, &qe, &created, &active)
+		&u.TOTPSecret, &u.TOTPEnabled, &u.EmailVerified, &u.EmailOTPEnabled, &u.EmailReminders, &qs, &qe, &created, &active, &u.Passkeys)
 	if err != nil {
 		return User{}, notFound(err)
 	}

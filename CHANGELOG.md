@@ -8,6 +8,7 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 - Chores that take turns now carry `turnName` (the display name of the person whose turn it is) in the REST API and the MCP chore output, next to `turnUserId`. Additive; API tokens still cannot list members.
 - Personal quiet hours (Account, Notifications): your own do-not-disturb window for reminders to your devices, email and messaging apps, in the household's time zone. Reminders wait until it ends, one per chore, never dropped; household channels and the household's own quiet hours are unaffected. `PATCH /me` takes `quietHours` (session only); the account export includes it.
+- Passkeys (ADR 0018, `docs/sign-in.md`): add them under Account, Sign-in & security. A passkey signs you in without a password ("Sign in with a passkey" on the sign-in page; your device verifies you with a PIN, fingerprint or face, so it counts as password plus second factor), works as a second factor after a password next to authenticator codes and emailed codes, and can confirm sensitive actions. They need `GUNKLY_BASE_URL` to be an https address (or localhost). New dependency: `go-webauthn/webauthn`. `gunkly admin reset-2fa` removes passkeys too; the data export lists their names and dates.
 
 ### Fixed
 

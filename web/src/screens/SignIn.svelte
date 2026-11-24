@@ -19,7 +19,9 @@
   let code = $state('');
   let recovery = $state(false);
   let needSecond = $state(false);
-  let method = $state<'totp' | 'email'>('totp');
+  let method = $state<'totp' | 'email' | 'passkey'>('totp');
+  let passkeyOffered = $state(false); // the account has a passkey it can use as second factor
+  const passkeyReady = $derived(!!app.instance.passkeysAvailable && typeof window !== 'undefined' && !!window.PublicKeyCredential);
   let busy = $state(false);
   let err = $state({ code: '', message: '' });
 
@@ -35,12 +37,36 @@
       if (s.twoFactorRequired) {
         needSecond = true;
         method = s.method ?? 'totp';
+        passkeyOffered = !!s.passkey && passkeyReady;
         if (resend) toast(t('twofa.resent'));
       } else {
-        await adopt(s);
-        password = '';
-        if (next.startsWith('/oauth/')) location.assign(next); // server-rendered consent page, not a SPA route
-        else navigate(next, true);
+        await done(s);
+      }
+    } catch (x) {
+      err = failure(x);
+    } finally {
+      busy = false;
+    }
+  }
+
+  async function done(s: SessionView): Promise<void> {
+    await adopt(s);
+    password = '';
+    if (next.startsWith('/oauth/')) location.assign(next); // server-rendered consent page, not a SPA route
+    else navigate(next, true);
+  }
+
+  // A passkey signs in on its own (password and second factor in one), or answers the second step.
+  async function withPasskey(second: boolean): Promise<void> {
+    busy = true;
+    err = { code: '', message: '' };
+    try {
+      const { assertion } = await import('../lib/passkey');
+      if (second) {
+        const passkey = await assertion('/session/passkey/options', { login, password });
+        await done(await api<SessionView>('POST', '/session', { login, password, passkey }));
+      } else {
+        await done(await api<SessionView>('POST', '/session/passkey/login', await assertion('/session/passkey/login/options')));
       }
     } catch (x) {
       err = failure(x);
@@ -55,7 +81,13 @@
   <h1>{t('signIn.title')}</h1>
   <form class="stack" onsubmit={submit}>
     {#if needSecond}
-      <p class="muted">{method === 'email' && !recovery ? t('signIn.emailCodeSent') : t('signIn.twoFactor')}</p>
+      {#if passkeyOffered && !recovery}
+        <p class="muted">{t('signIn.passkeyPrompt')}</p>
+        <Button {busy} onclick={() => withPasskey(true)}>{t('twofa.usePasskey')}</Button>
+      {/if}
+      {#if method !== 'passkey' || recovery}
+        <p class="muted">{method === 'email' && !recovery ? t('signIn.emailCodeSent') : t('signIn.twoFactor')}</p>
+      {/if}
       <SecondFactor
         bind:code
         bind:recovery
@@ -82,7 +114,9 @@
       />
     {/if}
     {#if err.code !== 'invalid_credentials' && err.code !== 'invalid_code'}<Alert message={err.message} />{/if}
-    <Button type="submit" {busy}>{needSecond ? t('signIn.verify') : t('signIn.title')}</Button>
+    {#if !needSecond || method !== 'passkey' || recovery}
+      <Button type="submit" {busy} variant={needSecond && passkeyOffered && !recovery ? 'quiet' : 'primary'}>{needSecond ? t('signIn.verify') : t('signIn.title')}</Button>
+    {/if}
     {#if needSecond}
       <Button
         variant="quiet"
@@ -94,6 +128,9 @@
       >
     {/if}
   </form>
+  {#if !needSecond && passkeyReady}
+    <Button variant="quiet" {busy} onclick={() => withPasskey(false)}>{t('signIn.passkey')}</Button>
+  {/if}
   {#if !needSecond}
     <div class="row">
       {#if app.instance.emailEnabled}<a href="/forgot-password">{t('signIn.forgot')}</a>{/if}

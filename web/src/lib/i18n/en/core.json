@@ -202,5 +202,12 @@
   "home.push.turnOn": "Turn on",
   "home.push.notNow": "Not now",
   "home.push.on": "Reminders are on for this device.",
-  "err.oauth_requires_https": "Sign-in for apps needs GUNKLY_BASE_URL to be an https address (or http://localhost for development)."
+  "err.oauth_requires_https": "Sign-in for apps needs GUNKLY_BASE_URL to be an https address (or http://localhost for development).",
+  "signIn.passkey": "Sign in with a passkey",
+  "signIn.passkeyPrompt": "Confirm with the passkey on this device to finish signing in.",
+  "twofa.usePasskey": "Use a passkey",
+  "err.invalid_passkey": "That passkey wasn't accepted. Try again, or use another way to sign in.",
+  "err.passkey_failed": "The passkey couldn't be used. Try again.",
+  "err.passkey_exists": "This passkey is already registered.",
+  "err.passkeys_require_https": "Passkeys need Gunkly to be reached at an https address (or localhost) that the administrator has set as GUNKLY_BASE_URL."
 }

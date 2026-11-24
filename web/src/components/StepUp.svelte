@@ -18,6 +18,9 @@
   let err = $state({ code: '', message: '' });
 
   const email = $derived(app.user?.twoFactor === 'email');
+  const passkeys = $derived(!!app.user?.passkeys && !!app.instance.passkeysAvailable);
+  // A passkey is a second factor too: without an app or email codes, the password goes with a recovery code.
+  const passkeyOnly = $derived(!!app.user?.passkeys && !app.user?.totpEnabled && !email);
 
   async function submit(e?: SubmitEvent, resend = false): Promise<void> {
     e?.preventDefault();
@@ -25,7 +28,8 @@
     err = { code: '', message: '' };
     try {
       const body: Record<string, string> = { password };
-      if (app.user?.totpEnabled) body[recovery ? 'recoveryCode' : 'totp'] = code.trim();
+      if (passkeyOnly) body.recoveryCode = code.trim();
+      else if (app.user?.totpEnabled) body[recovery ? 'recoveryCode' : 'totp'] = code.trim();
       // Without a code the server emails one (and answers two_factor_required).
       else if (email && emailAsked && !resend) body[recovery ? 'recoveryCode' : 'emailCode'] = code.trim();
       await api<void>('POST', '/session/step-up', body);
@@ -42,11 +46,31 @@
       busy = false;
     }
   }
+
+  async function viaPasskey(): Promise<void> {
+    busy = true;
+    err = { code: '', message: '' };
+    try {
+      const { assertion } = await import('../lib/passkey');
+      const passkey = await assertion('/session/step-up/passkey/options');
+      await api<void>('POST', '/session/step-up', { passkey });
+      password = code = '';
+      resolveStepUp(true);
+    } catch (x) {
+      err = failure(x);
+    } finally {
+      busy = false;
+    }
+  }
 </script>
 
 <Dialog open={stepUp.open} title={t('stepUp.title')} onclose={() => resolveStepUp(false)}>
   <form class="stack" onsubmit={submit}>
     <p class="muted">{t('stepUp.body')}</p>
+    {#if passkeys}
+      <Button {busy} onclick={viaPasskey}>{t('stepUp.passkey')}</Button>
+      <p class="muted">{t('stepUp.orPassword')}</p>
+    {/if}
     <Field
       label={t('field.password')}
       type="password"
@@ -55,7 +79,18 @@
       required
       error={err.code === 'invalid_credentials' ? err.message : ''}
     />
-    {#if app.user?.totpEnabled}
+    {#if passkeyOnly}
+      <Field
+        label={t('twofa.recoveryCode')}
+        hint={t('twofa.recoveryHint')}
+        bind:value={code}
+        autocomplete="off"
+        autocapitalize="none"
+        spellcheck="false"
+        required
+        error={err.code === 'invalid_code' ? err.message : ''}
+      />
+    {:else if app.user?.totpEnabled}
       <SecondFactor bind:code bind:recovery error={err.code === 'invalid_code' ? err.message : ''} />
     {:else if email && emailAsked}
       <p class="muted" role="status">{t('stepUp.emailCodeSent')}</p>

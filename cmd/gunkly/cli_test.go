@@ -218,6 +218,29 @@ func TestAdminReset2FAClearsEmailOTP(t *testing.T) {
 	}
 }
 
+// reset-2fa must also remove passkeys (a second factor and a sign-in method).
+func TestAdminReset2FARemovesPasskeys(t *testing.T) {
+	ctx := context.Background()
+	a := testApp(t)
+	u, err := a.store.CreateUser(ctx, store.NewUser{Username: "cy", DisplayName: "cy", PasswordHash: "x"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := a.store.AddPasskey(ctx, u.ID, "", store.NewPasskey{Name: "Key", CredentialID: []byte("c"), PublicKey: []byte("p")}, 5, []string{"r1"}); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := a.store.UserByLogin(ctx, "cy"); got.Passkeys != 1 {
+		t.Fatal("passkey not added in setup")
+	}
+	var out bytes.Buffer
+	if err := a.adminCommand(ctx, "reset-2fa", "cy", &out); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := a.store.UserByLogin(ctx, "cy"); got.Passkeys != 0 || got.HasSecondFactor() {
+		t.Fatalf("passkeys not removed: %+v", got)
+	}
+}
+
 func TestRotateKey(t *testing.T) {
 	ctx := context.Background()
 	a := testApp(t)

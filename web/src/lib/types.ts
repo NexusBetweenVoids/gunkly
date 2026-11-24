@@ -14,14 +14,16 @@ export type Me = {
   twoFactor: '' | 'totp' | 'email';
   emailReminders: boolean;
   quietHours: { start: number; end: number } | null;
+  passkeys: number;
 };
 export type SessionView = {
   authenticated: boolean;
   twoFactorRequired?: boolean;
-  method?: 'totp' | 'email';
+  method?: 'totp' | 'email' | 'passkey';
+  passkey?: boolean; // a passkey can be the second factor
   user?: Me;
 };
-export type Instance = { openSignup: boolean; emailEnabled: boolean; hostedMode: boolean; requirePow: boolean; baseUrl?: string; mcpEnabled?: boolean; oauthEnabled?: boolean; webhooksEnabled?: boolean };
+export type Instance = { openSignup: boolean; emailEnabled: boolean; hostedMode: boolean; requirePow: boolean; baseUrl?: string; passkeysAvailable?: boolean; mcpEnabled?: boolean; oauthEnabled?: boolean; webhooksEnabled?: boolean };
 export type Household = {
   id: string;
   name: string;

@@ -12,7 +12,7 @@
     error = '',
     method = 'totp',
     onresend,
-  }: { code: string; recovery: boolean; error?: string; method?: 'totp' | 'email'; onresend?: () => void } = $props();
+  }: { code: string; recovery: boolean; error?: string; method?: 'totp' | 'email' | 'passkey'; onresend?: () => void } = $props();
 </script>
 
 {#if recovery}
@@ -26,7 +26,7 @@
     spellcheck="false"
     required
   />
-{:else}
+{:else if method !== 'passkey'}
   <Field
     label={method === 'email' ? t('twofa.emailCode') : t('twofa.code')}
     hint={method === 'email' ? t('twofa.emailCodeHint') : t('twofa.codeHint')}
@@ -47,5 +47,5 @@
     code = '';
   }}
 >
-  {recovery ? (method === 'email' ? t('twofa.useEmail') : t('twofa.useApp')) : t('twofa.useRecovery')}
+  {recovery ? (method === 'email' ? t('twofa.useEmail') : method === 'passkey' ? t('twofa.usePasskey') : t('twofa.useApp')) : t('twofa.useRecovery')}
 </Button>

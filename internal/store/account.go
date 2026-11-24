@@ -168,9 +168,9 @@ func (s *Store) DisableTOTP(ctx context.Context, userID, keepSessionID string) e
 	return s.inTx(ctx, true, func(t *tx) error { return t.clearSecondFactor(ctx, userID, keepSessionID, false, s.nowMS()) })
 }
 
-// DisableTwoFactor removes every second factor (TOTP and email codes) and the
-// recovery codes: `gunkly admin reset-2fa`. All sessions except keepSessionID
-// are revoked.
+// DisableTwoFactor removes every second factor (TOTP, email codes and
+// passkeys) and the recovery codes: `gunkly admin reset-2fa`. All sessions
+// except keepSessionID are revoked.
 func (s *Store) DisableTwoFactor(ctx context.Context, userID, keepSessionID string) error {
 	return s.inTx(ctx, true, func(t *tx) error { return t.clearSecondFactor(ctx, userID, keepSessionID, true, s.nowMS()) })
 }
@@ -186,13 +186,32 @@ func (t *tx) clearSecondFactor(ctx context.Context, userID, keepSessionID string
 	if _, err := t.exec(ctx, "DELETE FROM user_tokens WHERE user_id = ? AND purpose = ?", userID, tokenEmailOTP); err != nil {
 		return err
 	}
-	if err := t.replaceRecoveryCodes(ctx, userID, nil, 0); err != nil {
+	if emailOTP { // the full reset (CLI) also removes passkeys
+		if _, err := t.exec(ctx, "DELETE FROM passkeys WHERE user_id = ?", userID); err != nil {
+			return err
+		}
+	}
+	if err := t.dropRecoveryCodesUnlessPasskeys(ctx, userID); err != nil {
 		return err
 	}
 	if err := t.revokeSessionsExcept(ctx, userID, keepSessionID); err != nil {
 		return err
 	}
 	return t.revokeUserTokens(ctx, userID, "2fa_disable", now)
+}
+
+// dropRecoveryCodesUnlessPasskeys deletes the recovery codes of an account
+// that has just lost a second factor, unless it still has a passkey (which
+// keeps them useful as the way back in).
+func (t *tx) dropRecoveryCodesUnlessPasskeys(ctx context.Context, userID string) error {
+	var n int
+	if err := t.queryRow(ctx, "SELECT count(*) FROM passkeys WHERE user_id = ?", userID).Scan(&n); err != nil {
+		return err
+	}
+	if n > 0 {
+		return nil
+	}
+	return t.replaceRecoveryCodes(ctx, userID, nil, 0)
 }
 
 func (t *tx) revokeSessionsExcept(ctx context.Context, userID, keepSessionID string) error {

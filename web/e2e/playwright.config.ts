@@ -10,7 +10,8 @@ if (!process.env.E2E_PORT) {
     { encoding: 'utf8' },
   ).trim();
 }
-const baseURL = `http://127.0.0.1:${process.env.E2E_PORT}`;
+// localhost, not 127.0.0.1: passkeys (WebAuthn) bind to a domain name; an IP address cannot be an RP ID.
+const baseURL = `http://localhost:${process.env.E2E_PORT}`;
 
 export default defineConfig({
   testDir: '.',

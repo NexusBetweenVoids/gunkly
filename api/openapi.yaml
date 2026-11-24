@@ -74,8 +74,9 @@ paths:
                 totp: {type: string}
                 emailCode: {type: string, description: "Code emailed to the user (second factor: email)"}
                 recoveryCode: {type: string}
+                passkey: {$ref: "#/components/schemas/PasskeyAnswer"}
       responses:
-        "200": {description: "Signed in, or twoFactorRequired with method totp or email (for email the code is sent by this call; repeat it without a code to resend)", content: {application/json: {schema: {$ref: "#/components/schemas/Session"}}}}
+        "200": {description: "Signed in, or twoFactorRequired with method totp, email or passkey (for email the code is sent by this call; repeat it without a code to resend)", content: {application/json: {schema: {$ref: "#/components/schemas/Session"}}}}
         "401": {description: invalid_credentials or invalid_code}
         "429": {$ref: "#/components/responses/RateLimited"}
     delete:
@@ -98,10 +99,104 @@ paths:
                 password: {type: string}
                 totp: {type: string}
                 recoveryCode: {type: string}
+                emailCode: {type: string}
+                passkey: {$ref: "#/components/schemas/PasskeyAnswer"}
+      description: Password plus second factor, or a passkey alone (without `password`; the options come from `/session/step-up/passkey/options`).
       responses:
         "204": {description: Verified}
         "401": {$ref: "#/components/responses/Unauthenticated"}
         "429": {$ref: "#/components/responses/RateLimited"}
+  /session/passkey/login/options:
+    post:
+      tags: [session]
+      summary: Options for a passwordless sign-in with a passkey (discoverable credential)
+      description: 404 unless the instance has an https (or localhost) `GUNKLY_BASE_URL`. User verification is required. Pass the result to `navigator.credentials.get`, then send the credential to `/session/passkey/login`.
+      responses:
+        "200": {description: OK, content: {application/json: {schema: {$ref: "#/components/schemas/PasskeyOptions"}}}}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+  /session/passkey/login:
+    post:
+      tags: [session]
+      summary: Sign in with a passkey (counts as password plus second factor)
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: "#/components/schemas/PasskeyAnswer"}}}
+      responses:
+        "200": {description: Signed in, content: {application/json: {schema: {$ref: "#/components/schemas/Session"}}}}
+        "401": {description: The passkey was not accepted (unknown, wrong, expired challenge or a signature counter that did not increase), content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+  /session/passkey/options:
+    post:
+      tags: [session]
+      summary: Options for a passkey as the second factor after a password
+      description: Takes the same `login` and `password` as `POST /session` and verifies them first. 404 when the account has no passkey. The assertion goes in `passkey` of `POST /session`.
+      requestBody:
+        required: true
+        content: {application/json: {schema: {type: object, required: [login, password], properties: {login: {type: string}, password: {type: string}}}}}
+      responses:
+        "200": {description: OK, content: {application/json: {schema: {$ref: "#/components/schemas/PasskeyOptions"}}}}
+        "401": {$ref: "#/components/responses/Unauthenticated"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+  /session/step-up/passkey/options:
+    post:
+      tags: [session]
+      summary: Options to re-verify a signed-in user with a passkey (user verification required)
+      responses:
+        "200": {description: OK, content: {application/json: {schema: {$ref: "#/components/schemas/PasskeyOptions"}}}}
+        "401": {$ref: "#/components/responses/Unauthenticated"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+  /account/passkeys:
+    get:
+      tags: [account]
+      summary: The caller's passkeys (names and dates only; session only)
+      responses:
+        "200": {description: OK, content: {application/json: {schema: {type: array, items: {$ref: "#/components/schemas/Passkey"}}}}}
+        "401": {$ref: "#/components/responses/Unauthenticated"}
+    post:
+      tags: [account]
+      summary: Finish registering a passkey (session only; needs step-up)
+      description: The first second factor of an account also returns `recoveryCodes`, shown once. Other sessions of the account are signed out.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [challenge, credential, name]
+              properties:
+                challenge: {type: string}
+                credential: {type: object, description: "The PublicKeyCredential from navigator.credentials.create in JSON form (binary values base64url)"}
+                name: {type: string, maxLength: 100}
+      responses:
+        "201": {description: Created, content: {application/json: {schema: {type: object, properties: {passkey: {$ref: "#/components/schemas/Passkey"}, recoveryCodes: {type: array, items: {type: string}}}}}}}
+        "400": {description: "`passkey_failed` (the browser's answer did not verify), `passkeys_require_https` or invalid", content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "409": {description: "`passkey_exists` or limit reached", content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
+  /account/passkeys/options:
+    post:
+      tags: [account]
+      summary: Start registering a passkey (session only; needs step-up)
+      description: Returns creation options for `navigator.credentials.create` (attestation none, discoverable credential, user verification required). 400 `passkeys_require_https` without an https (or localhost) `GUNKLY_BASE_URL`.
+      responses:
+        "200": {description: OK, content: {application/json: {schema: {$ref: "#/components/schemas/PasskeyOptions"}}}}
+        "400": {$ref: "#/components/responses/Invalid"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "409": {$ref: "#/components/responses/LimitReached"}
+  /account/passkeys/{id}:
+    parameters: [{$ref: "#/components/parameters/id"}]
+    delete:
+      tags: [account]
+      summary: Remove a passkey (session only; needs step-up)
+      description: Signs out the account's other sessions and revokes its API tokens, like removing another second factor. Hosted mode refuses to remove the last second factor (`two_factor_mandatory`).
+      responses:
+        "204": {description: Removed}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409": {description: two_factor_mandatory, content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
   /sessions:
     get:
       tags: [session]
@@ -261,7 +356,7 @@ paths:
       tags: [setup]
       summary: What this instance offers (public)
       responses:
-        "200": {description: OK, content: {application/json: {schema: {type: object, properties: {openSignup: {type: boolean}, emailEnabled: {type: boolean}, hostedMode: {type: boolean}, requirePow: {type: boolean, description: "Sign-up needs a proof of work"}, baseUrl: {type: string, description: "Configured public address (GUNKLY_BASE_URL), empty when not set"}, mcpEnabled: {type: boolean, description: "The MCP endpoint /mcp is served"}, oauthEnabled: {type: boolean, description: "Present (true) only while OAuth sign-in for MCP clients is on; absent otherwise"}, webhooksEnabled: {type: boolean, description: "Present (true) only while outgoing webhooks are on; absent otherwise"}}}}}}
+        "200": {description: OK, content: {application/json: {schema: {type: object, properties: {openSignup: {type: boolean}, emailEnabled: {type: boolean}, hostedMode: {type: boolean}, requirePow: {type: boolean, description: "Sign-up needs a proof of work"}, baseUrl: {type: string, description: "Configured public address (GUNKLY_BASE_URL), empty when not set"}, mcpEnabled: {type: boolean, description: "The MCP endpoint /mcp is served"}, passkeysAvailable: {type: boolean, description: "GUNKLY_BASE_URL is https (or localhost), so passkeys can be registered and used"}, oauthEnabled: {type: boolean, description: "Present (true) only while OAuth sign-in for MCP clients is on; absent otherwise"}, webhooksEnabled: {type: boolean, description: "Present (true) only while outgoing webhooks are on; absent otherwise"}}}}}}
   /signup/challenge:
     get:
       tags: [setup]
@@ -1479,6 +1574,7 @@ components:
         completions: {type: array, items: {type: object}}
         channels: {type: array, items: {type: object, properties: {kind: {type: string}, label: {type: string}}}}
         sessions: {type: array, items: {type: object}}
+        passkeys: {type: array, items: {type: object}, description: "Names and dates only, no key material"}
         audit: {type: array, items: {type: object}}
     Role: {type: string, enum: [owner, member, guest]}
     SetupRequest:
@@ -1500,7 +1596,8 @@ components:
       properties:
         authenticated: {type: boolean}
         twoFactorRequired: {type: boolean}
-        method: {type: string, enum: [totp, email], description: "Second factor asked for when twoFactorRequired"}
+        method: {type: string, enum: [totp, email, passkey], description: "Second factor asked for when twoFactorRequired"}
+        passkey: {type: boolean, description: "A passkey can be used as the second factor (send passkey with the same login and password; options from /session/passkey/options)"}
         user: {$ref: "#/components/schemas/Me"}
         csrf: {type: string}
     Me:
@@ -1517,8 +1614,27 @@ components:
         emailVerified: {type: boolean}
         emailOtpEnabled: {type: boolean}
         twoFactor: {type: string, enum: ["", totp, email]}
+        passkeys: {type: integer, description: "Registered passkeys; each is a sign-in method and a second factor"}
         emailReminders: {type: boolean, description: "Reminders are sent by email to the verified address"}
         quietHours: {type: object, nullable: true, properties: {start: {type: integer}, end: {type: integer}}, description: "Personal quiet hours (household time zone); null = none"}
+    PasskeyOptions:
+      type: object
+      properties:
+        challenge: {type: string, description: "ID to send back with the browser's answer; single use, valid 5 minutes"}
+        options: {type: object, description: "WebAuthn options in JSON form ({publicKey: ...}); binary values are base64url"}
+    PasskeyAnswer:
+      type: object
+      required: [challenge, credential]
+      properties:
+        challenge: {type: string}
+        credential: {type: object, description: "The PublicKeyCredential from navigator.credentials.get in JSON form (binary values base64url)"}
+    Passkey:
+      type: object
+      properties:
+        id: {type: string}
+        name: {type: string}
+        createdAt: {type: string, format: date-time}
+        lastUsedAt: {type: string, format: date-time, nullable: true}
     PoWChallenge:
       type: object
       properties:

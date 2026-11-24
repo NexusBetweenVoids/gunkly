@@ -32,6 +32,17 @@ func (s *Server) registerRoutes() {
 	s.handle("DELETE /api/v1/sessions", session.noToken(), s.revokeOtherSessions)
 	s.handle("DELETE /api/v1/sessions/{id}", session.noToken(), s.revokeSession)
 
+	// Passkeys (ADR 0018): passwordless sign-in, passkey as second factor and as
+	// step-up, and the account's own list. Each ceremony is options + finish.
+	s.handle("POST /api/v1/session/passkey/login/options", publicRateLimited(ratePasskey), s.passkeyLoginOptions)
+	s.handle("POST /api/v1/session/passkey/login", publicRateLimited(ratePasskey), s.passkeyLogin)
+	s.handle("POST /api/v1/session/passkey/options", publicRateLimited(ratePasskey), s.passkeySecondOptions)
+	s.handle("POST /api/v1/session/step-up/passkey/options", session.noToken().withRate(ratePasskey), s.passkeyStepUpOptions)
+	s.handle("GET /api/v1/account/passkeys", session.noToken(), s.listPasskeys)
+	s.handle("POST /api/v1/account/passkeys/options", session.noToken().withStepUp().withRate(ratePasskey), s.passkeyRegisterOptions)
+	s.handle("POST /api/v1/account/passkeys", session.noToken().withStepUp().withRate(ratePasskey), s.registerPasskey)
+	s.handle("DELETE /api/v1/account/passkeys/{id}", session.noToken().withStepUp(), s.deletePasskey)
+
 	// What this instance offers, and open sign-up with proof of work.
 	s.handle("GET /api/v1/instance", public, s.getInstance)
 	s.handle("GET /api/v1/signup/challenge", publicRateLimited(rateSignup), s.signupChallenge)
