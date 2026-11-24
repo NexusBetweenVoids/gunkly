@@ -4,6 +4,8 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-11-24
+
 ### Added
 
 - Per-user time zone (Account, Profile, "Time zone"; default "Same as the household", so nothing changes unless you set it): your personal quiet hours are read in it instead of each household's zone, for people whose households are in different zones. The browser's zone is offered in one click. Household quiet hours, due dates and reminder times stay in the household's zone. `PATCH /me` takes `timeZone` (an IANA name; `null` or empty clears it; session only); the account export includes it.
