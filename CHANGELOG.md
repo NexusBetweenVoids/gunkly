@@ -4,6 +4,8 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-11-25
+
 ### Changed
 
 - Settings is now one screen: your own groups (Profile & email, Sign-in & security, Notifications, AI, Integrations, Your data) and, below them, the current household's (General, People, Notifications, Connections, Data). Switching household in the header switches the household part. Administration stays a separate screen. The header's "Account" link and the household "Settings" tab became a single "Settings" (in the tab bar; in the header only without a household). Old addresses (`/account/...`, `/households/<id>/...`) redirect to `/settings/...`, so bookmarks and emailed links keep working.
