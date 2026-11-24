@@ -37,7 +37,7 @@ func (s *Server) getInstance(w http.ResponseWriter, r *http.Request, _ *call) er
 		"baseUrl": s.baseURL, "mcpEnabled": s.mcpEnabled(r.Context()), "passkeysAvailable": s.passkeyRP() != nil,
 	}
 	if s.sso != nil {
-		out["sso"] = map[string]string{"name": s.sso.Name()} // absent while off
+		out["sso"] = map[string]string{"name": s.ssoName(r.Context())} // absent while off
 	}
 	if s.oauthEnabled(r.Context()) {
 		out["oauthEnabled"] = true // absent while off: nothing about OAuth is advertised

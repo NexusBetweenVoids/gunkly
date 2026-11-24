@@ -1493,6 +1493,7 @@ paths:
                 oauthEnabled: {type: boolean, description: "Let MCP clients such as ChatGPT sign in with OAuth (ADR 0016); default false. Turning it on needs GUNKLY_BASE_URL to be https (or http on localhost), else 400 oauth_requires_https. While off every /oauth endpoint and /.well-known/oauth-* document answers 404."}
                 webhooksEnabled: {type: boolean, description: "Let household owners add outgoing webhooks (ADR 0017); default false. While off every webhook route answers 404 and nothing is sent; queued deliveries are dropped."}
                 ssoCreateAccounts: {type: boolean, description: "A first sign-in by an unknown single sign-on user creates an account (ADR 0018); default false, when the sign-in ends on a 'no account linked' page"}
+                ssoName: {type: string, maxLength: 50, description: "Provider name on the single sign-on button (\"Sign in with ...\"); empty = GUNKLY_OIDC_NAME, else the generic label"}
                 inactiveEnabled: {type: boolean, description: "Warn and then delete inactive accounts (default off)"}
                 inactiveWarnAfterDays: {type: integer, minimum: 30, maximum: 3650, description: "Warn after this many days without activity (default 365)"}
                 inactiveDeleteAfterDays: {type: integer, minimum: 60, maximum: 3650, description: "Delete after this many days without activity (default 548); at least 30 days after inactiveWarnAfterDays"}
@@ -1916,6 +1917,8 @@ components:
         oauthEnabled: {type: boolean, description: "OAuth sign-in for MCP clients is switched on (default false)"}
         webhooksEnabled: {type: boolean, description: "Household owners may add outgoing webhooks (ADR 0017); default false"}
         ssoCreateAccounts: {type: boolean, description: "Unknown single sign-on users get an account on first sign-in (ADR 0018); default false"}
+        ssoName: {type: string, description: "Provider name on the single sign-on button set by an admin; empty = not set"}
+        ssoNameDefault: {type: string, description: "GUNKLY_OIDC_NAME (read-only); used when ssoName is empty"}
         ssoConfigured: {type: boolean, description: "GUNKLY_OIDC_* is set (self-hosted only)"}
         oauthPossible: {type: boolean, description: "GUNKLY_BASE_URL is https (or loopback http), so oauthEnabled may be turned on"}
         inactiveEnabled: {type: boolean}

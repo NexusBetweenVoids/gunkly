@@ -211,7 +211,7 @@
   "err.passkey_failed": "The passkey couldn't be used. Try again.",
   "err.passkey_exists": "This passkey is already registered.",
   "err.passkeys_require_https": "Passkeys need Gunkly to be reached at an https address (or localhost) that the administrator has set as GUNKLY_BASE_URL.",
-  "signIn.sso": "Sign in with single sign-on",
+  "signIn.sso": "Sign in with SSO",
   "signIn.ssoNamed": "Sign in with {name}",
   "sso.linked": "Single sign-on linked.",
   "sso.stepup": "Confirmed. You can continue now.",

@@ -30,6 +30,8 @@
     webhooksEnabled: boolean;
     ssoConfigured: boolean;
     ssoCreateAccounts: boolean;
+    ssoName: string;
+    ssoNameDefault: string;
     inactiveEnabled: boolean;
     inactiveWarnAfterDays: number;
     inactiveDeleteAfterDays: number;
@@ -98,6 +100,7 @@
             oauthEnabled: s!.oauthEnabled,
             webhooksEnabled: s!.webhooksEnabled,
             ssoCreateAccounts: s!.ssoCreateAccounts,
+            ssoName: s!.ssoName,
             minPasswordLength: Number(minLen),
             sessionIdleDays: Number(idleDays),
             sessionMaxDays: Number(maxDays),
@@ -133,6 +136,13 @@
         {#if s.ssoConfigured}
           <label class="check"><input type="checkbox" bind:checked={s.ssoCreateAccounts} aria-describedby="sso-hint" />{t('admin.ssoCreateAccounts')}</label>
           <p class="hint" id="sso-hint">{t('admin.ssoCreateAccountsHint')}</p>
+          <Field
+            label={t('admin.ssoName')}
+            hint={s.ssoNameDefault ? t('admin.ssoNameHintDefault', { name: s.ssoNameDefault }) : t('admin.ssoNameHint')}
+            bind:value={s.ssoName}
+            maxlength={50}
+            placeholder={s.ssoNameDefault || t('admin.ssoNamePlaceholder')}
+          />
         {/if}
         <Field label={t('admin.minPassword')} type="number" bind:value={minLen} min="8" max="128" required />
         <h3>{t('admin.sessions')}</h3>

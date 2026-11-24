@@ -60,16 +60,16 @@ test('README and website screenshots', async ({ world, browser }) => {
   {
     const context = await world.newContext({ viewport: { width: 420, height: 820 }, deviceScaleFactor: 1.5, colorScheme: 'light' });
     const page = await context.newPage();
-    // Show a realistic provider name in the docs instead of the e2e fake provider's "Test IdP".
+    // The docs show the generic label (no provider name set) instead of the e2e fake provider's "Test IdP".
     await page.route('**/api/v1/instance', async (route) => {
       const res = await route.fetch();
       const body = await res.json();
-      if (body.sso) body.sso.name = 'Authelia';
+      if (body.sso) body.sso.name = '';
       await route.fulfill({ response: res, json: body });
     });
     await page.goto('/signin');
     await expect(page.getByRole('button', { name: 'Sign in with a passkey' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Sign in with Authelia' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Sign in with SSO' })).toBeVisible();
     await setTheme(page, 'light');
     await page.waitForTimeout(400);
     await page.screenshot({ path: OUT + 'signin-passkey-sso-phone-light.png' });

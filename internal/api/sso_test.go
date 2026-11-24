@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -640,5 +641,42 @@ func TestSafeNext(t *testing.T) {
 		if got := safeNext(in); got != want {
 			t.Errorf("safeNext(%q) = %q, want %q", in, got, want)
 		}
+	}
+}
+
+// The button name: the admin's setting, else GUNKLY_OIDC_NAME, else "" (the
+// app then shows the generic "SSO").
+func TestSSOButtonName(t *testing.T) {
+	e := newSSOEnv(t)
+	name := func() any {
+		_, v := e.client().do("GET", "/api/v1/instance", nil)
+		return field(field(v, "sso"), "name")
+	}
+	set := func(n string) error {
+		return e.st.UpdateInstanceSettings(context.Background(), store.SettingsUpdate{SSOName: &n})
+	}
+	if got := name(); got != "Authelia" {
+		t.Fatalf("env default: %v", got)
+	}
+	if err := set("  Our Keycloak  "); err != nil {
+		t.Fatal(err)
+	}
+	if got := name(); got != "Our Keycloak" {
+		t.Fatalf("admin setting (trimmed): %v", got)
+	}
+	for _, bad := range []string{strings.Repeat("x", 51), "a\nb", "a\x00b"} {
+		if err := set(bad); !errors.Is(err, store.ErrInvalid) {
+			t.Errorf("%q: %v, want ErrInvalid", bad, err)
+		}
+	}
+	if err := set(""); err != nil {
+		t.Fatal(err)
+	}
+	if got := name(); got != "Authelia" {
+		t.Fatalf("cleared: back to the env default, got %v", got)
+	}
+	g := newSSOEnv(t, func(o *Options) { o.SSO.Name = "" })
+	if _, v := g.client().do("GET", "/api/v1/instance", nil); field(field(v, "sso"), "name") != "" {
+		t.Fatalf("no name anywhere: %v", v)
 	}
 }

@@ -8,7 +8,7 @@ Password sign-in stays available next to it. There is deliberately no "SSO only"
 
 ## What it does
 
-- **Sign in** with a button on the sign-in page ("Sign in with Authelia"; the label is `GUNKLY_OIDC_NAME`). The button appears only when SSO is configured.
+- **Sign in** with a button on the sign-in page ("Sign in with Authelia"). The name is set under Administration, Sign-up & sign-in, "Name on the single sign-on button"; if that is empty, `GUNKLY_OIDC_NAME`; if both are empty the button says "Sign in with SSO". The button appears only when SSO is configured.
 - **Link and unlink** under Account, Sign-in & security, **Single sign-on**. Linking and unlinking ask you to confirm it is you first. You can unlink only while you still have a password or a passkey to sign in with.
 - **Who is who:** a user is identified by the pair **(issuer, `sub`)**, never by email or username. Gunkly never links an account because an email address matches, so nobody can take over an account by registering its address at the provider.
 - **First sign-in by someone with no linked account:** by default they see "No Gunkly account is linked..." and can sign in with their password and link it. An administrator can switch on **Create accounts for new single sign-on users** (Administration, Sign-up & sign-in; off by default). Then the first sign-in creates an account: the username comes from `preferred_username` (cleaned up to letters, digits, dot, dash and underscore, and made unique with `-2`, `-3`, ...), the display name from `name`, and the email address is kept **only** when the provider says `email_verified` is true and email is enabled on this instance. Such an account has no password; it can set one under Account (it confirms its identity through the provider first). It does not need one to approve an app on the OAuth consent page of the assistant integration: the page offers **Confirm with {provider}**, which asks the provider to authenticate you again and brings you back to the same request (with a passkey registered, **Confirm with a passkey** works too).
@@ -23,7 +23,7 @@ Set these in the environment of the Gunkly container:
 | `GUNKLY_OIDC_ISSUER` | The provider's issuer URL, **exactly** as in its discovery document (`<issuer>/.well-known/openid-configuration`), trailing slash included if it has one. `https` (plain `http` only for `localhost`). |
 | `GUNKLY_OIDC_CLIENT_ID` | The client ID of the application you registered for Gunkly. |
 | `GUNKLY_OIDC_CLIENT_SECRET` | Its secret. Leave empty only for a public client (PKCE is always used). |
-| `GUNKLY_OIDC_NAME` | Label for the button, for example `Authelia`. Optional. |
+| `GUNKLY_OIDC_NAME` | Default name for the button, for example `Authelia` (at most 50 characters). Optional; the admin setting overrides it, and without either the button says "Sign in with SSO". |
 | `GUNKLY_OIDC_SCOPES` | Default `openid profile email`. `openid` is always included. |
 
 `GUNKLY_BASE_URL` is required and must be an **https** address (or localhost): the provider sends the browser back to it. Register this redirect URI at the provider:

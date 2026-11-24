@@ -100,5 +100,9 @@
   "admin.group.updates": "Updates",
   "admin.group.updatesHint": "New releases",
   "admin.ssoCreateAccounts": "Create accounts for new single sign-on users",
-  "admin.ssoCreateAccountsHint": "When someone signs in with single sign-on for the first time and no account is linked to them, Gunkly creates one (username from their provider profile, no password). Off by default: they then see a message to link an existing account. Accounts are never matched by email."
+  "admin.ssoCreateAccountsHint": "When someone signs in with single sign-on for the first time and no account is linked to them, Gunkly creates one (username from their provider profile, no password). Off by default: they then see a message to link an existing account. Accounts are never matched by email.",
+  "admin.ssoName": "Name on the single sign-on button",
+  "admin.ssoNameHint": "Shown as \"Sign in with …\" (for example Authelia or Keycloak). Empty: \"Sign in with SSO\".",
+  "admin.ssoNameHintDefault": "Shown as \"Sign in with …\". Empty: the name from GUNKLY_OIDC_NAME ({name}).",
+  "admin.ssoNamePlaceholder": "SSO"
 }

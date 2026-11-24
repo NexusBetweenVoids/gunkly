@@ -538,7 +538,7 @@ func (s *Server) renderConsent(w http.ResponseWriter, r *http.Request, cc consen
 		if s.ssoLinked(ctx, u) {
 			// The provider's origin joins form-action below: the post is answered by a redirect to it.
 			if ssoOrigin = s.sso.AuthOrigin(ctx); ssoOrigin != "" {
-				p.SSO, p.SSOLabel = true, i18n.T(loc, "oauth.sso_btn", map[string]string{"provider": s.sso.Name()})
+				p.SSO, p.SSOLabel = true, i18n.T(loc, "oauth.sso_btn", map[string]string{"provider": s.ssoLabelName(ctx, loc)})
 			}
 		}
 	}

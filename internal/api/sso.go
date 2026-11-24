@@ -12,6 +12,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/NexusBetweenVoids/gunkly/internal/i18n"
 	"github.com/NexusBetweenVoids/gunkly/internal/ids"
 	"github.com/NexusBetweenVoids/gunkly/internal/sso"
 	"github.com/NexusBetweenVoids/gunkly/internal/store"
@@ -370,8 +371,37 @@ type ssoStatus struct {
 	CanUnlink bool       `json:"canUnlink"` // there is a password or a passkey to sign in with instead
 }
 
+// ssoName is the provider name shown on buttons ("Sign in with <name>"): the
+// admin's setting, else GUNKLY_OIDC_NAME, else "" (the generic label).
+func (s *Server) ssoName(ctx context.Context) string {
+	if s.sso == nil {
+		return ""
+	}
+	if st, err := s.st.InstanceSettings(ctx); err == nil && st.SSOName != "" {
+		return st.SSOName
+	}
+	return s.sso.Name()
+}
+
+// ssoLabelName is ssoName for server-rendered text, with the generic "SSO"
+// (in the page's language) when no name is set.
+func (s *Server) ssoLabelName(ctx context.Context, loc string) string {
+	if n := s.ssoName(ctx); n != "" {
+		return n
+	}
+	return i18n.T(loc, "oauth.sso_generic", nil)
+}
+
+// ssoNameDefault is GUNKLY_OIDC_NAME ("" when unset or SSO is off).
+func (s *Server) ssoNameDefault() string {
+	if s.sso == nil {
+		return ""
+	}
+	return s.sso.Name()
+}
+
 func (s *Server) getSSO(w http.ResponseWriter, r *http.Request, c *call) error {
-	v := ssoStatus{Name: s.sso.Name(), CanUnlink: c.user.HasPassword() || c.user.Passkeys > 0}
+	v := ssoStatus{Name: s.ssoName(r.Context()), CanUnlink: c.user.HasPassword() || c.user.Passkeys > 0}
 	ident, err := s.st.SSOIdentityForUser(r.Context(), c.user.ID, s.sso.Issuer())
 	switch {
 	case err == nil:

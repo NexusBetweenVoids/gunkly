@@ -7,6 +7,8 @@ import (
 	"errors"
 	"strconv"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 )
 
 // Instance settings keys in the settings table.
@@ -27,6 +29,7 @@ const (
 	settingOAuthEnabled       = "oauth_enabled"
 	settingWebhooksEnabled    = "webhooks_enabled"
 	settingSSOCreateAccounts  = "sso_create_accounts"
+	settingSSOName            = "sso_name"
 	settingInactiveEnabled    = "inactive_enabled"
 	settingInactiveWarnDays   = "inactive_warn_after_days"
 	settingInactiveDeleteDays = "inactive_delete_after_days"
@@ -68,6 +71,9 @@ type InstanceSettings struct {
 	// create an account (ADR 0018). Default false: such a sign-in only ends in a
 	// "no account linked" page.
 	SSOCreateAccounts bool
+	// SSOName is the provider name on the sign-in button ("Sign in with ...");
+	// "" = GUNKLY_OIDC_NAME, else the generic label.
+	SSOName string
 	// Inactive-account lifecycle (PRD "Inactive accounts"; default off):
 	// warn after InactiveWarnAfterDays without activity, delete after
 	// InactiveDeleteAfterDays.
@@ -109,6 +115,7 @@ type SettingsUpdate struct {
 	OAuthEnabled      *bool
 	WebhooksEnabled   *bool
 	SSOCreateAccounts *bool
+	SSOName           *string // "" clears it; at most MaxSSONameLen characters, no control characters
 	InactiveEnabled   *bool
 	// Inactive-account periods; the delete period must exceed the warn period
 	// by at least MinInactiveGapDays (checked against the stored value for
@@ -161,6 +168,8 @@ func (s *Store) InstanceSettings(ctx context.Context) (InstanceSettings, error) 
 				out.WebhooksEnabled = v == "true"
 			case k == settingSSOCreateAccounts:
 				out.SSOCreateAccounts = v == "true"
+			case k == settingSSOName:
+				out.SSOName = v
 			case k == settingInactiveEnabled:
 				out.InactiveEnabled = v == "true"
 			case k == settingInactiveWarnDays:
@@ -198,7 +207,19 @@ func atoiOr(v string, def int) int {
 func inRange(p *int, lo, hi int) bool { return p == nil || (*p >= lo && *p <= hi) }
 
 // UpdateInstanceSettings applies u atomically.
+// MaxSSONameLen bounds the single sign-on provider name (as GUNKLY_OIDC_NAME).
+const MaxSSONameLen = 50
+
+// ValidSSOName reports whether n can be shown as the provider name.
+func ValidSSOName(n string) bool {
+	n = strings.TrimSpace(n)
+	return utf8.RuneCountInString(n) <= MaxSSONameLen && !strings.ContainsFunc(n, unicode.IsControl)
+}
+
 func (s *Store) UpdateInstanceSettings(ctx context.Context, u SettingsUpdate) error {
+	if u.SSOName != nil && !ValidSSOName(*u.SSOName) {
+		return ErrInvalid
+	}
 	if (u.MinPasswordLength != nil && *u.MinPasswordLength < 1) ||
 		!inRange(u.SessionIdleDays, 1, MaxSessionIdleDays) || !inRange(u.SessionMaxDays, 1, MaxSessionMaxDays) ||
 		!inRange(u.AuditRetentionDays, 1, MaxRetentionDays) || !inRange(u.DeliveryRetentionDays, 1, MaxRetentionDays) {
@@ -286,6 +307,9 @@ func (s *Store) UpdateInstanceSettings(ctx context.Context, u SettingsUpdate) er
 		}
 		if err == nil && u.SSOCreateAccounts != nil {
 			err = set(settingSSOCreateAccounts, strconv.FormatBool(*u.SSOCreateAccounts))
+		}
+		if err == nil && u.SSOName != nil {
+			err = set(settingSSOName, strings.TrimSpace(*u.SSOName))
 		}
 		if err == nil && u.InactiveEnabled != nil {
 			err = set(settingInactiveEnabled, strconv.FormatBool(*u.InactiveEnabled))

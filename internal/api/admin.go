@@ -130,6 +130,10 @@ type settingsView struct {
 	// a first sign-in by an unknown single sign-on user create an account.
 	SSOConfigured     bool `json:"ssoConfigured"`
 	SSOCreateAccounts bool `json:"ssoCreateAccounts"`
+	// SSOName is the admin's provider name for the sign-in button ("" = not
+	// set); SSONameDefault is GUNKLY_OIDC_NAME, used when SSOName is empty.
+	SSOName        string `json:"ssoName"`
+	SSONameDefault string `json:"ssoNameDefault"`
 	// Inactive-account lifecycle (default off): warn, then delete.
 	InactiveEnabled         bool `json:"inactiveEnabled"`
 	InactiveWarnAfterDays   int  `json:"inactiveWarnAfterDays"`
@@ -152,7 +156,7 @@ func (s *Server) adminGetSettings(w http.ResponseWriter, r *http.Request, _ *cal
 		Limits: map[limits.Kind]int{}, LimitDefaults: limits.Defaults,
 		EnabledNotificationKinds: append([]string{}, slices.Sorted(maps.Keys(kindSet(st)))...), AvailableNotificationKinds: notify.AllKinds(),
 		EgressGuard: s.hosted || st.EgressGuard, EgressGuardLocked: s.hosted, UpdateCheck: st.UpdateCheck, MCPEnabled: st.MCPEnabled,
-		OAuthEnabled: st.OAuthEnabled, WebhooksEnabled: st.WebhooksEnabled, OAuthPossible: oauthBaseURLOK(s.baseURL), SSOConfigured: s.sso != nil, SSOCreateAccounts: st.SSOCreateAccounts,
+		OAuthEnabled: st.OAuthEnabled, WebhooksEnabled: st.WebhooksEnabled, OAuthPossible: oauthBaseURLOK(s.baseURL), SSOConfigured: s.sso != nil, SSOCreateAccounts: st.SSOCreateAccounts, SSOName: st.SSOName, SSONameDefault: s.ssoNameDefault(),
 		InactiveEnabled: st.InactiveEnabled, InactiveWarnAfterDays: st.InactiveWarnAfterDays, InactiveDeleteAfterDays: st.InactiveDeleteAfterDays}
 	for k, d := range limits.Defaults {
 		v.Limits[k] = d
@@ -182,6 +186,7 @@ func (s *Server) adminPatchSettings(w http.ResponseWriter, r *http.Request, c *c
 		OAuthEnabled             *bool              `json:"oauthEnabled"`
 		WebhooksEnabled          *bool              `json:"webhooksEnabled"`
 		SSOCreateAccounts        *bool              `json:"ssoCreateAccounts"`
+		SSOName                  *string            `json:"ssoName"`
 		InactiveEnabled          *bool              `json:"inactiveEnabled"`
 		InactiveWarnAfterDays    *int               `json:"inactiveWarnAfterDays"`
 		InactiveDeleteAfterDays  *int               `json:"inactiveDeleteAfterDays"`
@@ -198,7 +203,7 @@ func (s *Server) adminPatchSettings(w http.ResponseWriter, r *http.Request, c *c
 		}
 	}
 	upd := store.SettingsUpdate{OpenSignup: in.OpenSignup, RequirePoW: in.RequirePoW,
-		InviteRegistration: in.InviteRegistration, MinPasswordLength: in.MinPasswordLength, Limits: in.Limits, EgressGuard: in.EgressGuard, UpdateCheck: in.UpdateCheck, MCPEnabled: in.MCPEnabled, OAuthEnabled: in.OAuthEnabled, WebhooksEnabled: in.WebhooksEnabled, SSOCreateAccounts: in.SSOCreateAccounts,
+		InviteRegistration: in.InviteRegistration, MinPasswordLength: in.MinPasswordLength, Limits: in.Limits, EgressGuard: in.EgressGuard, UpdateCheck: in.UpdateCheck, MCPEnabled: in.MCPEnabled, OAuthEnabled: in.OAuthEnabled, WebhooksEnabled: in.WebhooksEnabled, SSOCreateAccounts: in.SSOCreateAccounts, SSOName: in.SSOName,
 		SessionIdleDays: in.SessionIdleDays, SessionMaxDays: in.SessionMaxDays,
 		AuditRetentionDays: in.AuditRetentionDays, DeliveryRetentionDays: in.DeliveryRetentionDays,
 		InactiveEnabled: in.InactiveEnabled, InactiveWarnAfterDays: in.InactiveWarnAfterDays, InactiveDeleteAfterDays: in.InactiveDeleteAfterDays}
