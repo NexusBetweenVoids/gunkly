@@ -4,7 +4,7 @@ name: SSO identity providers
 # so single sign-on does not silently break. release.yml requires it before publishing.
 on:
   push:
-    branches: [main]
+    branches: [main, ci/sso-idp] # TEMP: ci/sso-idp while iterating
     paths:
       - 'internal/api/sso*'
       - 'internal/sso/**'
