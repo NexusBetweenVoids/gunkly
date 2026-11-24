@@ -32,10 +32,16 @@ export async function throughProvider(page: Page, gunkly: string, trigger: () =>
     const password = kind === 'keycloak' ? page.locator('#password') : page.locator('input[name="password"]');
     let prompted = false;
     const deadline = Date.now() + 60_000;
+    let left = false; // the browser has been on the provider
     for (;;) {
-      // page.url() lags behind the request, so wait for the callback and for the app page after it.
-      const here = new URL(page.url());
-      if (callbackSeen && here.origin === gunkly && !here.pathname.startsWith('/api/')) return { prompted };
+      // page.url() can lag behind (and stay stale) after a redirect chain, so read the live location;
+      // done once back on a Gunkly app page after the callback or after a visit to the provider.
+      const live = await page.evaluate(() => location.href).catch(() => page.url());
+      const here = new URL(live);
+      if (here.origin !== gunkly) left = true;
+      if ((callbackSeen || left) && here.origin === gunkly && !here.pathname.startsWith('/api/') && !here.pathname.startsWith('/signin')) {
+        return { prompted };
+      }
       // Keycloak asks only for the password when a session exists and the login is forced (prompt=login).
       const askedFor = kind === 'keycloak' ? password : first;
       if (!prompted && (await askedFor.isVisible().catch(() => false))) {
@@ -53,7 +59,7 @@ export async function throughProvider(page: Page, gunkly: string, trigger: () =>
           await page.locator('button[type="submit"]').click();
         }
       }
-      if (Date.now() > deadline) throw new Error(`still at ${page.url()} after 60s`);
+      if (Date.now() > deadline) throw new Error(`still at ${live} after 60s`);
       await page.waitForTimeout(200);
     }
   } finally {
