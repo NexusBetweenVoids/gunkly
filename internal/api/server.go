@@ -20,11 +20,13 @@ import (
 	"github.com/go-webauthn/webauthn/webauthn"
 
 	"github.com/NexusBetweenVoids/gunkly/internal/auth"
+	"github.com/NexusBetweenVoids/gunkly/internal/egress"
 	"github.com/NexusBetweenVoids/gunkly/internal/ids"
 	"github.com/NexusBetweenVoids/gunkly/internal/limits"
 	"github.com/NexusBetweenVoids/gunkly/internal/mail"
 	"github.com/NexusBetweenVoids/gunkly/internal/metrics"
 	"github.com/NexusBetweenVoids/gunkly/internal/notify"
+	"github.com/NexusBetweenVoids/gunkly/internal/sso"
 	"github.com/NexusBetweenVoids/gunkly/internal/store"
 	"github.com/NexusBetweenVoids/gunkly/internal/updates"
 	"github.com/NexusBetweenVoids/gunkly/internal/webhook"
@@ -59,6 +61,9 @@ type Options struct {
 	// Mailer replaces the SMTP sender (tests). Both nil: email is disabled.
 	SMTP   *mail.Config
 	Mailer Mailer
+	// SSO configures OpenID Connect single sign-on (ADR 0018). Nil, or hosted
+	// mode: off, and its routes answer 404.
+	SSO *sso.Config
 	// PoWMaxNumber is the sign-up proof-of-work difficulty; 0 means the default.
 	PoWMaxNumber int
 	Logger       *slog.Logger
@@ -101,6 +106,7 @@ type Server struct {
 	mailWG           sync.WaitGroup // in-flight background sends
 	counts           *windowCounter // hourly email and sign-up caps
 	pow              *auth.PoW
+	sso              *sso.Provider // nil unless single sign-on is configured (never when hosted)
 	pkOnce           sync.Once
 	pk               *webauthn.WebAuthn // passkey relying party; nil without an https (or localhost) base URL
 
@@ -157,6 +163,13 @@ func New(o Options) *Server {
 	s.webhooks = webhook.NewSender(s.EgressGuardEnabled, s.version, s.now)
 	if s.ready == nil {
 		s.ready = func(context.Context) error { return nil }
+	}
+	if o.SSO != nil && !s.hosted {
+		cfg := *o.SSO
+		cfg.RedirectURL = s.baseURL + "/api/v1/auth/oidc/callback"
+		s.sso = sso.New(cfg, egress.NewIdPClient(cfg.Issuer, s.EgressGuardEnabled), s.now)
+	} else if o.SSO != nil {
+		s.log.Warn("single sign-on is not available in hosted mode; GUNKLY_OIDC_* ignored")
 	}
 	s.counts = newWindowCounter(s.now, 20000)
 	s.pow = auth.NewPoW(s.keyring.DeriveKey("gunkly signup proof of work v1"), cmp.Or(o.PoWMaxNumber, auth.DefaultPoWMaxNumber))

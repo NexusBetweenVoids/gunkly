@@ -18,6 +18,8 @@
   let err = $state({ code: '', message: '' });
 
   const email = $derived(app.user?.twoFactor === 'email');
+  const sso = $derived(!!app.user?.ssoLinked && !!app.instance.sso);
+  const noPassword = $derived(app.user?.hasPassword === false); // created by single sign-on, no password yet
   const passkeys = $derived(!!app.user?.passkeys && !!app.instance.passkeysAvailable);
   // A passkey is a second factor too: without an app or email codes, the password goes with a recovery code.
   const passkeyOnly = $derived(!!app.user?.passkeys && !app.user?.totpEnabled && !email);
@@ -47,6 +49,19 @@
     }
   }
 
+  // The provider asks the user to sign in again, then brings the browser back to this page.
+  async function viaSSO(): Promise<void> {
+    busy = true;
+    err = { code: '', message: '' };
+    try {
+      const r = await api<{ url: string }>('POST', '/session/step-up/sso', { next: location.pathname + location.search });
+      location.assign(r.url);
+    } catch (x) {
+      err = failure(x);
+      busy = false;
+    }
+  }
+
   async function viaPasskey(): Promise<void> {
     busy = true;
     err = { code: '', message: '' };
@@ -69,8 +84,12 @@
     <p class="muted">{t('stepUp.body')}</p>
     {#if passkeys}
       <Button {busy} onclick={viaPasskey}>{t('stepUp.passkey')}</Button>
-      <p class="muted">{t('stepUp.orPassword')}</p>
     {/if}
+    {#if sso}
+      <Button {busy} onclick={viaSSO}>{app.instance.sso?.name ? t('stepUp.ssoNamed', { name: app.instance.sso.name }) : t('stepUp.sso')}</Button>
+    {/if}
+    {#if (passkeys || sso) && !noPassword}<p class="muted">{t('stepUp.orPassword')}</p>{/if}
+    {#if !noPassword}
     <Field
       label={t('field.password')}
       type="password"
@@ -102,9 +121,10 @@
         error={err.code === 'invalid_code' ? err.message : ''}
       />
     {/if}
+    {/if}
     {#if err.code !== 'invalid_credentials' && err.code !== 'invalid_code'}<Alert message={err.message} />{/if}
     <div class="row">
-      <Button type="submit" {busy}>{t('stepUp.confirm')}</Button>
+      {#if !noPassword}<Button type="submit" {busy}>{t('stepUp.confirm')}</Button>{/if}
       <Button variant="quiet" onclick={() => resolveStepUp(false)}>{t('common.cancel')}</Button>
     </div>
   </form>

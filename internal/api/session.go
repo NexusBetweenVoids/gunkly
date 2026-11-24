@@ -115,12 +115,29 @@ func (s *Server) authenticate(w http.ResponseWriter, r *http.Request) (store.Ses
 
 // startSession signs u in on this device and responds with the session.
 func (s *Server) startSession(w http.ResponseWriter, r *http.Request, c *call, u store.User, status int) error {
+	csrf, err := s.openSession(w, r, c, u)
+	if err != nil {
+		return err
+	}
+	writeJSON(w, status, sessionView{Authenticated: true, User: viewMe(u), CSRF: csrf})
+	return nil
+}
+
+// createSession signs u in on this device without writing a body (the sign-in
+// that ends in a redirect).
+func (s *Server) createSession(w http.ResponseWriter, r *http.Request, c *call, u store.User) error {
+	_, err := s.openSession(w, r, c, u)
+	return err
+}
+
+// openSession creates the session and sets its cookies; it returns the new CSRF token.
+func (s *Server) openSession(w http.ResponseWriter, r *http.Request, c *call, u store.User) (string, error) {
 	token := ids.Token()
 	ss, err := s.st.CreateSession(r.Context(), store.NewSession{
 		UserID: u.ID, TokenHash: ids.Hash(token), Label: deviceLabel(r.UserAgent()), ExpiresAt: s.now().Add(store.MaxSessionMaxDays * 24 * time.Hour),
 	})
 	if err != nil {
-		return err
+		return "", err
 	}
 	csrf := ids.Token() // rotate on sign-in
 	_, abs := s.sessionLifetimes()
@@ -128,8 +145,7 @@ func (s *Server) startSession(w http.ResponseWriter, r *http.Request, c *call, u
 	http.SetCookie(w, s.cookie(sessionCookie, token, true, cookieEnd))
 	http.SetCookie(w, s.cookie(csrfCookie, csrf, false, cookieEnd))
 	c.user, c.sess = u, ss
-	writeJSON(w, status, sessionView{Authenticated: true, User: viewMe(u), CSRF: csrf})
-	return nil
+	return csrf, nil
 }
 
 type sessionView struct {
@@ -237,7 +253,11 @@ func (s *Server) checkLoginPassword(w http.ResponseWriter, r *http.Request, c *c
 	} else if err != nil {
 		return u, false, err
 	}
-	if good, err := s.verifyPassword(u.PasswordHash, password); err != nil || !good {
+	hash := u.PasswordHash
+	if !u.HasPassword() {
+		hash = s.dummy() // a single sign-on account: same work, never a match
+	}
+	if good, err := s.verifyPassword(hash, password); err != nil || !good || !u.HasPassword() {
 		s.acct.fail(pwKey)
 		s.audit(ctx, c, u.ID, store.AuditLoginFailure, "", nil)
 		return u, false, errInvalidCredentials

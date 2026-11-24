@@ -15,6 +15,8 @@ export type Me = {
   emailReminders: boolean;
   quietHours: { start: number; end: number } | null;
   passkeys: number;
+  hasPassword: boolean;
+  ssoLinked: boolean;
 };
 export type SessionView = {
   authenticated: boolean;
@@ -23,7 +25,7 @@ export type SessionView = {
   passkey?: boolean; // a passkey can be the second factor
   user?: Me;
 };
-export type Instance = { openSignup: boolean; emailEnabled: boolean; hostedMode: boolean; requirePow: boolean; baseUrl?: string; passkeysAvailable?: boolean; mcpEnabled?: boolean; oauthEnabled?: boolean; webhooksEnabled?: boolean };
+export type Instance = { openSignup: boolean; emailEnabled: boolean; hostedMode: boolean; requirePow: boolean; baseUrl?: string; passkeysAvailable?: boolean; sso?: { name: string }; mcpEnabled?: boolean; oauthEnabled?: boolean; webhooksEnabled?: boolean };
 export type Household = {
   id: string;
   name: string;

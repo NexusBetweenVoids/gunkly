@@ -4,6 +4,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { IDP_CLIENT, IDP_SECRET, startFakeIdp } from './idp';
 import { startFakeSmtp } from './smtp';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -12,6 +13,8 @@ const root = resolve(web, '..');
 export const stateFile = join(here, '.out', 'state.json');
 /** Every email the app sent, one JSON object per line (written by the fake SMTP server below). */
 export const mailFile = join(here, '.out', 'mail.jsonl');
+/** The fake OpenID Connect provider's address (see idp.ts), for the single sign-on specs. */
+export const idpFile = join(here, '.out', 'idp.txt');
 
 // Builds the web bundle and the Go binary, starts it on a fresh SQLite database
 // and records the one-time setup code from its log. Returns the teardown.
@@ -27,6 +30,8 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
 
   mkdirSync(dirname(mailFile), { recursive: true });
   const smtp = await startFakeSmtp(mailFile);
+  const idp = await startFakeIdp();
+  writeFileSync(idpFile, idp.url);
   const key = randomBytes(32).toString('base64');
   const server: ChildProcess = spawn(bin, ['serve'], {
     cwd: dir,
@@ -48,6 +53,11 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
       GUNKLY_SMTP_FROM: 'Gunkly <gunkly@example.test>',
       // Small puzzle so sign-up specs stay fast.
       GUNKLY_SIGNUP_POW_MAX: '2000',
+      // Single sign-on against the fake provider (loopback: the issuer's own address is trusted).
+      GUNKLY_OIDC_ISSUER: idp.url,
+      GUNKLY_OIDC_CLIENT_ID: IDP_CLIENT,
+      GUNKLY_OIDC_CLIENT_SECRET: IDP_SECRET,
+      GUNKLY_OIDC_NAME: 'Test IdP',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -74,6 +84,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
   return async () => {
     server.kill('SIGTERM');
     await smtp.close();
+    await idp.close();
     await new Promise<void>((r) => (exited ? r() : server.on('exit', () => r())));
     rmSync(dir, { recursive: true, force: true });
   };

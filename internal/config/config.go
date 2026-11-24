@@ -11,10 +11,12 @@ import (
 	"net/mail"
 	"net/netip"
 	"net/url"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 )
 
 // KeySize is the required length of each secret key in bytes (AES-256).
@@ -43,6 +45,18 @@ type Config struct {
 	// MetricsToken enables GET /metrics (Prometheus) behind
 	// "Authorization: Bearer <token>"; empty = no metrics endpoint.
 	MetricsToken string
+	// OIDC configures single sign-on with an OpenID Connect provider (ADR
+	// 0018); the zero value (no Issuer) means off. Self-hosted only.
+	OIDC OIDC
+}
+
+// OIDC is the single sign-on configuration (GUNKLY_OIDC_*).
+type OIDC struct {
+	Issuer       string // the provider's issuer URL, exactly as in its discovery document
+	ClientID     string
+	ClientSecret string   // empty for a public client (PKCE is always used)
+	Name         string   // button label ("Authelia"); empty = generic text
+	Scopes       []string // always includes "openid"
 }
 
 // MinMetricsTokenLen is the shortest accepted GUNKLY_METRICS_TOKEN.
@@ -129,6 +143,8 @@ func Load(lookup func(string) string) (*Config, error) {
 		}
 		c.ShutdownTimeout = d
 	}
+
+	c.OIDC = loadOIDC(get, lookup, c, fail)
 
 	if v := get("METRICS_TOKEN"); v != "" {
 		if len(v) < MinMetricsTokenLen {
@@ -281,3 +297,39 @@ func or(v, def string) string {
 	}
 	return v
 }
+
+// loadOIDC reads GUNKLY_OIDC_*. Any of them set means "SSO wanted", which then
+// needs an issuer and a client ID, a base URL the redirect can point at and a
+// self-hosted instance.
+func loadOIDC(get func(string) string, lookup func(string) string, c *Config, fail func(string, ...any)) OIDC {
+	o := OIDC{Issuer: get("OIDC_ISSUER"), ClientID: get("OIDC_CLIENT_ID"),
+		ClientSecret: lookup("GUNKLY_OIDC_CLIENT_SECRET"), Name: get("OIDC_NAME")}
+	scopes := strings.Fields(or(get("OIDC_SCOPES"), "openid profile email"))
+	if o.Issuer == "" && o.ClientID == "" && o.ClientSecret == "" && o.Name == "" && get("OIDC_SCOPES") == "" {
+		return OIDC{}
+	}
+	if o.Issuer == "" || o.ClientID == "" {
+		fail("GUNKLY_OIDC_ISSUER and GUNKLY_OIDC_CLIENT_ID are both required for single sign-on")
+		return OIDC{}
+	}
+	if u, err := url.Parse(o.Issuer); err != nil || u.Host == "" || u.RawQuery != "" || u.Fragment != "" || u.User != nil ||
+		(u.Scheme != "https" && (u.Scheme != "http" || !loopbackHost(u.Hostname()))) {
+		fail("GUNKLY_OIDC_ISSUER: must be an https URL (http only for localhost) without query or fragment")
+	}
+	if c.HostedMode {
+		fail("GUNKLY_OIDC_*: single sign-on is not available in hosted mode")
+	}
+	if u, err := url.Parse(c.BaseURL); c.BaseURL == "" || err != nil || (u.Scheme != "https" && !loopbackHost(u.Hostname())) {
+		fail("GUNKLY_OIDC_*: single sign-on needs GUNKLY_BASE_URL to be an https URL (or localhost): the provider redirects back to it")
+	}
+	if len(o.Name) > 50 || strings.ContainsFunc(o.Name, unicode.IsControl) {
+		fail("GUNKLY_OIDC_NAME: at most 50 characters, no control characters")
+	}
+	if !slices.Contains(scopes, "openid") {
+		scopes = append([]string{"openid"}, scopes...)
+	}
+	o.Scopes = scopes
+	return o
+}
+
+func loopbackHost(h string) bool { return h == "localhost" || h == "127.0.0.1" || h == "::1" }

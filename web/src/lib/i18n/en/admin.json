@@ -98,5 +98,7 @@
   "admin.group.limits": "Limits",
   "admin.group.limitsHint": "Usage limits per user and household",
   "admin.group.updates": "Updates",
-  "admin.group.updatesHint": "New releases"
+  "admin.group.updatesHint": "New releases",
+  "admin.ssoCreateAccounts": "Create accounts for new single sign-on users",
+  "admin.ssoCreateAccountsHint": "When someone signs in with single sign-on for the first time and no account is linked to them, Gunkly creates one (username from their provider profile, no password). Off by default: they then see a message to link an existing account. Accounts are never matched by email."
 }

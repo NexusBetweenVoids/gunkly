@@ -139,6 +139,7 @@ type UserProfile struct {
 	Email         string    `json:"email"`
 	EmailVerified bool      `json:"emailVerified"`
 	TOTPEnabled   bool      `json:"totpEnabled"`
+	SSOLinked     bool      `json:"ssoLinked"`
 	CreatedAt     time.Time `json:"createdAt"`
 }
 

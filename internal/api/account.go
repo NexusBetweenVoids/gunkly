@@ -33,13 +33,17 @@ type meView struct {
 	QuietHours *quietView `json:"quietHours"`
 	// Passkeys is the number of registered passkeys.
 	Passkeys int `json:"passkeys"`
+	// HasPassword is false for an account created by single sign-on until it
+	// sets one; SSOLinked: it can sign in through the provider.
+	HasPassword bool `json:"hasPassword"`
+	SSOLinked   bool `json:"ssoLinked"`
 }
 
 func viewMe(u store.User) *meView {
 	v := &meView{ID: u.ID, Username: u.Username, Email: u.Email, DisplayName: u.DisplayName, Locale: u.Locale,
 		WeekStart: u.WeekStart, IsAdmin: u.IsAdmin, TOTPEnabled: u.TOTPEnabled,
 		EmailVerified: u.EmailVerified, EmailOTPEnabled: u.EmailOTPEnabled,
-		EmailReminders: u.EmailReminders && u.EmailVerified, Passkeys: u.Passkeys}
+		EmailReminders: u.EmailReminders && u.EmailVerified, Passkeys: u.Passkeys, HasPassword: u.HasPassword(), SSOLinked: u.SSOLinked}
 	if u.QuietStartMin != nil && u.QuietEndMin != nil {
 		v.QuietHours = &quietView{Start: *u.QuietStartMin, End: *u.QuietEndMin}
 	}

@@ -28,6 +28,8 @@
     oauthEnabled: boolean;
     oauthPossible: boolean;
     webhooksEnabled: boolean;
+    ssoConfigured: boolean;
+    ssoCreateAccounts: boolean;
     inactiveEnabled: boolean;
     inactiveWarnAfterDays: number;
     inactiveDeleteAfterDays: number;
@@ -95,6 +97,7 @@
             mcpEnabled: s!.mcpEnabled,
             oauthEnabled: s!.oauthEnabled,
             webhooksEnabled: s!.webhooksEnabled,
+            ssoCreateAccounts: s!.ssoCreateAccounts,
             minPasswordLength: Number(minLen),
             sessionIdleDays: Number(idleDays),
             sessionMaxDays: Number(maxDays),
@@ -127,6 +130,10 @@
         <label class="check"><input type="checkbox" bind:checked={s.openSignup} />{t('admin.openSignup')}</label>
         <label class="check"><input type="checkbox" bind:checked={s.requirePow} />{t('admin.requirePow')}</label>
         <label class="check"><input type="checkbox" bind:checked={s.inviteRegistration} />{t('admin.inviteRegistration')}</label>
+        {#if s.ssoConfigured}
+          <label class="check"><input type="checkbox" bind:checked={s.ssoCreateAccounts} aria-describedby="sso-hint" />{t('admin.ssoCreateAccounts')}</label>
+          <p class="hint" id="sso-hint">{t('admin.ssoCreateAccountsHint')}</p>
+        {/if}
         <Field label={t('admin.minPassword')} type="number" bind:value={minLen} min="8" max="128" required />
         <h3>{t('admin.sessions')}</h3>
         <Field label={t('admin.sessionIdle')} hint={t('admin.sessionIdleHint')} type="number" bind:value={idleDays} min="1" max="365" required />

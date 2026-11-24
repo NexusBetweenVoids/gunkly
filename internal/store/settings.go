@@ -26,6 +26,7 @@ const (
 	settingMCPEnabled         = "mcp_enabled"
 	settingOAuthEnabled       = "oauth_enabled"
 	settingWebhooksEnabled    = "webhooks_enabled"
+	settingSSOCreateAccounts  = "sso_create_accounts"
 	settingInactiveEnabled    = "inactive_enabled"
 	settingInactiveWarnDays   = "inactive_warn_after_days"
 	settingInactiveDeleteDays = "inactive_delete_after_days"
@@ -63,6 +64,10 @@ type InstanceSettings struct {
 	// WebhooksEnabled lets owners add outgoing webhooks (ADR 0017). Default
 	// false: while off the webhook routes are 404 and nothing is sent.
 	WebhooksEnabled bool
+	// SSOCreateAccounts lets a first sign-in by an unknown single sign-on user
+	// create an account (ADR 0018). Default false: such a sign-in only ends in a
+	// "no account linked" page.
+	SSOCreateAccounts bool
 	// Inactive-account lifecycle (PRD "Inactive accounts"; default off):
 	// warn after InactiveWarnAfterDays without activity, delete after
 	// InactiveDeleteAfterDays.
@@ -103,6 +108,7 @@ type SettingsUpdate struct {
 	MCPEnabled        *bool
 	OAuthEnabled      *bool
 	WebhooksEnabled   *bool
+	SSOCreateAccounts *bool
 	InactiveEnabled   *bool
 	// Inactive-account periods; the delete period must exceed the warn period
 	// by at least MinInactiveGapDays (checked against the stored value for
@@ -153,6 +159,8 @@ func (s *Store) InstanceSettings(ctx context.Context) (InstanceSettings, error) 
 				out.OAuthEnabled = v == "true"
 			case k == settingWebhooksEnabled:
 				out.WebhooksEnabled = v == "true"
+			case k == settingSSOCreateAccounts:
+				out.SSOCreateAccounts = v == "true"
 			case k == settingInactiveEnabled:
 				out.InactiveEnabled = v == "true"
 			case k == settingInactiveWarnDays:
@@ -275,6 +283,9 @@ func (s *Store) UpdateInstanceSettings(ctx context.Context, u SettingsUpdate) er
 		}
 		if err == nil && u.WebhooksEnabled != nil {
 			err = set(settingWebhooksEnabled, strconv.FormatBool(*u.WebhooksEnabled))
+		}
+		if err == nil && u.SSOCreateAccounts != nil {
+			err = set(settingSSOCreateAccounts, strconv.FormatBool(*u.SSOCreateAccounts))
 		}
 		if err == nil && u.InactiveEnabled != nil {
 			err = set(settingInactiveEnabled, strconv.FormatBool(*u.InactiveEnabled))

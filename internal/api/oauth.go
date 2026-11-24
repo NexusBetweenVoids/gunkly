@@ -502,7 +502,9 @@ func (s *Server) renderConsent(w http.ResponseWriter, r *http.Request, cc consen
 	}
 	if !s.steppedUp(cc.ss) {
 		p.StepUp, p.OfferEmail = true, u.EmailOTPEnabled
-		p.ShowCode = u.TOTPEnabled || cc.showCode
+		// A passkey is a second factor but the consent page has no script: such an account
+		// (with nothing else) types a recovery code next to its password.
+		p.ShowCode = u.TOTPEnabled || cc.showCode || (u.Passkeys > 0 && !u.EmailOTPEnabled)
 		p.ConfirmLegend, p.ConfirmNote, p.PasswordLabel, p.CodeLabel, p.EmailCodeBtn =
 			t("oauth.confirm_legend"), t("oauth.confirm_note"), t("oauth.password"), t("oauth.code"), t("oauth.email_code")
 	}
@@ -668,7 +670,7 @@ func (s *Server) consentStepUp(w http.ResponseWriter, r *http.Request, c *call, 
 	if good, err := s.verifyPassword(u.PasswordHash, r.PostForm.Get("password")); err != nil || !good {
 		return fail(pwKey, "password")
 	}
-	if u.TOTPEnabled || u.EmailOTPEnabled {
+	if u.HasSecondFactor() {
 		if emailRequest {
 			if !u.EmailOTPEnabled {
 				return stepUpFailed, nil

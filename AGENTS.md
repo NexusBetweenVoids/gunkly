@@ -19,12 +19,13 @@ Rules for any agent (human or AI) changing Gunkly. Read `docs/PRD.md` for scope 
 | `internal/store` | **The only** data-access layer. Household-scoped methods require a household ID and a caller. |
 | `internal/schedule` | Pure scheduling math (intervals, RRULE subset, DST, quiet hours). No I/O. |
 | `internal/egress` | SSRF-guarded outbound HTTP client/dialer |
-| `internal/auth` | Passwords (Argon2id), TOTP, token generation/hashing |
+| `internal/auth` | Passwords (Argon2id), TOTP, token generation/hashing, passkey relying-party derivation |
 | `internal/api` | HTTP handlers under `/api/v1`. Never imports `database/sql`. |
 | `internal/ids` | UUIDv7 public IDs, random tokens |
 | `internal/limits` | All usage limits |
 | `internal/scheduler` | In-process reminder worker: due reminders, delivery with retries, daily retention |
 | `internal/notify` | Notification channel URL validation (Shoutrrr), sealing, rendering, sending |
+| `internal/sso` | OpenID Connect single sign-on (discovery, PKCE authorization URL, code exchange, ID token verification); self-hosted only (ADR 0018) |
 | `internal/webhook` | Outgoing webhooks: URL validation, sealed signing secret, HMAC signature, guarded sender (ADR 0017) |
 | `internal/webpush` | Web Push sending (VAPID, RFC 8291 encryption) |
 | `internal/mail` | Optional SMTP transactional email |

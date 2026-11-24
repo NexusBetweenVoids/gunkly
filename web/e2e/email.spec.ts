@@ -80,10 +80,10 @@ test('forgot password: the emailed link sets a new password, once', async ({ wor
 
   await page.getByLabel('Email or username').fill(username);
   await page.getByLabel('Password', { exact: true }).fill(PASSWORD);
-  await page.getByRole('button', { name: 'Sign in' }).click();
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(page.getByText('Incorrect username or password.')).toBeVisible();
   await page.getByLabel('Password', { exact: true }).fill(NEW);
-  await page.getByRole('button', { name: 'Sign in' }).click();
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(page).toHaveURL(/\/$/);
 
   // Single use.
@@ -105,7 +105,7 @@ test('email codes: turn them on in the account screen, then sign in with an emai
   await page.goto('/signin');
   await page.getByLabel('Email or username').fill(username);
   await page.getByLabel('Password', { exact: true }).fill(PASSWORD);
-  await page.getByRole('button', { name: 'Sign in' }).click();
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByText(/Confirm your email address: we sent a link/)).toHaveCount(0); // self-hosted: no banner
 
@@ -130,7 +130,7 @@ test('email codes: turn them on in the account screen, then sign in with an emai
   await page2.getByLabel('Email or username').fill(username);
   await page2.getByLabel('Password', { exact: true }).fill(PASSWORD);
   const mark = mailMark();
-  await page2.getByRole('button', { name: 'Sign in' }).click();
+  await page2.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(page2.getByText(/We emailed a 6-digit code/)).toBeVisible();
   const first = await nextMail(email, /sign-in code/, mark);
   expect(first.code).toMatch(/^\d{6}$/);

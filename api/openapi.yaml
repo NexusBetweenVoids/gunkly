@@ -197,6 +197,65 @@ paths:
         "403": {$ref: "#/components/responses/Forbidden"}
         "404": {$ref: "#/components/responses/NotFound"}
         "409": {description: two_factor_mandatory, content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
+  /session/step-up/sso:
+    post:
+      tags: [session]
+      summary: Start a step-up through the single sign-on provider (session only)
+      description: 404 unless single sign-on is configured and the account is linked. The provider is asked to authenticate the user again; the browser goes to the returned `url` and comes back to the page in `next` with `?sso=stepup`.
+      requestBody:
+        content: {application/json: {schema: {type: object, properties: {next: {type: string, description: "A path on this site to return to"}}}}}
+      responses:
+        "200": {description: OK, content: {application/json: {schema: {type: object, properties: {url: {type: string}}}}}}
+        "401": {$ref: "#/components/responses/Unauthenticated"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "502": {description: The provider could not be reached, content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
+  /auth/oidc/start:
+    get:
+      tags: [session]
+      summary: Begin signing in with the single sign-on provider (a browser navigation)
+      description: Answers 303 to the provider's authorization endpoint (authorization code flow with PKCE S256, state and nonce) and sets a short-lived sealed cookie. 404 unless `GUNKLY_OIDC_*` is configured (never in hosted mode). `next` is a path on this site to land on after signing in.
+      parameters:
+        - {name: next, in: query, schema: {type: string}}
+      responses:
+        "303": {description: To the provider, or to /signin?sso=unavailable}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+  /auth/oidc/callback:
+    get:
+      tags: [session]
+      summary: Where the provider sends the browser back (redirect URI)
+      description: "Checks state, redeems the code, verifies the ID token and then signs in, links the identity or confirms a step-up, depending on how the flow started. It always answers 303 to the app: on success to the page the flow was for, otherwise to `/signin?sso=<code>` or `/account/security?sso=<code>` with `failed`, `denied`, `unavailable`, `no_account` (an unknown identity while account creation is off) or `already_linked`. A sign-in counts as fully authenticated: the provider handles multi-factor."
+      responses:
+        "303": {description: Back to the app}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+  /account/sso:
+    get:
+      tags: [account]
+      summary: Whether the account is linked to the single sign-on provider (session only)
+      responses:
+        "200": {description: OK, content: {application/json: {schema: {type: object, properties: {name: {type: string}, linked: {type: boolean}, linkedAt: {type: string, format: date-time, nullable: true}, canUnlink: {type: boolean, description: "The account has a password or a passkey to sign in with instead"}}}}}}
+        "404": {$ref: "#/components/responses/NotFound"}
+    delete:
+      tags: [account]
+      summary: Unlink the single sign-on identity (session only; needs step-up)
+      description: Refused (`409 sso_last_login`) when the account has neither a password nor a passkey. Signs out the other sessions and revokes API tokens.
+      responses:
+        "204": {description: Unlinked}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409": {description: sso_last_login, content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
+  /account/sso/link:
+    post:
+      tags: [account]
+      summary: Start linking the account to the single sign-on provider (session only; needs step-up)
+      description: Returns the provider's URL for the browser to go to; the callback links the identity and signs out the other sessions. Never links by email. 409 `sso_already_linked`.
+      responses:
+        "200": {description: OK, content: {application/json: {schema: {type: object, properties: {url: {type: string}}}}}}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409": {description: sso_already_linked, content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
+        "502": {description: The provider could not be reached, content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
   /sessions:
     get:
       tags: [session]
@@ -356,7 +415,7 @@ paths:
       tags: [setup]
       summary: What this instance offers (public)
       responses:
-        "200": {description: OK, content: {application/json: {schema: {type: object, properties: {openSignup: {type: boolean}, emailEnabled: {type: boolean}, hostedMode: {type: boolean}, requirePow: {type: boolean, description: "Sign-up needs a proof of work"}, baseUrl: {type: string, description: "Configured public address (GUNKLY_BASE_URL), empty when not set"}, mcpEnabled: {type: boolean, description: "The MCP endpoint /mcp is served"}, passkeysAvailable: {type: boolean, description: "GUNKLY_BASE_URL is https (or localhost), so passkeys can be registered and used"}, oauthEnabled: {type: boolean, description: "Present (true) only while OAuth sign-in for MCP clients is on; absent otherwise"}, webhooksEnabled: {type: boolean, description: "Present (true) only while outgoing webhooks are on; absent otherwise"}}}}}}
+        "200": {description: OK, content: {application/json: {schema: {type: object, properties: {openSignup: {type: boolean}, emailEnabled: {type: boolean}, hostedMode: {type: boolean}, requirePow: {type: boolean, description: "Sign-up needs a proof of work"}, baseUrl: {type: string, description: "Configured public address (GUNKLY_BASE_URL), empty when not set"}, mcpEnabled: {type: boolean, description: "The MCP endpoint /mcp is served"}, sso: {type: object, properties: {name: {type: string, description: "Button label from GUNKLY_OIDC_NAME; may be empty"}}, description: "Present only while single sign-on is configured (self-hosted)"}, passkeysAvailable: {type: boolean, description: "GUNKLY_BASE_URL is https (or localhost), so passkeys can be registered and used"}, oauthEnabled: {type: boolean, description: "Present (true) only while OAuth sign-in for MCP clients is on; absent otherwise"}, webhooksEnabled: {type: boolean, description: "Present (true) only while outgoing webhooks are on; absent otherwise"}}}}}}
   /signup/challenge:
     get:
       tags: [setup]
@@ -1426,6 +1485,7 @@ paths:
                 mcpEnabled: {type: boolean, description: "Serve the MCP endpoint /mcp for AI assistants (default true); off answers 404"}
                 oauthEnabled: {type: boolean, description: "Let MCP clients such as ChatGPT sign in with OAuth (ADR 0016); default false. Turning it on needs GUNKLY_BASE_URL to be https (or http on localhost), else 400 oauth_requires_https. While off every /oauth endpoint and /.well-known/oauth-* document answers 404."}
                 webhooksEnabled: {type: boolean, description: "Let household owners add outgoing webhooks (ADR 0017); default false. While off every webhook route answers 404 and nothing is sent; queued deliveries are dropped."}
+                ssoCreateAccounts: {type: boolean, description: "A first sign-in by an unknown single sign-on user creates an account (ADR 0018); default false, when the sign-in ends on a 'no account linked' page"}
                 inactiveEnabled: {type: boolean, description: "Warn and then delete inactive accounts (default off)"}
                 inactiveWarnAfterDays: {type: integer, minimum: 30, maximum: 3650, description: "Warn after this many days without activity (default 365)"}
                 inactiveDeleteAfterDays: {type: integer, minimum: 60, maximum: 3650, description: "Delete after this many days without activity (default 548); at least 30 days after inactiveWarnAfterDays"}
@@ -1615,6 +1675,8 @@ components:
         emailOtpEnabled: {type: boolean}
         twoFactor: {type: string, enum: ["", totp, email]}
         passkeys: {type: integer, description: "Registered passkeys; each is a sign-in method and a second factor"}
+        hasPassword: {type: boolean, description: "False for an account created by single sign-on until it sets a password"}
+        ssoLinked: {type: boolean}
         emailReminders: {type: boolean, description: "Reminders are sent by email to the verified address"}
         quietHours: {type: object, nullable: true, properties: {start: {type: integer}, end: {type: integer}}, description: "Personal quiet hours (household time zone); null = none"}
     PasskeyOptions:
@@ -1825,6 +1887,8 @@ components:
         mcpEnabled: {type: boolean, description: "The MCP endpoint /mcp is served"}
         oauthEnabled: {type: boolean, description: "OAuth sign-in for MCP clients is switched on (default false)"}
         webhooksEnabled: {type: boolean, description: "Household owners may add outgoing webhooks (ADR 0017); default false"}
+        ssoCreateAccounts: {type: boolean, description: "Unknown single sign-on users get an account on first sign-in (ADR 0018); default false"}
+        ssoConfigured: {type: boolean, description: "GUNKLY_OIDC_* is set (self-hosted only)"}
         oauthPossible: {type: boolean, description: "GUNKLY_BASE_URL is https (or loopback http), so oauthEnabled may be turned on"}
         inactiveEnabled: {type: boolean}
         inactiveWarnAfterDays: {type: integer}

@@ -40,12 +40,15 @@ const (
 	AuditCompletionRevert  = "completion_revert"
 	AuditTokenCreate       = "token_create"
 	AuditTokenRevoke       = "token_revoke"
-	AuditTokenComplete     = "token_complete"       // a chore completed with an API token; meta token = its ID
-	AuditOAuthGrant        = "oauth_grant"          // an OAuth client was given tokens; meta grant, client
-	AuditOAuthTokenReuse   = "oauth_token_reuse"    //nolint:gosec // G101: an event name, not a credential; a used code or rotated refresh token came back: the grant was revoked
-	AuditOAuthRevoke       = "oauth_revoke"         // grants revoked (disconnect, revocation endpoint, password change...)
-	AuditPasskeyAdd        = "passkey_add"          // meta passkey
-	AuditPasskeyRemove     = "passkey_remove"       // meta passkey
+	AuditTokenComplete     = "token_complete"    // a chore completed with an API token; meta token = its ID
+	AuditOAuthGrant        = "oauth_grant"       // an OAuth client was given tokens; meta grant, client
+	AuditOAuthTokenReuse   = "oauth_token_reuse" //nolint:gosec // G101: an event name, not a credential; a used code or rotated refresh token came back: the grant was revoked
+	AuditOAuthRevoke       = "oauth_revoke"      // grants revoked (disconnect, revocation endpoint, password change...)
+	AuditPasskeyAdd        = "passkey_add"       // meta passkey
+	AuditPasskeyRemove     = "passkey_remove"    // meta passkey
+	AuditSSOLink           = "sso_link"          // single sign-on identity linked to the account
+	AuditSSOUnlink         = "sso_unlink"
+	AuditSSOSignup         = "sso_signup"           // account created by a first single sign-on
 	AuditAccountDelete     = "account_delete"       // actor-less: the account is gone
 	AuditOwnerTransfer     = "owner_transfer"       // household_id, meta owner = new owner
 	AuditWebhookCreate     = "webhook_create"       // household_id, meta webhook

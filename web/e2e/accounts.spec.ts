@@ -50,10 +50,10 @@ test('TOTP: enrol in the account screen, then sign in with a code', async ({ wor
   await page.goto('/signin');
   await page.getByLabel('Email or username').fill(u.username);
   await page.getByLabel('Password', { exact: true }).fill('wrong password');
-  await page.getByRole('button', { name: 'Sign in' }).click();
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(page.getByText('Incorrect username or password.')).toBeVisible();
   await page.getByLabel('Password', { exact: true }).fill(u.password);
-  await page.getByRole('button', { name: 'Sign in' }).click();
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(page).toHaveURL(/\/$/);
 
   // Enrol; the step-up dialog asks for the password first.
@@ -86,7 +86,7 @@ test('TOTP: enrol in the account screen, then sign in with a code', async ({ wor
   await page2.goto('/signin');
   await page2.getByLabel('Email or username').fill(u.username);
   await page2.getByLabel('Password', { exact: true }).fill(u.password);
-  await page2.getByRole('button', { name: 'Sign in' }).click();
+  await page2.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(page2.getByText('Enter the code from your authenticator app')).toBeVisible();
   await page2.getByLabel('Authenticator code').fill('000000');
   await page2.getByRole('button', { name: 'Verify and sign in' }).click();
@@ -134,7 +134,7 @@ test('signed-out visitors are sent to sign in and back; sign out ends the sessio
   await expect(page).toHaveURL(/\/signin\?next=%2Faccount/);
   await page.getByLabel('Email or username').fill(u.username);
   await page.getByLabel('Password', { exact: true }).fill(u.password);
-  await page.getByRole('button', { name: 'Sign in' }).click();
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(page).toHaveURL(/\/account$/);
   await (await headerItem(page, 'button', 'Sign out')).click();
   await expect(page).toHaveURL(/\/signin/);

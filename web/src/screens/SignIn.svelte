@@ -7,13 +7,17 @@
   import { api } from '../lib/api';
   import { safeNext } from '../lib/safenext';
   import { failure } from '../lib/errors';
-  import { t } from '../lib/i18n';
+  import { has, t, type Key } from '../lib/i18n';
   import { navigate } from '../lib/router.svelte';
   import { adopt, app } from '../lib/session.svelte';
   import { toast } from '../lib/toast.svelte';
   import type { SessionView } from '../lib/types';
 
-  const next = safeNext(new URLSearchParams(location.search).get('next'));
+  const params = new URLSearchParams(location.search);
+  const next = safeNext(params.get('next'));
+  // Where a single sign-on attempt ended (the callback redirects here with ?sso=<code>).
+  const ssoCode = params.get('sso') ?? '';
+  const ssoMessage = ssoCode ? t(has(`err.sso_${ssoCode}`) ? (`err.sso_${ssoCode}` as Key) : 'err.sso_failed') : '';
   let login = $state('');
   let password = $state('');
   let code = $state('');
@@ -113,7 +117,7 @@
         error={err.code === 'invalid_credentials' ? err.message : ''}
       />
     {/if}
-    {#if err.code !== 'invalid_credentials' && err.code !== 'invalid_code'}<Alert message={err.message} />{/if}
+    {#if err.code !== 'invalid_credentials' && err.code !== 'invalid_code'}<Alert message={err.message || (needSecond ? '' : ssoMessage)} />{/if}
     {#if !needSecond || method !== 'passkey' || recovery}
       <Button type="submit" {busy} variant={needSecond && passkeyOffered && !recovery ? 'quiet' : 'primary'}>{needSecond ? t('signIn.verify') : t('signIn.title')}</Button>
     {/if}
@@ -130,6 +134,11 @@
   </form>
   {#if !needSecond && passkeyReady}
     <Button variant="quiet" {busy} onclick={() => withPasskey(false)}>{t('signIn.passkey')}</Button>
+  {/if}
+  {#if !needSecond && app.instance.sso}
+    <a class="btn btn-quiet" href="/api/v1/auth/oidc/start?next={encodeURIComponent(next)}"
+      >{app.instance.sso.name ? t('signIn.ssoNamed', { name: app.instance.sso.name }) : t('signIn.sso')}</a
+    >
   {/if}
   {#if !needSecond}
     <div class="row">

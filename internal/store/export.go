@@ -217,6 +217,11 @@ func (s *Store) ExportUser(ctx context.Context, userID string) (*transfer.User, 
 			return notFound(err)
 		}
 		p.CreatedAt = time.UnixMilli(created).UTC()
+		var linked int
+		if err := t.queryRow(ctx, "SELECT count(*) FROM sso_identities WHERE user_id = ?", userID).Scan(&linked); err != nil {
+			return err
+		}
+		p.SSOLinked = linked > 0
 		if ws.Valid {
 			w := int(ws.Int64)
 			pr.WeekStart = &w

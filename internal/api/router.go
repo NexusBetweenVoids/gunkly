@@ -58,6 +58,10 @@ type policy struct {
 	// instance setting is on (ADR 0017): otherwise it answers 404 like an
 	// unknown path, before anything else is looked at.
 	webhooks bool
+	// sso marks a route that exists only while single sign-on is configured
+	// (and never in hosted mode; ADR 0018): otherwise it answers 404 like an
+	// unknown path, before anything else is looked at.
+	sso bool
 	// formCSRF is the CSRF check of an HTML form post: the gunkly_csrf cookie
 	// must equal the hidden "csrf" form field (a form cannot set the header
 	// the SPA uses), plus the cross-site request check. The handler reads the
@@ -97,6 +101,9 @@ func (p policy) withTokenAuth() policy { p.tokenAuth = true; return p }
 // oauthOnly makes the route exist only while OAuth is enabled.
 func (p policy) oauthOnly() policy { p.oauth = true; return p }
 
+// ssoOnly makes the route exist only while single sign-on is configured.
+func (p policy) ssoOnly() policy { p.sso = true; return p }
+
 // webhooksOnly makes the route exist only while webhooks are enabled.
 func (p policy) webhooksOnly() policy { p.webhooks = true; return p }
 
@@ -125,6 +132,7 @@ const (
 	rateOAuthReg = "oauthreg" // OAuth dynamic client registration (ADR 0016)
 	rateOAuthTok = "oauthtok" // OAuth token and revocation endpoints
 	rateOAuthAut = "oauthaut" // OAuth authorization (consent) pages
+	rateSSO      = "sso"      // single sign-on start, callback, link and step-up (ADR 0018)
 	ratePasskey  = "passkey"  // passkey ceremonies without a session (sign-in, second factor options)
 
 	rateUserWrite      = "uwrite" // authenticated non-GET requests, per user
@@ -136,7 +144,7 @@ const (
 // stays at the strict default.
 var bucketRates = map[string]int{
 	rateMarkDone: limits.MarkDonePerMinute, rateMetrics: limits.MetricsPerMinute, rateTransfer: limits.TransfersPerMinute, rateICal: limits.ICalPerMinute,
-	rateVerify: 20, rateReset: 10, rateSignup: 20, rateEmail: 10, ratePasskey: 20,
+	rateVerify: 20, rateReset: 10, rateSignup: 20, rateEmail: 10, ratePasskey: 20, rateSSO: 20,
 	rateUserWrite: limits.UserWritesPerMinute, rateHouseholdWrite: limits.HouseholdWritesPerMinute,
 	rateToken: limits.TokenRequestsPerMinute, rateTokenIP: limits.TokenIPPerMinute,
 	rateOAuthReg: limits.OAuthRegisterPerMinute, rateOAuthTok: limits.OAuthTokenPerMinute, rateOAuthAut: limits.OAuthAuthorizePerMinute,
@@ -207,6 +215,8 @@ func (p policy) validate(pattern string) error {
 		return fmt.Errorf("api: OAuth client route %q must be oauthOnly", pattern)
 	case p.oauth && p.auth != authPublic && p.auth != authClient:
 		return fmt.Errorf("api: oauthOnly route %q must be public or an OAuth client route", pattern)
+	case p.sso && (p.auth != authPublic && p.auth != authSession || p.rate == ""):
+		return fmt.Errorf("api: ssoOnly route %q must be public or session and rate limited", pattern)
 	case p.webhooks && p.auth != authHousehold:
 		return fmt.Errorf("api: webhooksOnly route %q must be household-scoped", pattern)
 	case p.formCSRF && (p.auth != authPublic || p.rate == "" || p.tokenAuth || safeMethod(strings.SplitN(pattern, " ", 2)[0])):
@@ -236,6 +246,10 @@ func (s *Server) enforce(p policy, h handlerFunc) http.Handler {
 		bearer = bearer && p.auth >= authSession && p.auth != authMetrics && p.auth != authClient
 		if p.oauth && !s.oauthEnabled(r.Context()) {
 			s.fail(w, r, errNotFound) // off: the route does not exist
+			return
+		}
+		if p.sso && s.sso == nil {
+			s.fail(w, r, errNotFound) // not configured, or hosted: the route does not exist
 			return
 		}
 		if p.webhooks && !s.webhooksEnabled(r.Context()) {

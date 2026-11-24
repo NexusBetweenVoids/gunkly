@@ -43,6 +43,17 @@ func (s *Server) registerRoutes() {
 	s.handle("POST /api/v1/account/passkeys", session.noToken().withStepUp().withRate(ratePasskey), s.registerPasskey)
 	s.handle("DELETE /api/v1/account/passkeys/{id}", session.noToken().withStepUp(), s.deletePasskey)
 
+	// Single sign-on (OpenID Connect, ADR 0018): self-hosted only, 404 unless
+	// GUNKLY_OIDC_* is set. The start and the callback are plain navigations of
+	// the browser; linking and step-up return the provider's URL.
+	sso := publicRateLimited(rateSSO).ssoOnly()
+	s.handle("GET /api/v1/auth/oidc/start", sso, s.ssoStart)
+	s.handle("GET /api/v1/auth/oidc/callback", sso, s.ssoCallback)
+	s.handle("GET /api/v1/account/sso", session.noToken().withRate(rateSSO).ssoOnly(), s.getSSO)
+	s.handle("POST /api/v1/account/sso/link", session.noToken().withStepUp().withRate(rateSSO).ssoOnly(), s.linkSSO)
+	s.handle("DELETE /api/v1/account/sso", session.noToken().withStepUp().withRate(rateSSO).ssoOnly(), s.unlinkSSO)
+	s.handle("POST /api/v1/session/step-up/sso", session.noToken().withRate(rateSSO).ssoOnly(), s.stepUpSSO)
+
 	// What this instance offers, and open sign-up with proof of work.
 	s.handle("GET /api/v1/instance", public, s.getInstance)
 	s.handle("GET /api/v1/signup/challenge", publicRateLimited(rateSignup), s.signupChallenge)

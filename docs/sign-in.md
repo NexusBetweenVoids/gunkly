@@ -8,7 +8,7 @@ Gunkly signs people in with a **username (or email) and password**. On top of th
 | Emailed codes | Account, Sign-in & security | Needs email on the instance and a verified address. Replaces the authenticator app. |
 | Passkey | Account, Sign-in & security | Can be added next to either of the above. |
 
-Hosted mode requires a second factor for every account. Self-hosted, all of them are optional.
+Hosted mode requires a second factor for every account. Self-hosted, all of them are optional. Self-hosted instances can also sign in through [single sign-on](sso.md).
 
 ## Passkeys
 
@@ -27,5 +27,9 @@ A passkey is a key pair kept by your phone, laptop, password manager or security
 **Lost your device?** Sign in with the password and a recovery code, then remove the passkey. Self-hosted administrators can also run `gunkly admin reset-2fa <user>`, which removes the authenticator app, emailed codes, **passkeys** and recovery codes of that account.
 
 **What is stored.** The credential ID, the public key, a signature counter, the transports and the authenticator model (AAGUID). No attestation is requested, so Gunkly never learns which device made a key. If a passkey's counter ever goes backwards (a sign of a cloned key) the sign-in is refused and the event shows up in the account's recent activity. The data export lists names and dates, never key material.
+
+## Single sign-on
+
+Self-hosted instances can also offer sign-in through an OpenID Connect identity provider. It is set up by the administrator ([docs/sso.md](sso.md)); users link it under Account, Sign-in & security. A single sign-on counts as fully authenticated, so the provider's own multi-factor is the second factor and Gunkly does not ask for another.
 
 Design details: [ADR 0018](adr/0018-passkeys-and-sso.md).

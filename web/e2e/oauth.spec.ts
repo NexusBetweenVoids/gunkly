@@ -60,7 +60,7 @@ test('oauth: admin enables it, a user approves an app, sees it under Connected a
     await expect(page).toHaveURL(/\/signin\?next=%2Foauth%2Fauthorize/);
     await page.getByLabel('Email or username').fill(u.username);
     await page.getByLabel('Password', { exact: true }).fill(u.password);
-    await page.getByRole('button', { name: 'Sign in' }).click();
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
     await expect(page.getByRole('heading', { name: new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} wants to connect`) })).toBeVisible();
     await expect(page.getByText('Unverified app.')).toBeVisible();
     await expect(page.locator('.host')).toHaveText(hostPort); // the return host is the headline

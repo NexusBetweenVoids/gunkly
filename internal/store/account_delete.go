@@ -305,6 +305,7 @@ var userOwnedStatements = []string{
 	"DELETE FROM sessions WHERE user_id = ?",
 	"DELETE FROM recovery_codes WHERE user_id = ?",
 	"DELETE FROM passkeys WHERE user_id = ?",
+	"DELETE FROM sso_identities WHERE user_id = ?",
 	"DELETE FROM passkey_challenges WHERE user_id = ?",
 	"DELETE FROM user_tokens WHERE user_id = ?",
 	"DELETE FROM mark_done_tokens WHERE user_id = ?",

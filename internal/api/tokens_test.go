@@ -258,7 +258,9 @@ func TestEveryRouteRefusesTokensOrRequiresItsScope(t *testing.T) {
 	everything, _ := mkToken(t, f.aStep, all, f.hA)
 	n := 0
 	for _, r := range f.e.srv.routes {
-		if !strings.Contains(r.pattern, "/api/v1/") || r.policy.auth < authSession || r.policy.auth > authAdmin {
+		// Single sign-on routes are 404 here (not configured); their noToken
+		// declaration is enforced at registration and tested in sso_test.go.
+		if !strings.Contains(r.pattern, "/api/v1/") || r.policy.auth < authSession || r.policy.auth > authAdmin || r.policy.sso {
 			continue
 		}
 		n++

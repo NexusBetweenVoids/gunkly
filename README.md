@@ -68,7 +68,7 @@ All screenshots show synthetic demo data.
 - Expiring, revocable invite links (1 to 100 uses). Optional open sign-up with proof of work (off by default when self-hosted).
 
 **Security and privacy**
-- Argon2id passwords, optional TOTP with recovery codes, optional email codes, passkeys (sign in without a password, or as a second factor); step-up checks for sensitive actions; sessions you can list and revoke.
+- Argon2id passwords, optional TOTP with recovery codes, optional email codes, passkeys (sign in without a password, or as a second factor), single sign-on with your own OpenID Connect provider (self-hosted; [docs/sso.md](docs/sso.md)); step-up checks for sensitive actions; sessions you can list and revoke.
 - Notification URLs, TOTP secrets and push keys are encrypted at rest with your own key (`GUNKLY_SECRET_KEYS`, rotatable); other secrets are stored only as hashes.
 - Outbound requests go through an SSRF guard with a service allowlist; strict CSP, CSRF protection, rate limits and usage limits.
 - No telemetry. The optional update check can be switched off. Account deletion and optional inactive-account clean-up.
@@ -186,6 +186,7 @@ Everything is set through environment variables, all documented with their defau
 | `GUNKLY_TRUSTED_PROXIES` | Reverse-proxy CIDRs/IPs whose `X-Forwarded-For` / `Forwarded` is trusted; see [Behind a reverse proxy](#behind-a-reverse-proxy) |
 | `GUNKLY_EMAIL_ENABLED` and `GUNKLY_SMTP_*` | Email verification, password reset, email codes (optional) |
 | `GUNKLY_METRICS_TOKEN` | Enables `/metrics` |
+| `GUNKLY_OIDC_ISSUER`, `GUNKLY_OIDC_CLIENT_ID`, `GUNKLY_OIDC_CLIENT_SECRET`, `GUNKLY_OIDC_NAME`, `GUNKLY_OIDC_SCOPES` | Single sign-on with an OpenID Connect provider (self-hosted only; [docs/sso.md](docs/sso.md)) |
 | `GUNKLY_AUTO_MIGRATE` | Apply migrations on start (default `true`) |
 
 Limits, sign-up, sessions, retention, allowed notification services and the egress guard are admin settings in the app (Administration: Sign-up & sign-in, Connections, Data & retention, Limits).

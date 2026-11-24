@@ -209,5 +209,15 @@
   "err.invalid_passkey": "That passkey wasn't accepted. Try again, or use another way to sign in.",
   "err.passkey_failed": "The passkey couldn't be used. Try again.",
   "err.passkey_exists": "This passkey is already registered.",
-  "err.passkeys_require_https": "Passkeys need Gunkly to be reached at an https address (or localhost) that the administrator has set as GUNKLY_BASE_URL."
+  "err.passkeys_require_https": "Passkeys need Gunkly to be reached at an https address (or localhost) that the administrator has set as GUNKLY_BASE_URL.",
+  "signIn.sso": "Sign in with single sign-on",
+  "signIn.ssoNamed": "Sign in with {name}",
+  "sso.linked": "Single sign-on linked.",
+  "sso.stepup": "Confirmed. You can continue now.",
+  "err.sso_failed": "Single sign-on didn't work. Try again, or sign in another way.",
+  "err.sso_denied": "Single sign-on was cancelled.",
+  "err.sso_unavailable": "The single sign-on provider can't be reached right now.",
+  "err.sso_no_account": "No Gunkly account is linked to that single sign-on user. Sign in with your password and link it under Account, Sign-in & security, or ask an administrator.",
+  "err.sso_already_linked": "That single sign-on user (or this account) is already linked.",
+  "err.sso_last_login": "Add a password or a passkey first: without one, you could no longer sign in."
 }

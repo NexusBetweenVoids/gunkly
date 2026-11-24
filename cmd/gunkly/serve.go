@@ -17,9 +17,19 @@ import (
 	"github.com/NexusBetweenVoids/gunkly/internal/egress"
 	"github.com/NexusBetweenVoids/gunkly/internal/metrics"
 	"github.com/NexusBetweenVoids/gunkly/internal/scheduler"
+	"github.com/NexusBetweenVoids/gunkly/internal/sso"
 	"github.com/NexusBetweenVoids/gunkly/internal/updates"
 	"github.com/NexusBetweenVoids/gunkly/web"
 )
+
+// ssoConfig is the single sign-on setup from GUNKLY_OIDC_*, or nil when off.
+func (a *app) ssoConfig() *sso.Config {
+	o := a.cfg.OIDC
+	if o.Issuer == "" {
+		return nil
+	}
+	return &sso.Config{Issuer: o.Issuer, ClientID: o.ClientID, ClientSecret: o.ClientSecret, Name: o.Name, Scopes: o.Scopes}
+}
 
 func serve(ctx context.Context, logOut io.Writer) error {
 	a, err := newApp(ctx, logOut)
@@ -52,7 +62,7 @@ func serve(ctx context.Context, logOut io.Writer) error {
 		Store:   a.store, Limits: a.limits, Keyring: a.keyring, BaseURL: a.cfg.BaseURL,
 		TrustedProxies: a.cfg.TrustedProxies, Logger: a.log, Ready: a.ready, Static: dist, HostedMode: a.cfg.HostedMode,
 		Metrics: reg, MetricsToken: a.cfg.MetricsToken, Version: version,
-		PoWMaxNumber: a.cfg.PoWMaxNumber, SMTP: a.smtp(),
+		PoWMaxNumber: a.cfg.PoWMaxNumber, SMTP: a.smtp(), SSO: a.ssoConfig(),
 	})
 	if err := srv.InitSetup(ctx); err != nil {
 		return err

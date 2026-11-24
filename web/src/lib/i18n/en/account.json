@@ -255,5 +255,19 @@
   "passkeys.removeWarn": "“{name}” will no longer sign you in or count as a second factor. Your other devices are signed out.",
   "passkeys.codesIntro": "Passkey added. Save these recovery codes somewhere safe: each works once if you lose your passkey.",
   "audit.passkey_add": "Passkey added",
-  "audit.passkey_remove": "Passkey removed"
+  "audit.passkey_remove": "Passkey removed",
+  "sso.title": "Single sign-on",
+  "sso.intro": "Sign in with {name} instead of a password. Your provider checks it is you, including any second factor it asks for; Gunkly then does not ask for another one.",
+  "sso.introGeneric": "Sign in through your organisation's identity provider instead of a password. Your provider checks it is you, including any second factor it asks for; Gunkly then does not ask for another one.",
+  "sso.linkedOn": "Linked since {date}.",
+  "sso.notLinked": "Not linked.",
+  "sso.link": "Link single sign-on",
+  "sso.unlink": "Unlink",
+  "sso.unlinkTitle": "Unlink single sign-on?",
+  "sso.unlinkWarn": "You will no longer be able to sign in this way. Your other devices are signed out.",
+  "sso.unlinked": "Single sign-on unlinked.",
+  "sso.needPassword": "This account has no password. Set one (under Password) or add a passkey before unlinking.",
+  "audit.sso_link": "Single sign-on linked",
+  "audit.sso_unlink": "Single sign-on unlinked",
+  "audit.sso_signup": "Account created by single sign-on"
 }

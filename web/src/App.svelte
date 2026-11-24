@@ -6,7 +6,7 @@
   import { stepUp } from './lib/stepup.svelte';
   import { api } from './lib/api';
   import { failure } from './lib/errors';
-  import { t } from './lib/i18n';
+  import { has, t, type Key } from './lib/i18n';
   import { navigate, route } from './lib/router.svelte';
   import { app, bootstrap, currentHousehold, selectHousehold, signOut } from './lib/session.svelte';
   import { toast } from './lib/toast.svelte';
@@ -39,6 +39,19 @@
     } else if (app.user && ['/signin', '/setup', '/signup', '/forgot-password'].includes(route.path)) {
       navigate('/', true);
     }
+  });
+
+  // Single sign-on flows that start from a signed-in page (linking, step-up) come back to it with
+  // ?sso=<result>: say what happened once and drop the parameter. (The sign-in page shows its own.)
+  $effect(() => {
+    if (!app.ready || !app.user) return;
+    const u = new URL(location.href);
+    const code = u.searchParams.get('sso');
+    if (!code) return;
+    u.searchParams.delete('sso');
+    history.replaceState(null, '', u.pathname + u.search);
+    if (code === 'linked' || code === 'stepup') toast(t(code === 'linked' ? 'sso.linked' : 'sso.stepup'));
+    else toast(t(has(`err.sso_${code}`) ? (`err.sso_${code}` as Key) : 'err.sso_failed'));
   });
 
   async function out(): Promise<void> {

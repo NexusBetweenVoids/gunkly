@@ -4,6 +4,7 @@
   import Lazy from '../components/Lazy.svelte';
   import SettingsLayout, { type Group } from '../components/SettingsLayout.svelte';
   import { t } from '../lib/i18n';
+  import { app } from '../lib/session.svelte';
   import Audit from './account/Audit.svelte';
   import Email from './account/Email.svelte';
   import EmailReminders from './account/EmailReminders.svelte';
@@ -14,6 +15,7 @@
   import PushNotifications from './account/PushNotifications.svelte';
   import Profile from './account/Profile.svelte';
   import Sessions from './account/Sessions.svelte';
+  import Sso from './account/Sso.svelte';
   import Totp from './account/Totp.svelte';
 
   let { section }: { section?: string } = $props();
@@ -34,6 +36,7 @@
     {:else if g === 'security'}
       <Password />
       <Passkeys />
+      {#if app.instance.sso}<Sso />{/if}
       <Totp />
       <EmailCodes />
       <Sessions />
