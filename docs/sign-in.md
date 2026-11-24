@@ -10,7 +10,7 @@ Gunkly signs people in with a **username (or email) and password**. On top of th
 
 Hosted mode requires a second factor for every account. Self-hosted, all of them are optional. Self-hosted instances can also sign in through [single sign-on](sso.md).
 
-<p align="center"><img alt="Sign-in page on a phone: email or username and password, then the Sign in with a passkey and Sign in with Test IdP buttons" src="assets/screens/signin-passkey-sso-phone-light.png" width="270"></p>
+<p align="center"><img alt="Sign-in page on a phone: email or username and password, then, under "or", the Sign in with a passkey and Sign in with SSO buttons" src="assets/screens/signin-passkey-sso-phone-light.png" width="270"></p>
 
 ## Passkeys
 

@@ -4,7 +4,7 @@ Gunkly can sign people in through an identity provider you already run: Authelia
 
 Password sign-in stays available next to it. There is deliberately no "SSO only" switch.
 
-<p align="center"><img alt="Sign-in page on a phone with the Sign in with Test IdP button below the password form" src="assets/screens/signin-passkey-sso-phone-light.png" width="270"></p>
+<p align="center"><img alt="Sign-in page on a phone with the Sign in with SSO button below the password form" src="assets/screens/signin-passkey-sso-phone-light.png" width="270"></p>
 
 ## What it does
 
