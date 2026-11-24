@@ -520,6 +520,7 @@ func (s *Server) renderConsent(w http.ResponseWriter, r *http.Request, cc consen
 	if cc.infoKey != "" {
 		p.Info = t(cc.infoKey)
 	}
+	var ssoOrigin string
 	if !s.steppedUp(cc.ss) {
 		p.StepUp, p.ShowPassword = true, u.HasPassword()
 		p.OfferEmail = u.EmailOTPEnabled && p.ShowPassword
@@ -535,7 +536,10 @@ func (s *Server) renderConsent(w http.ResponseWriter, r *http.Request, cc consen
 			p.Passkey, p.PasskeyLabel, p.PasskeyError = true, t("oauth.passkey_btn"), t("oauth.passkey_failed")
 		}
 		if s.ssoLinked(ctx, u) {
-			p.SSO, p.SSOLabel = true, i18n.T(loc, "oauth.sso_btn", map[string]string{"provider": s.sso.Name()})
+			// The provider's origin joins form-action below: the post is answered by a redirect to it.
+			if ssoOrigin = s.sso.AuthOrigin(ctx); ssoOrigin != "" {
+				p.SSO, p.SSOLabel = true, i18n.T(loc, "oauth.sso_btn", map[string]string{"provider": s.sso.Name()})
+			}
 		}
 	}
 	for _, h := range hs {
@@ -564,7 +568,11 @@ func (s *Server) renderConsent(w http.ResponseWriter, r *http.Request, cc consen
 	// The browser checks form-action against the redirect that answers the
 	// post, so the client's own origin (already matched against its registered
 	// redirect URIs) is added for this page only.
-	h.Set("Content-Security-Policy", strings.Replace(csp, "form-action 'self'", "form-action 'self' "+redirectOrigin(req.redirect), 1))
+	formAction := "form-action 'self' " + redirectOrigin(req.redirect)
+	if p.SSO {
+		formAction += " " + ssoOrigin
+	}
+	h.Set("Content-Security-Policy", strings.Replace(csp, "form-action 'self'", formAction, 1))
 	w.WriteHeader(http.StatusOK)
 	return oauthTmpl.Execute(w, p)
 }

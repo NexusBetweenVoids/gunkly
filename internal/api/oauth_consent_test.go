@@ -181,7 +181,10 @@ func TestOAuthConsentSSO(t *testing.T) {
 	q := authzQuery(cid, ch, "scope", "chores:read chores:complete")
 
 	// The account has no password: the page offers the provider, no password field.
-	st, _, body := u.browseGet("/oauth/authorize?" + q.Encode())
+	st, h, body := u.browseGet("/oauth/authorize?" + q.Encode())
+	if csp := h.Get("Content-Security-Policy"); !strings.Contains(csp, "form-action 'self' https://app.example "+se.idp.srv.URL) {
+		t.Fatalf("form-action must allow the provider the post is redirected to: %s", csp)
+	}
 	if st != 200 || !strings.Contains(body, "Confirm with Authelia") || strings.Contains(body, `name="password"`) || strings.Contains(body, "<script") {
 		t.Fatalf("page: %d %s", st, body)
 	}

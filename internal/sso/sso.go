@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"slices"
 	"strings"
 	"sync"
@@ -140,6 +141,21 @@ func (p *Provider) AuthURL(ctx context.Context, state, nonce, verifier string, r
 		opts = append(opts, oauth2.SetAuthURLParam("prompt", "login"), oauth2.SetAuthURLParam("max_age", "0"))
 	}
 	return d.oauth.AuthCodeURL(state, opts...), nil
+}
+
+// AuthOrigin is the origin (scheme://host) of the provider's authorization
+// endpoint, or "" while discovery fails. The consent page's CSP needs it: a
+// browser checks form-action against the redirect that answers the form.
+func (p *Provider) AuthOrigin(ctx context.Context) string {
+	d, err := p.discover(ctx)
+	if err != nil {
+		return ""
+	}
+	u, err := url.Parse(d.oauth.Endpoint.AuthURL)
+	if err != nil || u.Host == "" {
+		return ""
+	}
+	return u.Scheme + "://" + u.Host
 }
 
 // Exchange redeems the authorization code (with the PKCE verifier) and
