@@ -90,9 +90,15 @@ func (s *Server) readSSOState(w http.ResponseWriter, r *http.Request) (ssoState,
 	return st, true
 }
 
-// safeNext keeps a post-sign-in path on this site: one path, no scheme or host.
+// safeNext keeps a post-sign-in path on this site: one path, no scheme or
+// host. Control characters are refused outright: browsers drop tabs and
+// newlines from URLs, so "/\t/evil.example" would become "//evil.example".
 func safeNext(n string) string {
-	if n == "" || len(n) > 512 || n[0] != '/' || strings.HasPrefix(n, "//") || strings.ContainsAny(n, "\\\r\n\x00") {
+	if n == "" || len(n) > 512 || n[0] != '/' || strings.HasPrefix(n, "//") || strings.ContainsRune(n, '\\') ||
+		strings.ContainsFunc(n, func(r rune) bool { return r < 0x20 || r == 0x7f }) {
+		return "/"
+	}
+	if u, err := url.Parse(n); err != nil || u.Scheme != "" || u.Host != "" || u.User != nil {
 		return "/"
 	}
 	return n
@@ -290,7 +296,7 @@ func (s *Server) ssoCreateAccount(ctx context.Context, c *call, id sso.Identity)
 		case i > 1 && i < 20:
 			in.Username = base + "-" + strconv.Itoa(i+1)
 		case i >= 20:
-			in.Username = base + "-" + ids.Token()[:6]
+			in.Username = base[:min(len(base), 25)] + "-" + ids.Token()[:6] // fits the 32-character limit
 		}
 		u, err := s.st.CreateSSOUser(ctx, in)
 		if errors.Is(err, store.ErrConflict) {

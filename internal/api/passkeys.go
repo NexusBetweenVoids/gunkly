@@ -392,7 +392,9 @@ func (s *Server) registerPasskey(w http.ResponseWriter, r *http.Request, c *call
 func (s *Server) deletePasskey(w http.ResponseWriter, r *http.Request, c *call) error {
 	id := r.PathValue("id")
 	err := s.st.DeletePasskey(r.Context(), c.user.ID, c.sess.ID, id, s.hosted)
-	if errors.Is(err, store.ErrConflict) {
+	if errors.Is(err, store.ErrLastSignIn) {
+		return errf(http.StatusConflict, "passkey_last_login")
+	} else if errors.Is(err, store.ErrConflict) {
 		return errf(http.StatusConflict, "two_factor_mandatory")
 	} else if err != nil {
 		return err

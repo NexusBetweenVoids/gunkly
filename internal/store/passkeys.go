@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
+	"errors"
 	"strings"
 	"time"
 
@@ -136,21 +137,34 @@ func (s *Store) AddPasskey(ctx context.Context, userID, keepSessionID string, in
 	return p, issued, nil
 }
 
+// ErrLastSignIn: removing this would leave the account no way to sign in.
+var ErrLastSignIn = errors.New("store: last way to sign in")
+
 // DeletePasskey removes one of the user's passkeys (ErrNotFound if it is not
 // theirs). Like removing another second factor it signs the user out
 // everywhere but keepSessionID and revokes their API tokens and OAuth grants.
 // When no second factor is left the recovery codes go too. ErrConflict when
 // it is the last second factor and mandatory is set (hosted mode: 2FA cannot
-// be turned off).
+// be turned off). ErrLastSignIn when it is the last passkey of an account with
+// no password and no SSO link.
 func (s *Store) DeletePasskey(ctx context.Context, userID, keepSessionID, id string, mandatory bool) error {
 	return s.inTx(ctx, true, func(t *tx) error {
-		var totp, emailOTP bool
-		if err := t.queryRow(ctx, "SELECT totp_enabled, email_otp_enabled FROM users WHERE id = ?", userID).Scan(&totp, &emailOTP); err != nil {
+		if err := t.lockUser(ctx, userID); err != nil {
+			return err
+		}
+		var totp, emailOTP, sso bool
+		var hash string
+		if err := t.queryRow(ctx, `SELECT totp_enabled, email_otp_enabled, password_hash,
+			(SELECT count(*) > 0 FROM sso_identities WHERE user_id = users.id) FROM users WHERE id = ?`, userID).Scan(&totp, &emailOTP, &hash, &sso); err != nil {
 			return notFound(err)
 		}
 		var n int
 		if err := t.queryRow(ctx, "SELECT count(*) FROM passkeys WHERE user_id = ?", userID).Scan(&n); err != nil {
 			return err
+		}
+		if n == 1 && strings.HasPrefix(hash, "!") && !sso {
+			// No password and no SSO link: the last passkey is the only way in.
+			return ErrLastSignIn
 		}
 		last := n == 1 && !totp && !emailOTP
 		if mandatory && last {

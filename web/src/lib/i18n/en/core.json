@@ -219,5 +219,6 @@
   "err.sso_unavailable": "The single sign-on provider can't be reached right now.",
   "err.sso_no_account": "No Gunkly account is linked to that single sign-on user. Sign in with your password and link it under Account, Sign-in & security, or ask an administrator.",
   "err.sso_already_linked": "That single sign-on user (or this account) is already linked.",
-  "err.sso_last_login": "Add a password or a passkey first: without one, you could no longer sign in."
+  "err.sso_last_login": "Add a password or a passkey first: without one, you could no longer sign in.",
+  "err.passkey_last_login": "This passkey is your only way to sign in. Set a password or link single sign-on first."
 }

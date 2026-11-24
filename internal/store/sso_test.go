@@ -65,9 +65,14 @@ func TestCreateSSOUserHasNoPasswordAndCannotUnlinkWithoutAnotherWay(t *testing.T
 	// The only way in: unlinking would lock the account out.
 	is(t, e.s.UnlinkSSO(ctx, u.ID, "", issuer), store.ErrConflict)
 	// A passkey is another way in.
-	_, _, err = e.s.AddPasskey(ctx, u.ID, "", newKey("K", "c1"), 5, nil)
+	k, _, err := e.s.AddPasskey(ctx, u.ID, "", newKey("K", "c1"), 5, nil)
 	noErr(t, err)
 	noErr(t, e.s.UnlinkSSO(ctx, u.ID, "", issuer))
+	// Now that passkey is the only way in: it cannot be removed.
+	is(t, e.s.DeletePasskey(ctx, u.ID, "", k.ID, false), store.ErrLastSignIn)
+	if e.count("SELECT count(*) FROM passkeys") != 1 {
+		t.Fatal("the last passkey was removed")
+	}
 	// So is a password (set later).
 	u2, err := e.s.CreateSSOUser(ctx, store.NewSSOUser{Username: "second", DisplayName: "S", Issuer: issuer, Subject: "s3"})
 	noErr(t, err)

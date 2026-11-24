@@ -635,6 +635,7 @@ func TestSafeNext(t *testing.T) {
 	for in, want := range map[string]string{
 		"": "/", "/": "/", "/account": "/account", "//evil.example": "/", "/\\evil.example": "/", "https://evil.example": "/",
 		"evil": "/", "/ok?x=1": "/ok?x=1", "/a\r\nSet-Cookie: x": "/",
+		"/\t/evil.example": "/", "/\v/evil.example": "/", "/\t\\evil.example": "/", "/a\x7fb": "/", "/%09/evil.example": "/%09/evil.example",
 	} {
 		if got := safeNext(in); got != want {
 			t.Errorf("safeNext(%q) = %q, want %q", in, got, want)
