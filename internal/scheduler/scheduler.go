@@ -291,12 +291,13 @@ func DeliveryKey(choreID, dueDate string, kind schedule.ReminderKind, at time.Ti
 	return hex.EncodeToString(h[:])
 }
 
-// deferQuiet moves t past the household's quiet hours and the recipient's
-// personal ones (both in the household's time zone). One window's end can fall
-// inside the other, so it repeats until neither applies.
-func deferQuiet(t time.Time, loc *time.Location, household, personal schedule.QuietHours) time.Time {
+// deferQuiet moves t past the household's quiet hours (in the household's
+// time zone loc) and the recipient's personal ones (in ploc: their own zone,
+// or loc when they have none). One window's end can fall inside the other, so
+// it repeats until neither applies.
+func deferQuiet(t time.Time, loc, ploc *time.Location, household, personal schedule.QuietHours) time.Time {
 	for range 4 {
-		next := personal.Defer(household.Defer(t, loc), loc)
+		next := personal.Defer(household.Defer(t, loc), ploc)
 		if next.Equal(t) {
 			break
 		}
@@ -328,6 +329,19 @@ func (w *Worker) enqueue(ctx context.Context, from, to time.Time, catchUp bool) 
 	}
 }
 
+// zone loads an IANA zone through the per-pass cache.
+func zone(cache map[string]*time.Location, name string) (*time.Location, error) {
+	if loc, ok := cache[name]; ok {
+		return loc, nil
+	}
+	loc, err := time.LoadLocation(name)
+	if err != nil {
+		return nil, err
+	}
+	cache[name] = loc
+	return loc, nil
+}
+
 func (w *Worker) enqueueChore(ctx context.Context, c store.ReminderChore, from, to time.Time, catchUp bool,
 	locs map[string]*time.Location, quotas map[string]store.Quota) error {
 	sp := specs(c)
@@ -338,12 +352,9 @@ func (w *Worker) enqueueChore(ctx context.Context, c store.ReminderChore, from, 
 	if err != nil {
 		return err
 	}
-	loc, ok := locs[c.Timezone]
-	if !ok {
-		if loc, err = time.LoadLocation(c.Timezone); err != nil {
-			return err
-		}
-		locs[c.Timezone] = loc
+	loc, err := zone(locs, c.Timezone)
+	if err != nil {
+		return err
 	}
 	var fires []schedule.Fire
 	if catchUp {
@@ -384,7 +395,14 @@ func (w *Worker) enqueueChore(ctx context.Context, c store.ReminderChore, from, 
 			case tg.Email:
 				target = "email" // with the user ID in the key: the user's own address
 			}
-			release := deferQuiet(send, loc, c.Quiet, tg.Quiet)
+			ploc := loc
+			if tg.Zone != "" {
+				if ploc, err = zone(locs, tg.Zone); err != nil {
+					w.log.Warn("scheduler: user time zone, using the household's", "err", err)
+					ploc = loc
+				}
+			}
+			release := deferQuiet(send, loc, ploc, c.Quiet, tg.Quiet)
 			deferred := !release.Equal(send)
 			keyAt := f.At
 			if deferred {

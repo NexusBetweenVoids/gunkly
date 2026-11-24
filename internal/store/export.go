@@ -212,8 +212,8 @@ func (s *Store) ExportUser(ctx context.Context, userID string) (*transfer.User, 
 		var ws, qs, qe sql.NullInt64
 		var created int64
 		p, pr := &out.Profile, &out.Preferences
-		if err := t.queryRow(ctx, `SELECT username, display_name, COALESCE(email, ''), email_verified, totp_enabled, created_at, locale, week_start, quiet_start_min, quiet_end_min
-			FROM users WHERE id = ?`, userID).Scan(&p.Username, &p.DisplayName, &p.Email, &p.EmailVerified, &p.TOTPEnabled, &created, &pr.Locale, &ws, &qs, &qe); err != nil {
+		if err := t.queryRow(ctx, `SELECT username, display_name, COALESCE(email, ''), email_verified, totp_enabled, created_at, locale, week_start, quiet_start_min, quiet_end_min, COALESCE(time_zone, '')
+			FROM users WHERE id = ?`, userID).Scan(&p.Username, &p.DisplayName, &p.Email, &p.EmailVerified, &p.TOTPEnabled, &created, &pr.Locale, &ws, &qs, &qe, &pr.TimeZone); err != nil {
 			return notFound(err)
 		}
 		p.CreatedAt = time.UnixMilli(created).UTC()

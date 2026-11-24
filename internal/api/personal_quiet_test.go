@@ -47,3 +47,52 @@ func TestPersonalQuietHours(t *testing.T) {
 		t.Fatalf("not cleared: %v", v)
 	}
 }
+
+func TestPersonalTimeZone(t *testing.T) {
+	f := newTokenEnv(t)
+	st, v := f.m.do("GET", "/api/v1/me", nil)
+	expect(t, st, v, 200, "")
+	if field(v, "timeZone") != nil {
+		t.Fatalf("default timeZone: %v", v)
+	}
+	for _, bad := range []string{"Mars/Olympus", "../etc/passwd", "Local-ish zone", "europe/nowhere"} {
+		st, v = f.m.do("PATCH", "/api/v1/me", map[string]any{"timeZone": bad})
+		expect(t, st, v, 400, "")
+	}
+	st, v = f.m.do("PATCH", "/api/v1/me", map[string]any{"timeZone": "Europe/Amsterdam"})
+	expect(t, st, v, 200, "")
+	if field(v, "timeZone") != "Europe/Amsterdam" {
+		t.Fatalf("timeZone: %v", v)
+	}
+	// Unrelated PATCHes keep it; other users do not see it.
+	st, v = f.m.do("PATCH", "/api/v1/me", map[string]any{"locale": "nl"})
+	expect(t, st, v, 200, "")
+	if field(v, "timeZone") != "Europe/Amsterdam" {
+		t.Fatalf("lost by an unrelated PATCH: %v", v)
+	}
+	st, v = f.a.do("GET", "/api/v1/me", nil)
+	expect(t, st, v, 200, "")
+	if field(v, "timeZone") != nil {
+		t.Fatalf("leaked to another user: %v", v)
+	}
+	st, v = f.mStep.do("GET", "/api/v1/account/export", nil)
+	expect(t, st, v, 200, "")
+	if field(field(v, "preferences"), "timeZone") != "Europe/Amsterdam" {
+		t.Fatalf("export: %v", v)
+	}
+	secret, _ := mkToken(t, f.mStep, []string{scRead, scWrite}, f.hA)
+	st, _, v = f.e.bearerDo("PATCH", "/api/v1/me", secret, map[string]any{"timeZone": nil})
+	expect(t, st, v, 403, "token_not_allowed")
+	// Empty and null both clear it.
+	st, v = f.m.do("PATCH", "/api/v1/me", map[string]any{"timeZone": ""})
+	expect(t, st, v, 200, "")
+	if field(v, "timeZone") != nil {
+		t.Fatalf("not cleared by empty: %v", v)
+	}
+	f.m.do("PATCH", "/api/v1/me", map[string]any{"timeZone": "Asia/Tokyo"})
+	st, v = f.m.do("PATCH", "/api/v1/me", map[string]any{"timeZone": nil})
+	expect(t, st, v, 200, "")
+	if field(v, "timeZone") != nil {
+		t.Fatalf("not cleared by null: %v", v)
+	}
+}

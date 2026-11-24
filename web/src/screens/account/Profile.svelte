@@ -5,6 +5,7 @@
   import { api } from '../../lib/api';
   import { failure } from '../../lib/errors';
   import { available, languageName, locale, t, type Key } from '../../lib/i18n';
+  import { localZone, zones } from '../../lib/zones';
   import { app } from '../../lib/session.svelte';
   import { applyTheme, storedTheme, type Theme } from '../../lib/theme';
   import { toast } from '../../lib/toast.svelte';
@@ -14,6 +15,7 @@
   let displayName = $state(u.displayName);
   let lang = $state(u.locale);
   let weekStart = $state(u.weekStart === null ? '' : String(u.weekStart));
+  let timeZone = $state(u.timeZone ?? '');
   let theme = $state<Theme>(storedTheme());
   let busy = $state(false);
   let err = $state('');
@@ -28,6 +30,9 @@
     new Intl.DateTimeFormat(locale, { weekday: 'long' }).format(new Date(2024, 0, 7 + i)),
   );
 
+  // The saved zone is always selectable, even if this browser's list lacks it.
+  const zoneList = u.timeZone && !zones.includes(u.timeZone) ? [u.timeZone, ...zones] : zones;
+
   async function save(e: SubmitEvent): Promise<void> {
     e.preventDefault();
     busy = true;
@@ -37,6 +42,7 @@
         displayName: displayName.trim(),
         locale: lang,
         weekStart: weekStart === '' ? null : Number(weekStart),
+        timeZone: timeZone === '' ? null : timeZone,
       });
       applyTheme(theme);
       toast(t('common.saved'));
@@ -68,6 +74,17 @@
         </select>
       {/snippet}
     </Field>
+    <Field label={t('account.timeZone')} hint={t('account.timeZoneHint')}>
+      {#snippet children({ id, describedby })}
+        <select {id} bind:value={timeZone} aria-describedby={describedby}>
+          <option value="">{t('account.timeZoneHousehold')}</option>
+          {#each zoneList as z (z)}<option value={z}>{z}</option>{/each}
+        </select>
+      {/snippet}
+    </Field>
+    {#if timeZone !== localZone && zoneList.includes(localZone)}
+      <div><Button type="button" variant="quiet" onclick={() => (timeZone = localZone)}>{t('account.timeZoneUse', { zone: localZone })}</Button></div>
+    {/if}
     <Field label={t('account.theme')} hint={t('account.themeHint')}>
       {#snippet children({ id, describedby })}
         <select {id} bind:value={theme} aria-describedby={describedby}>

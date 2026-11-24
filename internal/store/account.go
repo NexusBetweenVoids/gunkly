@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"strings"
+	"time"
 
 	"github.com/NexusBetweenVoids/gunkly/internal/ids"
 )
@@ -50,12 +51,19 @@ type ProfileUpdate struct {
 	WeekStart   **int // set to a nil *int to clear (locale default)
 	// QuietHours: set to a nil *QuietHours to clear. Same rules as the household's.
 	QuietHours **QuietHours
+	// TimeZone: IANA name for the personal quiet hours; set to a nil *string or "" to follow the household.
+	TimeZone **string
 }
 
 // UpdateProfile applies p to the user's profile.
 func (s *Store) UpdateProfile(ctx context.Context, userID string, p ProfileUpdate) (User, error) {
 	if p.QuietHours != nil && *p.QuietHours != nil && !(*p.QuietHours).valid() {
 		return User{}, ErrInvalid
+	}
+	if p.TimeZone != nil && *p.TimeZone != nil && **p.TimeZone != "" {
+		if _, err := time.LoadLocation(**p.TimeZone); err != nil {
+			return User{}, ErrInvalid
+		}
 	}
 	var u User
 	err := s.inTx(ctx, true, func(t *tx) error {
@@ -92,6 +100,15 @@ func (s *Store) UpdateProfile(ctx context.Context, userID string, p ProfileUpdat
 				start, end = q.StartMin, q.EndMin
 			}
 			if err := t.execOne(ctx, "UPDATE users SET quiet_start_min = ?, quiet_end_min = ? WHERE id = ?", start, end, userID); err != nil {
+				return err
+			}
+		}
+		if p.TimeZone != nil {
+			var v any
+			if z := *p.TimeZone; z != nil && *z != "" {
+				v = *z
+			}
+			if err := t.execOne(ctx, "UPDATE users SET time_zone = ? WHERE id = ?", v, userID); err != nil {
 				return err
 			}
 		}

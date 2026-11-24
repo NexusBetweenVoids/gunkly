@@ -147,7 +147,8 @@ type UserProfile struct {
 type UserPreferences struct {
 	Locale      string      `json:"locale"`
 	WeekStart   *int        `json:"weekStart"`
-	QuietHours  *Quiet      `json:"quietHours"` // personal quiet hours (household time zone)
+	QuietHours  *Quiet      `json:"quietHours"` // personal quiet hours
+	TimeZone    string      `json:"timeZone"`   // IANA name; "" = follow the household
 	MutedChores []MutedItem `json:"mutedChores"`
 }
 

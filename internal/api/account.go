@@ -29,8 +29,10 @@ type meView struct {
 	TwoFactor       string `json:"twoFactor"`
 	// EmailReminders: reminders go to the verified address by email.
 	EmailReminders bool `json:"emailReminders"`
-	// QuietHours are the user's own, in the household's time zone; null = none.
+	// QuietHours are the user's own; null = none. TimeZone is the zone they are
+	// read in; null = each household's.
 	QuietHours *quietView `json:"quietHours"`
+	TimeZone   *string    `json:"timeZone"`
 	// Passkeys is the number of registered passkeys.
 	Passkeys int `json:"passkeys"`
 	// HasPassword is false for an account created by single sign-on until it
@@ -46,6 +48,9 @@ func viewMe(u store.User) *meView {
 		EmailReminders: u.EmailReminders && u.EmailVerified, Passkeys: u.Passkeys, HasPassword: u.HasPassword(), SSOLinked: u.SSOLinked}
 	if u.QuietStartMin != nil && u.QuietEndMin != nil {
 		v.QuietHours = &quietView{Start: *u.QuietStartMin, End: *u.QuietEndMin}
+	}
+	if u.TimeZone != "" {
+		v.TimeZone = &u.TimeZone
 	}
 	switch {
 	case u.TOTPEnabled:
@@ -79,6 +84,8 @@ func (s *Server) patchMe(w http.ResponseWriter, r *http.Request, c *call) error 
 		EmailReminders *bool `json:"emailReminders"`
 		// QuietHours: null clears. Personal routes only; household quiet hours still apply.
 		QuietHours optional[quietView] `json:"quietHours"`
+		// TimeZone: IANA name; null or "" follows the household. Only personal quiet hours use it.
+		TimeZone optional[string] `json:"timeZone"`
 	}
 	if err := decode(r, &in); err != nil {
 		return err
@@ -105,6 +112,14 @@ func (s *Server) patchMe(w http.ResponseWriter, r *http.Request, c *call) error 
 			q = &store.QuietHours{StartMin: v.Start, EndMin: v.End}
 		}
 		p.QuietHours = &q
+	}
+	if in.TimeZone.set {
+		if z := in.TimeZone.Value; z != nil && *z != "" {
+			if _, err := time.LoadLocation(*z); err != nil {
+				return errInvalid
+			}
+		}
+		p.TimeZone = &in.TimeZone.Value
 	}
 	if in.EmailReminders != nil && *in.EmailReminders && (!s.emailEnabled() || !c.user.EmailVerified) {
 		return errInvalid

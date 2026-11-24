@@ -45,6 +45,9 @@
       </div>
     {/if}
     <p class="hint">{t('quietHours.hint')}</p>
+    <p class="hint">
+      {app.user?.timeZone ? t('quietHours.zoneOwn', { zone: app.user.timeZone }) : t('quietHours.zoneHousehold')}
+    </p>
     <div aria-live="polite"><Alert message={err} /></div>
     <div><Button type="submit" {busy}>{t('common.save')}</Button></div>
   </form>

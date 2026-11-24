@@ -14,6 +14,7 @@ export type Me = {
   twoFactor: '' | 'totp' | 'email';
   emailReminders: boolean;
   quietHours: { start: number; end: number } | null;
+  timeZone: string | null;
   passkeys: number;
   hasPassword: boolean;
   ssoLinked: boolean;

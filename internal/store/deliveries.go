@@ -118,9 +118,11 @@ type ReminderTarget struct {
 	ChannelID string
 	PushID    string
 	Email     bool // the user's own verified address
-	// Quiet is the recipient's personal quiet hours (household time zone);
-	// Start == End: none, and always none for household channels.
+	// Quiet is the recipient's personal quiet hours; Start == End: none, and
+	// always none for household channels. Zone is the IANA zone they are read
+	// in; "" means the household's.
 	Quiet schedule.QuietHours
+	Zone  string
 }
 
 // ReminderTargets resolves where a chore's reminders go: the personal
@@ -141,21 +143,21 @@ func (s *Store) ReminderTargets(ctx context.Context, householdID, choreID string
 			AND (NOT EXISTS (SELECT 1 FROM chore_assignees ca WHERE ca.chore_id = ?)
 				OR EXISTS (SELECT 1 FROM chore_assignees ca WHERE ca.chore_id = ? AND ca.user_id = m.user_id))
 			AND (? = '' OR m.user_id = ?)`
-		rows, err := t.query(ctx, `SELECT m.user_id, nc.id, '', 0, u.quiet_start_min, u.quiet_end_min FROM memberships m
+		rows, err := t.query(ctx, `SELECT m.user_id, nc.id, '', 0, u.quiet_start_min, u.quiet_end_min, COALESCE(u.time_zone, '') FROM memberships m
 			JOIN users u ON u.id = m.user_id
 			JOIN notification_channels nc ON nc.scope = 'user' AND nc.user_id = m.user_id
 			WHERE `+eligible+`
 			UNION ALL
-			SELECT m.user_id, '', ps.id, 0, u.quiet_start_min, u.quiet_end_min FROM memberships m
+			SELECT m.user_id, '', ps.id, 0, u.quiet_start_min, u.quiet_end_min, COALESCE(u.time_zone, '') FROM memberships m
 			JOIN users u ON u.id = m.user_id
 			JOIN push_subscriptions ps ON ps.user_id = m.user_id
 			WHERE `+eligible+`
 			UNION ALL
-			SELECT m.user_id, '', '', 1, u.quiet_start_min, u.quiet_end_min FROM memberships m
+			SELECT m.user_id, '', '', 1, u.quiet_start_min, u.quiet_end_min, COALESCE(u.time_zone, '') FROM memberships m
 			JOIN users u ON u.id = m.user_id AND u.email_reminders = TRUE AND u.email_verified = TRUE AND u.email IS NOT NULL
 			WHERE `+eligible+`
 			UNION ALL
-			SELECT '', id, '', 0, CAST(NULL AS INTEGER), CAST(NULL AS INTEGER) FROM notification_channels WHERE scope = 'household' AND household_id = ?
+			SELECT '', id, '', 0, CAST(NULL AS INTEGER), CAST(NULL AS INTEGER), '' FROM notification_channels WHERE scope = 'household' AND household_id = ?
 			ORDER BY 1, 2, 3, 4`, householdID, choreID, choreID, choreID, turn, turn, householdID, choreID, choreID, choreID, turn, turn,
 			householdID, choreID, choreID, choreID, turn, turn, householdID)
 		if err != nil {
@@ -166,7 +168,7 @@ func (s *Store) ReminderTargets(ctx context.Context, householdID, choreID string
 			var r ReminderTarget
 			var email int
 			var qs, qe sql.NullInt64
-			if err := rows.Scan(&r.UserID, &r.ChannelID, &r.PushID, &email, &qs, &qe); err != nil {
+			if err := rows.Scan(&r.UserID, &r.ChannelID, &r.PushID, &email, &qs, &qe, &r.Zone); err != nil {
 				return err
 			}
 			r.Email = email == 1

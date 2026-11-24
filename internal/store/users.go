@@ -27,8 +27,9 @@ type User struct {
 	EmailReminders  bool // reminders by email to the verified address
 	QuietStartMin   *int // personal quiet hours (minutes after local midnight, household time zone); nil = none
 	QuietEndMin     *int
-	Passkeys        int  // registered passkeys (each is a sign-in method and a second factor)
-	SSOLinked       bool // linked to an identity at the single sign-on provider
+	TimeZone        string // IANA name the personal quiet hours are read in; "" = the household's
+	Passkeys        int    // registered passkeys (each is a sign-in method and a second factor)
+	SSOLinked       bool   // linked to an identity at the single sign-on provider
 	CreatedAt       time.Time
 	LastActiveAt    time.Time
 }
@@ -85,7 +86,7 @@ func (t *tx) insertUser(ctx context.Context, in NewUser, now int64) (User, error
 }
 
 const userCols = `id, COALESCE(email, ''), username, display_name, password_hash, locale, week_start, is_admin,
-	COALESCE(totp_secret_ciphertext, ''), totp_enabled, email_verified, email_otp_enabled, email_reminders, quiet_start_min, quiet_end_min, created_at, last_active_at,
+	COALESCE(totp_secret_ciphertext, ''), totp_enabled, email_verified, email_otp_enabled, email_reminders, quiet_start_min, quiet_end_min, COALESCE(time_zone, ''), created_at, last_active_at,
 	(SELECT count(*) FROM passkeys WHERE user_id = users.id), (SELECT count(*) > 0 FROM sso_identities WHERE user_id = users.id)`
 
 func scanUser(row interface{ Scan(...any) error }) (User, error) {
@@ -93,7 +94,7 @@ func scanUser(row interface{ Scan(...any) error }) (User, error) {
 	var ws, qs, qe sql.NullInt64
 	var created, active int64
 	err := row.Scan(&u.ID, &u.Email, &u.Username, &u.DisplayName, &u.PasswordHash, &u.Locale, &ws, &u.IsAdmin,
-		&u.TOTPSecret, &u.TOTPEnabled, &u.EmailVerified, &u.EmailOTPEnabled, &u.EmailReminders, &qs, &qe, &created, &active, &u.Passkeys, &u.SSOLinked)
+		&u.TOTPSecret, &u.TOTPEnabled, &u.EmailVerified, &u.EmailOTPEnabled, &u.EmailReminders, &qs, &qe, &u.TimeZone, &created, &active, &u.Passkeys, &u.SSOLinked)
 	if err != nil {
 		return User{}, notFound(err)
 	}
