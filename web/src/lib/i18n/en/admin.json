@@ -104,5 +104,20 @@
   "admin.ssoName": "Name on the single sign-on button",
   "admin.ssoNameHint": "Shown as \"Sign in with …\" (for example Authelia or Keycloak). Empty: \"Sign in with SSO\".",
   "admin.ssoNameHintDefault": "Shown as \"Sign in with …\". Empty: the name from GUNKLY_OIDC_NAME ({name}).",
-  "admin.ssoNamePlaceholder": "SSO"
+  "admin.ssoNamePlaceholder": "SSO",
+  "admin.ssoTitle": "Single sign-on (SSO)",
+  "admin.ssoHosted": "Single sign-on is not available on this hosted service.",
+  "admin.ssoOn": "On",
+  "admin.ssoOnIntro": "People can sign in with your identity provider. This connection is set up with GUNKLY_OIDC_* environment variables, so it is shown here but cannot be changed here.",
+  "admin.ssoIssuer": "Provider (issuer)",
+  "admin.ssoClientId": "Client ID",
+  "admin.ssoScopes": "Scopes",
+  "admin.ssoCallback": "Redirect URI registered at the provider",
+  "admin.ssoChange": "To change the provider, edit the GUNKLY_OIDC_* variables (for example in your docker-compose.yml) and restart Gunkly.",
+  "admin.ssoDocs": "Single sign-on guide",
+  "admin.ssoOff": "Off",
+  "admin.ssoOffIntro": "Let people sign in with an OpenID Connect provider such as Authelia, authentik, Keycloak or Pocket ID. Single sign-on is set up in the server's environment variables (for example in docker-compose.yml), not on this page, because it needs the provider's client secret.",
+  "admin.ssoStep1": "At your provider, create an OpenID Connect application (confidential client, authorization code flow) with this redirect URI:",
+  "admin.ssoStep2": "Add its details to Gunkly's environment, for example:",
+  "admin.ssoStep3": "Restart Gunkly. This section then shows the connection and its options, and a \"Sign in with …\" button appears on the sign-in page."
 }

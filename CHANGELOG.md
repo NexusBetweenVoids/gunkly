@@ -4,6 +4,10 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ## [Unreleased]
 
+### Added
+
+- Administration, Sign-up & sign-in has a "Single sign-on (SSO)" section. Single sign-on is still configured only through `GUNKLY_OIDC_*` environment variables (it needs the client secret); the section now says so. When it is off, it explains the setup step by step with this server's redirect URI; when it is on, it shows the provider, client ID, scopes and redirect URI (never the secret). `GET /admin/settings` adds `ssoAvailable`, `ssoIssuer`, `ssoClientId`, `ssoScopes` and `ssoCallback`.
+
 ## [0.5.1] - 2026-11-24
 
 ### Added

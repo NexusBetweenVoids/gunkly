@@ -134,6 +134,13 @@ type settingsView struct {
 	// set); SSONameDefault is GUNKLY_OIDC_NAME, used when SSOName is empty.
 	SSOName        string `json:"ssoName"`
 	SSONameDefault string `json:"ssoNameDefault"`
+	// SSO describes the GUNKLY_OIDC_* setup (read-only; never the secret).
+	// SSOAvailable is false in hosted mode, where single sign-on is off.
+	SSOAvailable bool     `json:"ssoAvailable"`
+	SSOIssuer    string   `json:"ssoIssuer,omitempty"`
+	SSOClientID  string   `json:"ssoClientId,omitempty"`
+	SSOScopes    []string `json:"ssoScopes,omitempty"`
+	SSOCallback  string   `json:"ssoCallback"` // the redirect URI to register at the provider
 	// Inactive-account lifecycle (default off): warn, then delete.
 	InactiveEnabled         bool `json:"inactiveEnabled"`
 	InactiveWarnAfterDays   int  `json:"inactiveWarnAfterDays"`
@@ -158,6 +165,10 @@ func (s *Server) adminGetSettings(w http.ResponseWriter, r *http.Request, _ *cal
 		EgressGuard: s.hosted || st.EgressGuard, EgressGuardLocked: s.hosted, UpdateCheck: st.UpdateCheck, MCPEnabled: st.MCPEnabled,
 		OAuthEnabled: st.OAuthEnabled, WebhooksEnabled: st.WebhooksEnabled, OAuthPossible: oauthBaseURLOK(s.baseURL), SSOConfigured: s.sso != nil, SSOCreateAccounts: st.SSOCreateAccounts, SSOName: st.SSOName, SSONameDefault: s.ssoNameDefault(),
 		InactiveEnabled: st.InactiveEnabled, InactiveWarnAfterDays: st.InactiveWarnAfterDays, InactiveDeleteAfterDays: st.InactiveDeleteAfterDays}
+	v.SSOAvailable, v.SSOCallback = !s.hosted, s.baseURL+"/api/v1/auth/oidc/callback"
+	if s.sso != nil {
+		v.SSOIssuer, v.SSOClientID, v.SSOScopes, v.SSOCallback = s.sso.Issuer(), s.sso.ClientID(), s.sso.Scopes(), s.sso.RedirectURL()
+	}
 	for k, d := range limits.Defaults {
 		v.Limits[k] = d
 		if o, set := st.Limits[string(k)]; set && o > 0 {

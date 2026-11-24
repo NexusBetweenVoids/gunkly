@@ -85,6 +85,11 @@ func NewVerifier() string { return oauth2.GenerateVerifier() }
 func (p *Provider) Issuer() string { return p.cfg.Issuer }
 func (p *Provider) Name() string   { return p.cfg.Name }
 
+// ClientID, Scopes and RedirectURL describe the setup for the admin page (never the secret).
+func (p *Provider) ClientID() string    { return p.cfg.ClientID }
+func (p *Provider) Scopes() []string    { return append([]string{}, p.cfg.Scopes...) }
+func (p *Provider) RedirectURL() string { return p.cfg.RedirectURL }
+
 func (p *Provider) discover(ctx context.Context) (*discovered, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()

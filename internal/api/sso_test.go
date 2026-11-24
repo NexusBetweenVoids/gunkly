@@ -738,3 +738,26 @@ func TestSSOStepUpNeedsAuthTimeAndIsAudited(t *testing.T) {
 		t.Fatalf("fresh auth_time: %q", loc)
 	}
 }
+
+// The admin settings describe the single sign-on setup (never the secret), so
+// an admin can see what GUNKLY_OIDC_* configured and what to register.
+func TestSSOSetupShownToAdmins(t *testing.T) {
+	e := newSSOEnv(t)
+	e.user("root", true)
+	st, v := e.signedInStepUp("root").do("GET", "/api/v1/admin/settings", nil)
+	if st != 200 || field(v, "ssoConfigured") != true || field(v, "ssoAvailable") != true || field(v, "ssoIssuer") != e.idp.srv.URL ||
+		field(v, "ssoClientId") != idpClient || field(v, "ssoCallback") != "http://localhost:4865/api/v1/auth/oidc/callback" ||
+		len(field(v, "ssoScopes").([]any)) != 3 {
+		t.Fatalf("configured: %d %v", st, v)
+	}
+	if b, _ := json.Marshal(v); strings.Contains(string(b), idpSecret) {
+		t.Fatal("the client secret reached the admin page")
+	}
+	off := newEnv(t, func(o *Options) { o.BaseURL = "https://gunkly.example.com" })
+	off.user("root", true)
+	_, v = off.signedInStepUp("root").do("GET", "/api/v1/admin/settings", nil)
+	if field(v, "ssoConfigured") != false || field(v, "ssoAvailable") != true || field(v, "ssoIssuer") != nil ||
+		field(v, "ssoCallback") != "https://gunkly.example.com/api/v1/auth/oidc/callback" {
+		t.Fatalf("not configured: %v", v)
+	}
+}
