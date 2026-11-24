@@ -14,7 +14,6 @@ if (kind !== 'keycloak' && kind !== 'authentik') throw new Error('IDP_PROVIDER m
 
 /** The button label on Gunkly's sign-in page (GUNKLY_OIDC_NAME). */
 export const NAME = kind === 'keycloak' ? 'Keycloak' : 'authentik';
-const IDP_ORIGIN = kind === 'keycloak' ? 'http://localhost:8080' : 'http://localhost:9000';
 
 /**
  * Runs `trigger` (a click that sends the browser to the provider), signs in at the provider if it asks
@@ -22,9 +21,9 @@ const IDP_ORIGIN = kind === 'keycloak' ? 'http://localhost:8080' : 'http://local
  * showed its login form (false when its own session signed us in silently).
  */
 export async function throughProvider(page: Page, gunkly: string, trigger: () => Promise<void>, who: Who): Promise<{ prompted: boolean }> {
-  let seenProvider = false;
+  let callbackSeen = false;
   const onRequest = (r: Request): void => {
-    if (r.isNavigationRequest() && r.url().startsWith(IDP_ORIGIN)) seenProvider = true;
+    if (r.isNavigationRequest() && r.url().startsWith(`${gunkly}/api/v1/auth/oidc/callback`)) callbackSeen = true;
   };
   page.on('request', onRequest);
   try {
@@ -34,7 +33,9 @@ export async function throughProvider(page: Page, gunkly: string, trigger: () =>
     let prompted = false;
     const deadline = Date.now() + 60_000;
     for (;;) {
-      if (seenProvider && new URL(page.url()).origin === gunkly) return { prompted };
+      // page.url() lags behind the request, so wait for the callback and for the app page after it.
+      const here = new URL(page.url());
+      if (callbackSeen && here.origin === gunkly && !here.pathname.startsWith('/api/')) return { prompted };
       // Keycloak asks only for the password when a session exists and the login is forced (prompt=login).
       const askedFor = kind === 'keycloak' ? password : first;
       if (!prompted && (await askedFor.isVisible().catch(() => false))) {

@@ -4,7 +4,7 @@ name: SSO identity providers
 # so single sign-on does not silently break. release.yml requires it before publishing.
 on:
   push:
-    branches: [main, ci/sso-idp] # TEMP: ci/sso-idp while iterating
+    branches: [main]
     paths:
       - 'internal/api/sso*'
       - 'internal/sso/**'
@@ -39,6 +39,11 @@ on:
   schedule:
     - cron: '17 3 * * *'
   workflow_dispatch:
+    inputs:
+      provider:
+        description: Run one provider only (keycloak or authentik); empty runs both
+        required: false
+        default: ''
   workflow_call:
 
 permissions:
@@ -56,7 +61,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        provider: [keycloak, authentik]
+        provider: ${{ fromJSON(github.event.inputs.provider && format('["{0}"]', github.event.inputs.provider) || '["keycloak","authentik"]') }}
     env:
       GUNKLY_PORT: '4865'
     steps:
