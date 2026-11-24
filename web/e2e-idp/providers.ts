@@ -1,4 +1,4 @@
-import type { Page, Request } from '@playwright/test';
+import { type Page, type Request, expect } from '@playwright/test';
 
 // Per-provider facts and login-page drivers. Versions are pinned in test/idp/*/compose.yml so these
 // selectors only change when someone bumps an image on purpose. Test-only credentials (see test/idp/README.md).
@@ -46,7 +46,9 @@ export async function throughProvider(page: Page, gunkly: string, trigger: () =>
         } else {
           await page.locator('button[type="submit"]').click();
           await password.waitFor({ state: 'visible', timeout: 30_000 });
+          await page.waitForTimeout(1000); // the flow executor re-renders the stage once; fill after that
           await password.fill(PASSWORD);
+          await expect(password).toHaveValue(PASSWORD);
           await page.locator('button[type="submit"]').click();
         }
       }
