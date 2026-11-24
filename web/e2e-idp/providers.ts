@@ -44,10 +44,10 @@ export async function throughProvider(page: Page, gunkly: string, trigger: () =>
           await password.fill(PASSWORD);
           await page.locator('#kc-login').click();
         } else {
-          await first.press('Enter');
+          await page.locator('button[type="submit"]').click();
           await password.waitFor({ state: 'visible', timeout: 30_000 });
           await password.fill(PASSWORD);
-          await password.press('Enter');
+          await page.locator('button[type="submit"]').click();
         }
       }
       if (Date.now() > deadline) throw new Error(`still at ${page.url()} after 60s`);
