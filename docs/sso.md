@@ -36,6 +36,10 @@ For example `https://gunkly.example.com/api/v1/auth/oidc/callback`. Gunkly uses 
 
 Self-hosted providers usually live on the local network. Gunkly's outbound guard normally refuses connections to private addresses, but the provider's address comes from the environment you control, not from a user, so **requests to the issuer's own host and port are allowed to reach private addresses**. This client follows no redirects, has timeouts and caps response sizes. Any *other* host named in the provider's discovery document (a token or key endpoint elsewhere, as Google's are) is still subject to the guard, unless you turned it off in the admin settings. Keep the issuer, token and key endpoints on one host if you run the provider on your LAN.
 
+### Tested in CI
+
+A GitHub Actions workflow (`.github/workflows/sso-idp.yml`, config in `test/idp/`) signs in to Gunkly through real **Keycloak 26.8.2** and **authentik 2026.8.6** with a browser: first sign-in creating an account, signing in again, linking from a password account, and re-confirming through the provider. It runs on SSO-related changes, nightly and before every release. The other providers below are configured from their documentation and not tested automatically.
+
 ### Authelia
 
 In Authelia's `configuration.yml`:
@@ -73,6 +77,8 @@ Newer Authelia versions keep profile claims out of the ID token unless a `claims
 Create a provider (Applications, Providers, **OAuth2/OpenID Provider**) and an application using it:
 
 - Client type **Confidential**; note the client ID and secret.
+- **Grant types:** make sure *Authorization Code* is enabled (and *Refresh Token*). Current authentik releases refuse the authorization request with `invalid_request` (the provider's log says "Invalid grant_type for provider") when the provider has no grant types; a provider created in the admin interface gets the defaults, one created through the API or a blueprint must set `grant_types` itself.
+- Authorization flow: the stock *default-provider-authorization-implicit-consent* needs no extra consent screen.
 - Redirect URI (strict): `https://gunkly.example.com/api/v1/auth/oidc/callback`.
 - **Signing key:** choose one (for example the self-signed "authentik Self-signed Certificate"). Without a key authentik signs ID tokens with HS256, which Gunkly refuses.
 - Scopes: `openid`, `profile`, `email`.
