@@ -60,6 +60,7 @@ type choreView struct {
 	Rotation           bool       `json:"rotation"`  // "Take turns": the assignees take turns
 	AdvanceOn          string     `json:"advanceOn"` // any | assignee: who completing passes the turn on
 	TurnUserID         *string    `json:"turnUserId"`
+	TurnName           *string    `json:"turnName"` // display name of the member whose turn it is; null unless rotation
 	Muted              bool       `json:"muted"`
 	CreatedAt          time.Time  `json:"createdAt"`
 	UpdatedAt          time.Time  `json:"updatedAt"`
@@ -159,6 +160,9 @@ func (v viewCtx) view(c store.Chore) choreView {
 	}
 	if c.TurnUserID != "" {
 		out.TurnUserID = &c.TurnUserID
+		if c.TurnName != "" {
+			out.TurnName = &c.TurnName
+		}
 	}
 	if c.Kind == store.KindRecurring {
 		if c.ScheduleType == store.ScheduleRRule {

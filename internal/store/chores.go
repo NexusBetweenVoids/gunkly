@@ -58,6 +58,7 @@ type Chore struct {
 	Rotation           bool     // "Take turns": needs 2+ assignees and a recurring chore
 	RotationAdvance    string   // AdvanceAny | AdvanceAssignee
 	TurnUserID         string   // current-turn assignee while Rotation, else ""
+	TurnName           string   // display name (else username) of TurnUserID; "" when none
 	CreatedAt          time.Time
 	UpdatedAt          time.Time
 }
@@ -266,7 +267,8 @@ func (t *tx) setTurn(ctx context.Context, choreID string, in ChoreInput, keep st
 
 const choreCols = `id, household_id, COALESCE(area_id, ''), name, notes, link, kind, schedule_type,
 	COALESCE(interval_n, 0), COALESCE(interval_unit, ''), rrule, anchor, first_due, due_date, next_due, paused_until,
-	paused_indefinitely, archived_at, reminder_preset, rotation, rotation_advance, COALESCE(turn_user_id, ''), created_at, updated_at`
+	paused_indefinitely, archived_at, reminder_preset, rotation, rotation_advance, COALESCE(turn_user_id, ''),
+	COALESCE((SELECT COALESCE(NULLIF(u.display_name, ''), u.username) FROM users u WHERE u.id = chores.turn_user_id), ''), created_at, updated_at`
 
 func scanChore(row interface{ Scan(...any) error }) (Chore, error) {
 	var c Chore
@@ -274,7 +276,7 @@ func scanChore(row interface{ Scan(...any) error }) (Chore, error) {
 	var created, updated int64
 	err := row.Scan(&c.ID, &c.HouseholdID, &c.AreaID, &c.Name, &c.Notes, &c.Link, &c.Kind, &c.ScheduleType,
 		&c.IntervalN, &c.IntervalUnit, &c.RRule, &c.Anchor, &c.FirstDue, &c.DueDate, &next, &paused,
-		&c.PausedIndefinitely, &archived, &c.ReminderPreset, &c.Rotation, &c.RotationAdvance, &c.TurnUserID, &created, &updated)
+		&c.PausedIndefinitely, &archived, &c.ReminderPreset, &c.Rotation, &c.RotationAdvance, &c.TurnUserID, &c.TurnName, &created, &updated)
 	if err != nil {
 		return Chore{}, notFound(err)
 	}

@@ -4,6 +4,10 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ## [Unreleased]
 
+### Added
+
+- Chores that take turns now carry `turnName` (the display name of the person whose turn it is) in the REST API and the MCP chore output, next to `turnUserId`. Additive; API tokens still cannot list members.
+
 ### Fixed
 
 - Home on a narrow phone: a chore that takes turns no longer squeezes its name to one letter per line; the "<name>'s turn" badge now sits under the name and due date.

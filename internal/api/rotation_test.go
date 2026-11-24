@@ -295,3 +295,56 @@ func TestRotationMCP(t *testing.T) {
 		t.Fatalf("mine on a's turn: %v", got)
 	}
 }
+
+// turnName is additive: the display name of the member whose turn it is,
+// readable with a token that still cannot list members.
+func TestTurnNameForTokens(t *testing.T) {
+	f := mcpTestEnv(t)
+	ctx := context.Background()
+	au, _ := f.e.st.UserByLogin(ctx, "a")
+	mu, _ := f.e.st.UserByLogin(ctx, "m")
+	body := intervalBody("Bins", "2026-11-14")
+	body["assignees"], body["rotation"] = []string{f.mID, au.ID}, true
+	rot := f.mk(t, f.a, body)
+	plain := f.mk(t, f.a, intervalBody("Dust", "2026-11-14"))
+	secret, _ := mkToken(t, f.aStep, []string{scRead}, f.hA)
+
+	st, _, v := f.e.bearerDo("GET", f.base()+"/chores", secret, nil)
+	expect(t, st, v, 200, "")
+	seen := 0
+	for _, c := range list(t, v) {
+		switch str(c, "id") {
+		case rot:
+			seen++
+			if got := str(c, "turnName"); got == "" || got != mu.DisplayName || str(c, "turnUserId") != f.mID {
+				t.Fatalf("list turnName = %q, want %q", got, mu.DisplayName)
+			}
+		case plain:
+			seen++
+			if field(c, "turnName") != nil {
+				t.Fatalf("non-rotating chore has turnName: %v", c)
+			}
+		}
+	}
+	if seen != 2 {
+		t.Fatalf("saw %d chores: %v", seen, v)
+	}
+	st, _, v = f.e.bearerDo("GET", f.chore(rot), secret, nil)
+	expect(t, st, v, 200, "")
+	if str(v, "turnName") != mu.DisplayName {
+		t.Fatalf("get turnName: %v", v)
+	}
+	f.a.do("PATCH", f.chore(rot), map[string]string{"turnUserId": au.ID})
+	_, _, v = f.e.bearerDo("GET", f.chore(rot), secret, nil)
+	if str(v, "turnName") != au.DisplayName {
+		t.Fatalf("after change: %v", v)
+	}
+	st, _, v = f.e.bearerDo("GET", "/api/v1/households/"+f.hA+"/members", secret, nil)
+	expect(t, st, v, 403, "token_not_allowed")
+	cs := f.connect(t, secret)
+	for _, c := range mustOK(t, cs, "list_chores", nil)["chores"].([]any) {
+		if str(c, "id") == rot && str(c, "turnName") != au.DisplayName {
+			t.Fatalf("mcp turnName: %v", c)
+		}
+	}
+}

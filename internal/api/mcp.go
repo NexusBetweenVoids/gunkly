@@ -274,6 +274,7 @@ type mcpChore struct {
 	Assignees    []string `json:"assigneeIds,omitempty"`
 	TakesTurns   bool     `json:"takesTurns,omitempty"` // assignees take turns, in the order of assigneeIds
 	TurnUserID   string   `json:"turnUserId,omitempty"` // whose turn it is now (takesTurns only)
+	TurnName     string   `json:"turnName,omitempty"`   // display name of TurnUserID
 	MyTurn       bool     `json:"myTurn,omitempty"`     // takesTurns and it is the token owner's turn
 	Notes        string   `json:"notes,omitempty"`
 }
@@ -293,7 +294,7 @@ func repeatText(c store.Chore) string {
 func (m mcpCall) view(vc viewCtx, h hhCall, c store.Chore, notes bool) mcpChore {
 	out := mcpChore{ID: c.ID, Household: h.name, Name: c.Name, Status: dueStatus(c, vc.now, vc.today, vc.weekStart),
 		DueDate: c.DueDate, Repeat: repeatText(c), Assignees: c.Assignees,
-		AssignedToMe: slices.Contains(c.Assignees, m.c.user.ID), TakesTurns: c.Rotation, TurnUserID: c.TurnUserID,
+		AssignedToMe: slices.Contains(c.Assignees, m.c.user.ID), TakesTurns: c.Rotation, TurnUserID: c.TurnUserID, TurnName: c.TurnName,
 		MyTurn: c.Rotation && c.TurnUserID == m.c.user.ID}
 	if notes {
 		out.Notes = c.Notes
