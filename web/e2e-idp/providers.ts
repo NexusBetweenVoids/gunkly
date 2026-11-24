@@ -35,9 +35,11 @@ export async function throughProvider(page: Page, gunkly: string, trigger: () =>
     const deadline = Date.now() + 60_000;
     for (;;) {
       if (seenProvider && new URL(page.url()).origin === gunkly) return { prompted };
-      if (!prompted && (await first.isVisible().catch(() => false))) {
+      // Keycloak asks only for the password when a session exists and the login is forced (prompt=login).
+      const askedFor = kind === 'keycloak' ? password : first;
+      if (!prompted && (await askedFor.isVisible().catch(() => false))) {
         prompted = true;
-        await first.fill(who.username);
+        if (await first.isVisible().catch(() => false)) await first.fill(who.username);
         if (kind === 'keycloak') {
           await password.fill(PASSWORD);
           await page.locator('#kc-login').click();

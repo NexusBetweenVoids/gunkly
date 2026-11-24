@@ -96,7 +96,7 @@ jobs:
             done
           else
             issuer=http://localhost:9000/application/o/gunkly/
-            test/idp/authentik/setup.sh
+            bash test/idp/authentik/setup.sh
           fi
           curl -fsS "${issuer%/}/.well-known/openid-configuration" | jq -r .issuer
           echo "GUNKLY_OIDC_ISSUER=$issuer" >> "$GITHUB_ENV"
