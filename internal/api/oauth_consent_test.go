@@ -150,7 +150,7 @@ func TestOAuthConsentPasskey(t *testing.T) {
 	// stepped up now, so the post would pass on that alone; use a new session).
 	again := f.passkeySession(t, key)
 	f.page(t, again, cid, ch)
-	if st, loc, b = f.consentRaw(t, again, authzQuery(cid, ch), "allow", []string{f.hA}, "passkey", good); st != 200 || loc != nil {
+	if st, loc, _ = f.consentRaw(t, again, authzQuery(cid, ch), "allow", []string{f.hA}, "passkey", good); st != 200 || loc != nil {
 		t.Fatalf("replayed answer: %d %v", st, loc)
 	}
 	// After the passkey step-up the page offers no confirmation fields.
@@ -237,7 +237,7 @@ func TestOAuthConsentSSO(t *testing.T) {
 
 	// Another provider subject does not confirm this account.
 	u3, _ := se.signIn(claims("sub-1"))
-	st, loc, _ = f.consentRaw(t, u3, q, "sso", []string{hh})
+	_, loc, _ = f.consentRaw(t, u3, q, "sso", []string{hh})
 	cb, _ = se.idp.authorize(loc.String(), claims("sub-2"))
 	st, back, _ = u3.follow("GET", cb, nil)
 	if st != 303 || !strings.HasPrefix(back, "/oauth/authorize?") || !strings.Contains(back, "sso=failed") {

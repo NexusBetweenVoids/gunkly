@@ -55,4 +55,50 @@ test('README and website screenshots', async ({ world, browser }) => {
   await shot('/calendar', 'calendar-desktop-dark.png', 'dark', { width: 1100, height: 760 }, 1, 'Subscribe from your own calendar app');
   await shot(`/chores/${gutters}/edit`, 'chore-editor-desktop-light.png', 'light', { width: 1100, height: 900 }, 1, 'Take turns');
   await shot(`/households/${h.id}/people`, 'household-desktop-light.png', 'light', { width: 1000, height: 830 }, 1, /^Invites$/);
+
+  // The sign-in page with the passkey and single sign-on buttons (signed out, narrow screen).
+  {
+    const context = await world.newContext({ viewport: { width: 420, height: 820 }, deviceScaleFactor: 1.5, colorScheme: 'light' });
+    const page = await context.newPage();
+    await page.goto('/signin');
+    await expect(page.getByRole('button', { name: 'Sign in with a passkey' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Sign in with Test IdP' })).toBeVisible();
+    await setTheme(page, 'light');
+    await page.waitForTimeout(400);
+    await page.screenshot({ path: OUT + 'signin-passkey-sso-phone-light.png' });
+    await context.close();
+  }
+
+  // Account, Sign-in & security with a registered passkey. Last: adding a passkey signs the other sessions out.
+  {
+    const context = await browser.newContext({
+      storageState: await alex.api.storageState(),
+      viewport: { width: 1000, height: 900 },
+      colorScheme: 'dark',
+      baseURL: world.baseURL,
+    });
+    const page = await context.newPage();
+    const cdp = await context.newCDPSession(page);
+    await cdp.send('WebAuthn.enable');
+    await cdp.send('WebAuthn.addVirtualAuthenticator', {
+      options: { protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
+    });
+    await page.goto('/account/security');
+    const section = page.getByRole('region', { name: 'Passkeys' });
+    await section.getByRole('button', { name: 'Add a passkey' }).click();
+    await section.getByLabel('Name').fill('Alex’s laptop');
+    await section.getByRole('button', { name: 'Create passkey' }).click();
+    const confirm = page.getByRole('dialog', { name: "Confirm it's you" });
+    await confirm.getByLabel('Password').fill(alex.password);
+    await confirm.getByRole('button', { name: 'Confirm' }).click();
+    await section.getByRole('button', { name: "I've saved them" }).click();
+    await expect(section.getByText('Alex’s laptop')).toBeVisible();
+    await setTheme(page, 'dark');
+    await expect(page.getByText('Passkey added.')).toHaveCount(0); // the toast is gone
+    await section.evaluate((el) => el.scrollIntoView({ block: 'start' }));
+    await page.evaluate(() => window.scrollBy(0, -80)); // keep the section heading below the header
+    await page.waitForTimeout(400);
+    await page.screenshot({ path: OUT + 'account-security-passkey-desktop-dark.png' });
+    await context.close();
+  }
 });

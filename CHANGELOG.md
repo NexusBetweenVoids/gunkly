@@ -8,6 +8,14 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 - Per-user time zone (Account, Profile, "Time zone"; default "Same as the household", so nothing changes unless you set it): your personal quiet hours are read in it instead of each household's zone, for people whose households are in different zones. The browser's zone is offered in one click. Household quiet hours, due dates and reminder times stay in the household's zone. `PATCH /me` takes `timeZone` (an IANA name; `null` or empty clears it; session only); the account export includes it.
 
+### Fixed
+
+- OAuth consent page (ChatGPT and Claude connectors): an account whose only second factor is a passkey no longer has to type a recovery code, and an account without a password (created by single sign-on) can now approve an app at all. Accounts with a passkey see **Confirm with a passkey** (user verification required; Gunkly verifies the assertion itself); linked accounts see **Confirm with {provider}**, which re-verifies through the identity provider (`prompt=login`, `max_age=0`) and returns to the same consent request. Without script the page is the same plain form as before (password, authenticator, emailed or recovery code).
+
+### Changed
+
+- The consent page loads one small same-origin script, only for accounts that have a passkey (`GET /oauth-consent.js`; no inline script, `script-src 'self'` as before). Offering single sign-on adds the provider's origin to that page's `form-action`. New `POST /oauth/authorize/passkey` (options for the passkey ceremony, bound to the session and the consent page). ADR 0016 and 0018, `docs/sign-in.md`, `docs/sso.md` and the threat model are updated; two new screenshots (sign-in page, Account, Sign-in & security with a passkey).
+
 ## [0.5.0] - 2026-11-24
 
 ### Added
