@@ -1,5 +1,6 @@
 # TEST ONLY. Blueprint (authentik's declarative config) for the SSO CI test: an OAuth2/OIDC provider,
-# the application that uses it, and two test users. setup.sh sets the users' passwords afterwards.
+# the application that uses it, and two test users with their passwords. The passwords live here, not in
+# setup.sh: the worker may (re)apply this blueprint at any time and would overwrite a password set by API.
 version: 1
 metadata:
   name: Gunkly CI test
@@ -37,6 +38,7 @@ entries:
       name: Ci Sso
       email: ci-sso@example.test
       is_active: true
+      password: ci-only-password-1
       path: users
   - model: authentik_core.user
     identifiers:
@@ -45,4 +47,5 @@ entries:
       name: Ci Link
       email: ci-link@example.test
       is_active: true
+      password: ci-only-password-1
       path: users

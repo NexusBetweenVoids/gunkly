@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
 # TEST ONLY. Waits for authentik, applies the blueprint (gunkly-ci.yaml) and sets the test users'
-# password. Every wait is bounded.
+# Every wait is bounded.
 set -euo pipefail
 
 BASE=http://localhost:9000
 TOKEN=ci-only-api-token-not-a-real-secret
-PASSWORD=ci-only-password-1
 BLUEPRINT_PATH=custom/gunkly-ci.yaml
 
 api() { curl -fsS -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' "$@"; }
@@ -45,11 +44,11 @@ if ! retry 120 "the blueprint to create the application" app_ready; then
   api "$BASE/api/v3/managed/blueprints/$pk/" | jq . >&2 || true
   exit 1
 fi
-for u in ci-sso-user ci-link-user; do
-  retry 60 "user $u" user_ready "$u"
-  upk=$(api "$BASE/api/v3/core/users/?username=$u" | jq -r '.results[0].pk')
-  api -X POST "$BASE/api/v3/core/users/$upk/set_password/" -d "{\"password\":\"$PASSWORD\"}" >/dev/null
-done
+# Users and their passwords come from the blueprint (setting them by API here raced with the worker
+# re-applying it, which sometimes reset a password). Wait until the apply has finished successfully.
+for u in ci-sso-user ci-link-user; do retry 60 "user $u" user_ready "$u"; done
+bp_done() { api "$BASE/api/v3/managed/blueprints/$pk/" | jq -e '.status == "successful"'; }
+retry 120 "the blueprint apply to finish" bp_done
 
 # The issuer must answer, at the address the browser and Gunkly both use.
 curl -fsS "$BASE/application/o/gunkly/.well-known/openid-configuration" | jq -r .issuer
