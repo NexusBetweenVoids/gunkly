@@ -96,9 +96,9 @@ func (s *Server) registerRoutes() {
 	// Areas, chores and everything that happens to a chore.
 	s.handle("GET /api/v1/templates", session.withToken(store.ScopeRead), s.listTemplates)
 	s.handle("GET /api/v1/households/{hh}/areas", guest.withToken(store.ScopeRead), s.listAreas)
-	s.handle("POST /api/v1/households/{hh}/areas", member.noToken(), s.createArea)
-	s.handle("PATCH /api/v1/households/{hh}/areas/{area}", member.noToken(), s.renameArea)
-	s.handle("DELETE /api/v1/households/{hh}/areas/{area}", member.noToken(), s.deleteArea)
+	s.handle("POST /api/v1/households/{hh}/areas", member.withToken(store.ScopeWrite), s.createArea)
+	s.handle("PATCH /api/v1/households/{hh}/areas/{area}", member.withToken(store.ScopeWrite), s.renameArea)
+	s.handle("DELETE /api/v1/households/{hh}/areas/{area}", member.withToken(store.ScopeWrite), s.deleteArea)
 	s.handle("GET /api/v1/households/{hh}/chores", guest.withToken(store.ScopeRead), s.listChores)
 	s.handle("POST /api/v1/households/{hh}/chores", member.withToken(store.ScopeWrite), s.createChore)
 	s.handle("GET /api/v1/households/{hh}/chores/{chore}", guest.withToken(store.ScopeRead), s.getChore)

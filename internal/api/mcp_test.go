@@ -98,7 +98,8 @@ func mustFail(t *testing.T, cs *mcp.ClientSession, name string, args map[string]
 
 func TestMCPInitializeAndToolsPerScope(t *testing.T) {
 	f := mcpTestEnv(t)
-	readTools := []string{"get_chore", "list_chores", "list_households", "upcoming"}
+	readTools := []string{"get_chore", "list_areas", "list_chores", "list_households", "upcoming"}
+	writeTools := []string{"archive_chore", "create_area", "create_chore", "rename_area", "unarchive_chore", "update_chore"}
 	completeTools := []string{"complete_chore", "skip_chore", "snooze_chore", "undo_completion"}
 	for _, c := range []struct {
 		scopes []string
@@ -106,9 +107,9 @@ func TestMCPInitializeAndToolsPerScope(t *testing.T) {
 	}{
 		{[]string{scRead}, readTools},
 		{[]string{scComplete}, completeTools},
-		{[]string{scWrite}, []string{"create_chore"}},
+		{[]string{scWrite}, writeTools},
 		{[]string{scRead, scComplete}, slices.Concat(readTools, completeTools)},
-		{[]string{scRead, scComplete, scWrite}, slices.Concat(readTools, completeTools, []string{"create_chore"})},
+		{[]string{scRead, scComplete, scWrite}, slices.Concat(readTools, completeTools, writeTools)},
 	} {
 		secret, _ := mkToken(t, f.aStep, c.scopes, f.hA)
 		cs := f.connect(t, secret)

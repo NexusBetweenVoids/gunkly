@@ -788,8 +788,9 @@ paths:
         "200": {description: OK, content: {application/json: {schema: {type: array, items: {$ref: "#/components/schemas/Area"}}}}}
         "404": {$ref: "#/components/responses/NotFound"}
     post:
+      security: [{cookieAuth: []}, {bearerAuth: [chores:write]}]
       tags: [areas]
-      summary: Create an area (member)
+      summary: Create an area (member; token scope chores:write)
       requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/AreaInput"}}}}
       responses:
         "201": {description: Created, content: {application/json: {schema: {$ref: "#/components/schemas/Area"}}}}
@@ -800,6 +801,7 @@ paths:
   /households/{hh}/areas/{area}:
     parameters: [{$ref: "#/components/parameters/hh"}, {name: area, in: path, required: true, schema: {type: string}}]
     patch:
+      security: [{cookieAuth: []}, {bearerAuth: [chores:write]}]
       tags: [areas]
       summary: Rename an area (member)
       requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/AreaInput"}}}}
@@ -810,6 +812,7 @@ paths:
         "404": {$ref: "#/components/responses/NotFound"}
         "409": {description: An area with that name exists (conflict)}
     delete:
+      security: [{cookieAuth: []}, {bearerAuth: [chores:write]}]
       tags: [areas]
       summary: Delete an area; its chores become area-less (member)
       responses:

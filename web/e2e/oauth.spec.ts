@@ -68,7 +68,7 @@ test('oauth: admin enables it, a user approves an app, sees it under Connected a
     await expect(page.locator('main b')).toHaveCount(0); // the name is text, never markup
     await expect(page.getByLabel(h.name)).toBeChecked();
     await expect(page.getByLabel('Mark chores done, snooze, skip and pause them')).toBeChecked();
-    await expect(page.getByLabel('Create chores')).not.toBeChecked();
+    await expect(page.getByLabel('Create and edit chores, manage areas')).not.toBeChecked();
     await axe(page, 'oauth consent page');
 
     // Allowing needs the password again (this session has not stepped up): a wrong one changes nothing.

@@ -83,7 +83,7 @@ test('integrations: guided Claude Code setup creates a working token, then revok
   await expect(dialog.getByLabel('Claude Code')).toBeChecked();
   await expect(dialog.getByLabel(h.name)).toBeChecked();
   await expect(dialog.getByLabel('Mark chores as done, snooze or skip')).toBeChecked();
-  await expect(dialog.getByLabel('Create chores')).not.toBeChecked();
+  await expect(dialog.getByLabel('Create and edit chores, manage areas')).not.toBeChecked();
   await axe(page, 'connect assistant dialog');
   await dialog.getByRole('button', { name: 'Create access' }).click();
 

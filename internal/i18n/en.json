@@ -75,7 +75,7 @@
   "oauth.actions": "What it may do",
   "oauth.action_read": "See households, chores and what is due (always)",
   "oauth.action_complete": "Mark chores done, snooze, skip and pause them",
-  "oauth.action_write": "Create chores",
+  "oauth.action_write": "Create and edit chores, manage areas",
   "oauth.guest_note": "In households where you are a guest the app can only look, whatever you allow here.",
   "oauth.never_note": "It can never change members, settings or your account. You can disconnect it at any time under Account, Integrations.",
   "oauth.allow": "Allow",

@@ -443,7 +443,7 @@ func TestOAuthFullFlow(t *testing.T) {
 
 	// The access token works on /mcp with exactly the granted scopes and households.
 	cs := f.connect(t, tk.access)
-	if got, want := toolNames(t, cs), []string{"complete_chore", "get_chore", "list_chores", "list_households", "skip_chore", "snooze_chore", "undo_completion", "upcoming"}; !slices.Equal(got, want) {
+	if got, want := toolNames(t, cs), []string{"complete_chore", "get_chore", "list_areas", "list_chores", "list_households", "skip_chore", "snooze_chore", "undo_completion", "upcoming"}; !slices.Equal(got, want) {
 		t.Fatalf("tools %v", got)
 	}
 	hs := mustOK(t, cs, "list_households", nil)["households"].([]any)
@@ -770,7 +770,7 @@ func TestOAuthScopesAndHouseholdBinding(t *testing.T) {
 	// Read only: only what is ticked (read is always granted).
 	_, tkRead := f.connectUser(t, f.a, "Reader", []string{f.hA}, "complete", "", "write", "")
 	cs := f.connect(t, tkRead.access)
-	if got := toolNames(t, cs); !slices.Equal(got, []string{"get_chore", "list_chores", "list_households", "upcoming"}) {
+	if got := toolNames(t, cs); !slices.Equal(got, []string{"get_chore", "list_areas", "list_chores", "list_households", "upcoming"}) {
 		t.Fatalf("read-only tools %v", got)
 	}
 	mustFail(t, cs, "complete_chore", map[string]any{"chore": chore}, "permission")
@@ -783,7 +783,7 @@ func TestOAuthScopesAndHouseholdBinding(t *testing.T) {
 		t.Fatal(st)
 	}
 	tk := f.exchange(t, cid, loc.Query().Get("code"), ver)
-	if got := toolNames(t, f.connect(t, tk.access)); !slices.Equal(got, []string{"get_chore", "list_chores", "list_households", "upcoming"}) {
+	if got := toolNames(t, f.connect(t, tk.access)); !slices.Equal(got, []string{"get_chore", "list_areas", "list_chores", "list_households", "upcoming"}) {
 		t.Fatalf("scope escalation: %v", got)
 	}
 

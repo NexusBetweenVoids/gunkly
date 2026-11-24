@@ -160,7 +160,7 @@
   "mcp.may": "What it may do",
   "mcp.alwaysRead": "It can always see your chores and what is due.",
   "mcp.mayComplete": "Mark chores as done, snooze or skip",
-  "mcp.mayWrite": "Create chores",
+  "mcp.mayWrite": "Create and edit chores, manage areas",
   "mcp.create": "Create access",
   "mcp.readyTitle": "Your assistant is ready to connect",
   "mcp.once": "This access key is shown only once and works like a password. Anyone who has it can use it, so don't share it. You can revoke it below at any time.",
