@@ -166,6 +166,7 @@ func newSSOConsentEnv(t *testing.T) (*oauthFix, *ssoEnv) {
 	cfg := &sso.Config{Issuer: idp.srv.URL, ClientID: idpClient, ClientSecret: idpSecret, Name: "Authelia", Scopes: []string{"openid", "profile", "email"}}
 	h := newHH(t, func(o *Options) { o.SSO = cfg; o.BaseURL = "http://localhost:4865" })
 	setOAuth(t, h.e, true)
+	idp.now = h.e.clock.Now
 	return &oauthFix{&tokenEnv{hhFixture: h}}, &ssoEnv{env: h.e, idp: idp}
 }
 

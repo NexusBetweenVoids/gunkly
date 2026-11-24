@@ -252,12 +252,26 @@ func (s *Server) ssoSessionFlow(w http.ResponseWriter, r *http.Request, c *call,
 	}
 	c.user, c.sess = u, ss
 	if st.Mode == ssoModeStepUp {
+		refused := func(reason string) error {
+			meta := map[string]string{"via": "sso_stepup", "reason": reason}
+			if strings.HasPrefix(st.Next, "/oauth/authorize?") {
+				meta["via"] = "sso_stepup_consent"
+			}
+			s.audit(ctx, c, u.ID, store.AuditLoginFailure, "", meta)
+			return fail("failed")
+		}
 		own, err := s.st.SSOIdentityForUser(ctx, u.ID, id.Issuer)
 		if err != nil || own.Subject != id.Subject {
-			return fail("failed") // another provider account than the one linked
+			return refused("subject") // another provider account than the one linked
 		}
-		if !id.AuthTime.IsZero() && s.now().Sub(id.AuthTime) > ssoMaxAuth {
-			return fail("failed") // the provider did not ask the user again
+		// The request said max_age=0, so the provider must say when the user
+		// authenticated (OIDC Core 3.1.2.1); without auth_time it may have
+		// skipped asking again.
+		if id.AuthTime.IsZero() {
+			return refused("auth_time_missing")
+		}
+		if s.now().Sub(id.AuthTime) > ssoMaxAuth {
+			return refused("auth_time_stale") // the provider did not ask the user again
 		}
 		if err := s.st.StepUpSession(ctx, u.ID, ss.ID); err != nil {
 			return err

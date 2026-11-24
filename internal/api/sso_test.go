@@ -9,6 +9,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -43,6 +44,8 @@ type fakeIdP struct {
 	// What the next token response contains, per test.
 	tweak func(claims map[string]any) // edits the ID token claims
 	sign  *ecdsa.PrivateKey           // signs the token (default: the published key)
+	// now is the clock for auth_time (the server's test clock).
+	now func() time.Time
 }
 
 type idpGrant struct {
@@ -123,6 +126,7 @@ func newSSOEnv(t *testing.T, mutate ...func(*Options)) *ssoEnv {
 	idp := newFakeIdP(t)
 	cfg := &sso.Config{Issuer: idp.srv.URL, ClientID: idpClient, ClientSecret: idpSecret, Name: "Authelia", Scopes: []string{"openid", "profile", "email"}}
 	e := newEnv(t, append([]func(*Options){func(o *Options) { o.SSO = cfg; o.BaseURL = "http://localhost:4865" }}, mutate...)...)
+	idp.now = e.clock.Now
 	return &ssoEnv{env: e, idp: idp}
 }
 
@@ -165,6 +169,17 @@ func (f *fakeIdP) authorize(authURL string, claims map[string]any) (callback str
 		q.Get("redirect_uri") != "http://localhost:4865/api/v1/auth/oidc/callback" ||
 		!strings.Contains(" "+q.Get("scope")+" ", " openid ") {
 		f.t.Fatalf("authorization request: %v", q)
+	}
+	// Like a real provider: a request with max_age gets auth_time (the user
+	// just authenticated) unless the test sets its own.
+	if q.Get("max_age") != "" && f.now != nil {
+		if _, ok := claims["auth_time"]; !ok {
+			c := map[string]any{"auth_time": f.now().Unix()}
+			for k, v := range claims {
+				c[k] = v
+			}
+			claims = c
+		}
 	}
 	code := "code-" + strconv.Itoa(len(f.codes)) + "-" + q.Get("state")[:6]
 	f.mu.Lock()
@@ -678,5 +693,48 @@ func TestSSOButtonName(t *testing.T) {
 	g := newSSOEnv(t, func(o *Options) { o.SSO.Name = "" })
 	if _, v := g.client().do("GET", "/api/v1/instance", nil); field(field(v, "sso"), "name") != "" {
 		t.Fatalf("no name anywhere: %v", v)
+	}
+}
+
+// auditReasons lists the reasons of the caller's login_failure audit entries.
+func auditReasons(t *testing.T, c *client) []string {
+	t.Helper()
+	st, v := c.do("GET", "/api/v1/account/audit", nil)
+	if st != 200 {
+		t.Fatalf("audit: %d %v", st, v)
+	}
+	var out []string
+	for _, ev := range v.([]any) {
+		if field(ev, "event") == store.AuditLoginFailure {
+			out = append(out, fmt.Sprint(field(field(ev, "meta"), "via"), "/", field(field(ev, "meta"), "reason")))
+		}
+	}
+	return out
+}
+
+// An SSO step-up needs auth_time (the request said max_age=0); failed ones are audited.
+func TestSSOStepUpNeedsAuthTimeAndIsAudited(t *testing.T) {
+	e := newSSOEnv(t)
+	e.createOn(true)
+	nc, _ := e.signIn(claims("sub-1"))
+	step := func(c map[string]any) string {
+		_, v := nc.do("POST", "/api/v1/session/step-up/sso", map[string]string{})
+		cb, _ := e.idp.authorize(field(v, "url").(string), c)
+		_, loc, _ := nc.follow("GET", cb, nil)
+		return loc
+	}
+	e.idp.now = nil // this provider leaves auth_time out
+	if loc := step(claims("sub-1")); loc != "/account/security?sso=failed" {
+		t.Fatalf("no auth_time: %q", loc)
+	}
+	if loc := step(claims("sub-2", map[string]any{"auth_time": e.clock.Now().Unix()})); loc != "/account/security?sso=failed" {
+		t.Fatalf("other subject: %q", loc)
+	}
+	got := strings.Join(auditReasons(t, nc), ",")
+	if !strings.Contains(got, "sso_stepup/auth_time_missing") || !strings.Contains(got, "sso_stepup/subject") {
+		t.Fatalf("failed step-ups not audited: %q", got)
+	}
+	if loc := step(claims("sub-1", map[string]any{"auth_time": e.clock.Now().Unix()})); !strings.HasSuffix(loc, "?sso=stepup") {
+		t.Fatalf("fresh auth_time: %q", loc)
 	}
 }

@@ -718,6 +718,12 @@ func (s *Server) consentStepUp(w http.ResponseWriter, r *http.Request, c *call, 
 		s.audit(ctx, c, u.ID, store.AuditLoginFailure, "", map[string]string{"via": "oauth_consent", "reason": why})
 		return stepUpFailed, nil
 	}
+	if !u.HasPassword() {
+		// No password to check (an account made by single sign-on): only the
+		// passkey or provider buttons can confirm. Not a password failure, so
+		// no backoff and no audit entry for something the user cannot type.
+		return stepUpFailed, nil
+	}
 	if good, err := s.verifyPassword(u.PasswordHash, r.PostForm.Get("password")); err != nil || !good {
 		return fail(pwKey, "password")
 	}

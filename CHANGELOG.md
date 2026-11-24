@@ -13,6 +13,7 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ### Fixed
 
+- Single sign-on confirmation (step-up, also on the OAuth consent page) now requires the provider's `auth_time` (OIDC requires it when `max_age` is sent; Keycloak and authentik send it), and failed confirmations are recorded in the account's activity log. An account without a password pressing Allow on the consent page no longer counts as a wrong password.
 - OAuth consent page (ChatGPT and Claude connectors): an account whose only second factor is a passkey no longer has to type a recovery code, and an account without a password (created by single sign-on) can now approve an app at all. Accounts with a passkey see **Confirm with a passkey** (user verification required; Gunkly verifies the assertion itself); linked accounts see **Confirm with {provider}**, which re-verifies through the identity provider (`prompt=login`, `max_age=0`) and returns to the same consent request. Without script the page is the same plain form as before (password, authenticator, emailed or recovery code).
 
 ### Changed
