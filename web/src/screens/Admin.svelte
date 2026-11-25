@@ -28,6 +28,7 @@
       <Users />
     {:else if g === 'updates'}
       <Updates />
+      <ServiceCards which="updatehook" />
     {:else if g === 'ai'}
       <Ai />
     {:else if g === 'email'}

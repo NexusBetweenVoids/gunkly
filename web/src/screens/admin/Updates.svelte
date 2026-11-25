@@ -6,7 +6,7 @@
   import { formatDate, t } from '../../lib/i18n';
   import { withStepUp } from '../../lib/stepup.svelte';
 
-  type U = { running: string; latest: string; newer: boolean; ahead: boolean; checking: boolean; changelog: string; checkedAt: string | null; enabled: boolean };
+  type U = { running: string; latest: string; newer: boolean; ahead: boolean; checking: boolean; changelog: string; checkedAt: string | null; enabled: boolean; canUpdate?: boolean };
   let u = $state<U | null>(null);
   let err = $state('');
 
@@ -44,6 +44,42 @@
     }
   }
 
+  // "Update now": ask the admin's updater, then wait for this server to come back with a new version.
+  let updating = $state('');
+  let updateErr = $state('');
+  async function updateNow(): Promise<void> {
+    if (!u) return;
+    updateErr = '';
+    const from = u.running;
+    try {
+      const r = await withStepUp(() => api<{ result: string; error?: string; status?: number }>('POST', '/admin/updates/apply'));
+      if (r.result === 'failed') {
+        updateErr = r.error === 'rejected' ? t('updates.hookRejected', { status: r.status ?? 0 }) : t('updates.hookUnreachable');
+        return;
+      }
+    } catch (x) {
+      updateErr = failure(x).message;
+      return;
+    }
+    updating = t('updates.updating');
+    const until = Date.now() + 5 * 60_000;
+    while (Date.now() < until) {
+      await new Promise((ok) => setTimeout(ok, 5000));
+      try {
+        const now = await api<U>('GET', '/admin/updates');
+        if (now.running !== from) {
+          updating = t('updates.updated', { v: now.running });
+          setTimeout(() => location.reload(), 1500);
+          return;
+        }
+      } catch {
+        // restarting: keep waiting
+      }
+    }
+    updating = '';
+    updateErr = t('updates.updateTimeout');
+  }
+
   async function toggle(on: boolean): Promise<void> {
     err = '';
     try {
@@ -75,6 +111,11 @@
         <p>{t(u.newer ? 'updates.newer' : 'updates.current', { v: u.latest })}</p>
       {/if}
       {#if u.checkedAt}<p class="muted">{t('updates.checked', { date: formatDate(new Date(u.checkedAt)) })}</p>{/if}
+      {#if u.newer && u.canUpdate}
+        <p><button type="button" class="btn" disabled={!!updating} onclick={updateNow}>{t('updates.updateNow', { v: u.latest })}</button></p>
+      {/if}
+      {#if updating}<p role="status">{updating}</p>{/if}
+      <Alert message={updateErr} />
       {#if u.changelog}
         <h3>{t('updates.changelog')}</h3>
         <div class="changelog" data-testid="changelog"><Markdown source={u.changelog} /></div>

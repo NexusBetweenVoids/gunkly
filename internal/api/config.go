@@ -65,6 +65,11 @@ var cfgFields = []cfgField{
 
 	{key: "metrics.token", env: "GUNKLY_METRICS_TOKEN", kind: cfgSecret, check: validMetricsToken},
 	{key: "signup.pow_max", env: "GUNKLY_SIGNUP_POW_MAX", kind: cfgInt, min: 1_000, max: 1_000_000},
+
+	// Update webhook: an updater the admin runs (Watchtower's HTTP API, a
+	// container manager's redeploy webhook, an own script). Gunkly only asks.
+	{key: "updates.webhook_url", env: "GUNKLY_UPDATE_WEBHOOK_URL", group: "updatehook", kind: cfgString, check: validUpdateURL},
+	{key: "updates.webhook_token", env: "GUNKLY_UPDATE_WEBHOOK_TOKEN", group: "updatehook", kind: cfgSecret, check: validHeaderValue},
 }
 
 func cfgFieldByKey(k string) (cfgField, bool) {
@@ -333,4 +338,11 @@ func validScopes(v string) bool {
 
 func validMetricsToken(v string) bool {
 	return len(v) >= 16 && len(v) <= 256 && !strings.ContainsAny(v, " \t")
+}
+
+// validUpdateURL: an http(s) URL with a host and no credentials; a query is
+// allowed (some updaters put their token there).
+func validUpdateURL(v string) bool {
+	u, err := url.Parse(v)
+	return err == nil && (u.Scheme == "http" || u.Scheme == "https") && u.Host != "" && u.User == nil && u.Fragment == "" && len(v) <= 2000
 }

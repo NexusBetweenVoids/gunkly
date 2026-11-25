@@ -245,7 +245,7 @@ The series are build info, HTTP requests by route and status class, a request du
 
 ## Updates
 
-Administration, Updates shows the running version and the latest release with its changelog. Once every 12 hours at most, Gunkly asks the public GitHub release API for the latest release (user agent `gunkly-update-check`, no information about your server) and caches the answer. Switch it off on the same page and Gunkly makes no request at all. Gunkly never updates itself: pull the new image and restart; migrations run on start.
+Administration, Updates shows the running version and the latest release with its changelog. Once every 12 hours at most, Gunkly asks the public GitHub release API for the latest release (user agent `gunkly-update-check`, no information about your server) and caches the answer. Switch it off on the same page and Gunkly makes no request at all. Gunkly never updates itself (that would need access to Docker): pull the new image and restart, or set up an optional **Update now** button that asks an updater you run, such as Watchtower; see [Updating Gunkly](docs/updating.md).
 
 ## Browser notifications
 
@@ -339,6 +339,7 @@ Every instance can delete accounts (Settings, Your data, "Delete account") and c
 | [docs/getting-started.md](docs/getting-started.md) | First-run walkthrough |
 | [docs/webhooks.md](docs/webhooks.md) | Outgoing webhooks: payloads, signatures, retries |
 | [docs/ai-chore-suggestions.md](docs/ai-chore-suggestions.md) | AI chore suggestions: admin setup, what is sent |
+| [docs/updating.md](docs/updating.md) | Updating, and the optional Update now button (Watchtower example) |
 | [docs/PRD.md](docs/PRD.md) | Scope and requirements |
 | [docs/adr/](docs/adr/) | Architecture decisions |
 | [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) | Threat model |

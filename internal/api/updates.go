@@ -1,9 +1,13 @@
 package api
 
 import (
+	"context"
+	"errors"
+	"io"
 	"net/http"
 	"time"
 
+	"github.com/NexusBetweenVoids/gunkly/internal/store"
 	"github.com/NexusBetweenVoids/gunkly/internal/updates"
 )
 
@@ -16,6 +20,9 @@ type updatesView struct {
 	CheckedAt *time.Time `json:"checkedAt"`
 	Enabled   bool       `json:"enabled"`
 	Checking  bool       `json:"checking"` // a refresh from GitHub is running; ask again shortly
+	// CanUpdate: an update webhook is configured, so "Update now" can ask the
+	// admin's updater to pull the new image and restart Gunkly.
+	CanUpdate bool `json:"canUpdate"`
 }
 
 // updatesState builds the view from the cache and, when asked or when the
@@ -23,6 +30,9 @@ type updatesView struct {
 // nothing is shown and GitHub is never asked.
 func (s *Server) updatesState(r *http.Request, force bool) (updatesView, error) {
 	v := updatesView{Running: s.version}
+	if cfg, err := s.config(r.Context(), false); err == nil {
+		v.CanUpdate = cfg.str("updates.webhook_url") != ""
+	}
 	st, err := s.st.InstanceSettings(r.Context())
 	if err != nil {
 		return v, err
@@ -66,4 +76,53 @@ func (s *Server) adminUpdatesCheck(w http.ResponseWriter, r *http.Request, _ *ca
 		return err
 	}
 	return ok(w, v)
+}
+
+// updateHookTimeout bounds the call to the updater. Some updaters answer only
+// when they are done, and that may include restarting this very server, so
+// no answer in time is reported as "sent", not as a failure.
+const updateHookTimeout = 15 * time.Second
+
+// adminApplyUpdate calls the configured update webhook once: POST with an
+// empty body and, when a token is set, "Authorization: Bearer <token>".
+// Gunkly never touches the container runtime itself.
+func (s *Server) adminApplyUpdate(w http.ResponseWriter, r *http.Request, c *call) error {
+	cfg, err := s.config(r.Context(), true)
+	if err != nil {
+		return err
+	}
+	target := cfg.str("updates.webhook_url")
+	if target == "" || !validUpdateURL(target) {
+		return errf(http.StatusConflict, "update_webhook_missing")
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), updateHookTimeout)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, target, nil)
+	if err != nil {
+		return errf(http.StatusConflict, "update_webhook_missing")
+	}
+	req.Header.Set("User-Agent", "gunkly/"+s.version)
+	if tok := cfg.str("updates.webhook_token"); tok != "" {
+		req.Header.Set("Authorization", "Bearer "+tok)
+	}
+	s.audit(r.Context(), c, c.user.ID, store.AuditAdminUpdate, "", map[string]string{"from": s.version})
+	out := map[string]any{}
+	resp, err := s.updateHTTP.Do(req)
+	switch {
+	case err != nil && (errors.Is(err, context.DeadlineExceeded) || errors.Is(ctx.Err(), context.DeadlineExceeded)):
+		out["result"] = "sent" // the updater is busy (or already restarting us)
+	case err != nil:
+		s.log.Warn("update webhook failed", "err", err)
+		out["result"], out["error"] = "failed", "unreachable"
+	default:
+		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 64<<10))
+		_ = resp.Body.Close()
+		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+			out["result"] = "accepted"
+		} else {
+			out["result"], out["error"], out["status"] = "failed", "rejected", resp.StatusCode
+		}
+	}
+	writeJSON(w, http.StatusOK, out)
+	return nil
 }

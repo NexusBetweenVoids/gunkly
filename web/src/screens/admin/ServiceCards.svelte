@@ -9,7 +9,7 @@
   import { app } from '../../lib/session.svelte';
   import ConfigCard, { type FieldSpec } from './ConfigCard.svelte';
 
-  let { which }: { which: 'email' | 'sso' | 'metrics' | 'pow' } = $props();
+  let { which }: { which: 'email' | 'sso' | 'metrics' | 'pow' | 'updatehook' } = $props();
 
   type Status = { emailOn: boolean; emailProblem: string; ssoOn: boolean; ssoProblem: string; ssoAvailable: boolean; ssoCallback: string; metricsOn: boolean };
   let st = $state<Status | null>(null);
@@ -85,6 +85,11 @@
     { key: 'sso.scopes', label: t('admin.ssoScopes'), hint: t('svcAdmin.scopesHint'), placeholder: 'openid profile email' },
   ];
   const metricsFields: FieldSpec[] = [{ key: 'metrics.token', label: t('svcAdmin.metricsToken'), secret: true, hint: t('svcAdmin.metricsTokenHint') }];
+  const hookFields: FieldSpec[] = [
+    { key: 'updates.webhook_url', label: t('svcAdmin.hookUrl'), hint: t('svcAdmin.hookUrlHint'), placeholder: 'http://watchtower:8080/v1/update' },
+    { key: 'updates.webhook_token', label: t('svcAdmin.hookToken'), secret: true, hint: t('svcAdmin.hookTokenHint') },
+  ];
+  const updateDocs = 'https://github.com/NexusBetweenVoids/gunkly/blob/main/docs/updating.md';
   const powFields: FieldSpec[] = [{ key: 'signup.pow_max', label: t('svcAdmin.powMax'), hint: t('svcAdmin.powMaxHint'), placeholder: '250000' }];
 </script>
 
@@ -134,6 +139,13 @@
 {:else if which === 'metrics'}
   <ConfigCard id="metrics" title={t('svcAdmin.metricsTitle')} fields={metricsFields} onsaved={saved}>
     {#snippet intro()}<p class="hint">{t('svcAdmin.metricsIntro')}</p>{/snippet}
+  </ConfigCard>
+{:else if which === 'updatehook'}
+  <ConfigCard id="updatehook" title={t('svcAdmin.hookTitle')} fields={hookFields} onsaved={saved}>
+    {#snippet intro()}
+      <p>{t('svcAdmin.hookIntro')}</p>
+      <p class="hint">{t('svcAdmin.hookWhy')} <a href={updateDocs} rel="noopener noreferrer" target="_blank">{t('svcAdmin.hookDocs')}</a></p>
+    {/snippet}
   </ConfigCard>
 {:else}
   <ConfigCard id="pow" title={t('svcAdmin.powTitle')} fields={powFields} onsaved={saved} />

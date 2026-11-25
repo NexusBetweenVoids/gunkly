@@ -18,6 +18,7 @@ import (
 	"github.com/go-webauthn/webauthn/webauthn"
 
 	"github.com/NexusBetweenVoids/gunkly/internal/auth"
+	"github.com/NexusBetweenVoids/gunkly/internal/egress"
 	"github.com/NexusBetweenVoids/gunkly/internal/ids"
 	"github.com/NexusBetweenVoids/gunkly/internal/limits"
 	"github.com/NexusBetweenVoids/gunkly/internal/mail"
@@ -135,9 +136,11 @@ type Server struct {
 
 	// AI chore suggestions: the admin endpoint's client, the 24-hour per-user
 	// request counter and the instance-wide cap on requests in flight.
-	aiHTTP   *http.Client
-	aiCounts *windowCounter
-	aiSem    chan struct{}
+	aiHTTP *http.Client
+	// updateHTTP calls the admin's update webhook (may be on the local network).
+	updateHTTP *http.Client
+	aiCounts   *windowCounter
+	aiSem      chan struct{}
 
 	mux    *http.ServeMux
 	routes []route
@@ -186,6 +189,9 @@ func New(o Options) *Server {
 	s.aiSem = make(chan struct{}, aiConcurrent)
 	if s.aiHTTP = o.AIClient; s.aiHTTP == nil {
 		s.aiHTTP = newAIHTTP()
+	}
+	if s.updateHTTP = o.AIClient; s.updateHTTP == nil { // tests reuse the injected client
+		s.updateHTTP = egress.NewAdminEndpointClient(updateHookTimeout)
 	}
 	s.envSvc = envServices{smtp: o.SMTP, sso: o.SSO, metricsToken: o.MetricsToken, powMax: o.PoWMaxNumber, testMailer: o.Mailer}
 	// Until InitSetup reads the stored configuration: the environment alone.

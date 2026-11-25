@@ -1,6 +1,8 @@
 package api
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/NexusBetweenVoids/gunkly/internal/metrics"
@@ -126,4 +128,37 @@ func TestSSONeedsHTTPS(t *testing.T) {
 	if _, svc := root.do("GET", "/api/v1/admin/services", nil); field(svc, "ssoOn") != false || str(svc, "ssoProblem") != "needs_https" {
 		t.Fatalf("http base: %v", svc)
 	}
+}
+
+func TestUpdateWebhook(t *testing.T) {
+	var gotAuth, gotMethod string
+	status := 200
+	hook := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAuth, gotMethod = r.Header.Get("Authorization"), r.Method
+		w.WriteHeader(status)
+	}))
+	defer hook.Close()
+	e, root := adminEnv(t, func(o *Options) { o.AIClient = hook.Client() })
+	st, v := root.do("POST", "/api/v1/admin/updates/apply", nil)
+	expect(t, st, v, 409, "update_webhook_missing")
+	if _, u := root.do("GET", "/api/v1/admin/updates", nil); field(u, "canUpdate") != false {
+		t.Fatalf("canUpdate before: %v", u)
+	}
+	patchConfig(t, root, map[string]any{"updates.webhook_url": "ftp://x"}, 400, "invalid")
+	patchConfig(t, root, map[string]any{"updates.webhook_url": hook.URL + "/v1/update", "updates.webhook_token": "wt-token"}, 200, "")
+	if _, u := root.do("GET", "/api/v1/admin/updates", nil); field(u, "canUpdate") != true {
+		t.Fatalf("canUpdate after: %v", u)
+	}
+	st, v = root.do("POST", "/api/v1/admin/updates/apply", nil)
+	if st != 200 || str(v, "result") != "accepted" || gotAuth != "Bearer wt-token" || gotMethod != "POST" {
+		t.Fatalf("apply: %d %v %q %q", st, v, gotAuth, gotMethod)
+	}
+	status = 401
+	st, v = root.do("POST", "/api/v1/admin/updates/apply", nil)
+	if st != 200 || str(v, "result") != "failed" || str(v, "error") != "rejected" {
+		t.Fatalf("rejected: %d %v", st, v)
+	}
+	// A recent step-up is required.
+	st, v = e.signedIn("root").do("POST", "/api/v1/admin/updates/apply", nil)
+	expect(t, st, v, 403, "step_up_required")
 }
