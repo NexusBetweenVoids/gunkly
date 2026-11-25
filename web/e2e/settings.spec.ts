@@ -55,12 +55,28 @@ test('household settings: areas, calendar feed, notification channel from the se
   const picker = dlg.getByLabel('Service', { exact: true });
   await expect(picker.locator('option')).toHaveCount(enabled.length + 1);
   await picker.selectOption('discord');
-  await expect(dlg.getByLabel('Service URL')).toHaveValue('discord://');
-  await dlg.getByLabel('Service URL').fill('discord://tokensecret1234567890@1234567890');
+  // Guided: steps, the full guide, and the webhook link Discord gives you (converted for Shoutrrr).
+  await expect(dlg.getByTestId('service-help')).toContainText('Copy Webhook URL');
+  await expect(dlg.getByRole('link', { name: 'Full Discord setup guide (Shoutrrr docs)' })).toHaveAttribute(
+    'href',
+    'https://shoutrrr.nickfedor.com/latest/services/chat/discord/',
+  );
+  await dlg.getByLabel('Webhook link').fill('https://discord.com/api/webhooks/1234567890/not-a-webhook/extra');
+  await dlg.getByRole('button', { name: 'Save' }).click();
+  await expect(dlg.getByText("That doesn't look right for Discord.")).toBeVisible();
+  await dlg.getByLabel('Webhook link').fill('https://discord.com/api/webhooks/1234567890/tokensecret1234567890');
   await dlg.getByLabel('Label').fill('Family chat');
   await dlg.getByRole('button', { name: 'Save' }).click();
   await expect(channels.getByText('Family chat')).toBeVisible();
   await expect(page.getByText('tokensecret')).toHaveCount(0); // write-only URL
+  await expect(channels.getByText('Discord', { exact: true })).toBeVisible(); // the kind, by name
+  // Telegram: token and chat become the service URL.
+  await channels.getByRole('button', { name: 'Add channel' }).click();
+  await picker.selectOption('telegram');
+  await dlg.getByLabel('Bot token').fill('110201543:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw');
+  await dlg.getByLabel('Chat', { exact: true }).fill('@chores_test');
+  await dlg.getByRole('button', { name: 'Save' }).click();
+  await expect(channels.getByText('Telegram', { exact: true }).first()).toBeVisible();
   // Free URL entry still works, and a disabled service is refused with a clear message.
   await channels.getByRole('button', { name: 'Add channel' }).click();
   await dlg.getByLabel('Service URL').fill('gotify://gotify.example.com/AbCdEfGhIjKl');

@@ -2,6 +2,7 @@
   import { api } from '../lib/api';
   import { failure } from '../lib/errors';
   import { t } from '../lib/i18n';
+  import { docsUrl, fromLink, SERVICES, serviceName } from '../lib/services';
   import { toast } from '../lib/toast.svelte';
   import type { Channel } from '../lib/types';
   import Alert from './Alert.svelte';
@@ -23,6 +24,15 @@
   let deleting = $state<Channel | null>(null);
   let kinds = $state<string[] | null>(null); // null until loaded
   let kind = $state('');
+  // Guided entry: the service's own fields instead of a raw service URL.
+  let values = $state<Record<string, string>>({});
+  let rawUrl = $state(false);
+  const svc = $derived(kind ? SERVICES[kind] : undefined);
+  const guided = $derived(editing === 'new' && !!svc?.fields && !rawUrl);
+  // Services with guided fields first, then the rest by name.
+  const ordered = $derived(
+    [...(kinds ?? [])].sort((a, b) => Number(!SERVICES[a]?.fields) - Number(!SERVICES[b]?.fields) || serviceName(a).localeCompare(serviceName(b))),
+  );
 
   async function load(): Promise<void> {
     try {
@@ -38,6 +48,8 @@
     label = c === 'new' ? '' : c.label;
     url = '';
     kind = '';
+    values = {};
+    rawUrl = false;
     err = '';
     if (c === 'new' && kinds === null) {
       api<{ enabledNotificationKinds: string[] }>('GET', '/notification-kinds')
@@ -46,20 +58,30 @@
     }
   }
 
-  /** Picking a service sets the URL scheme and keeps whatever follows it. */
+  /** Picking a service starts its fields afresh. */
   function pick(): void {
-    if (kind) url = `${kind.replace('-selfhosted', '')}://${url.replace(/^[a-z0-9+.-]+:\/\//i, '')}`;
+    values = Object.fromEntries((SERVICES[kind]?.fields ?? []).map((f) => [f.id, '']));
+    rawUrl = false;
+  }
+
+  /** The service URL to send: built from the fields, or typed (a pasted webhook link is converted). */
+  function target(): string | null {
+    if (guided) return svc!.build!(values);
+    const typed = url.trim();
+    return typed ? (fromLink(typed) ?? typed) : '';
   }
 
   const fail = (x: unknown) => failure(x).message;
 
   async function save(e: SubmitEvent): Promise<void> {
     e.preventDefault();
-    busy = true;
     err = '';
+    const to = target();
+    if (to === null) return void (err = t('svc.invalid', { name: svc!.name }));
+    busy = true;
     try {
-      if (editing === 'new') await api('POST', base, { url: url.trim(), label: label.trim() });
-      else await api('PATCH', `${base}/${editing!.id}`, { label: label.trim(), ...(url.trim() ? { url: url.trim() } : {}) });
+      if (editing === 'new') await api('POST', base, { url: to, label: label.trim() || (svc ? svc.name : '') });
+      else await api('PATCH', `${base}/${editing!.id}`, { label: label.trim(), ...(to ? { url: to } : {}) });
       editing = null;
       toast(t('common.saved'));
       await load();
@@ -105,7 +127,7 @@
     <ul class="list">
       {#each items as c (c.id)}
         <li>
-          <span><strong>{c.label || c.kind}</strong> <span class="badge">{c.kind}</span><br /><span class="muted mono">{c.hint}</span></span>
+          <span><strong>{c.label || serviceName(c.kind)}</strong> <span class="badge">{serviceName(c.kind)}</span><br /><span class="muted mono">{c.hint}</span></span>
           <span class="row">
             <Button variant="quiet" aria-label={t('channels.testFor', { label: c.label || c.kind })} onclick={() => test(c)}>{t('channels.test')}</Button>
             <Button variant="quiet" aria-label={t('channels.editFor', { label: c.label || c.kind })} onclick={() => open(c)}>{t('channels.edit')}</Button>
@@ -129,22 +151,50 @@
           label={t('channels.service')}
           bind:value={kind}
           onchange={pick}
-          options={[{ value: '', label: t('channels.serviceOther') }, ...kinds.map((k) => ({ value: k, label: k }))]}
+          options={[{ value: '', label: t('channels.serviceOther') }, ...ordered.map((k) => ({ value: k, label: serviceName(k) }))]}
         />
       {:else if kinds}
         <p class="hint">{t('channels.noServices')}</p>
       {/if}
     {/if}
-    <Field
-      label={editing === 'new' ? t('channels.url') : t('channels.newUrl')}
-      hint={editing === 'new' ? t('channels.urlHint') : t('channels.urlKeep')}
-      bind:value={url}
-      required={editing === 'new'}
-      autocomplete="off"
-      autocapitalize="none"
-      spellcheck="false"
-      placeholder="ntfy://ntfy.sh/my-topic"
-    />
+    {#if editing === 'new' && svc}
+      <div class="howto" data-testid="service-help">
+        {#if svc.steps}
+          <ol class="steps stack-sm">
+            {#each svc.steps as step (step)}<li>{t(step)}</li>{/each}
+          </ol>
+        {/if}
+        <p class="hint">
+          <a href={docsUrl(svc)} target="_blank" rel="noopener noreferrer">{t('svc.guide', { name: svc.name })}</a>
+        </p>
+      </div>
+    {/if}
+    {#if guided}
+      {#each svc!.fields! as f (f.id)}
+        <Field
+          label={t(f.label)}
+          hint={f.hint ? t(f.hint) : undefined}
+          bind:value={values[f.id]}
+          required
+          autocomplete="off"
+          autocapitalize="none"
+          spellcheck="false"
+          placeholder={f.placeholder}
+        />
+      {/each}
+      <p class="hint"><button type="button" class="linkish" onclick={() => (rawUrl = true)}>{t('svc.useUrl')}</button></p>
+    {:else}
+      <Field
+        label={editing === 'new' ? t('channels.url') : t('channels.newUrl')}
+        hint={editing === 'new' ? t('channels.urlHint') : t('channels.urlKeep')}
+        bind:value={url}
+        required={editing === 'new'}
+        autocomplete="off"
+        autocapitalize="none"
+        spellcheck="false"
+        placeholder={svc?.format ?? 'ntfy://ntfy.sh/my-topic'}
+      />
+    {/if}
     <p class="hint">{t('channels.privacy')}</p>
     <Alert message={err} />
     <div class="row">
@@ -161,3 +211,24 @@
   onconfirm={remove}
   oncancel={() => (deleting = null)}
 />
+
+<style>
+  .howto {
+    padding: 12px 14px;
+    border-radius: 8px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+  }
+  .howto .hint {
+    margin-block-end: 0;
+  }
+  .linkish {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+</style>
