@@ -4,9 +4,13 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ## [Unreleased]
 
+### Changed
+
+- Administration, Updates shows the release notes formatted (headings, bullet and numbered lists, bold, italic, code, links) instead of as raw Markdown. The notes are still treated as untrusted text: they are never inserted as HTML, so markup in them shows literally; only http(s) links become clickable (new tab, no referrer); images are not shown.
+
 ### Fixed
 
-- `api/openapi.yaml` loads again in strict YAML tools (three summaries had an unquoted `: `), and 15 descriptions that a comma cut short are complete again (error-code lists such as the 403's `forbidden, csrf_failed, step_up_required, token_not_allowed, insufficient_scope`). The API itself is unchanged. CI now checks the spec on every push, not only on pull requests.
+- `api/openapi.yaml` loads again in strict YAML tools (four texts had an unquoted `: `, one an unquoted `?`), and 18 descriptions that a comma cut short are complete again (error-code lists such as the 403's `forbidden, csrf_failed, step_up_required, token_not_allowed, insufficient_scope`). The API itself is unchanged. CI now checks the spec on every push, not only on pull requests.
 
 ## [0.5.4] - 2026-11-25
 

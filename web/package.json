@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build && node -e \"require('node:fs').writeFileSync('dist/.gitkeep','')\"",
-    "check": "svelte-check --fail-on-warnings && npm run -s i18n-check && node scripts/qr-check.mjs",
+    "check": "svelte-check --fail-on-warnings && npm run -s i18n-check && node scripts/qr-check.mjs && node scripts/md-check.mjs",
     "i18n-check": "node scripts/i18n-check.mjs",
     "budget": "node scripts/budget.mjs",
     "licenses": "node scripts/licenses.mjs",

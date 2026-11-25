@@ -213,6 +213,39 @@ test('home: no offer for guests, or for anyone who already has another way to ge
   await expect(c.page.getByTestId('push-prompt')).toHaveCount(0);
 });
 
+test('admin: release notes show as formatted text, never as HTML, with only http(s) links', async ({ world }) => {
+  const admin = await world.newUser({ admin: true });
+  const { page } = await admin.open();
+  const notes = [
+    '### Changed',
+    '',
+    '- A **bold** change with `code` and [the docs](https://gunkly.app/docs/)',
+    '  - a nested point',
+    '- <img src=x onerror="window.__pwned=1"><script>window.__pwned=2</script>',
+    '- [click](javascript:window.__pwned=3) and [data](data:text/html,x)',
+  ].join('\n');
+  // The e2e server never calls out, so the API answer is stubbed with these notes.
+  await page.route('**/api/v1/admin/updates', (r) =>
+    r.fulfill({ json: { running: '0.5.4', latest: '9.9.9', newer: true, ahead: false, checking: false, changelog: notes, checkedAt: null, enabled: true } }),
+  );
+  await page.goto('/admin/updates');
+  const log = page.getByTestId('changelog');
+  await expect(log.getByRole('heading', { name: 'Changed' })).toBeVisible();
+  await expect(log.locator('strong')).toHaveText('bold');
+  await expect(log.locator('code')).toHaveText('code');
+  await expect(log.locator('ul ul li')).toHaveText('a nested point');
+  const links = log.getByRole('link');
+  await expect(links).toHaveCount(1);
+  await expect(links).toHaveAttribute('href', 'https://gunkly.app/docs/');
+  await expect(links).toHaveAttribute('rel', 'noopener noreferrer nofollow');
+  await expect(links).toHaveAttribute('target', '_blank');
+  // Raw HTML and unsafe links are shown as text; nothing ran and no element was created from them.
+  await expect(log.getByText('<script>window.__pwned=2</script>', { exact: false })).toBeVisible();
+  await expect(log.getByText('[click](javascript:window.__pwned=3)', { exact: false })).toBeVisible();
+  await expect(log.locator('img, script, iframe')).toHaveCount(0);
+  expect(await page.evaluate(() => (window as unknown as { __pwned?: number }).__pwned)).toBeUndefined();
+});
+
 test('admin: the Updates section shows the running version and the check can be switched off', async ({ world }) => {
   const admin = await world.newUser({ admin: true });
   await admin.api.call('POST', '/session/step-up', { password: admin.password }, 204);

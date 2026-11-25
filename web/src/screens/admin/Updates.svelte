@@ -1,5 +1,6 @@
 <script lang="ts">
   import Alert from '../../components/Alert.svelte';
+  import Markdown from '../../components/Markdown.svelte';
   import { api } from '../../lib/api';
   import { failure } from '../../lib/errors';
   import { formatDate, t } from '../../lib/i18n';
@@ -76,7 +77,7 @@
       {#if u.checkedAt}<p class="muted">{t('updates.checked', { date: formatDate(new Date(u.checkedAt)) })}</p>{/if}
       {#if u.changelog}
         <h3>{t('updates.changelog')}</h3>
-        <pre class="changelog">{u.changelog}</pre>
+        <div class="changelog" data-testid="changelog"><Markdown source={u.changelog} /></div>
       {/if}
     {/if}
     <p>
@@ -90,10 +91,7 @@
 
 <style>
   .changelog {
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
     max-block-size: 24rem;
     overflow: auto;
-    font-family: inherit;
   }
 </style>
