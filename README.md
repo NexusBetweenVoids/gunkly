@@ -177,7 +177,7 @@ location / {
 
 ## Configuration
 
-Everything is set through environment variables, all documented with their defaults in [`.env.example`](.env.example). The ones you will touch first:
+The server itself is configured through environment variables, all documented with their defaults in [`.env.example`](.env.example). Email, single sign-on, the AI endpoint, the metrics token and the sign-up difficulty can instead be set in the app (Administration), without touching Docker; a variable that is set always wins and shows as locked there (email counts as set by the environment only with `GUNKLY_EMAIL_ENABLED=true`). The ones you will touch first:
 
 | Variable | Purpose |
 |-|-|
@@ -185,9 +185,9 @@ Everything is set through environment variables, all documented with their defau
 | `GUNKLY_BASE_URL` | Public origin used in links (no path) |
 | `GUNKLY_DATABASE_URL` | `sqlite:///data/gunkly.db` or `postgres://...` (the compose files set it) |
 | `GUNKLY_TRUSTED_PROXIES` | Reverse-proxy CIDRs/IPs whose `X-Forwarded-For` / `Forwarded` is trusted; see [Behind a reverse proxy](#behind-a-reverse-proxy) |
-| `GUNKLY_EMAIL_ENABLED` and `GUNKLY_SMTP_*` | Email verification, password reset, email codes (optional) |
-| `GUNKLY_METRICS_TOKEN` | Enables `/metrics` |
-| `GUNKLY_OIDC_ISSUER`, `GUNKLY_OIDC_CLIENT_ID`, `GUNKLY_OIDC_CLIENT_SECRET`, `GUNKLY_OIDC_NAME`, `GUNKLY_OIDC_SCOPES` | Single sign-on with an OpenID Connect provider (self-hosted only; [docs/sso.md](docs/sso.md)) |
+| `GUNKLY_EMAIL_ENABLED` and `GUNKLY_SMTP_*` | Email verification, password reset, email codes (optional; or Administration, Email) |
+| `GUNKLY_METRICS_TOKEN` | Enables `/metrics` (or Administration, Connections) |
+| `GUNKLY_OIDC_ISSUER`, `GUNKLY_OIDC_CLIENT_ID`, `GUNKLY_OIDC_CLIENT_SECRET`, `GUNKLY_OIDC_NAME`, `GUNKLY_OIDC_SCOPES` | Single sign-on with an OpenID Connect provider (self-hosted only; or Administration, Sign-up & sign-in; [docs/sso.md](docs/sso.md)) |
 | `GUNKLY_AUTO_MIGRATE` | Apply migrations on start (default `true`) |
 | `GUNKLY_AI_ENABLED`, `GUNKLY_AI_URL`, `GUNKLY_AI_MODEL`, `GUNKLY_AI_KEY` | AI chore suggestions (optional); also settable in Administration, AI, where a variable set here wins ([docs/ai-chore-suggestions.md](docs/ai-chore-suggestions.md)) |
 
@@ -232,7 +232,7 @@ Pending database migrations are applied on start (`GUNKLY_AUTO_MIGRATE=true`, th
 
 ## Monitoring
 
-Set `GUNKLY_METRICS_TOKEN` (16 or more characters, for example `openssl rand -hex 24`) to serve Prometheus metrics at `/metrics`. Without it the route does not exist. Scrape with the token as a bearer token:
+Set `GUNKLY_METRICS_TOKEN` (or the token under Administration, Connections; 16 or more characters, for example `openssl rand -hex 24`) to serve Prometheus metrics at `/metrics`. Without it the route does not exist. Scrape with the token as a bearer token:
 
 ```yaml
 scrape_configs:

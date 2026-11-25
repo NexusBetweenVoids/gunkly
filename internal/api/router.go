@@ -248,7 +248,7 @@ func (s *Server) enforce(p policy, h handlerFunc) http.Handler {
 			s.fail(w, r, errNotFound) // off: the route does not exist
 			return
 		}
-		if p.sso && s.sso == nil {
+		if p.sso && s.cur().sso == nil {
 			s.fail(w, r, errNotFound) // not configured, or hosted: the route does not exist
 			return
 		}
@@ -286,6 +286,10 @@ func (s *Server) enforce(p policy, h handlerFunc) http.Handler {
 			return
 		case p.auth == authClient:
 		case p.auth == authMetrics:
+			if !s.cur().metricsOn {
+				s.fail(w, r, errNotFound) // no token configured: the route does not exist
+				return
+			}
 			if !s.metricsAuthorized(r) {
 				w.Header().Set("WWW-Authenticate", `Bearer realm="gunkly-metrics"`)
 				s.fail(w, r, errUnauthenticated)

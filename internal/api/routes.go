@@ -164,6 +164,9 @@ func (s *Server) registerRoutes() {
 	s.handle("GET /api/v1/admin/config", admin.noToken(), s.adminGetConfig)
 	s.handle("PATCH /api/v1/admin/config", admin.noToken().withStepUp(), s.adminPatchConfig)
 	s.handle("POST /api/v1/admin/ai/test", admin.noToken(), s.adminTestAI)
+	s.handle("GET /api/v1/admin/services", admin.noToken(), s.adminServiceStatus)
+	s.handle("POST /api/v1/admin/email/test", admin.noToken(), s.adminTestEmail)
+	s.handle("POST /api/v1/admin/sso/test", admin.noToken(), s.adminTestSSO)
 
 	s.registerLinkAndNotifyRoutes()
 	s.registerWebhookRoutes()

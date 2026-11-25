@@ -484,6 +484,7 @@ type consentCtx struct {
 
 // renderConsent writes the consent page.
 func (s *Server) renderConsent(w http.ResponseWriter, r *http.Request, cc consentCtx) error {
+	sp := s.cur().sso
 	ctx := r.Context()
 	u, req := cc.u, cc.req
 	loc := userLocale(u, r)
@@ -537,7 +538,7 @@ func (s *Server) renderConsent(w http.ResponseWriter, r *http.Request, cc consen
 		}
 		if s.ssoLinked(ctx, u) {
 			// The provider's origin joins form-action below: the post is answered by a redirect to it.
-			if ssoOrigin = s.sso.AuthOrigin(ctx); ssoOrigin != "" {
+			if ssoOrigin = sp.AuthOrigin(ctx); ssoOrigin != "" {
 				p.SSO, p.SSOLabel = true, i18n.T(loc, "oauth.sso_btn", map[string]string{"provider": s.ssoLabelName(ctx, loc)})
 			}
 		}
@@ -825,10 +826,11 @@ func (s *Server) consentScript(w http.ResponseWriter, _ *http.Request, _ *call) 
 
 // ssoLinked reports whether u can confirm through the instance's identity provider.
 func (s *Server) ssoLinked(ctx context.Context, u store.User) bool {
-	if s.sso == nil {
+	sp := s.cur().sso
+	if sp == nil {
 		return false
 	}
-	_, err := s.st.SSOIdentityForUser(ctx, u.ID, s.sso.Issuer())
+	_, err := s.st.SSOIdentityForUser(ctx, u.ID, sp.Issuer())
 	return err == nil
 }
 

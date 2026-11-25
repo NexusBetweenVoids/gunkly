@@ -64,9 +64,13 @@ func (s *Server) ssoCookie(value string, maxAge int) *http.Cookie {
 // ssoBegin starts a flow: it sets the state cookie and returns the provider's
 // authorization URL.
 func (s *Server) ssoBegin(ctx context.Context, w http.ResponseWriter, mode, userID, sessionID, next string) (string, error) {
+	sp := s.cur().sso
+	if sp == nil {
+		return "", errNotFound // switched off meanwhile
+	}
 	st := ssoState{State: ids.Token(), Nonce: ids.Token(), Verifier: sso.NewVerifier(), Mode: mode, UserID: userID, SessionID: sessionID,
 		Next: flowNext(next), Expires: s.now().Add(ssoTTL).Unix()}
-	u, err := s.sso.AuthURL(ctx, st.State, st.Nonce, st.Verifier, mode == ssoModeStepUp)
+	u, err := sp.AuthURL(ctx, st.State, st.Nonce, st.Verifier, mode == ssoModeStepUp)
 	if err != nil {
 		return "", err
 	}
@@ -168,6 +172,10 @@ func (s *Server) ssoStart(w http.ResponseWriter, r *http.Request, _ *call) error
 // ssoCallback finishes any flow: it checks state, redeems the code, verifies
 // the ID token and then acts on what the flow was for.
 func (s *Server) ssoCallback(w http.ResponseWriter, r *http.Request, c *call) error {
+	sp := s.cur().sso
+	if sp == nil {
+		return errNotFound // switched off meanwhile
+	}
 	st, ok := s.readSSOState(w, r)
 	if !ok {
 		redirect(w, r, "/signin?sso=failed")
@@ -184,11 +192,11 @@ func (s *Server) ssoCallback(w http.ResponseWriter, r *http.Request, c *call) er
 		return fail("failed")
 	case subtle.ConstantTimeCompare([]byte(q.Get("state")), []byte(st.State)) != 1,
 		q.Get("code") == "",
-		q.Has("iss") && q.Get("iss") != s.sso.Issuer(): // RFC 9207: a response from another provider
+		q.Has("iss") && q.Get("iss") != sp.Issuer(): // RFC 9207: a response from another provider
 		return fail("failed")
 	}
 	ctx := r.Context()
-	id, err := s.sso.Exchange(ctx, q.Get("code"), st.Verifier, st.Nonce)
+	id, err := sp.Exchange(ctx, q.Get("code"), st.Verifier, st.Nonce)
 	if err != nil {
 		s.log.Warn("sso: sign-in refused", "err", err)
 		if errors.Is(err, sso.ErrUnavailable) {
@@ -388,13 +396,14 @@ type ssoStatus struct {
 // ssoName is the provider name shown on buttons ("Sign in with <name>"): the
 // admin's setting, else GUNKLY_OIDC_NAME, else "" (the generic label).
 func (s *Server) ssoName(ctx context.Context) string {
-	if s.sso == nil {
+	sp := s.cur().sso
+	if sp == nil {
 		return ""
 	}
 	if st, err := s.st.InstanceSettings(ctx); err == nil && st.SSOName != "" {
 		return st.SSOName
 	}
-	return s.sso.Name()
+	return sp.Name()
 }
 
 // ssoLabelName is ssoName for server-rendered text, with the generic "SSO"
@@ -408,15 +417,20 @@ func (s *Server) ssoLabelName(ctx context.Context, loc string) string {
 
 // ssoNameDefault is GUNKLY_OIDC_NAME ("" when unset or SSO is off).
 func (s *Server) ssoNameDefault() string {
-	if s.sso == nil {
+	sp := s.cur().sso
+	if sp == nil {
 		return ""
 	}
-	return s.sso.Name()
+	return sp.Name()
 }
 
 func (s *Server) getSSO(w http.ResponseWriter, r *http.Request, c *call) error {
+	sp := s.cur().sso
+	if sp == nil {
+		return errNotFound // switched off meanwhile
+	}
 	v := ssoStatus{Name: s.ssoName(r.Context()), CanUnlink: c.user.HasPassword() || c.user.Passkeys > 0}
-	ident, err := s.st.SSOIdentityForUser(r.Context(), c.user.ID, s.sso.Issuer())
+	ident, err := s.st.SSOIdentityForUser(r.Context(), c.user.ID, sp.Issuer())
 	switch {
 	case err == nil:
 		v.Linked, v.LinkedAt = true, &ident.CreatedAt
@@ -438,7 +452,11 @@ func (s *Server) beginSessionFlow(w http.ResponseWriter, r *http.Request, c *cal
 }
 
 func (s *Server) linkSSO(w http.ResponseWriter, r *http.Request, c *call) error {
-	if _, err := s.st.SSOIdentityForUser(r.Context(), c.user.ID, s.sso.Issuer()); err == nil {
+	sp := s.cur().sso
+	if sp == nil {
+		return errNotFound // switched off meanwhile
+	}
+	if _, err := s.st.SSOIdentityForUser(r.Context(), c.user.ID, sp.Issuer()); err == nil {
 		return errf(http.StatusConflict, "sso_already_linked")
 	} else if !errors.Is(err, store.ErrNotFound) {
 		return err
@@ -447,7 +465,11 @@ func (s *Server) linkSSO(w http.ResponseWriter, r *http.Request, c *call) error 
 }
 
 func (s *Server) unlinkSSO(w http.ResponseWriter, r *http.Request, c *call) error {
-	err := s.st.UnlinkSSO(r.Context(), c.user.ID, c.sess.ID, s.sso.Issuer())
+	sp := s.cur().sso
+	if sp == nil {
+		return errNotFound // switched off meanwhile
+	}
+	err := s.st.UnlinkSSO(r.Context(), c.user.ID, c.sess.ID, sp.Issuer())
 	if errors.Is(err, store.ErrConflict) {
 		return errf(http.StatusConflict, "sso_last_login")
 	} else if err != nil {
@@ -460,13 +482,17 @@ func (s *Server) unlinkSSO(w http.ResponseWriter, r *http.Request, c *call) erro
 // stepUpSSO starts a step-up through the provider (it is asked to
 // authenticate the user again): the way back for accounts without a password.
 func (s *Server) stepUpSSO(w http.ResponseWriter, r *http.Request, c *call) error {
+	sp := s.cur().sso
+	if sp == nil {
+		return errNotFound // switched off meanwhile
+	}
 	var in struct {
 		Next string `json:"next"`
 	}
 	if err := decode(r, &in); err != nil {
 		return err
 	}
-	if _, err := s.st.SSOIdentityForUser(r.Context(), c.user.ID, s.sso.Issuer()); errors.Is(err, store.ErrNotFound) {
+	if _, err := s.st.SSOIdentityForUser(r.Context(), c.user.ID, sp.Issuer()); errors.Is(err, store.ErrNotFound) {
 		return errNotFound
 	} else if err != nil {
 		return err

@@ -16,9 +16,11 @@ Password sign-in stays available next to it. There is deliberately no "SSO only"
 
 ## Configuration
 
-Single sign-on is configured only through environment variables, not in the admin pages, because it needs the client secret. Administration, Sign-up & sign-in, "Single sign-on (SSO)" shows whether it is on: when it is off, the setup steps with this server's redirect URI; when it is on, the provider, client ID, scopes and redirect URI (never the secret), plus the options below.
+Set it up in **Administration**, **Sign-up & sign-in**, **Single sign-on (SSO)**: it shows the redirect URI to register at your provider, then takes the provider address (issuer), client ID, client secret (stored encrypted, never shown again) and scopes. Changes apply at once, and **Test the provider** checks that the provider answers. The card says why it is not running when something is missing (for example an `http://` `GUNKLY_BASE_URL`).
 
-Set these in the environment of the Gunkly container (for example under `environment:` in `docker-compose.yml`), then restart it:
+You can also configure it in the environment instead, as before. When any of the `GUNKLY_OIDC_ISSUER`, `GUNKLY_OIDC_CLIENT_ID`, `GUNKLY_OIDC_CLIENT_SECRET` or `GUNKLY_OIDC_SCOPES` variables is set, the environment wins and the admin card shows the values locked (never the secret).
+
+To use the environment, set these in the environment of the Gunkly container (for example under `environment:` in `docker-compose.yml`), then restart it:
 
 | Variable | Meaning |
 |-|-|
@@ -38,7 +40,7 @@ For example `https://gunkly.example.com/api/v1/auth/oidc/callback`. Gunkly uses 
 
 ### Providers on your LAN
 
-Self-hosted providers usually live on the local network. Gunkly's outbound guard normally refuses connections to private addresses, but the provider's address comes from the environment you control, not from a user, so **requests to the issuer's own host and port are allowed to reach private addresses**. This client follows no redirects, has timeouts and caps response sizes. Any *other* host named in the provider's discovery document (a token or key endpoint elsewhere, as Google's are) is still subject to the guard, unless you turned it off in the admin settings. Keep the issuer, token and key endpoints on one host if you run the provider on your LAN.
+Self-hosted providers usually live on the local network. Gunkly's outbound guard normally refuses connections to private addresses, but the provider's address comes from you (the environment, or an admin), not from a user, so **requests to the issuer's own host and port are allowed to reach private addresses**. This client follows no redirects, has timeouts and caps response sizes. Any *other* host named in the provider's discovery document (a token or key endpoint elsewhere, as Google's are) is still subject to the guard, unless you turned it off in the admin settings. Keep the issuer, token and key endpoints on one host if you run the provider on your LAN.
 
 ### Tested in CI
 
@@ -132,4 +134,4 @@ The sign-in page shows a short message and the server log has the reason (never 
 - *Didn't work, no further detail:* the issuer in the discovery document differs from `GUNKLY_OIDC_ISSUER` (check the trailing slash), the redirect URI at the provider differs from the one above, the client secret is wrong, or the provider signs ID tokens with an algorithm Gunkly does not accept (HS256).
 - *No account is linked:* link it first, or ask an administrator to allow creating accounts.
 
-Design details: [ADR 0018](adr/0018-passkeys-and-sso.md).
+Design details: [ADR 0018](adr/0018-passkeys-and-sso.md); configuring it in the app: [ADR 0019](adr/0019-configuration-in-the-app.md).

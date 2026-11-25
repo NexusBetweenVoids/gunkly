@@ -21,6 +21,7 @@
     clock: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 3',
     gauge: 'M4 18a8 8 0 1 1 16 0M12 18l4-6',
     refresh: 'M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5',
+    mail: 'M4 6h16v12H4zM4 7l8 6 8-6',
     sparkle: 'M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9zM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z',
   } as const;
   export type IconName = keyof typeof PATHS;

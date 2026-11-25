@@ -89,12 +89,18 @@ test('Home Assistant: install and add buttons, and a prefilled key with the addr
   await expect(shown.getByRole('link', { name: 'Add to Home Assistant' })).toHaveAttribute('href', 'https://my.home-assistant.io/redirect/config_flow_start/?domain=gunkly');
 });
 
-test('admin: the single sign-on section shows the environment setup, never the secret', async ({ world }) => {
+test('admin: single sign-on set in the environment is shown locked, never the secret', async ({ world }) => {
   const admin = await world.newUser({ admin: true });
   const { page } = await admin.open();
   await page.goto('/admin/signin');
   await expect(page.getByRole('heading', { name: 'Single sign-on (SSO)' })).toBeVisible();
   await expect(page.getByTestId('sso-status')).toContainText('On');
-  await expect(page.getByText(IDP_CLIENT, { exact: true })).toBeVisible();
+  // Set in the environment: shown read-only with the variable's name; the secret never.
+  const card = page.getByRole('region', { name: 'Single sign-on (SSO)' });
+  await expect(card.getByLabel('Client ID')).toHaveValue(IDP_CLIENT);
+  await expect(card.getByLabel('Client ID')).toHaveAttribute('readonly', '');
+  await expect(card.getByText('Set by GUNKLY_OIDC_CLIENT_ID in the server\'s environment')).toBeVisible();
+  await expect(card.getByLabel('Client secret')).toHaveValue('••••••••');
+  await expect(card.getByRole('button', { name: 'Save' })).toHaveCount(0);
   await expect(page.getByText(/\/api\/v1\/auth\/oidc\/callback$/)).toBeVisible();
 });

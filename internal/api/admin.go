@@ -148,6 +148,7 @@ type settingsView struct {
 }
 
 func (s *Server) adminGetSettings(w http.ResponseWriter, r *http.Request, _ *call) error {
+	sp := s.cur().sso
 	st, err := s.st.InstanceSettings(r.Context())
 	if err != nil {
 		return err
@@ -163,11 +164,11 @@ func (s *Server) adminGetSettings(w http.ResponseWriter, r *http.Request, _ *cal
 		Limits: map[limits.Kind]int{}, LimitDefaults: limits.Defaults,
 		EnabledNotificationKinds: append([]string{}, slices.Sorted(maps.Keys(kindSet(st)))...), AvailableNotificationKinds: notify.AllKinds(),
 		EgressGuard: s.hosted || st.EgressGuard, EgressGuardLocked: s.hosted, UpdateCheck: st.UpdateCheck, MCPEnabled: st.MCPEnabled,
-		OAuthEnabled: st.OAuthEnabled, WebhooksEnabled: st.WebhooksEnabled, OAuthPossible: oauthBaseURLOK(s.baseURL), SSOConfigured: s.sso != nil, SSOCreateAccounts: st.SSOCreateAccounts, SSOName: st.SSOName, SSONameDefault: s.ssoNameDefault(),
+		OAuthEnabled: st.OAuthEnabled, WebhooksEnabled: st.WebhooksEnabled, OAuthPossible: oauthBaseURLOK(s.baseURL), SSOConfigured: sp != nil, SSOCreateAccounts: st.SSOCreateAccounts, SSOName: st.SSOName, SSONameDefault: s.ssoNameDefault(),
 		InactiveEnabled: st.InactiveEnabled, InactiveWarnAfterDays: st.InactiveWarnAfterDays, InactiveDeleteAfterDays: st.InactiveDeleteAfterDays}
 	v.SSOAvailable, v.SSOCallback = !s.hosted, s.baseURL+"/api/v1/auth/oidc/callback"
-	if s.sso != nil {
-		v.SSOIssuer, v.SSOClientID, v.SSOScopes, v.SSOCallback = s.sso.Issuer(), s.sso.ClientID(), s.sso.Scopes(), s.sso.RedirectURL()
+	if sp != nil {
+		v.SSOIssuer, v.SSOClientID, v.SSOScopes, v.SSOCallback = sp.Issuer(), sp.ClientID(), sp.Scopes(), sp.RedirectURL()
 	}
 	for k, d := range limits.Defaults {
 		v.Limits[k] = d

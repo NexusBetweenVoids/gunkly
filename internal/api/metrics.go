@@ -19,7 +19,8 @@ func (s *Server) metricsAuthorized(r *http.Request) bool {
 		return false
 	}
 	got := sha256.Sum256([]byte(h[len(prefix):]))
-	return subtle.ConstantTimeCompare(got[:], s.metricsTokenHash[:]) == 1
+	rt := s.cur()
+	return rt.metricsOn && subtle.ConstantTimeCompare(got[:], rt.metricsHash[:]) == 1
 }
 
 // metricsHandler serves the Prometheus text exposition. No per-user or

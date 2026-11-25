@@ -159,7 +159,7 @@ func (j *inactiveJob) warn(ctx context.Context, u store.InactiveUser, final bool
 		}
 		delivered++
 	}
-	if w.cfg.Mailer != nil && u.Email != "" && u.EmailVerified {
+	if mailerOn(w.cfg.Mailer) && u.Email != "" && u.EmailVerified {
 		sctx, cancel := context.WithTimeout(ctx, warnSendTimeout)
 		try(w.cfg.Mailer.Send(sctx, mail.Message{To: u.Email,
 			Subject: i18n.T(u.Locale, "mail.inactive_"+kind+".subject", p), Body: i18n.T(u.Locale, "mail.inactive_"+kind+".body", p)}), "email")
@@ -214,4 +214,16 @@ func (j *inactiveJob) warn(ctx context.Context, u store.InactiveUser, final bool
 		log.Error("scheduler: audit", "err", err)
 	}
 	return actionWarned
+}
+
+// mailerOn reports whether m can send: not nil, and on (a mailer that follows
+// the admin configuration says whether email is set up right now).
+func mailerOn(m Mailer) bool {
+	if m == nil {
+		return false
+	}
+	if e, ok := m.(interface{ Enabled() bool }); ok {
+		return e.Enabled()
+	}
+	return true
 }

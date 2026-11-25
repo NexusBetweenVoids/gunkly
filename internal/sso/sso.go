@@ -90,6 +90,12 @@ func (p *Provider) ClientID() string    { return p.cfg.ClientID }
 func (p *Provider) Scopes() []string    { return append([]string{}, p.cfg.Scopes...) }
 func (p *Provider) RedirectURL() string { return p.cfg.RedirectURL }
 
+// SecretMatches reports whether secret is the configured client secret
+// (constant time), so an unchanged configuration can keep its provider.
+func (p *Provider) SecretMatches(secret string) bool {
+	return subtle.ConstantTimeCompare([]byte(p.cfg.ClientSecret), []byte(secret)) == 1
+}
+
 func (p *Provider) discover(ctx context.Context) (*discovered, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()

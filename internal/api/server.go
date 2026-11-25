@@ -5,9 +5,7 @@
 package api
 
 import (
-	"cmp"
 	"context"
-	"crypto/sha256"
 	"io/fs"
 	"log/slog"
 	"net/http"
@@ -20,7 +18,6 @@ import (
 	"github.com/go-webauthn/webauthn/webauthn"
 
 	"github.com/NexusBetweenVoids/gunkly/internal/auth"
-	"github.com/NexusBetweenVoids/gunkly/internal/egress"
 	"github.com/NexusBetweenVoids/gunkly/internal/ids"
 	"github.com/NexusBetweenVoids/gunkly/internal/limits"
 	"github.com/NexusBetweenVoids/gunkly/internal/mail"
@@ -91,30 +88,25 @@ type Server struct {
 	keyring       *auth.Keyring
 	baseURL       string
 	metrics       *metrics.Registry
-	// metricsTokenHash is the SHA-256 of the metrics token (zero when off).
-	metricsTokenHash [sha256.Size]byte
-	version          string
-	updates          *updates.Checker
-	hosted           bool
-	sender           notify.Sender
-	push             *notify.WebPush
-	webhooks         *webhook.Sender
-	secure           bool // cookies get Secure; HSTS is sent
-	proxies          []netip.Prefix
-	untrusted        untrustedProxies
-	log              *slog.Logger
-	ready            func(context.Context) error
-	static           fs.FS
-	now              func() time.Time
-	rl               *rateLimiter
-	acct             *acctGuard
-	mailer           Mailer
-	mailWG           sync.WaitGroup // in-flight background sends
-	counts           *windowCounter // hourly email and sign-up caps
-	pow              *auth.PoW
-	sso              *sso.Provider // nil unless single sign-on is configured (never when hosted)
-	pkOnce           sync.Once
-	pk               *webauthn.WebAuthn // passkey relying party; nil without an https (or localhost) base URL
+	version       string
+	updates       *updates.Checker
+	hosted        bool
+	sender        notify.Sender
+	push          *notify.WebPush
+	webhooks      *webhook.Sender
+	secure        bool // cookies get Secure; HSTS is sent
+	proxies       []netip.Prefix
+	untrusted     untrustedProxies
+	log           *slog.Logger
+	ready         func(context.Context) error
+	static        fs.FS
+	now           func() time.Time
+	rl            *rateLimiter
+	acct          *acctGuard
+	mailWG        sync.WaitGroup // in-flight background sends
+	counts        *windowCounter // hourly email and sign-up caps
+	pkOnce        sync.Once
+	pk            *webauthn.WebAuthn // passkey relying party; nil without an https (or localhost) base URL
 
 	// Password hashing hooks; tests swap in fast fakes and counters.
 	hashPassword   func(string) string
@@ -136,6 +128,10 @@ type Server struct {
 	setupHash string // hash of the first-run setup code; empty when not in setup
 
 	env map[string]string // configuration overrides from the environment (Options.Env)
+	// Email, single sign-on, metrics token and proof of work: rebuilt from the
+	// environment and Administration settings (runtime.go).
+	rt     atomic.Pointer[runtimeServices]
+	envSvc envServices
 
 	// AI chore suggestions: the admin endpoint's client, the 24-hour per-user
 	// request counter and the instance-wide cap on requests in flight.
@@ -181,11 +177,7 @@ func New(o Options) *Server {
 	if s.ready == nil {
 		s.ready = func(context.Context) error { return nil }
 	}
-	if o.SSO != nil && !s.hosted {
-		cfg := *o.SSO
-		cfg.RedirectURL = s.baseURL + "/api/v1/auth/oidc/callback"
-		s.sso = sso.New(cfg, egress.NewIdPClient(cfg.Issuer, s.EgressGuardEnabled), s.now)
-	} else if o.SSO != nil {
+	if o.SSO != nil && s.hosted {
 		s.log.Warn("single sign-on is not available in hosted mode; GUNKLY_OIDC_* ignored")
 	}
 	s.counts = newWindowCounter(s.now, 20000)
@@ -195,13 +187,9 @@ func New(o Options) *Server {
 	if s.aiHTTP = o.AIClient; s.aiHTTP == nil {
 		s.aiHTTP = newAIHTTP()
 	}
-	s.pow = auth.NewPoW(s.keyring.DeriveKey("gunkly signup proof of work v1"), cmp.Or(o.PoWMaxNumber, auth.DefaultPoWMaxNumber))
-	switch {
-	case o.Mailer != nil:
-		s.mailer = o.Mailer
-	case o.SMTP != nil:
-		s.mailer = mail.New(*o.SMTP, s.EgressGuardEnabled)
-	}
+	s.envSvc = envServices{smtp: o.SMTP, sso: o.SSO, metricsToken: o.MetricsToken, powMax: o.PoWMaxNumber, testMailer: o.Mailer}
+	// Until InitSetup reads the stored configuration: the environment alone.
+	s.rt.Store(s.buildServices(s.envOnlyConfig()))
 	s.rl = newRateLimiter(limits.Defaults[limits.LoginAttemptsPerMinute], 10000, s.now)
 	s.acct = newAcctGuard(s.now, 10000)
 	s.rl.perMinute, s.rl.burstOf = bucketRates, bucketBursts
@@ -215,8 +203,8 @@ func New(o Options) *Server {
 		}
 		return n
 	}
-	if o.Metrics != nil && o.MetricsToken != "" {
-		s.metrics, s.metricsTokenHash = o.Metrics, sha256.Sum256([]byte(o.MetricsToken))
+	if o.Metrics != nil {
+		s.metrics = o.Metrics
 	}
 	s.registerRoutes()
 	return s
@@ -231,6 +219,9 @@ func (s *Server) Handler() http.Handler { return s.middleware(s.mux) }
 // admin exists, and the container logs are only visible to the operator who
 // must type it in.
 func (s *Server) InitSetup(ctx context.Context) error {
+	if err := s.applyConfig(ctx); err != nil {
+		return err
+	}
 	has, err := s.st.HasUsers(ctx)
 	if err != nil || has {
 		return err

@@ -27,6 +27,7 @@ func (s *Server) signupSettings(st store.InstanceSettings) (open, pow bool) {
 // getInstance tells the sign-in and sign-up screens what this instance
 // offers. Public: it reveals only configuration the login page needs.
 func (s *Server) getInstance(w http.ResponseWriter, r *http.Request, _ *call) error {
+	sp := s.cur().sso
 	st, err := s.st.InstanceSettings(r.Context())
 	if err != nil {
 		return err
@@ -36,7 +37,7 @@ func (s *Server) getInstance(w http.ResponseWriter, r *http.Request, _ *call) er
 		"openSignup": open, "emailEnabled": s.emailEnabled(), "hostedMode": s.hosted, "requirePow": open && pow,
 		"baseUrl": s.baseURL, "mcpEnabled": s.mcpEnabled(r.Context()), "passkeysAvailable": s.passkeyRP() != nil,
 	}
-	if s.sso != nil {
+	if sp != nil {
 		out["sso"] = map[string]string{"name": s.ssoName(r.Context())} // absent while off
 	}
 	if s.oauthEnabled(r.Context()) {
@@ -60,7 +61,7 @@ func (s *Server) signupChallenge(w http.ResponseWriter, r *http.Request, _ *call
 	if open, pow := s.signupSettings(st); !open || !pow {
 		return errNotFound
 	}
-	return ok(w, s.pow.New(s.now()))
+	return ok(w, s.cur().pow.New(s.now()))
 }
 
 // signup creates an account without an invite (only when open sign-up is on).
@@ -110,7 +111,7 @@ func (s *Server) signup(w http.ResponseWriter, r *http.Request, c *call) error {
 	if needPoW {
 		// Verify is a stateless check; spending the solution comes before
 		// the Argon2id hash in validate, so replaying one never costs a hash.
-		challenge, expires, err := s.pow.Verify(in.PoW, s.now())
+		challenge, expires, err := s.cur().pow.Verify(in.PoW, s.now())
 		if err != nil {
 			return errf(http.StatusBadRequest, "pow_invalid")
 		}

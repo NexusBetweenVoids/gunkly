@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"net/mail"
 	"net/url"
 	"slices"
 	"strconv"
@@ -31,6 +32,7 @@ const (
 type cfgField struct {
 	key   string
 	env   string // environment variable that overrides it
+	group string // when one variable of a group is set, the whole group comes from the environment
 	kind  cfgKind
 	def   string
 	check func(string) bool // extra validation of a non-empty value
@@ -43,6 +45,26 @@ var cfgFields = []cfgField{
 	{key: "ai.url", env: "GUNKLY_AI_URL", kind: cfgString, check: validAIURL},
 	{key: "ai.model", env: "GUNKLY_AI_MODEL", kind: cfgString, check: validModelName},
 	{key: "ai.key", env: "GUNKLY_AI_KEY", kind: cfgSecret, check: validHeaderValue},
+
+	// Email (SMTP). Set as a group: one GUNKLY_SMTP_* or GUNKLY_EMAIL_ENABLED
+	// variable in the environment locks all of them here.
+	{key: "email.enabled", env: "GUNKLY_EMAIL_ENABLED", group: "email", kind: cfgBool, def: "false"},
+	{key: "email.host", env: "GUNKLY_SMTP_HOST", group: "email", kind: cfgString, check: validSMTPHost},
+	{key: "email.port", env: "GUNKLY_SMTP_PORT", group: "email", kind: cfgInt, def: "587", min: 1, max: 65535},
+	{key: "email.username", env: "GUNKLY_SMTP_USERNAME", group: "email", kind: cfgString},
+	{key: "email.password", env: "GUNKLY_SMTP_PASSWORD", group: "email", kind: cfgSecret},
+	{key: "email.from", env: "GUNKLY_SMTP_FROM", group: "email", kind: cfgString, check: validFrom},
+	{key: "email.tls", env: "GUNKLY_SMTP_TLS", group: "email", kind: cfgString, def: "starttls", check: validTLSMode},
+
+	// Single sign-on (OpenID Connect), self-hosted only. Configured when the
+	// issuer and client ID are set. The button name stays an admin setting.
+	{key: "sso.issuer", env: "GUNKLY_OIDC_ISSUER", group: "sso", kind: cfgString, check: validIssuer},
+	{key: "sso.client_id", env: "GUNKLY_OIDC_CLIENT_ID", group: "sso", kind: cfgString, check: validModelName},
+	{key: "sso.client_secret", env: "GUNKLY_OIDC_CLIENT_SECRET", group: "sso", kind: cfgSecret},
+	{key: "sso.scopes", env: "GUNKLY_OIDC_SCOPES", group: "sso", kind: cfgString, def: "openid profile email", check: validScopes},
+
+	{key: "metrics.token", env: "GUNKLY_METRICS_TOKEN", kind: cfgSecret, check: validMetricsToken},
+	{key: "signup.pow_max", env: "GUNKLY_SIGNUP_POW_MAX", kind: cfgInt, min: 1_000, max: 1_000_000},
 }
 
 func cfgFieldByKey(k string) (cfgField, bool) {
@@ -80,6 +102,33 @@ func ConfigEnvNames() []string {
 // ConfigAD is the associated data of a secret configuration value (rotate-key).
 func ConfigAD(key string) []byte { return cfgAD(key) }
 
+// envGroups lists the groups the environment configures. Email counts only
+// when GUNKLY_EMAIL_ENABLED is true: the SMTP variables never did anything
+// without it, and many .env files carry placeholder SMTP values.
+func (s *Server) envGroups() map[string]bool {
+	out := map[string]bool{"email": strings.EqualFold(s.env["GUNKLY_EMAIL_ENABLED"], "true")}
+	for _, f := range cfgFields {
+		if _, ok := s.env[f.env]; ok && f.group != "" && f.group != "email" {
+			out[f.group] = true
+		}
+	}
+	return out
+}
+
+// envValue is the field's environment value, if it counts as set. A variable
+// that only repeats the built-in default of the sign-up difficulty (the old
+// .env.example set it) does not lock the field.
+func (s *Server) envValue(f cfgField) (string, bool) {
+	v, ok := s.env[f.env]
+	if !ok || f.env == "" || f.group == "email" {
+		return "", false
+	}
+	if f.key == "signup.pow_max" && v == "250000" {
+		return "", false
+	}
+	return v, true
+}
+
 // cfgSnapshot is the effective configuration: environment first, then the
 // database, then the default.
 type cfgSnapshot struct {
@@ -100,8 +149,12 @@ func (s *Server) config(ctx context.Context, withSecrets bool) (cfgSnapshot, err
 		return cfgSnapshot{}, err
 	}
 	out := cfgSnapshot{vals: map[string]string{}, fromEnv: map[string]bool{}, stored: map[string]bool{}}
+	envGroup := s.envGroups()
 	for _, f := range cfgFields {
-		if v, ok := s.env[f.env]; ok && f.env != "" {
+		if v, ok := s.envValue(f); ok || envGroup[f.group] {
+			if !ok {
+				v = s.env[f.env] // a field of a group the environment sets
+			}
 			out.fromEnv[f.key] = true
 			if f.kind != cfgSecret || withSecrets {
 				out.vals[f.key] = v
@@ -175,12 +228,16 @@ func (s *Server) adminPatchConfig(w http.ResponseWriter, r *http.Request, c *cal
 	}
 	write := map[string]*string{}
 	var keys []string
+	cur, err := s.config(r.Context(), false)
+	if err != nil {
+		return err
+	}
 	for k, v := range in.Values {
 		f, ok := cfgFieldByKey(k)
 		if !ok {
 			return errInvalid
 		}
-		if _, env := s.env[f.env]; env && f.env != "" {
+		if cur.fromEnv[k] {
 			return errConfigLocked
 		}
 		keys = append(keys, k)
@@ -205,6 +262,9 @@ func (s *Server) adminPatchConfig(w http.ResponseWriter, r *http.Request, c *cal
 	}
 	slices.Sort(keys)
 	s.audit(r.Context(), c, c.user.ID, store.AuditAdminSettings, "", map[string]string{"config": strings.Join(keys, ",")})
+	if err := s.applyConfig(r.Context()); err != nil {
+		return err
+	}
 	return s.adminGetConfig(w, r, c)
 }
 
@@ -242,4 +302,35 @@ func validModelName(v string) bool {
 // validHeaderValue: an API key goes into an Authorization header.
 func validHeaderValue(v string) bool {
 	return len(v) <= 1024 && !strings.ContainsAny(v, " \t\r\n")
+}
+
+// validSMTPHost: a host name or IP literal, no scheme, port or spaces.
+func validSMTPHost(v string) bool {
+	return len(v) <= 253 && !strings.ContainsAny(v, " /:@?#") || strings.HasPrefix(v, "[") && strings.HasSuffix(v, "]")
+}
+
+// validFrom: "Name <addr@host>" or a bare address.
+func validFrom(v string) bool {
+	_, err := mail.ParseAddress(v)
+	return err == nil && len(v) <= 320
+}
+
+func validTLSMode(v string) bool { return v == "starttls" || v == "tls" || v == "none" }
+
+// validIssuer matches the environment rule: https, or http only for localhost.
+func validIssuer(v string) bool {
+	u, err := url.Parse(v)
+	if err != nil || u.Host == "" || u.RawQuery != "" || u.Fragment != "" || u.User != nil {
+		return false
+	}
+	h := u.Hostname()
+	return u.Scheme == "https" || (u.Scheme == "http" && (h == "localhost" || h == "127.0.0.1" || h == "::1"))
+}
+
+func validScopes(v string) bool {
+	return len(v) <= 500 && !strings.ContainsAny(v, "\"<>")
+}
+
+func validMetricsToken(v string) bool {
+	return len(v) >= 16 && len(v) <= 256 && !strings.ContainsAny(v, " \t")
 }

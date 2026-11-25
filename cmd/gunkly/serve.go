@@ -52,10 +52,9 @@ func serve(ctx context.Context, logOut io.Writer) error {
 	if err != nil {
 		return err
 	}
-	var reg *metrics.Registry
-	if a.cfg.MetricsToken != "" {
-		reg = a.newMetrics()
-	}
+	// Always built: the token can also be set in Administration, and /metrics
+	// answers 404 while no token is configured.
+	reg := a.newMetrics()
 	a.updater = &updates.Checker{Store: a.store, Client: egress.NewClient(egress.Guard{Enabled: true}), Log: a.log}
 	srv := api.New(api.Options{
 		Env:     a.cfg.Overrides,

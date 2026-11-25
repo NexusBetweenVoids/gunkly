@@ -128,8 +128,6 @@
       busy = false;
     }
   }
-  const ssoDocs = 'https://github.com/NexusBetweenVoids/gunkly/blob/main/docs/sso.md';
-  const ssoExample = 'GUNKLY_OIDC_ISSUER=https://auth.example.com\nGUNKLY_OIDC_CLIENT_ID=gunkly\nGUNKLY_OIDC_CLIENT_SECRET=…\nGUNKLY_OIDC_NAME=Authelia';
 </script>
 
 <section class="card" aria-labelledby="ad-{part}">
@@ -140,32 +138,8 @@
         <label class="check"><input type="checkbox" bind:checked={s.openSignup} />{t('admin.openSignup')}</label>
         <label class="check"><input type="checkbox" bind:checked={s.requirePow} />{t('admin.requirePow')}</label>
         <label class="check"><input type="checkbox" bind:checked={s.inviteRegistration} />{t('admin.inviteRegistration')}</label>
-        <h3>{t('admin.ssoTitle')}</h3>
-        {#if !s.ssoAvailable}
-          <p class="muted" data-testid="sso-status">{t('admin.ssoHosted')}</p>
-        {:else if s.ssoConfigured}
-          <p data-testid="sso-status"><span class="badge">{t('admin.ssoOn')}</span> {t('admin.ssoOnIntro')}</p>
-          <dl class="facts">
-            <dt>{t('admin.ssoIssuer')}</dt>
-            <dd class="mono">{s.ssoIssuer}</dd>
-            <dt>{t('admin.ssoClientId')}</dt>
-            <dd class="mono">{s.ssoClientId}</dd>
-            <dt>{t('admin.ssoScopes')}</dt>
-            <dd class="mono">{s.ssoScopes?.join(' ')}</dd>
-            <dt>{t('admin.ssoCallback')}</dt>
-            <dd class="mono">{s.ssoCallback}</dd>
-          </dl>
-          <p class="hint">{t('admin.ssoChange')} <a href={ssoDocs} rel="noopener noreferrer" target="_blank">{t('admin.ssoDocs')}</a></p>
-        {:else}
-          <p data-testid="sso-status"><span class="badge">{t('admin.ssoOff')}</span> {t('admin.ssoOffIntro')}</p>
-          <ol class="steps stack-sm">
-            <li>{t('admin.ssoStep1')}<pre class="code">{s.ssoCallback}</pre></li>
-            <li>{t('admin.ssoStep2')}<pre class="code">{ssoExample}</pre></li>
-            <li>{t('admin.ssoStep3')}</li>
-          </ol>
-          <p class="hint"><a href={ssoDocs} rel="noopener noreferrer" target="_blank">{t('admin.ssoDocs')}</a></p>
-        {/if}
         {#if s.ssoConfigured}
+          <h3>{t('admin.ssoAccounts')}</h3>
           <label class="check"><input type="checkbox" bind:checked={s.ssoCreateAccounts} aria-describedby="sso-hint" />{t('admin.ssoCreateAccounts')}</label>
           <p class="hint" id="sso-hint">{t('admin.ssoCreateAccountsHint')}</p>
           <Field

@@ -1503,9 +1503,12 @@ paths:
       tags: [admin]
       summary: Configuration set in Administration (admin)
       description: |
-        Settings an admin can change here instead of in the server's environment (currently the AI endpoint:
-        ai.enabled, ai.url, ai.model, ai.key). An environment variable always wins: its field is locked and
-        shows the environment's value (never for secrets). Secret fields never return a value, only set.
+        Settings an admin can change here instead of in the server's environment: ai.* (AI endpoint), email.*
+        (SMTP), sso.* (OpenID Connect), metrics.token and signup.pow_max. An environment variable always wins:
+        its field is locked and shows the environment's value (never for secrets). Email and single sign-on
+        are groups: one of their variables in the environment locks the whole group. Secret fields
+        (ai.key, email.password, sso.client_secret, metrics.token) never return a value, only set. Changes
+        take effect at once, without a restart.
       responses:
         "200": {description: OK, content: {application/json: {schema: {$ref: "#/components/schemas/AdminConfig"}}}}
         "403": {$ref: "#/components/responses/Forbidden"}
@@ -1526,6 +1529,46 @@ paths:
         "400": {$ref: "#/components/responses/Invalid"}
         "403": {$ref: "#/components/responses/Forbidden"}
         "409": {description: "The key is set in the environment (set_by_environment)", content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
+  /admin/services:
+    get:
+      tags: [admin]
+      summary: Whether email, single sign-on and metrics are running (admin)
+      description: |
+        Reflects the configuration in effect (environment first, then Administration). emailProblem and
+        ssoProblem say why a configured service is not running: incomplete, or needs_https (single sign-on
+        needs an https GUNKLY_BASE_URL, or localhost).
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: {type: object, properties: {emailOn: {type: boolean}, emailProblem: {type: string}, ssoOn: {type: boolean}, ssoProblem: {type: string}, ssoAvailable: {type: boolean}, ssoCallback: {type: string}, metricsOn: {type: boolean}}}
+        "403": {$ref: "#/components/responses/Forbidden"}
+  /admin/email/test:
+    post:
+      tags: [admin]
+      summary: Send a test email with the current settings (admin)
+      description: Sends at once (not through the outbox) and counts against the admin's hourly email quota. 409 email_disabled while email is off.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, required: [to], properties: {to: {type: string, format: email}}}
+      responses:
+        "200": {description: Result, content: {application/json: {schema: {type: object, properties: {ok: {type: boolean}, error: {type: string, example: send_failed}}}}}}
+        "400": {$ref: "#/components/responses/Invalid"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "409": {description: "Email is off (email_disabled)", content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
+        "429": {$ref: "#/components/responses/RateLimited"}
+  /admin/sso/test:
+    post:
+      tags: [admin]
+      summary: Check that the single sign-on provider answers (admin)
+      description: Fetches the provider's discovery document. The client ID and secret are only checked by a real sign-in. 409 sso_disabled while it is off.
+      responses:
+        "200": {description: Result, content: {application/json: {schema: {type: object, properties: {ok: {type: boolean}, authOrigin: {type: string}}}}}}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "409": {description: "Single sign-on is off (sso_disabled)", content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
   /admin/ai/test:
     post:
       tags: [admin]

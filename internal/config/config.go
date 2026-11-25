@@ -80,7 +80,12 @@ type SMTP struct {
 // OverrideVars are the variables of settings that an admin can also change in
 // Administration (internal/api's configuration list; a test keeps them in
 // step). Load only collects them; internal/api validates and applies them.
-var OverrideVars = []string{"GUNKLY_AI_ENABLED", "GUNKLY_AI_URL", "GUNKLY_AI_MODEL", "GUNKLY_AI_KEY"}
+var OverrideVars = []string{
+	"GUNKLY_AI_ENABLED", "GUNKLY_AI_URL", "GUNKLY_AI_MODEL", "GUNKLY_AI_KEY",
+	"GUNKLY_EMAIL_ENABLED", "GUNKLY_SMTP_HOST", "GUNKLY_SMTP_PORT", "GUNKLY_SMTP_USERNAME", "GUNKLY_SMTP_PASSWORD", "GUNKLY_SMTP_FROM", "GUNKLY_SMTP_TLS",
+	"GUNKLY_OIDC_ISSUER", "GUNKLY_OIDC_CLIENT_ID", "GUNKLY_OIDC_CLIENT_SECRET", "GUNKLY_OIDC_SCOPES",
+	"GUNKLY_METRICS_TOKEN", "GUNKLY_SIGNUP_POW_MAX",
+}
 
 func Load(lookup func(string) string) (*Config, error) {
 	get := func(k string) string { return strings.TrimSpace(lookup("GUNKLY_" + k)) }
