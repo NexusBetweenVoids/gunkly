@@ -4,6 +4,8 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ## [Unreleased]
 
+## [0.5.3] - 2026-11-25
+
 ### Added
 
 - Adding a notification channel is guided: pick Discord, Slack, Google Chat, Telegram, Pushover, Pushbullet or ntfy (public or your own server) and Gunkly shows short setup steps and asks only for what that app gives you (a webhook link, a bot token and chat, a user key and API token, a topic), then builds the Shoutrrr service URL itself. Every service links to its full setup guide; "Enter a service URL instead" and the other services keep the URL field, which now also turns a pasted Discord, Slack or Google Chat webhook link into the right format. Services show by name ("Google Chat", not `googlechat`).
