@@ -84,7 +84,8 @@ func (s *Server) patchMe(w http.ResponseWriter, r *http.Request, c *call) error 
 		EmailReminders *bool `json:"emailReminders"`
 		// QuietHours: null clears. Personal routes only; household quiet hours still apply.
 		QuietHours optional[quietView] `json:"quietHours"`
-		// TimeZone: IANA name; null or "" follows the household. Only personal quiet hours use it.
+		// TimeZone: IANA name; null or "" follows the household. Used for personal quiet hours and for
+		// "today" in chore views of the signed-in user (never for API tokens or MCP).
 		TimeZone optional[string] `json:"timeZone"`
 	}
 	if err := decode(r, &in); err != nil {

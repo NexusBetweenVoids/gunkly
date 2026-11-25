@@ -382,6 +382,37 @@ func TestDueStatusTimezoneAndWeekStart(t *testing.T) {
 	}
 }
 
+// TestDueStatusPersonalZone: a user's own time zone decides "today" in their
+// session's chore views; API tokens keep the household's zone.
+func TestDueStatusPersonalZone(t *testing.T) {
+	f := newTokenEnv(t)
+	// 2026-11-21 12:00 UTC: Saturday 13:00 in Amsterdam (the household), Sunday 01:00 in Auckland.
+	id := f.mk(t, f.a, intervalBody("C", "2026-11-21"))
+	secret, _ := mkToken(t, f.aStep, []string{"chores:read"}, f.hA)
+	status := func() (session, token string) {
+		st, v := f.a.do("GET", f.chore(id), nil)
+		expect(t, st, v, 200, "")
+		st2, _, v2 := f.e.bearerDo("GET", f.chore(id), secret, nil)
+		if st2 != 200 {
+			t.Fatalf("token: %d %v", st2, v2)
+		}
+		return str(v, "status"), str(v2, "status")
+	}
+	if s, tk := status(); s != "today" || tk != "today" {
+		t.Fatalf("household zone: session %s, token %s", s, tk)
+	}
+	st, v := f.a.do("PATCH", "/api/v1/me", map[string]any{"timeZone": "Pacific/Auckland"})
+	expect(t, st, v, 200, "")
+	if s, tk := status(); s != "overdue" || tk != "today" {
+		t.Errorf("personal zone: session %s (want overdue), token %s (want today)", s, tk)
+	}
+	st, v = f.a.do("PATCH", "/api/v1/me", map[string]any{"timeZone": nil})
+	expect(t, st, v, 200, "")
+	if s, _ := status(); s != "today" {
+		t.Errorf("back to the household zone: %s", s)
+	}
+}
+
 func TestChoreLimits(t *testing.T) {
 	f := newHHWith(t, func(o *Options) {
 		o.Limits = limits.New(fakeLimits{"chores_per_household": 2, "reminders_per_chore": 2})

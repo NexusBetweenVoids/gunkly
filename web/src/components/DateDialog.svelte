@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { addDays, today } from '../lib/dates';
+  import { addDays, householdToday } from '../lib/dates';
   import { t } from '../lib/i18n';
   import Button from './Button.svelte';
   import Dialog from './Dialog.svelte';
@@ -26,10 +26,10 @@
     onconfirm: (date: string) => void;
     oncancel: () => void;
   } = $props();
-  const min = $derived(addDays(today(), minOffset));
+  const min = $derived(addDays(householdToday(), minOffset));
   let date = $state('');
   $effect(() => {
-    if (open) date = addDays(today(), Math.max(minOffset, 1));
+    if (open) date = addDays(householdToday(), Math.max(minOffset, 1));
   });
 </script>
 

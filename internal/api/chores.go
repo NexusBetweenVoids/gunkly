@@ -103,7 +103,7 @@ func (s *Server) newViewCtx(ctx context.Context, c *call, tz string, withMutes b
 		return viewCtx{}, err
 	}
 	now := s.now()
-	v := viewCtx{now: now, loc: loc, today: schedule.DateOf(now, loc), weekStart: defaultWeekStart(c.user.Locale), muted: map[string]bool{}}
+	v := viewCtx{now: now, loc: loc, today: schedule.DateOf(now, personalZone(c, loc)), weekStart: defaultWeekStart(c.user.Locale), muted: map[string]bool{}}
 	if c.user.WeekStart != nil {
 		v.weekStart = *c.user.WeekStart
 	}
@@ -117,6 +117,20 @@ func (s *Server) newViewCtx(ctx context.Context, c *call, tz string, withMutes b
 		}
 	}
 	return v, nil
+}
+
+// personalZone is the zone "today" is read in: the signed-in user's own time zone
+// when set, else the household's (loc). API tokens and MCP always use the
+// household's, so integrations that work out dates themselves (Home Assistant)
+// stay consistent. Due dates themselves are always household calendar dates.
+func personalZone(c *call, loc *time.Location) *time.Location {
+	if c.tok != nil || c.sess.ID == "" || c.user.TimeZone == "" {
+		return loc
+	}
+	if z, err := time.LoadLocation(c.user.TimeZone); err == nil {
+		return z
+	}
+	return loc
 }
 
 // isPaused reports whether reminders for the chore are suspended at now.

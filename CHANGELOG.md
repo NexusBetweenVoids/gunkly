@@ -4,6 +4,10 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ## [Unreleased]
 
+### Changed
+
+- Your own time zone (Settings, Profile) now also decides what counts as today for you in the app: "due today", "overdue", "this week" and the Calendar's today follow it, so the app stays right when you travel or live in a different zone from your household. Due dates, the dates offered when you pick one, reminder times and calendar feeds stay in the household's zone, and API tokens (Home Assistant, MCP apps) keep using the household's zone.
+
 ## [0.5.5] - 2026-11-25
 
 ### Changed

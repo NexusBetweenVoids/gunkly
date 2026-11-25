@@ -1707,7 +1707,7 @@ components:
         ssoLinked: {type: boolean}
         emailReminders: {type: boolean, description: "Reminders are sent by email to the verified address"}
         quietHours: {type: object, nullable: true, properties: {start: {type: integer}, end: {type: integer}}, description: "Personal quiet hours (in timeZone, or each household's zone when that is null); null = none"}
-        timeZone: {type: string, nullable: true, description: "IANA zone the personal quiet hours are read in; null = each household's zone"}
+        timeZone: {type: string, nullable: true, description: "IANA zone the personal quiet hours are read in, and what today means in chore views for this user's sessions (status overdue/today/thisWeek; not for API tokens); null = each household's zone"}
     PasskeyOptions:
       type: object
       properties:

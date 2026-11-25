@@ -9,7 +9,7 @@
   "account.languageDefault": "Follow language",
   "account.timeZone": "Time zone",
   "account.timeZoneHousehold": "Same as the household",
-  "account.timeZoneHint": "Only your personal quiet hours use it. Due dates and reminder times stay in each household's time zone.",
+  "account.timeZoneHint": "Used for your personal quiet hours and for what counts as today in the app (due today, overdue, the calendar). Due dates and reminder times stay in each household's time zone.",
   "account.timeZoneUse": "Use {zone}, this device's time zone",
   "account.theme": "Appearance",
   "account.themeHint": "Saved on this device only.",

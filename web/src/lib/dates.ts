@@ -7,14 +7,20 @@ export const ymd = (d: Date): string => d.toISOString().slice(0, 10);
 export const addDays = (s: string, n: number): string => ymd(new Date(parseYmd(s).getTime() + n * 864e5));
 export const diffDays = (a: string, b: string): number => Math.round((parseYmd(a).getTime() - parseYmd(b).getTime()) / 864e5);
 
-/** Today's date in the household's time zone. */
-export function today(): string {
+function dateIn(zone: string | null | undefined): string {
   try {
-    return new Intl.DateTimeFormat('en-CA', { timeZone: currentHousehold()?.timezone }).format(new Date());
+    return new Intl.DateTimeFormat('en-CA', { timeZone: zone || undefined }).format(new Date());
   } catch {
     return new Intl.DateTimeFormat('en-CA').format(new Date());
   }
 }
+
+/** Today's date as the user sees it: their own time zone when set, else the household's.
+ *  For what is shown (due today, overdue, the calendar's today). */
+export const today = (): string => dateIn(app.user?.timeZone || currentHousehold()?.timezone);
+
+/** Today's date in the household's time zone. For date inputs: due dates are household dates. */
+export const householdToday = (): string => dateIn(currentHousehold()?.timezone);
 
 /** First day of the week, 0 = Sunday. Mirrors the server default. */
 export function weekStart(): number {

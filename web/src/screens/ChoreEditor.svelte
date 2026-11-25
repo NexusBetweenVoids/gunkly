@@ -6,7 +6,7 @@
   import RuleBuilder from '../components/RuleBuilder.svelte';
   import Select from '../components/Select.svelte';
   import { api } from '../lib/api';
-  import { today } from '../lib/dates';
+  import { householdToday } from '../lib/dates';
   import { failure } from '../lib/errors';
   import { t, type Key } from '../lib/i18n';
   import { nameOf } from '../lib/names';
@@ -45,7 +45,7 @@
   let assignees = $state<string[]>([]);
   let rotation = $state(false);
   let onlyTurn = $state(false); // advance only when the person whose turn it is completes
-  let firstDue = $state(today());
+  let firstDue = $state(householdToday());
   let repeat = $state('weekly');
   let n = $state(1);
   let unit = $state<Unit>('week');
