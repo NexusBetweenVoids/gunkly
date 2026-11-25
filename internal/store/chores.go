@@ -59,8 +59,13 @@ type Chore struct {
 	RotationAdvance    string   // AdvanceAny | AdvanceAssignee
 	TurnUserID         string   // current-turn assignee while Rotation, else ""
 	TurnName           string   // display name (else username) of TurnUserID; "" when none
-	CreatedAt          time.Time
-	UpdatedAt          time.Time
+	// EffectivePreset is ReminderPreset, or the household default when that is "".
+	// OnDueMinute is the time of the chore's own due-day reminder (custom
+	// reminders), minutes after local midnight; -1 when it has none.
+	EffectivePreset string
+	OnDueMinute     int
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
 }
 
 // ChoreInput holds the editable fields for CreateChore and UpdateChore.
@@ -268,7 +273,9 @@ func (t *tx) setTurn(ctx context.Context, choreID string, in ChoreInput, keep st
 const choreCols = `id, household_id, COALESCE(area_id, ''), name, notes, link, kind, schedule_type,
 	COALESCE(interval_n, 0), COALESCE(interval_unit, ''), rrule, anchor, first_due, due_date, next_due, paused_until,
 	paused_indefinitely, archived_at, reminder_preset, rotation, rotation_advance, COALESCE(turn_user_id, ''),
-	COALESCE((SELECT COALESCE(NULLIF(u.display_name, ''), u.username) FROM users u WHERE u.id = chores.turn_user_id), ''), created_at, updated_at`
+	COALESCE((SELECT COALESCE(NULLIF(u.display_name, ''), u.username) FROM users u WHERE u.id = chores.turn_user_id), ''),
+	CASE WHEN reminder_preset = '' THEN COALESCE((SELECT h.default_reminder_preset FROM households h WHERE h.id = chores.household_id), '') ELSE reminder_preset END,
+	COALESCE((SELECT MIN(r.time_of_day) FROM chore_reminders r WHERE r.chore_id = chores.id AND r.kind = 'on'), -1), created_at, updated_at`
 
 func scanChore(row interface{ Scan(...any) error }) (Chore, error) {
 	var c Chore
@@ -276,7 +283,7 @@ func scanChore(row interface{ Scan(...any) error }) (Chore, error) {
 	var created, updated int64
 	err := row.Scan(&c.ID, &c.HouseholdID, &c.AreaID, &c.Name, &c.Notes, &c.Link, &c.Kind, &c.ScheduleType,
 		&c.IntervalN, &c.IntervalUnit, &c.RRule, &c.Anchor, &c.FirstDue, &c.DueDate, &next, &paused,
-		&c.PausedIndefinitely, &archived, &c.ReminderPreset, &c.Rotation, &c.RotationAdvance, &c.TurnUserID, &c.TurnName, &created, &updated)
+		&c.PausedIndefinitely, &archived, &c.ReminderPreset, &c.Rotation, &c.RotationAdvance, &c.TurnUserID, &c.TurnName, &c.EffectivePreset, &c.OnDueMinute, &created, &updated)
 	if err != nil {
 		return Chore{}, notFound(err)
 	}

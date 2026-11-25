@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -61,9 +62,13 @@ type choreView struct {
 	AdvanceOn          string     `json:"advanceOn"` // any | assignee: who completing passes the turn on
 	TurnUserID         *string    `json:"turnUserId"`
 	TurnName           *string    `json:"turnName"` // display name of the member whose turn it is; null unless rotation
-	Muted              bool       `json:"muted"`
-	CreatedAt          time.Time  `json:"createdAt"`
-	UpdatedAt          time.Time  `json:"updatedAt"`
+	// ReminderTime is when the chore's due-day reminder goes off ("HH:MM",
+	// household time zone), from its own reminders or its (default) preset;
+	// null when it has none.
+	ReminderTime *string   `json:"reminderTime"`
+	Muted        bool      `json:"muted"`
+	CreatedAt    time.Time `json:"createdAt"`
+	UpdatedAt    time.Time `json:"updatedAt"`
 }
 
 // viewCtx is what turns stored chores into views for one caller.
@@ -144,6 +149,20 @@ func dueStatus(c store.Chore, now time.Time, today schedule.Date, weekStart int)
 	return statusLater
 }
 
+// onDueMinute is the time of the chore's due-day reminder in minutes after
+// local midnight, or -1 when it has none.
+func onDueMinute(c store.Chore) int {
+	if c.EffectivePreset == scheduler.PresetCustom {
+		return c.OnDueMinute
+	}
+	for _, r := range scheduler.Presets[c.EffectivePreset] {
+		if r.Kind == schedule.OnDue {
+			return r.Minute
+		}
+	}
+	return -1
+}
+
 func (v viewCtx) view(c store.Chore) choreView {
 	out := choreView{
 		ID: c.ID, Name: c.Name, Notes: c.Notes, Link: c.Link, Kind: c.Kind, DueDate: c.DueDate,
@@ -163,6 +182,10 @@ func (v viewCtx) view(c store.Chore) choreView {
 		if c.TurnName != "" {
 			out.TurnName = &c.TurnName
 		}
+	}
+	if m := onDueMinute(c); m >= 0 {
+		hm := fmt.Sprintf("%02d:%02d", m/60, m%60)
+		out.ReminderTime = &hm
 	}
 	if c.Kind == store.KindRecurring {
 		if c.ScheduleType == store.ScheduleRRule {

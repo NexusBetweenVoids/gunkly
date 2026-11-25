@@ -2057,6 +2057,7 @@ components:
         advanceOn: {type: string, enum: [any, assignee]}
         turnUserId: {type: string, nullable: true, description: Whose turn it is; null unless rotation}
         turnName: {type: string, nullable: true, description: Display name (username when empty) of the member whose turn it is; null unless rotation. Lets API tokens, which cannot list members, show the name}
+        reminderTime: {type: string, nullable: true, pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$', example: "09:00", description: "When the chore's due-day reminder goes off (HH:MM, household time zone), from its own reminders or its preset (the household default when reminderPreset is empty); null when it has no due-day reminder."}
         muted: {type: boolean, description: Muted by the caller}
         createdAt: {type: string, format: date-time}
         updatedAt: {type: string, format: date-time}

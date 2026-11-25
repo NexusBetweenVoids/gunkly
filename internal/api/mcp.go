@@ -269,6 +269,7 @@ type mcpChore struct {
 	Name         string   `json:"name"`
 	Status       string   `json:"status"` // overdue | today | thisWeek | later | none | paused | archived
 	DueDate      string   `json:"dueDate,omitempty"`
+	RemindAt     string   `json:"remindAt,omitempty"` // due-day reminder time (HH:MM, household zone); empty without one
 	Repeat       string   `json:"repeat"`
 	AssignedToMe bool     `json:"assignedToMe"`
 	Assignees    []string `json:"assigneeIds,omitempty"`
@@ -298,6 +299,9 @@ func (m mcpCall) view(vc viewCtx, h hhCall, c store.Chore, notes bool) mcpChore 
 		MyTurn: c.Rotation && c.TurnUserID == m.c.user.ID}
 	if notes {
 		out.Notes = c.Notes
+	}
+	if m := onDueMinute(c); m >= 0 {
+		out.RemindAt = fmt.Sprintf("%02d:%02d", m/60, m%60)
 	}
 	return out
 }

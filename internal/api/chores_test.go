@@ -1064,3 +1064,38 @@ func TestChoreReminderTimeOnEdit(t *testing.T) {
 	put(mixed, body("Mixed", "reminderTime", "08:00"))
 	all(times(mixed), 2, 480)
 }
+
+// Chores carry reminderTime: when the due-day reminder goes off, from the
+// chore's own reminders or its (default) preset; null without one.
+func TestChoreViewReminderTime(t *testing.T) {
+	f := newHH(t)
+	rt := func(id string) any {
+		t.Helper()
+		st, v := f.g.do("GET", f.chore(id), nil)
+		if st != 200 {
+			t.Fatalf("get: %d %v", st, v)
+		}
+		return field(v, "reminderTime")
+	}
+	timed := f.mk(t, f.a, with(with(intervalBody("Dishes", "2026-11-21"), "reminderPreset", "nag"), "reminderTime", "07:30"))
+	byDefault := f.mk(t, f.a, intervalBody("Floors", "2026-11-21")) // household default: gentle, 09:00
+	none := f.mk(t, f.a, with(intervalBody("Bins", "2026-11-21"), "reminderPreset", "none"))
+	before := f.mk(t, f.a, intervalBody("Windows", "2026-11-21"))
+	st, v := f.a.do("PUT", f.chore(before)+"/reminders", map[string]any{"reminders": []map[string]any{{"kind": "before", "days": 1, "minute": 480}}})
+	expect(t, st, v, 200, "")
+	for id, want := range map[string]any{timed: "07:30", byDefault: "09:00", none: nil, before: nil} {
+		if got := rt(id); got != want {
+			t.Errorf("chore %s: reminderTime %v, want %v", id, got, want)
+		}
+	}
+	// The list says the same, and follows the household default.
+	st, v = f.a.do("PATCH", f.base(), map[string]any{"defaultReminderPreset": "none"})
+	expect(t, st, v, 200, "")
+	_, v = f.g.do("GET", f.base()+"/chores", nil)
+	for _, c := range list(t, v) {
+		want := map[string]any{timed: "07:30", byDefault: nil, none: nil, before: nil}[str(c, "id")]
+		if got := field(c, "reminderTime"); got != want {
+			t.Errorf("list %s: reminderTime %v, want %v", str(c, "name"), got, want)
+		}
+	}
+}

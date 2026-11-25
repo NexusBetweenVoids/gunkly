@@ -4,6 +4,10 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ## [Unreleased]
 
+### Added
+
+- Chores carry `reminderTime` ("HH:MM" in the household's time zone, or `null`): when the due-day reminder goes off, from the chore's own reminders or its preset (the household default when the chore has none). Readable with `chores:read`, so the Home Assistant integration can show chores at their time instead of all day. MCP chore results include it as `remindAt`.
+
 ### Changed
 
 - Settings, Integrations, Home Assistant: three steps instead of four. "Add to Home Assistant" is offered where it is needed, next to the new key and the server address, instead of as a separate last step.

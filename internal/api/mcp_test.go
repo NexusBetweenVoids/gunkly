@@ -158,6 +158,9 @@ func TestMCPToolsHappyPath(t *testing.T) {
 	if st, v := f.a.do("GET", f.chore(str(timed, "id"))+"/reminders", nil); st != 200 || str(v, "preset") != "custom" || minutes(t, v)[0] != 450 {
 		t.Fatalf("remind_at: %d %v", st, v)
 	}
+	if timed["remindAt"] != "07:30" {
+		t.Fatalf("remindAt in the chore view: %v", timed)
+	}
 	mustFail(t, cs, "create_chore", map[string]any{"name": "Bad", "remind_at": "25:00"}, "remind_at")
 	// It is a normal chore in the REST API too.
 	st, v := f.a.do("GET", f.chore(plants), nil)
