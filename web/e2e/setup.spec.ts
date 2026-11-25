@@ -18,11 +18,19 @@ test('first-run setup creates the admin and signs in', async ({ page }) => {
 
   await page.getByLabel('Setup code').fill(setupCode);
   await page.getByRole('button', { name: 'Create administrator account' }).click();
-  await expect(page).toHaveURL(/\/$/);
-  await expect(page.getByRole('link', { name: 'Admin' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Chores' })).toBeVisible();
-
+  // The guided setup follows: one optional step at a time.
+  await expect(page).toHaveURL(/\/setup\/guide$/);
+  await expect(page.getByRole('heading', { name: "Your server's address" })).toBeVisible();
+  await expect(page.getByTestId('address-check')).toBeVisible();
   writeState({ setupCode, admin: { username, password: PASSWORD } });
+  await page.getByRole('button', { name: 'Next' }).click();
+  await expect(page.getByRole('heading', { name: 'Email (optional)' })).toBeVisible();
+  await expect(page).toHaveURL(/step=1$/);
+  await page.getByRole('button', { name: 'Skip the rest' }).click();
+  await expect(page.getByRole('heading', { name: 'All set' })).toBeVisible();
+  await page.getByRole('button', { name: 'Finish' }).click();
+  await expect(page).toHaveURL(/\/households\/new$/); // no household yet
+  await expect(page.getByRole('link', { name: 'Admin' })).toBeVisible();
 
   // The admin is really signed in: a reload keeps the session.
   await page.reload();

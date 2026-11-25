@@ -13,6 +13,8 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 - Optional "Update now" button (Administration, Updates): set an update webhook (or `GUNKLY_UPDATE_WEBHOOK_URL`/`_TOKEN`) and Gunkly asks an updater you run, such as Watchtower, to pull the new version and restart it; the page reloads when the new version answers. Gunkly itself never gets access to Docker. See [docs/updating.md](docs/updating.md).
 
+- A guided setup after the first admin account: it checks the server address and offers email, single sign-on, AI suggestions and the update button one optional step at a time, using the same cards as Administration (which links back to it).
+
 ### Changed
 
 - `.env.example` no longer sets placeholder SMTP values, the metrics token or the sign-up difficulty; they are commented out (set them there or in Administration).

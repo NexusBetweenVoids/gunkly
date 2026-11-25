@@ -29,6 +29,8 @@ docker compose -f compose.sqlite.yml logs gunkly | grep setup_code
 
 Open `GUNKLY_BASE_URL`. You land on the setup screen: enter the code, choose a username and password and create the instance admin. The code stops working once the account exists (restart the container for a new one if you missed it).
 
+A short setup guide follows, one optional step at a time: it checks the server address, then lets you set up email, single sign-on, AI chore suggestions and updates right there, without touching Docker again. Skip anything you don't need; everything stays changeable under Administration (which also links back to the guide). Settings you put in the environment win and show as locked.
+
 Optional: turn on authenticator-app two-factor under Account.
 
 ## 3. Create a household

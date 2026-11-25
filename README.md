@@ -115,7 +115,7 @@ docker compose up -d
 docker compose logs gunkly | grep setup_code   # one-time code to create the admin account
 ```
 
-Open http://localhost:4865, enter the setup code and create your admin account. That's it — no email server needed; see [docs/getting-started.md](docs/getting-started.md) for the next steps. Every other setting is optional and listed in [`.env.example`](.env.example); add them under `environment:`.
+Open http://localhost:4865, enter the setup code and create your admin account; a short guide then offers email, single sign-on, AI suggestions and updates (all optional, all changeable later). That's it — no email server needed; see [docs/getting-started.md](docs/getting-started.md) for the next steps. Every other setting is optional and listed in [`.env.example`](.env.example); add them under `environment:`.
 
 Prefer working from a checkout? `compose.sqlite.yml` and `compose.postgres.yml` in this repo do the same with an `.env` file (`cp .env.example .env`).
 

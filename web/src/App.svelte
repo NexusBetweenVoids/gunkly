@@ -171,6 +171,8 @@
       {#key app.hhId}<Lazy load={() => import('./screens/Settings.svelte')} ns={['account', 'household', 'channels']} props={{ section: settingsMatch[1] }} />{/key}
     {:else if accountMatch || (hhId && app.households.some((h) => h.id === hhId))}
       <p role="status" class="muted">{t('common.loading')}</p>
+    {:else if route.path === '/setup/guide' && app.user.isAdmin}
+      <Lazy load={() => import('./screens/admin/SetupGuide.svelte')} ns={['admin']} />
     {:else if adminMatch && app.user.isAdmin}
       <Lazy load={() => import('./screens/Admin.svelte')} ns={['admin']} props={{ section: adminMatch[1] }} />
     {:else}

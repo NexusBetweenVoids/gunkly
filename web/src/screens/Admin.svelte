@@ -22,7 +22,7 @@
 </script>
 
 <SettingsLayout title={t('admin.title')} base="/admin" {groups} {section}>
-  {#snippet intro()}<ProxyWarning />{/snippet}
+  {#snippet intro()}<ProxyWarning /><p class="hint">{t('guide.againLead')} <a href="/setup/guide">{t('guide.again')}</a></p>{/snippet}
   {#snippet children(g: string)}
     {#if g === 'users'}
       <Users />

@@ -27,7 +27,7 @@
       await adopt(
         await api<SessionView>('POST', '/setup', { code: code.trim(), username, email, displayName, password }),
       );
-      navigate('/', true);
+      navigate('/setup/guide', true);
     } catch (x) {
       err = failure(x);
     } finally {

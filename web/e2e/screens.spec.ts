@@ -80,6 +80,9 @@ test('axe WCAG 2.2 AA and no overflow on every main screen, light and dark', asy
     ['/admin/data', /^Inactive accounts$/],
     ['/admin/limits', /built-in default/],
     ['/admin/updates', 'Running version'],
+    ['/admin/email', 'SMTP server'],
+    ['/admin/ai', 'AI chore suggestions'],
+    ['/setup/guide', "Your server's address"],
   ] as const) {
     await ap.goto(path);
     await check(ap, `admin ${path}`, ready);
