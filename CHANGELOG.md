@@ -4,6 +4,10 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ## [Unreleased]
 
+### Changed
+
+- AI chore suggestions send the household's area and member names to the model as a separate JSON message instead of inside the instructions (clearer separation of data and instructions; flagged by CodeQL).
+
 ## [0.6.0] - 2026-11-25
 
 ### Added
