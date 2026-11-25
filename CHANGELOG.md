@@ -4,15 +4,14 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-25
+
 ### Added
 
 - AI chore suggestions (optional, off by default): on "Add chore", describe chores in your own words and Gunkly proposes chores to check, edit and add; nothing is created until you add it. An admin connects any OpenAI-compatible API under Administration, AI (or `GUNKLY_AI_*`): a paid service, or a model on your own network such as Ollama, LM Studio or llama.cpp, with "Test connection". Only the typed text, area names, members' names and today's date are sent. Each person can ask 50 times a day (new limit `ai_requests_per_user_day`). See [docs/ai-chore-suggestions.md](docs/ai-chore-suggestions.md).
 - `GET`/`PATCH /api/v1/admin/config`: settings an admin can change in the app instead of in the environment; a variable set in the environment always wins and locks the field. Secret values are stored encrypted, never returned, and re-encrypted by `gunkly rotate-key`.
-
 - Email, single sign-on, the metrics token and the sign-up difficulty can be set in Administration (new Email page; Sign-up & sign-in; Connections) instead of in the environment, with "Send test email" and "Test the provider". Changes apply at once, no restart. A variable set in the environment still wins and shows locked; email counts as set there only with `GUNKLY_EMAIL_ENABLED=true`. Secrets are stored encrypted and never shown again. See [ADR 0019](docs/adr/0019-configuration-in-the-app.md).
-
 - Optional "Update now" button (Administration, Updates): set an update webhook (or `GUNKLY_UPDATE_WEBHOOK_URL`/`_TOKEN`) and Gunkly asks an updater you run, such as Watchtower, to pull the new version and restart it; the page reloads when the new version answers. Gunkly itself never gets access to Docker. See [docs/updating.md](docs/updating.md).
-
 - A guided setup after the first admin account: it checks the server address and offers email, single sign-on, AI suggestions and the update button one optional step at a time, using the same cards as Administration (which links back to it).
 
 ### Changed
