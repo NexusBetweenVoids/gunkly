@@ -4,6 +4,12 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ## [Unreleased]
 
+## [0.5.4] - 2026-11-25
+
+### Changed
+
+- Gunkly has a new home: <https://github.com/NexusBetweenVoids/gunkly>. Container images are now published as `ghcr.io/nexusbetweenvoids/gunkly` (Docker Hub is unchanged). If you pull from ghcr.io, change the image name in your compose file once; the update check in Administration, Updates already looks at the new address. No other changes.
+
 ## [0.5.3] - 2026-11-25
 
 ### Added
