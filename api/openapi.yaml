@@ -124,7 +124,7 @@ paths:
         content: {application/json: {schema: {$ref: "#/components/schemas/PasskeyAnswer"}}}
       responses:
         "200": {description: Signed in, content: {application/json: {schema: {$ref: "#/components/schemas/Session"}}}}
-        "401": {description: The passkey was not accepted (unknown, wrong, expired challenge or a signature counter that did not increase), content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
+        "401": {description: "The passkey was not accepted (unknown, wrong, expired challenge or a signature counter that did not increase)", content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
         "404": {$ref: "#/components/responses/NotFound"}
         "429": {$ref: "#/components/responses/RateLimited"}
   /session/passkey/options:
@@ -217,7 +217,7 @@ paths:
       parameters:
         - {name: next, in: query, schema: {type: string}}
       responses:
-        "303": {description: To the provider, or to /signin?sso=unavailable}
+        "303": {description: "To the provider, or to /signin?sso=unavailable"}
         "404": {$ref: "#/components/responses/NotFound"}
         "429": {$ref: "#/components/responses/RateLimited"}
   /auth/oidc/callback:
@@ -366,7 +366,7 @@ paths:
       requestBody: {required: true, content: {application/json: {schema: {type: object, required: [token], properties: {token: {type: string}}}}}}
       responses:
         "200": {description: Verified, content: {application/json: {schema: {type: object, properties: {verified: {type: boolean}, recoveryCodes: {type: array, items: {type: string}}}}}}}
-        "400": {description: invalid_token (unknown, used or expired), content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
+        "400": {description: "invalid_token (unknown, used or expired)", content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
         "404": {$ref: "#/components/responses/NotFound"}
         "409": {description: email_unavailable}
         "429": {$ref: "#/components/responses/RateLimited"}
@@ -428,7 +428,7 @@ paths:
   /signup:
     post:
       tags: [setup]
-      summary: Create an account without an invite (only when open sign-up is on). Self-hosted (hostedMode false): the email is optional, even with SMTP; the account is created and signed in (201), a verification mail is sent if an address is given and SMTP is configured, and a taken email or username answers registration_failed. Hosted mode: the email is required and the answer is 202 (nobody is signed in, the address is verified by link) whether or not the address already had an account
+      summary: "Create an account without an invite (only when open sign-up is on). Self-hosted (hostedMode false): the email is optional, even with SMTP; the account is created and signed in (201), a verification mail is sent if an address is given and SMTP is configured, and a taken email or username answers registration_failed. Hosted mode: the email is required and the answer is 202 (nobody is signed in, the address is verified by link) whether or not the address already had an account"
       requestBody:
         required: true
         content:
@@ -443,7 +443,7 @@ paths:
       responses:
         "201": {description: Account created and signed in (self-hosted), content: {application/json: {schema: {$ref: "#/components/schemas/Session"}}}}
         "202": {description: Hosted mode - check your email. Same answer for a new and an already registered address, content: {application/json: {schema: {type: object, properties: {accepted: {type: boolean}}}}}}
-        "400": {description: Invalid input, pow_invalid (bad, expired or reused solution; the solution is spent as soon as it is checked) or registration_failed (username or, self-hosted, email taken), content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
+        "400": {description: "Invalid input, pow_invalid (bad, expired or reused solution; the solution is spent as soon as it is checked) or registration_failed (username or, self-hosted, email taken)", content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
         "403": {description: registration_disabled}
         "429": {$ref: "#/components/responses/RateLimited"}
   /token:
@@ -549,7 +549,7 @@ paths:
                 newOwners: {type: object, additionalProperties: {type: string}, description: "Household id to the user id of its new owner"}
       responses:
         "204": {description: Deleted; the session cookies are cleared}
-        "400": {description: invalid, confirmation_mismatch}
+        "400": {description: "invalid, confirmation_mismatch"}
         "401": {$ref: "#/components/responses/Unauthenticated"}
         "403": {$ref: "#/components/responses/Forbidden"}
         "409": {description: "owner_required (with households: the same shape as needOwner) or last_admin", content: {application/json: {schema: {$ref: "#/components/schemas/OwnerRequired"}}}}
@@ -990,7 +990,7 @@ paths:
         "400": {description: One-off chores do not repeat (invalid), content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
         "403": {$ref: "#/components/responses/Forbidden"}
         "404": {$ref: "#/components/responses/NotFound"}
-        "409": {description: Archived, or no further occurrence (conflict, no_next_occurrence)}
+        "409": {description: "Archived, or no further occurrence (conflict, no_next_occurrence)"}
   /households/{hh}/chores/{chore}/pause:
     parameters: [{$ref: "#/components/parameters/hh"}, {$ref: "#/components/parameters/chore"}]
     post:
@@ -1322,7 +1322,7 @@ paths:
                 events: {type: array, minItems: 1, items: {$ref: "#/components/schemas/WebhookEvent"}}
       responses:
         "201": {description: Created, content: {application/json: {schema: {$ref: "#/components/schemas/WebhookCreated"}}}}
-        "400": {description: Invalid input (invalid, invalid_json, invalid_webhook_url), content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
+        "400": {description: "Invalid input (invalid, invalid_json, invalid_webhook_url)", content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
         "403": {$ref: "#/components/responses/Forbidden"}
         "404": {$ref: "#/components/responses/NotFound"}
         "409": {$ref: "#/components/responses/LimitReached"}
@@ -1351,7 +1351,7 @@ paths:
                 active: {type: boolean}
       responses:
         "200": {description: OK, content: {application/json: {schema: {$ref: "#/components/schemas/Webhook"}}}}
-        "400": {description: Invalid input (invalid, invalid_json, invalid_webhook_url), content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
+        "400": {description: "Invalid input (invalid, invalid_json, invalid_webhook_url)", content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
         "403": {$ref: "#/components/responses/Forbidden"}
         "404": {$ref: "#/components/responses/NotFound"}
     delete:
@@ -1515,15 +1515,15 @@ components:
     limit: {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 200, default: 50}}
     before: {name: before, in: query, schema: {type: string}, description: Opaque cursor from a previous page's next}
   responses:
-    ChannelInvalid: {description: Invalid input (invalid, invalid_json, invalid_channel_url, service_disabled), content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
+    ChannelInvalid: {description: "Invalid input (invalid, invalid_json, invalid_channel_url, service_disabled)", content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
     TestResult:
       description: Test outcome; error text is redacted
       content: {application/json: {schema: {type: object, properties: {sent: {type: boolean}, error: {type: string}}}}}
-    Invalid: {description: Validation failed (invalid, invalid_json), content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
-    UnauthenticatedBearer: {description: Missing, unknown, expired or revoked token (unauthenticated), headers: {WWW-Authenticate: {schema: {type: string, example: Bearer}}}, content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
+    Invalid: {description: "Validation failed (invalid, invalid_json)", content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
+    UnauthenticatedBearer: {description: "Missing, unknown, expired or revoked token (unauthenticated)", headers: {WWW-Authenticate: {schema: {type: string, example: Bearer}}}, content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
     Unauthenticated: {description: Not signed in (unauthenticated), content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
-    Forbidden: {description: Role too low, CSRF failure or step-up needed (forbidden, csrf_failed, step_up_required, token_not_allowed, insufficient_scope), content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
-    NotFound: {description: Not found, or not a member of the household (not_found), content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
+    Forbidden: {description: "Role too low, CSRF failure or step-up needed (forbidden, csrf_failed, step_up_required, token_not_allowed, insufficient_scope)", content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
+    NotFound: {description: "Not found, or not a member of the household (not_found)", content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
     ImportInvalid:
       description: The file was rejected (code import_invalid; limit_reached when the household is already full)
       content:
@@ -1556,7 +1556,7 @@ components:
         createdAt: {type: string, format: date-time}
         lastUsedAt: {type: string, format: date-time, nullable: true, description: Updated at most once a minute}
         expiresAt: {type: string, format: date-time, nullable: true}
-        token: {type: string, description: The secret, only in the creation response}
+        token: {type: string, description: "The secret, only in the creation response"}
     OAuthGrant:
       type: object
       properties:
@@ -1592,7 +1592,7 @@ components:
         choresCreated: {type: integer}
         completionsImported: {type: integer}
         unassigned: {type: integer, description: Chores whose assignees were all unknown here (now "anyone")}
-        webhooksCreated: {type: integer, description: Webhooks of the file re-created; always disabled, with new signing secrets (an owner rotates the secret to see it, then enables)}
+        webhooksCreated: {type: integer, description: "Webhooks of the file re-created; always disabled, with new signing secrets (an owner rotates the secret to see it, then enables)"}
         webhooksSkipped:
           type: array
           description: Webhooks of the file that were not created; not an error
@@ -1788,7 +1788,7 @@ components:
         maxUses: {type: integer}
         uses: {type: integer}
         token: {type: string, description: Only in the create response}
-        url: {type: string, description: Only in the create response, when a base URL is configured}
+        url: {type: string, description: "Only in the create response, when a base URL is configured"}
     Joined:
       type: object
       properties:
@@ -2027,7 +2027,7 @@ components:
         name: {type: string, minLength: 1, maxLength: 200}
         notes: {type: string, maxLength: 10000}
         link: {type: string, description: http or https URL}
-        areaId: {type: string, nullable: true, description: On update, omitted keeps the current area and null clears it}
+        areaId: {type: string, nullable: true, description: "On update, omitted keeps the current area and null clears it"}
         kind: {type: string, enum: [recurring, oneoff], default: recurring}
         schedule: {$ref: "#/components/schemas/Schedule"}
         assignees: {type: array, items: {type: string}, description: "Non-guest member user IDs; empty = anyone. The order is the rotation order when rotation is on."}
@@ -2056,7 +2056,7 @@ components:
         rotation: {type: boolean}
         advanceOn: {type: string, enum: [any, assignee]}
         turnUserId: {type: string, nullable: true, description: Whose turn it is; null unless rotation}
-        turnName: {type: string, nullable: true, description: Display name (username when empty) of the member whose turn it is; null unless rotation. Lets API tokens, which cannot list members, show the name}
+        turnName: {type: string, nullable: true, description: "Display name (username when empty) of the member whose turn it is; null unless rotation. Lets API tokens, which cannot list members, show the name"}
         reminderTime: {type: string, nullable: true, pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$', example: "09:00", description: "When the chore's due-day reminder goes off (HH:MM, household time zone), from its own reminders or its preset (the household default when reminderPreset is empty); null when it has no due-day reminder."}
         muted: {type: boolean, description: Muted by the caller}
         createdAt: {type: string, format: date-time}
@@ -2146,7 +2146,7 @@ x-outside-api-v1:
       signed-in user's passkeys. The challenge is single use, five minutes, bound to the account, the session and this
       purpose. CSRF as the consent form (csrf field). 401 without a session, 404 without passkeys or while OAuth is off.
       Rate limit 20/min per IP.
-    "GET /oauth-consent.js": The consent page's script (progressive enhancement: passkey confirmation). 404 while OAuth is off.
+    "GET /oauth-consent.js": "The consent page's script (progressive enhancement: passkey confirmation). 404 while OAuth is off."
     "POST /oauth/token": |
       Token endpoint (form encoded, public clients: client_id, no secret). grant_type=authorization_code with code,
       redirect_uri, code_verifier (PKCE S256) and optional resource; or grant_type=refresh_token with refresh_token. Answers
@@ -2156,8 +2156,8 @@ x-outside-api-v1:
       unsupported_grant_type. No-store. Rate limit 60/min per IP. 404 while OAuth is off. Access tokens are accepted by
       POST /mcp only, never by the REST API.
     "POST /oauth/revoke": RFC 7009 revocation (form encoded token, client_id). Revoking an access or refresh token revokes its grant. Always 200 {} (no oracle). Rate limit 60/min per IP. 404 while OAuth is off.
-    "GET /mcp": 405 (stateless server: no server-to-client stream). Authenticated like POST /mcp.
-    "DELETE /mcp": 405 (stateless server: nothing to terminate). Authenticated like POST /mcp.
+    "GET /mcp": "405 (stateless server: no server-to-client stream). Authenticated like POST /mcp."
+    "DELETE /mcp": "405 (stateless server: nothing to terminate). Authenticated like POST /mcp."
     "GET /metrics": |
       Prometheus text exposition (format 0.0.4). Registered only when GUNKLY_METRICS_TOKEN is set; requires
       "Authorization: Bearer <token>" (constant-time compare, otherwise 401). Rate limit 30/min per IP. Series:

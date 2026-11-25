@@ -132,7 +132,8 @@ jobs:
 
   openapi:
     name: OpenAPI breaking changes
-    if: github.event_name == 'pull_request'
+    # Also on pushes to main (commits land there directly): HEAD^1 is then the previous commit, so a
+    # spec that no longer parses or a breaking change fails right away instead of on the next PR.
     runs-on: ubuntu-latest
     env:
       OASDIFF_VERSION: '1.39.0'
@@ -140,7 +141,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # The checked-out ref is the PR merge commit; its first parent is the base tip.
+          # On a PR the checked-out ref is the merge commit (first parent = base tip); on a push, the pushed commit.
           fetch-depth: 2
           persist-credentials: false
       - name: Install oasdiff (checksum verified)
