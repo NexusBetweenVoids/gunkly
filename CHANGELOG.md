@@ -4,9 +4,12 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ## [Unreleased]
 
+## [0.5.5] - 2026-11-25
+
 ### Changed
 
 - Administration, Updates shows the release notes formatted (headings, bullet and numbered lists, bold, italic, code, links) instead of as raw Markdown. The notes are still treated as untrusted text: they are never inserted as HTML, so markup in them shows literally; only http(s) links become clickable (new tab, no referrer); images are not shown.
+- SQLite driver `modernc.org/sqlite` 1.63.0 (from 1.62.0).
 
 ### Fixed
 
