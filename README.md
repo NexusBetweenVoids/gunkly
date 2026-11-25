@@ -50,6 +50,7 @@ All screenshots show synthetic demo data.
 - Assignees (none, one or many); one completion by anyone completes it for everyone. Optionally take turns: the turn, and its reminders, rotate through the assignees.
 - Snooze, skip once, pause, archive; undo right after completing, revert later from history; optional areas (off by default), notes, link, starter templates.
 - Home screen grouped Overdue / Today / This week / Later, with "Mine / Everyone" (and area filters if you turn areas on).
+- Optional [AI chore suggestions](docs/ai-chore-suggestions.md): describe chores in your own words and review what the AI proposes; works with a paid OpenAI-compatible API or a model on your own network (off by default).
 
 **Reminders and notification channels**
 - Per chore: before due, on the due date, repeating while overdue (at most once per 24 h); household presets and quiet hours, plus personal quiet hours (deferred, not dropped); per-user mutes.
@@ -188,6 +189,7 @@ Everything is set through environment variables, all documented with their defau
 | `GUNKLY_METRICS_TOKEN` | Enables `/metrics` |
 | `GUNKLY_OIDC_ISSUER`, `GUNKLY_OIDC_CLIENT_ID`, `GUNKLY_OIDC_CLIENT_SECRET`, `GUNKLY_OIDC_NAME`, `GUNKLY_OIDC_SCOPES` | Single sign-on with an OpenID Connect provider (self-hosted only; [docs/sso.md](docs/sso.md)) |
 | `GUNKLY_AUTO_MIGRATE` | Apply migrations on start (default `true`) |
+| `GUNKLY_AI_ENABLED`, `GUNKLY_AI_URL`, `GUNKLY_AI_MODEL`, `GUNKLY_AI_KEY` | AI chore suggestions (optional); also settable in Administration, AI, where a variable set here wins ([docs/ai-chore-suggestions.md](docs/ai-chore-suggestions.md)) |
 
 Limits, sign-up, sessions, retention, allowed notification services and the egress guard are admin settings in the app (Administration: Sign-up & sign-in, Connections, Data & retention, Limits).
 
@@ -296,6 +298,10 @@ Tools, by the permission they need (the assistant only sees the ones its token a
 
 Assistants that cannot take an access key (ChatGPT custom connectors, Claude's "Add custom connector") sign in with OAuth 2.1 instead: optional and **off by default**, an admin turns it on under Administration, "Connections" (it needs `GUNKLY_BASE_URL` to be a public `https://` address). Users then approve the app on a Gunkly consent page, pick the households and actions it may use, and can disconnect it under Settings, "AI". Its tokens work for `/mcp` only. See [ADR 0016](docs/adr/0016-oauth-for-mcp.md) and [Connect an AI assistant](docs/ai-assistants.md#chatgpt-and-claude-connectors).
 
+## AI chore suggestions
+
+Optional and **off by default**: people describe chores in their own words ("vacuum every Saturday at 10, Sam and Alex take turns on the dishes") and Gunkly proposes chores to check, edit and add. An admin connects any OpenAI-compatible API under Administration, "AI": a paid service, or a model on your own network such as Ollama, LM Studio or llama.cpp (local addresses are allowed for this one setting). Only the typed text, the household's area names, members' names and today's date are sent; nothing is created without the person adding it. See [AI chore suggestions](docs/ai-chore-suggestions.md).
+
 ## Export and import
 
 Every user can download their own data (Settings, Your data, "Export my data"; asks for the password again) and members and owners can export a household (Settings, the household's Data group, "Export household") as JSON. The files never contain notification URLs, tokens, calendar feed links or member email addresses. An owner's household file also lists the household's webhooks (name, events, address and on/off state, never the signing secret); webhook addresses can embed credentials, so keep that file private. Importing re-creates them switched off with new secrets, for you to review ([docs/webhooks.md](docs/webhooks.md)). A household file can be imported as a new household or merged into one you are a member of (areas with the same name are combined, chores are added as new ones, assignees are matched to members by username). Uploads are limited to 5 MiB and an import is all-or-nothing.
@@ -332,6 +338,7 @@ Every instance can delete accounts (Settings, Your data, "Delete account") and c
 |-|-|
 | [docs/getting-started.md](docs/getting-started.md) | First-run walkthrough |
 | [docs/webhooks.md](docs/webhooks.md) | Outgoing webhooks: payloads, signatures, retries |
+| [docs/ai-chore-suggestions.md](docs/ai-chore-suggestions.md) | AI chore suggestions: admin setup, what is sent |
 | [docs/PRD.md](docs/PRD.md) | Scope and requirements |
 | [docs/adr/](docs/adr/) | Architecture decisions |
 | [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) | Threat model |

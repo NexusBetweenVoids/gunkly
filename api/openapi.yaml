@@ -416,7 +416,7 @@ paths:
       tags: [setup]
       summary: What this instance offers (public)
       responses:
-        "200": {description: OK, content: {application/json: {schema: {type: object, properties: {openSignup: {type: boolean}, emailEnabled: {type: boolean}, hostedMode: {type: boolean}, requirePow: {type: boolean, description: "Sign-up needs a proof of work"}, baseUrl: {type: string, description: "Configured public address (GUNKLY_BASE_URL), empty when not set"}, mcpEnabled: {type: boolean, description: "The MCP endpoint /mcp is served"}, sso: {type: object, properties: {name: {type: string, description: "Button label from GUNKLY_OIDC_NAME; may be empty"}}, description: "Present only while single sign-on is configured (self-hosted)"}, passkeysAvailable: {type: boolean, description: "GUNKLY_BASE_URL is https (or localhost), so passkeys can be registered and used"}, oauthEnabled: {type: boolean, description: "Present (true) only while OAuth sign-in for MCP clients is on; absent otherwise"}, webhooksEnabled: {type: boolean, description: "Present (true) only while outgoing webhooks are on; absent otherwise"}}}}}}
+        "200": {description: OK, content: {application/json: {schema: {type: object, properties: {openSignup: {type: boolean}, emailEnabled: {type: boolean}, hostedMode: {type: boolean}, requirePow: {type: boolean, description: "Sign-up needs a proof of work"}, baseUrl: {type: string, description: "Configured public address (GUNKLY_BASE_URL), empty when not set"}, mcpEnabled: {type: boolean, description: "The MCP endpoint /mcp is served"}, sso: {type: object, properties: {name: {type: string, description: "Button label from GUNKLY_OIDC_NAME; may be empty"}}, description: "Present only while single sign-on is configured (self-hosted)"}, passkeysAvailable: {type: boolean, description: "GUNKLY_BASE_URL is https (or localhost), so passkeys can be registered and used"}, oauthEnabled: {type: boolean, description: "Present (true) only while OAuth sign-in for MCP clients is on; absent otherwise"}, webhooksEnabled: {type: boolean, description: "Present (true) only while outgoing webhooks are on; absent otherwise"}, aiEnabled: {type: boolean, description: "Present (true) only while AI chore suggestions are configured and on; absent otherwise"}}}}}}
   /signup/challenge:
     get:
       tags: [setup]
@@ -847,6 +847,44 @@ paths:
         "403": {$ref: "#/components/responses/Forbidden"}
         "404": {$ref: "#/components/responses/NotFound"}
         "409": {$ref: "#/components/responses/LimitReached"}
+  /households/{hh}/chores/suggest:
+    parameters: [{$ref: "#/components/parameters/hh"}]
+    post:
+      security: [{cookieAuth: []}]
+      tags: [chores]
+      summary: Suggest chores from plain language with the instance's AI model (member, session only)
+      description: |
+        Optional; 409 ai_disabled unless an admin has configured an OpenAI-compatible endpoint (GET /instance
+        has aiEnabled). Sends the text, the household's area names (when areas are on), the display names of
+        members who are not guests and today's date to the model; nothing else. Creates nothing: each
+        suggestion has the shape of ChoreInput and passed the same validation, so the app can show it for
+        review and then create it with POST /households/{hh}/chores. Suggestions the model got wrong are
+        left out and counted in dropped. At most 20 suggestions. Per user at most ai_requests_per_user_day
+        requests in 24 hours (429 with Retry-After); 503 ai_busy while the instance already has 4 requests in
+        flight. 502 when the model fails; kind is one of unreachable, auth, not_found, rate_limited,
+        timeout, bad_response, server_error.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, required: [text], properties: {text: {type: string, maxLength: 2000, description: "What to do, in any language"}}}
+      responses:
+        "200":
+          description: Suggestions to review
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  suggestions: {type: array, items: {$ref: "#/components/schemas/ChoreInput"}}
+                  dropped: {type: integer}
+        "400": {$ref: "#/components/responses/Invalid"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409": {description: "AI suggestions are off (ai_disabled)", content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "502": {description: "The model failed", content: {application/json: {schema: {type: object, properties: {error: {type: string, example: ai_failed}, kind: {type: string}}}}}}
+        "503": {description: "Too many AI requests in flight (ai_busy)", content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
   /households/{hh}/chores/{chore}:
     parameters: [{$ref: "#/components/parameters/hh"}, {$ref: "#/components/parameters/chore"}]
     get:
@@ -1460,6 +1498,47 @@ paths:
       responses:
         "200": {description: OK, content: {application/json: {schema: {$ref: "#/components/schemas/Updates"}}}}
         "403": {$ref: "#/components/responses/Forbidden"}
+  /admin/config:
+    get:
+      tags: [admin]
+      summary: Configuration set in Administration (admin)
+      description: |
+        Settings an admin can change here instead of in the server's environment (currently the AI endpoint:
+        ai.enabled, ai.url, ai.model, ai.key). An environment variable always wins: its field is locked and
+        shows the environment's value (never for secrets). Secret fields never return a value, only set.
+      responses:
+        "200": {description: OK, content: {application/json: {schema: {$ref: "#/components/schemas/AdminConfig"}}}}
+        "403": {$ref: "#/components/responses/Forbidden"}
+    patch:
+      tags: [admin]
+      summary: Change configuration (admin, recent step-up)
+      description: |
+        values maps keys to new values; null or "" resets a key to its default. Secrets are stored encrypted
+        with the instance's secret key. 409 set_by_environment for a key set in the environment. Audited by key
+        name, never with values.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, required: [values], properties: {values: {type: object, additionalProperties: {type: string, nullable: true}}}}
+      responses:
+        "200": {description: OK, content: {application/json: {schema: {$ref: "#/components/schemas/AdminConfig"}}}}
+        "400": {$ref: "#/components/responses/Invalid"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "409": {description: "The key is set in the environment (set_by_environment)", content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
+  /admin/ai/test:
+    post:
+      tags: [admin]
+      summary: Test the saved AI endpoint (admin)
+      description: Sends a tiny request to the configured model. 409 ai_disabled when AI is off or incomplete.
+      responses:
+        "200":
+          description: Result
+          content:
+            application/json:
+              schema: {type: object, properties: {ok: {type: boolean}, ms: {type: integer}, error: {type: string, description: "unreachable, auth, not_found, rate_limited, timeout, bad_response or server_error"}}}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "409": {description: "AI is off (ai_disabled)", content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
   /admin/settings:
     get:
       tags: [admin]
@@ -1954,6 +2033,18 @@ components:
             properties:
               ip: {type: string, description: "Direct peer address (IPv4 or IPv6)"}
               lastSeen: {type: string, format: date-time}
+    AdminConfig:
+      type: object
+      properties:
+        fields:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              value: {type: string, nullable: true, description: "null for secrets"}
+              set: {type: boolean}
+              locked: {type: boolean, description: "Set by the environment; read-only here"}
+              env: {type: string, description: "The environment variable that overrides it"}
     Updates:
       type: object
       properties:

@@ -74,6 +74,12 @@ type Options struct {
 	Static fs.FS
 	// Now is the clock; nil means time.Now. Tests inject a fake clock.
 	Now func() time.Time
+	// Env holds the environment variables that override admin configuration
+	// (see ConfigEnvNames), only those that are set. They always win over the
+	// values stored through Administration.
+	Env map[string]string
+	// AIClient replaces the HTTP client used for the AI endpoint (tests).
+	AIClient *http.Client
 }
 
 // Server is the HTTP API. Create with New.
@@ -129,6 +135,14 @@ type Server struct {
 	setupMu   sync.Mutex
 	setupHash string // hash of the first-run setup code; empty when not in setup
 
+	env map[string]string // configuration overrides from the environment (Options.Env)
+
+	// AI chore suggestions: the admin endpoint's client, the 24-hour per-user
+	// request counter and the instance-wide cap on requests in flight.
+	aiHTTP   *http.Client
+	aiCounts *windowCounter
+	aiSem    chan struct{}
+
 	mux    *http.ServeMux
 	routes []route
 	// bodyLimits maps a route pattern to its raised request body cap.
@@ -142,7 +156,10 @@ func New(o Options) *Server {
 		baseURL: o.BaseURL, version: o.Version, updates: o.Updates, secure: strings.HasPrefix(o.BaseURL, "https://"),
 		proxies: o.TrustedProxies, log: o.Logger, ready: o.Ready, static: o.Static, now: o.Now,
 		hashPassword: auth.HashPassword, verifyPassword: auth.VerifyPassword,
-		mux: http.NewServeMux(), bodyLimits: map[string]int64{},
+		mux: http.NewServeMux(), bodyLimits: map[string]int64{}, env: o.Env,
+	}
+	if s.env == nil {
+		s.env = map[string]string{}
 	}
 	s.hosted, s.sender = o.HostedMode, o.Sender
 	if s.sender == nil {
@@ -172,6 +189,12 @@ func New(o Options) *Server {
 		s.log.Warn("single sign-on is not available in hosted mode; GUNKLY_OIDC_* ignored")
 	}
 	s.counts = newWindowCounter(s.now, 20000)
+	s.aiCounts = newWindowCounter(s.now, 20000)
+	s.aiCounts.window = 24 * time.Hour
+	s.aiSem = make(chan struct{}, aiConcurrent)
+	if s.aiHTTP = o.AIClient; s.aiHTTP == nil {
+		s.aiHTTP = newAIHTTP()
+	}
 	s.pow = auth.NewPoW(s.keyring.DeriveKey("gunkly signup proof of work v1"), cmp.Or(o.PoWMaxNumber, auth.DefaultPoWMaxNumber))
 	switch {
 	case o.Mailer != nil:

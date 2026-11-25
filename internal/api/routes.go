@@ -101,6 +101,7 @@ func (s *Server) registerRoutes() {
 	s.handle("DELETE /api/v1/households/{hh}/areas/{area}", member.withToken(store.ScopeWrite), s.deleteArea)
 	s.handle("GET /api/v1/households/{hh}/chores", guest.withToken(store.ScopeRead), s.listChores)
 	s.handle("POST /api/v1/households/{hh}/chores", member.withToken(store.ScopeWrite), s.createChore)
+	s.handle("POST /api/v1/households/{hh}/chores/suggest", member.noToken(), s.suggestChores)
 	s.handle("GET /api/v1/households/{hh}/chores/{chore}", guest.withToken(store.ScopeRead), s.getChore)
 	s.handle("PUT /api/v1/households/{hh}/chores/{chore}", member.withToken(store.ScopeWrite), s.updateChore)
 	s.handle("PATCH /api/v1/households/{hh}/chores/{chore}", member.withToken(store.ScopeComplete), s.setChoreTurn)
@@ -160,6 +161,9 @@ func (s *Server) registerRoutes() {
 	s.handle("GET /api/v1/admin/health", admin.noToken(), s.adminHealth)
 	s.handle("GET /api/v1/admin/updates", admin.noToken(), s.adminUpdates)
 	s.handle("POST /api/v1/admin/updates/check", admin.noToken(), s.adminUpdatesCheck)
+	s.handle("GET /api/v1/admin/config", admin.noToken(), s.adminGetConfig)
+	s.handle("PATCH /api/v1/admin/config", admin.noToken().withStepUp(), s.adminPatchConfig)
+	s.handle("POST /api/v1/admin/ai/test", admin.noToken(), s.adminTestAI)
 
 	s.registerLinkAndNotifyRoutes()
 	s.registerWebhookRoutes()

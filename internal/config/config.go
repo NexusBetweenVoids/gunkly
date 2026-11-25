@@ -45,6 +45,9 @@ type Config struct {
 	// MetricsToken enables GET /metrics (Prometheus) behind
 	// "Authorization: Bearer <token>"; empty = no metrics endpoint.
 	MetricsToken string
+	// Overrides holds the set (non-empty) variables of OverrideVars: settings an
+	// admin can otherwise change in the app, where these always win.
+	Overrides map[string]string
 	// OIDC configures single sign-on with an OpenID Connect provider (ADR
 	// 0018); the zero value (no Issuer) means off. Self-hosted only.
 	OIDC OIDC
@@ -74,6 +77,11 @@ type SMTP struct {
 
 // Load builds a Config from lookup (normally os.Getenv), applying defaults
 // and validating everything. Errors never include secret values.
+// OverrideVars are the variables of settings that an admin can also change in
+// Administration (internal/api's configuration list; a test keeps them in
+// step). Load only collects them; internal/api validates and applies them.
+var OverrideVars = []string{"GUNKLY_AI_ENABLED", "GUNKLY_AI_URL", "GUNKLY_AI_MODEL", "GUNKLY_AI_KEY"}
+
 func Load(lookup func(string) string) (*Config, error) {
 	get := func(k string) string { return strings.TrimSpace(lookup("GUNKLY_" + k)) }
 	var errs []error
@@ -151,6 +159,13 @@ func Load(lookup func(string) string) (*Config, error) {
 			fail("GUNKLY_METRICS_TOKEN: must be at least %d characters (generate with: openssl rand -hex 24)", MinMetricsTokenLen)
 		}
 		c.MetricsToken = v
+	}
+
+	c.Overrides = map[string]string{}
+	for _, k := range OverrideVars {
+		if v := strings.TrimSpace(lookup(k)); v != "" {
+			c.Overrides[k] = v
+		}
 	}
 
 	if v := get("LOG_LEVEL"); v != "" {

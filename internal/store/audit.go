@@ -28,6 +28,7 @@ const (
 	AuditHouseholdCreate   = "household_create"
 	AuditAdminUserCreate   = "admin_user_create"
 	AuditAdminSettings     = "admin_settings"
+	AuditAISuggest         = "ai_suggest" // a member asked the AI for chore suggestions (count only, never the text)
 	AuditRegisterByInvite  = "register_invite"
 	AuditSignup            = "signup"
 	AuditEmailVerify       = "email_verify"

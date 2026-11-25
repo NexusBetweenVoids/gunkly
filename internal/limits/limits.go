@@ -38,6 +38,9 @@ const (
 	OAuthUnusedClientsPerIP    Kind = "oauth_unused_clients_per_ip" // registered, never approved clients per registering IP
 	WebhooksPerHousehold       Kind = "webhooks_per_household"
 	PasskeysPerUser            Kind = "passkeys_per_user"
+	// AIRequestsPerUserDay caps chore suggestions per user over 24 hours (a
+	// paid AI endpoint costs money per request).
+	AIRequestsPerUserDay Kind = "ai_requests_per_user_day"
 )
 
 // Defaults is the PRD limits table.
@@ -68,6 +71,7 @@ var Defaults = map[Kind]int{
 	OAuthUnusedClientsPerIP:    20,
 	WebhooksPerHousehold:       10,
 	PasskeysPerUser:            20,
+	AIRequestsPerUserDay:       50,
 }
 
 // Per-IP request rates of the unauthenticated link endpoints. Fixed, not

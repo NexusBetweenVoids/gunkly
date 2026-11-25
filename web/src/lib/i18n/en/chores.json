@@ -154,5 +154,31 @@
   "area.garden": "Garden",
   "area.exterior": "Exterior",
   "area.appliances": "Appliances",
-  "area.general": "General"
+  "area.general": "General",
+  "ai.describe": "Describe your chores (AI)",
+  "ai.textLabel": "What needs doing?",
+  "ai.placeholder": "Vacuum the living room every Saturday at 10, Sam and Alex take turns doing the dishes, descale the kettle every 3 months",
+  "ai.privacy": "Your text, this household's area names and members' names are sent to the AI model your admin set up. You check every suggestion before anything is added.",
+  "ai.suggest": "Suggest chores",
+  "ai.thinking": "Thinking…",
+  "ai.review": "Check the suggestions: add them as they are, or open one in the form below to change it first.",
+  "ai.edit": "Edit",
+  "ai.add": "Add",
+  "ai.addAll": "Add all {count}",
+  "ai.added": "Added {name}",
+  "ai.addedShort": "Added",
+  "ai.none": "No chores found in that text. Try describing what needs doing and how often.",
+  "ai.dropped": {
+    "one": "One suggestion was left out because it didn't make sense.",
+    "other": "{count} suggestions were left out because they didn't make sense."
+  },
+  "ai.fail.unreachable": "The AI model can't be reached right now. You can still add chores yourself below.",
+  "ai.fail.auth": "The AI model refused the request (its key is wrong or missing). Ask your admin to check Administration, AI.",
+  "ai.fail.notFound": "The AI model wasn't found at the configured address. Ask your admin to check Administration, AI.",
+  "ai.fail.rateLimited": "The AI provider is limiting requests right now. Try again in a minute.",
+  "ai.fail.timeout": "The AI model took too long to answer. Try a shorter description, or try again.",
+  "ai.fail.badResponse": "The AI model's answer couldn't be understood. Try again or rephrase.",
+  "ai.fail.server": "The AI model ran into a problem. Try again later.",
+  "ai.fail.busy": "The AI model is busy with other requests. Try again in a moment.",
+  "ai.fail.limit": "You've reached today's limit for AI suggestions. You can still add chores yourself below."
 }

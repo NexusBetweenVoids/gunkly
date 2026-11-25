@@ -1,4 +1,5 @@
 <script lang="ts">
+  import AiSuggest, { type Suggestion } from '../components/AiSuggest.svelte';
   import Alert from '../components/Alert.svelte';
   import Button from '../components/Button.svelte';
   import Field from '../components/Field.svelte';
@@ -111,6 +112,16 @@
     }
     more = repeat === 'rule' || repeat === 'interval' || !!notes || !!link ||
       anchor !== (repeat === 'rule' ? 'from_scheduled' : 'from_completion');
+  }
+
+  // "Edit" on an AI suggestion: fill the form with it, then the person saves as usual.
+  function applySuggestion(sg: Suggestion): void {
+    applyChore({
+      ...sg, link: '', advanceOn: 'any', reminderPreset: reminder,
+      schedule: { ...sg.schedule, anchor: sg.schedule.type === 'rrule' ? 'from_scheduled' : 'from_completion' },
+    } as unknown as Chore);
+    if (sg.reminderTime) setRemTime(sg.reminderTime);
+    document.getElementById('chore-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   async function load(): Promise<void> {
@@ -241,7 +252,10 @@
   {#if !loaded}
     <p role="status" class="muted">{t('common.loading')}</p>
   {:else}
-    <form class="stack" onsubmit={submit}>
+    {#if !id && app.instance.aiEnabled}
+      <AiSuggest {base} {areas} {members} onEdit={applySuggestion} />
+    {/if}
+    <form class="stack" id="chore-form" onsubmit={submit}>
       {#if templates.length}
         <Select
           label={t('chore.template')}

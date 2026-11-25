@@ -58,6 +58,7 @@ func serve(ctx context.Context, logOut io.Writer) error {
 	}
 	a.updater = &updates.Checker{Store: a.store, Client: egress.NewClient(egress.Guard{Enabled: true}), Log: a.log}
 	srv := api.New(api.Options{
+		Env:     a.cfg.Overrides,
 		Updates: a.updater,
 		Store:   a.store, Limits: a.limits, Keyring: a.keyring, BaseURL: a.cfg.BaseURL,
 		TrustedProxies: a.cfg.TrustedProxies, Logger: a.log, Ready: a.ready, Static: dist, HostedMode: a.cfg.HostedMode,

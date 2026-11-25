@@ -36,11 +36,12 @@ type windowCounter struct {
 	mu      sync.Mutex
 	now     func() time.Time
 	maxKeys int
+	window  time.Duration // sliding window; one hour unless set
 	events  map[string][]time.Time
 }
 
 func newWindowCounter(now func() time.Time, maxKeys int) *windowCounter {
-	return &windowCounter{now: now, maxKeys: maxKeys, events: map[string][]time.Time{}}
+	return &windowCounter{now: now, maxKeys: maxKeys, window: time.Hour, events: map[string][]time.Time{}}
 }
 
 type quota struct {
@@ -55,12 +56,12 @@ func (w *windowCounter) take(qs ...quota) time.Duration {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	now := w.now()
-	cut := now.Add(-time.Hour)
+	cut := now.Add(-w.window)
 	var wait time.Duration
 	for _, q := range qs {
 		ev := w.prune(q.key, cut)
 		if len(ev) >= q.limit && q.limit > 0 {
-			wait = max(wait, ev[len(ev)-q.limit].Add(time.Hour).Sub(now))
+			wait = max(wait, ev[len(ev)-q.limit].Add(w.window).Sub(now))
 		} else if _, known := w.events[q.key]; !known && len(w.events) >= w.maxKeys {
 			w.sweep(cut)
 			if len(w.events) >= w.maxKeys {

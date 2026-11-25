@@ -4,6 +4,11 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ## [Unreleased]
 
+### Added
+
+- AI chore suggestions (optional, off by default): on "Add chore", describe chores in your own words and Gunkly proposes chores to check, edit and add; nothing is created until you add it. An admin connects any OpenAI-compatible API under Administration, AI (or `GUNKLY_AI_*`): a paid service, or a model on your own network such as Ollama, LM Studio or llama.cpp, with "Test connection". Only the typed text, area names, members' names and today's date are sent. Each person can ask 50 times a day (new limit `ai_requests_per_user_day`). See [docs/ai-chore-suggestions.md](docs/ai-chore-suggestions.md).
+- `GET`/`PATCH /api/v1/admin/config`: settings an admin can change in the app instead of in the environment; a variable set in the environment always wins and locks the field. Secret values are stored encrypted, never returned, and re-encrypted by `gunkly rotate-key`.
+
 ### Changed
 
 - Your own time zone (Settings, Profile) now also decides what counts as today for you in the app: "due today", "overdue", "this week" and the Calendar's today follow it, so the app stays right when you travel or live in a different zone from your household. Due dates, the dates offered when you pick one, reminder times and calendar feeds stay in the household's zone, and API tokens (Home Assistant, MCP apps) keep using the household's zone.

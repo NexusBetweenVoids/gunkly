@@ -106,6 +106,11 @@ var rotators = []rotator{
 	{name: "notification channel URLs", run: notify.RotateSecrets},
 	{name: "web push keys", run: notify.RotatePushSecrets},
 	{name: "webhook URLs and signing secrets", run: webhook.RotateSecrets},
+	{name: "admin configuration secrets", run: func(ctx context.Context, s *store.Store, k *auth.Keyring) (int, error) {
+		return s.RotateConfigSecrets(ctx, api.SecretConfigKeys(), func(key, ct string) (string, error) {
+			return reencrypt(k, ct, api.ConfigAD(key))
+		})
+	}},
 }
 
 // reencrypt returns ct unchanged if it already uses the current key.
