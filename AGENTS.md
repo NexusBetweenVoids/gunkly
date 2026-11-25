@@ -75,4 +75,4 @@ Only after the user approves. Before tagging:
 3. Check the docs (`README.md`, `docs/*.md`) still name screens and settings the way the app does.
 4. The "SSO identity providers" workflow (`.github/workflows/sso-idp.yml`: real Keycloak and authentik sign-ins) must be green on the commit you tag. `release.yml` runs it and publishes nothing if it fails; fix SSO, not the test, unless a provider changed on purpose (pinned versions live in `test/idp/`).
 
-After the release is published, update the website (`../website`, local only): `npm run sync -- vX.Y.Z` pins its docs to the new tag and copies the screenshots, then `npm run build && npm run check`, look at the pages and commit there. Never deploy the website without the user.
+After the release is published, update the website (`../website`, local only): `npm run sync -- vX.Y.Z` pins its docs to the new tag and copies the screenshots, then `npm run build && npm run check`, look at the pages and commit there, then deploy it (the maintainer's deploy tooling lives outside this repo).

@@ -300,11 +300,10 @@
   "ha.step1Hint": "Needs HACS. Without HACS, install it by hand as described in the",
   "ha.guide": "integration's guide",
   "ha.step2": "Download it in HACS, then restart Home Assistant when it asks.",
-  "ha.step3": "Create an access key for Home Assistant. It can use all your households, see chores, mark them done and add new ones; you can change that before creating it.",
+  "ha.step3": "Create an access key for Home Assistant, then add the Gunkly integration in Home Assistant with this server's address and the key. The key can use all your households, see chores, mark them done and add new ones; you can change that before creating it.",
   "ha.createKey": "Create a key for Home Assistant",
-  "ha.step4": "Add the Gunkly integration in Home Assistant and paste this server's address and the key:",
   "ha.add": "Add to Home Assistant",
-  "ha.myHint": "These buttons use My Home Assistant (my.home-assistant.io), which asks for your Home Assistant's address the first time. Nothing about this Gunkly server is sent to it.",
+  "ha.myHint": "The Home Assistant buttons use My Home Assistant (my.home-assistant.io), which asks for your Home Assistant's address the first time. Nothing about this Gunkly server is sent to it.",
   "ha.address": "Gunkly address",
-  "ha.nextStep": "Next, add the Gunkly integration in Home Assistant and paste the address and the key there."
+  "ha.nextStep": "Now add the Gunkly integration in Home Assistant and paste the address and the key there."
 }

@@ -4,6 +4,10 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ## [Unreleased]
 
+### Changed
+
+- Settings, Integrations, Home Assistant: three steps instead of four. "Add to Home Assistant" is offered where it is needed, next to the new key and the server address, instead of as a separate last step.
+
 ## [0.5.2] - 2026-11-25
 
 ### Changed

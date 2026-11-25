@@ -70,7 +70,7 @@ test('Home Assistant: install and add buttons, and a prefilled key with the addr
     'href',
     'https://my.home-assistant.io/redirect/hacs_repository/?owner=NexusBetweenVoids&repository=gunkly-homeassistant&category=integration',
   );
-  await expect(card.getByRole('link', { name: 'Add to Home Assistant' })).toHaveAttribute('href', 'https://my.home-assistant.io/redirect/config_flow_start/?domain=gunkly');
+  await expect(card.getByRole('listitem')).toHaveCount(3); // install, restart, key (adding is offered with the key)
   await axe(page, 'home assistant card');
 
   await card.getByRole('button', { name: 'Create a key for Home Assistant' }).click();
@@ -86,7 +86,7 @@ test('Home Assistant: install and add buttons, and a prefilled key with the addr
   const shown = page.getByRole('dialog', { name: 'Your new access token' });
   await expect(shown.getByText(/^gk_/)).toBeVisible();
   await expect(shown.getByText(new URL(baseURL!).origin, { exact: true })).toBeVisible();
-  await expect(shown.getByRole('link', { name: 'Add to Home Assistant' })).toBeVisible();
+  await expect(shown.getByRole('link', { name: 'Add to Home Assistant' })).toHaveAttribute('href', 'https://my.home-assistant.io/redirect/config_flow_start/?domain=gunkly');
 });
 
 test('admin: the single sign-on section shows the environment setup, never the secret', async ({ world }) => {

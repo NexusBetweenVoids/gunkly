@@ -1,7 +1,8 @@
 <script lang="ts" module>
   // My Home Assistant links: they open the user's own Home Assistant (my.home-assistant.io
   // asks for its address once). HACS adds the integration's repository; config_flow_start
-  // opens "Add integration" for Gunkly. Nothing about this server is sent along.
+  // opens "Add integration" for Gunkly (offered next to a new key, with the address to paste).
+  // Nothing about this server is sent along.
   export const HA_REPO = 'https://github.com/NexusBetweenVoids/gunkly-homeassistant';
   export const HA_HACS = 'https://my.home-assistant.io/redirect/hacs_repository/?owner=NexusBetweenVoids&repository=gunkly-homeassistant&category=integration';
   export const HA_ADD = 'https://my.home-assistant.io/redirect/config_flow_start/?domain=gunkly';
@@ -42,10 +43,6 @@
       {:else}
         <Button variant="quiet" onclick={oncreate}>{t('ha.createKey')}</Button>
       {/if}
-    </li>
-    <li>
-      <p>{t('ha.step4')}</p>
-      <p><a class="btn ha-btn" href={HA_ADD} target="_blank" rel="noopener noreferrer">{@render logo()}{t('ha.add')}</a></p>
     </li>
   </ol>
   <p class="hint">{t('ha.myHint')}</p>

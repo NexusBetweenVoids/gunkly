@@ -266,7 +266,7 @@ Gunkly can POST a signed JSON message to a web address when a chore is completed
 
 ## Home Assistant
 
-The [Gunkly integration for Home Assistant](https://github.com/NexusBetweenVoids/gunkly-homeassistant) (installable through HACS as a custom repository) adds a to-do list per household — ticking an item completes the chore — plus overdue and due-today sensors, a calendar, actions to complete, snooze or skip chores, and an event when a chore becomes overdue. Settings, "Integrations" has a guided setup: buttons that open your Home Assistant (through My Home Assistant) to install the integration from HACS and to add it, and a ready-made access token. To do it by hand, create an API token with the `chores:read` and `chores:complete` scopes (add `chores:write` to create chores from Home Assistant).
+The [Gunkly integration for Home Assistant](https://github.com/NexusBetweenVoids/gunkly-homeassistant) (installable through HACS as a custom repository) adds a to-do list per household — ticking an item completes the chore — plus overdue and due-today sensors, a calendar, actions to complete, snooze or skip chores, and an event when a chore becomes overdue. Settings, "Integrations" has a guided setup: a button that opens your Home Assistant (through My Home Assistant) to install the integration from HACS, and a ready-made access token shown with the server address and a button to add the integration. To do it by hand, create an API token with the `chores:read` and `chores:complete` scopes (add `chores:write` to create chores from Home Assistant).
 
 ## Use with AI assistants (MCP)
 
