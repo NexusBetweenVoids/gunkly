@@ -17,7 +17,7 @@ Gunkly works with any service that speaks the OpenAI chat API, so you decide whe
    - **API key**: from your account at the provider. A local model usually needs none.
 3. Tick **Turn on AI chore suggestions** and press **Save**, then **Test connection**.
 
-People then see **Describe your chores (AI)** at the top of **Add chore**.
+People then see **Describe with AI** next to the templates on **Add chore**.
 
 You can also set it in the server's environment (`GUNKLY_AI_ENABLED`, `GUNKLY_AI_URL`, `GUNKLY_AI_MODEL`, `GUNKLY_AI_KEY`). A variable that is set always wins: its field in Administration is then locked.
 

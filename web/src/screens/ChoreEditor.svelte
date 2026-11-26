@@ -3,17 +3,18 @@
   import Alert from '../components/Alert.svelte';
   import Button from '../components/Button.svelte';
   import Field from '../components/Field.svelte';
+  import Icon from '../components/Icon.svelte';
   import ReminderEditor from '../components/ReminderEditor.svelte';
   import RuleBuilder from '../components/RuleBuilder.svelte';
-  import Select from '../components/Select.svelte';
+  import Sheet from '../components/Sheet.svelte';
   import { api } from '../lib/api';
-  import { householdToday } from '../lib/dates';
+  import { addDays, fmt, householdToday, initials, parseYmd, ymd } from '../lib/dates';
   import { failure } from '../lib/errors';
   import { t, type Key } from '../lib/i18n';
-  import { nameOf } from '../lib/names';
+  import { nameOf, UNIT } from '../lib/names';
   import { DEFAULT_MINUTE, derive, hm, PRESET_REMINDERS, toMinute } from '../lib/reminders';
   import { navigate } from '../lib/router.svelte';
-  import { fromRRule, newRule, toRRule } from '../lib/rrule';
+  import { describe, fromRRule, newRule, toRRule } from '../lib/rrule';
   import { app, currentHousehold } from '../lib/session.svelte';
   import { toast } from '../lib/toast.svelte';
   import type { Area, Chore, Member, Reminder, Template } from '../lib/types';
@@ -21,14 +22,10 @@
   let { id }: { id?: string } = $props();
 
   type Unit = 'day' | 'week' | 'month';
-  const PRESETS: Record<string, [number, Unit]> = {
-    daily: [1, 'day'], weekly: [1, 'week'], '2weeks': [2, 'week'], monthly: [1, 'month'],
-    '3months': [3, 'month'], '6months': [6, 'month'], yearly: [12, 'month'],
-  };
-  const PRESET_LABELS: Record<string, Key> = {
-    none: 'repeat.none', daily: 'repeat.daily', weekly: 'repeat.weekly', '2weeks': 'repeat.2weeks',
-    monthly: 'repeat.monthly', '3months': 'repeat.3months', '6months': 'repeat.6months', yearly: 'repeat.yearly',
-    interval: 'repeat.interval', rule: 'repeat.rule',
+  // The wording of the common intervals ("Every week", "Every 3 months").
+  const PRESET: Record<string, Key> = {
+    '1day': 'repeat.daily', '1week': 'repeat.weekly', '2week': 'repeat.2weeks', '1month': 'repeat.monthly',
+    '3month': 'repeat.3months', '6month': 'repeat.6months', '12month': 'repeat.yearly',
   };
   const hh = app.hhId;
   const LAST_KEY = `gunkly.lastAssignees.${hh}`;
@@ -47,7 +44,7 @@
   let rotation = $state(false);
   let onlyTurn = $state(false); // advance only when the person whose turn it is completes
   let firstDue = $state(householdToday());
-  let repeat = $state('weekly');
+  let repeat = $state<'none' | 'interval' | 'rule'>('interval');
   let n = $state(1);
   let unit = $state<Unit>('week');
   let rule = $state(newRule());
@@ -60,7 +57,9 @@
   let remStored = $state(false);
   let notes = $state('');
   let link = $state('');
-  let more = $state(false);
+  // Which sheet is open, and whether the notes section is unfolded.
+  let sheet = $state<'' | 'area' | 'repeat' | 'reminder' | 'templates' | 'ai'>('');
+  let notesOpen = $state(false);
   let busy = $state(false);
   let err = $state('');
   let linkErr = $state('');
@@ -85,9 +84,18 @@
     }
   }
 
-  function setRepeat(v: string): void {
+  // A calendar rule usually means fixed dates; an interval usually counts from completion.
+  function setRepeat(v: typeof repeat): void {
+    if (v === repeat) return;
     repeat = v;
     anchor = v === 'rule' ? 'from_scheduled' : 'from_completion';
+  }
+
+  // The "How often" buttons: Once, or an interval of 1 day/week/month (the stepper changes the number).
+  function chooseFreq(f: 'none' | Unit): void {
+    if (f === 'none') return setRepeat('none');
+    setRepeat('interval');
+    if (unit !== f) [unit, n] = [f, 1];
   }
 
   function applyChore(c: Chore): void {
@@ -101,17 +109,10 @@
     link = c.link;
     reminder = c.reminderPreset;
     anchor = c.schedule.anchor ?? 'from_completion';
-    if (c.kind === 'oneoff') repeat = 'none';
-    else if (c.schedule.type === 'rrule') {
-      repeat = 'rule';
-      rule = fromRRule(c.schedule.rrule ?? '');
-    } else {
-      const iv = c.schedule.interval!;
-      [n, unit] = [iv.every, iv.unit];
-      repeat = Object.keys(PRESETS).find((k) => PRESETS[k][0] === iv.every && PRESETS[k][1] === iv.unit) ?? 'interval';
-    }
-    more = repeat === 'rule' || repeat === 'interval' || !!notes || !!link ||
-      anchor !== (repeat === 'rule' ? 'from_scheduled' : 'from_completion');
+    if (c.schedule.interval) [n, unit] = [c.schedule.interval.every, c.schedule.interval.unit];
+    if (c.schedule.type === 'rrule') rule = fromRRule(c.schedule.rrule ?? '');
+    repeat = c.kind === 'oneoff' ? 'none' : c.schedule.type === 'rrule' ? 'rule' : 'interval';
+    notesOpen = !!notes || !!link;
   }
 
   // "Edit" on an AI suggestion: fill the form with it, then the person saves as usual.
@@ -121,7 +122,7 @@
       schedule: { ...sg.schedule, anchor: sg.schedule.type === 'rrule' ? 'from_scheduled' : 'from_completion' },
     } as unknown as Chore);
     if (sg.reminderTime) setRemTime(sg.reminderTime);
-    document.getElementById('chore-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    sheet = '';
   }
 
   async function load(): Promise<void> {
@@ -141,8 +142,7 @@
           const d = derive(customRem);
           remTime = d.minute === null ? '' : hm(d.minute);
           remStored = d.minute !== null;
-          if (d.preset === 'custom') more = true;
-          else reminder = d.preset;
+          if (d.preset !== 'custom') reminder = d.preset;
         }
       }
     } catch (x) {
@@ -161,13 +161,9 @@
       const hit = areas.find((a) => a.name.toLowerCase() === an.toLowerCase());
       [areaId, newArea] = hit ? [hit.id, ''] : ['__new', an];
     }
-    const p = Object.keys(PRESETS).find((k) => PRESETS[k][0] === tp.interval.every && PRESETS[k][1] === tp.interval.unit);
-    if (p) setRepeat(p);
-    else {
-      [n, unit] = [tp.interval.every, tp.interval.unit];
-      setRepeat('interval');
-      more = true;
-    }
+    setRepeat('interval');
+    [n, unit] = [tp.interval.every, tp.interval.unit];
+    sheet = '';
   }
 
   async function submit(e: SubmitEvent): Promise<void> {
@@ -175,7 +171,7 @@
     err = linkErr = '';
     if (!validLink(link.trim())) {
       linkErr = t('chore.linkInvalid');
-      more = true;
+      notesOpen = true;
       return;
     }
     busy = true;
@@ -183,7 +179,6 @@
       let area: string | null = areaId || null;
       if (areasOn && areaId === '__new') area = newArea.trim() ? (await api<Area>('POST', `${base}/areas`, { name: newArea.trim() })).id : null;
       const recurring = repeat !== 'none';
-      const [every, u] = PRESETS[repeat] ?? [n, unit];
       const custom = reminder === 'custom';
       const sendTime = !custom && showTime && !!remTime && (remTouched || remStored);
       const body = {
@@ -192,7 +187,7 @@
         kind: recurring ? 'recurring' : 'oneoff',
         schedule: repeat === 'rule'
           ? { type: 'rrule', rrule: toRRule(rule), anchor, firstDue }
-          : { type: 'interval', interval: { every, unit: u }, anchor, firstDue },
+          : { type: 'interval', interval: { every: n, unit }, anchor, firstDue },
         reminderPreset: custom ? (id ? null : '') : reminder,
         ...(sendTime ? { reminderTime: remTime } : {}),
       };
@@ -244,7 +239,41 @@
     assignees = a;
   }
   const toggle = (uid: string) => (assignees = assignees.includes(uid) ? assignees.filter((x) => x !== uid) : [...assignees, uid]);
-  const repeatKeys = $derived(Object.keys(PRESET_LABELS).filter((k) => more || (k !== 'interval' && k !== 'rule') || repeat === k));
+
+  // Row summaries and the "Next:" preview.
+  const day = (s: string) => fmt(s, { weekday: 'short', day: 'numeric', month: 'short' });
+  function addPeriod(s: string, every: number, u: Unit): string {
+    if (u !== 'month') return addDays(s, every * (u === 'week' ? 7 : 1));
+    const d = parseYmd(s);
+    const m = d.getUTCMonth() + every;
+    const last = new Date(Date.UTC(d.getUTCFullYear(), m + 1, 0)).getUTCDate();
+    return ymd(new Date(Date.UTC(d.getUTCFullYear(), m, Math.min(d.getUTCDate(), last))));
+  }
+  const today = householdToday();
+  const repeatText = $derived(
+    repeat === 'none' ? t('repeat.none')
+      : repeat === 'rule' ? describe(rule)
+        : PRESET[`${n}${unit}`] ? t(PRESET[`${n}${unit}`]) : t('repeat.every', { count: n, unit: t(UNIT[unit], { count: n }) }),
+  );
+  const repeatSub = $derived(
+    !firstDue ? '' : repeat === 'none' ? t('chore.dueOn', { date: day(firstDue) })
+      : t(anchor === 'from_completion' ? 'chore.startsFromDone' : 'chore.startsFixed', { date: day(firstDue) }),
+  );
+  const nextText = $derived(
+    !firstDue || repeat === 'none' ? ''
+      : repeat === 'rule' ? t('chore.nextOnly', { date: day(firstDue) })
+        : t(anchor === 'from_completion' ? 'chore.nextAbout' : 'chore.next', { date: day(firstDue), next: day(addPeriod(firstDue, n, unit)) }),
+  );
+  const REMINDER_LABEL: Record<string, Key> = {
+    '': 'reminder.default', gentle: 'reminder.gentle', nag: 'reminder.nag', none: 'reminder.none', custom: 'reminder.customOption',
+  };
+  const areaText = $derived(areaId === '__new' ? newArea.trim() || t('chore.newArea') : areas.find((a) => a.id === areaId)?.name ?? t('chore.noArea'));
+  const notesText = $derived(notes.trim().split('\n')[0] || link.trim() || t('chore.optional'));
+  const quick = $derived(templates.slice(0, 4));
+  function closeRepeat(): void {
+    if (!firstDue) firstDue = today;
+    sheet = '';
+  }
 </script>
 
 <section class="card narrow">
@@ -252,37 +281,34 @@
   {#if !loaded}
     <p role="status" class="muted">{t('common.loading')}</p>
   {:else}
-    {#if !id && app.instance.aiEnabled}
-      <AiSuggest {base} {areas} {members} onEdit={applySuggestion} />
-    {/if}
     <form class="stack" id="chore-form" onsubmit={submit}>
-      {#if templates.length}
-        <Select
-          label={t('chore.template')}
-          options={[{ value: '', label: t('chore.templateNone') }, ...templates.map((x) => ({ value: x.key, label: nameOf('template', x.key) }))]}
-          bind:value={() => '', useTemplate}
-        />
-      {/if}
-      <Field label={t('chore.name')} bind:value={name} required maxlength={200} />
-      {#if areasOn}
-      <Select
-        label={t('chore.area')}
-        bind:value={areaId}
-        options={[
-          { value: '', label: t('chore.noArea') },
-          ...areas.map((a) => ({ value: a.id, label: a.name })),
-          { value: '__new', label: t('chore.newArea') },
-        ]}
-      />
-      {#if areaId === '__new'}<Field label={t('chore.newAreaName')} bind:value={newArea} maxlength={100} />{/if}
+      <Field label={t('chore.name')} bind:value={name} required maxlength={200} placeholder={t('chore.namePlaceholder')} class="big" />
+      {#if !id && (templates.length || app.instance.aiEnabled)}
+        <div class="chips quick" role="group" aria-label={t('chore.template')}>
+          {#if app.instance.aiEnabled}
+            <button type="button" class="chip ai" aria-haspopup="dialog" onclick={() => (sheet = 'ai')}><Icon name="sparkle" />{t('ai.chip')}</button>
+          {/if}
+          {#each quick as tp (tp.key)}
+            <button type="button" class="chip" onclick={() => useTemplate(tp.key)}>{nameOf('template', tp.key)}</button>
+          {/each}
+          {#if templates.length > quick.length}
+            <button type="button" class="chip" aria-haspopup="dialog" onclick={() => (sheet = 'templates')}>{t('chore.templateMore')}</button>
+          {/if}
+        </div>
       {/if}
 
-      <fieldset class="stack-sm">
-        <legend class="label">{t('chore.assignees')}</legend>
-        {#each members as m (m.userId)}
-          <label class="check"><input type="checkbox" checked={assignees.includes(m.userId)} onchange={() => toggle(m.userId)} />{m.displayName}</label>
-        {/each}
-        <p class="hint">{assignees.length ? t('chore.assigneesSome') : t('chore.anyone')}</p>
+      <fieldset class="group who">
+        <legend class="label">{t('chore.who')}</legend>
+        <div class="pills">
+          {#each members as m (m.userId)}
+            <label class="pill">
+              <input type="checkbox" class="cover" checked={assignees.includes(m.userId)} onchange={() => toggle(m.userId)} />
+              <span class="avatar" aria-hidden="true">{initials(m.displayName)}</span>
+              <span>{m.displayName}</span>
+            </label>
+          {/each}
+        </div>
+        <p class="hint">{assignees.length ? t('chore.someHint') : t('chore.anyoneHint')}</p>
         {#if assignees.length >= 2 && repeat !== 'none'}
           <label class="check"><input type="checkbox" bind:checked={rotation} />{t('chore.takeTurns')}</label>
           {#if rotation}
@@ -301,52 +327,33 @@
         {/if}
       </fieldset>
 
-      <Field label={t('chore.firstDue')} type="date" bind:value={firstDue} required />
-      <Select
-        label={t('chore.repeat')}
-        bind:value={() => repeat, setRepeat}
-        options={repeatKeys.map((k) => ({ value: k, label: t(PRESET_LABELS[k]) }))}
-      />
-      <Select
-        label={t('chore.reminders')}
-        bind:value={() => reminder, setReminder}
-        options={[
-          { value: '', label: t('reminder.default') },
-          { value: 'gentle', label: t('reminder.gentle') },
-          { value: 'nag', label: t('reminder.nag') },
-          { value: 'none', label: t('reminder.none') },
-          ...(more || reminder === 'custom' ? [{ value: 'custom', label: t('reminder.customOption') }] : []),
-        ]}
-        hint={t('reminder.presetHint')}
-      />
-      {#if showTime}
-        <Field label={t('chore.remindAt')} type="time" bind:value={() => remTime, setRemTime} hint={t(mixed ? 'chore.remindAtMixed' : 'chore.remindAtHint')} />
-      {/if}
-
-      <button type="button" class="btn btn-quiet" aria-expanded={more} onclick={() => (more = !more)}>{t('chore.more')}</button>
-      {#if more}
-        <div class="stack">
-          {#if repeat === 'interval'}
-            <div class="row">
-              <Field label={t('chore.every')} type="number" min="1" max="1000" bind:value={() => String(n), (v) => (n = Number(v) || 1)} />
-              <Select
-                label={t('chore.unit')}
-                bind:value={() => unit, (v) => (unit = v as Unit)}
-                options={[{ value: 'day', label: t('unit.day') }, { value: 'week', label: t('unit.week') }, { value: 'month', label: t('unit.month') }]}
-              />
-            </div>
-          {:else if repeat === 'rule'}
-            <RuleBuilder bind:rule />
-          {/if}
-          {#if repeat !== 'none'}
-            <Select
-              label={t('chore.anchor')}
-              bind:value={() => anchor, (v) => (anchor = v as typeof anchor)}
-              hint={t('chore.anchorHint')}
-              options={[{ value: 'from_completion', label: t('chore.anchorCompletion') }, { value: 'from_scheduled', label: t('chore.anchorScheduled') }]}
-            />
-          {/if}
-          {#if reminder === 'custom'}<ReminderEditor bind:items={customRem} />{/if}
+      <div class="group rows">
+        {#if areasOn}
+          <button type="button" class="rowbtn" aria-haspopup="dialog" onclick={() => (sheet = 'area')}>
+            <span class="ico area"><Icon name="tag" /></span>
+            <span class="txt"><span class="visually-hidden">{t('chore.area')}:</span><strong>{areaText}</strong></span>
+            <Icon name="chevron" />
+          </button>
+        {/if}
+        <button type="button" class="rowbtn" aria-haspopup="dialog" onclick={() => (sheet = 'repeat')}>
+          <span class="ico rep"><Icon name="repeat" /></span>
+          <span class="txt"><span class="visually-hidden">{t('chore.repeat')}:</span><strong>{repeatText}</strong><span class="sub">{repeatSub}</span></span>
+          <Icon name="chevron" />
+        </button>
+        <button type="button" class="rowbtn" aria-haspopup="dialog" onclick={() => (sheet = 'reminder')}>
+          <span class="ico rem"><Icon name="bell" /></span>
+          <span class="txt">
+            <span class="visually-hidden">{t('chore.reminders')}:</span><strong>{t(REMINDER_LABEL[reminder] ?? 'reminder.default')}</strong>
+            {#if showTime && remTime}<span class="sub">{t('chore.remindAtShort', { time: remTime })}</span>{/if}
+          </span>
+          <Icon name="chevron" />
+        </button>
+        <button type="button" class="rowbtn" aria-expanded={notesOpen} aria-controls="chore-notes" onclick={() => (notesOpen = !notesOpen)}>
+          <span class="ico note"><Icon name="note" /></span>
+          <span class="txt"><strong>{t('chore.notesLink')}</strong><span class="sub">{notesText}</span></span>
+          <span class="chev" class:open={notesOpen}><Icon name="chevron" /></span>
+        </button>
+        <div id="chore-notes" class="notes stack" hidden={!notesOpen}>
           <Field label={t('chore.notes')} hint={t('chore.notesHint')}>
             {#snippet children({ id: fid, describedby })}
               <textarea id={fid} aria-describedby={describedby} bind:value={notes} rows="3" maxlength="10000"></textarea>
@@ -354,7 +361,7 @@
           </Field>
           <Field label={t('chore.link')} type="url" bind:value={link} placeholder="https://" hint={t('chore.linkHint')} error={linkErr} maxlength={2000} />
         </div>
-      {/if}
+      </div>
 
       <div aria-live="polite"><Alert message={err} /></div>
       <div class="row">
@@ -365,7 +372,199 @@
   {/if}
 </section>
 
+<!-- Sheets sit outside the form: Enter in a sheet never saves the chore half-way. -->
+<Sheet open={sheet === 'ai'} title={t('ai.describe')} onclose={() => (sheet = '')}>
+  <AiSuggest {base} {areas} {members} onEdit={applySuggestion} />
+</Sheet>
+
+<Sheet open={sheet === 'templates'} title={t('chore.template')} onclose={() => (sheet = '')}>
+  <div class="chips">
+    {#each templates as tp (tp.key)}
+      <button type="button" class="chip" onclick={() => useTemplate(tp.key)}>{nameOf('template', tp.key)}</button>
+    {/each}
+  </div>
+</Sheet>
+
+<Sheet open={sheet === 'area'} title={t('chore.area')} onclose={() => (sheet = '')}>
+  <fieldset class="plain-fieldset stack-sm">
+    <legend class="visually-hidden">{t('chore.area')}</legend>
+    <label class="opt"><input type="radio" name="area" value="" bind:group={areaId} /><span>{t('chore.noArea')}</span></label>
+    {#each areas as a (a.id)}
+      <label class="opt"><input type="radio" name="area" value={a.id} bind:group={areaId} /><span>{a.name}</span></label>
+    {/each}
+    <label class="opt"><input type="radio" name="area" value="__new" bind:group={areaId} /><span>{t('chore.newArea')}</span></label>
+  </fieldset>
+  {#if areaId === '__new'}<Field label={t('chore.newAreaName')} bind:value={newArea} maxlength={100} />{/if}
+</Sheet>
+
+<Sheet open={sheet === 'repeat'} title={t('chore.repeat')} onclose={closeRepeat}>
+  <div class="stack-sm">
+    <Field label={t('chore.firstDue')} type="date" bind:value={firstDue} required />
+    <div class="seg">
+      <button type="button" aria-pressed={firstDue === today} onclick={() => (firstDue = today)}>{t('chore.today')}</button>
+      <button type="button" aria-pressed={firstDue === addDays(today, 1)} onclick={() => (firstDue = addDays(today, 1))}>{t('chore.tomorrow')}</button>
+    </div>
+  </div>
+
+  <fieldset class="plain-fieldset stack-sm">
+    <legend class="label">{t('chore.howOften')}</legend>
+    <div class="seg four">
+      {#each [['none', 'chore.once'], ['day', 'chore.daily'], ['week', 'chore.weekly'], ['month', 'chore.monthly']] as [f, k] (f)}
+        <label>
+          <input type="radio" class="visually-hidden" name="freq" checked={f === 'none' ? repeat === 'none' : repeat === 'interval' && unit === f} onchange={() => chooseFreq(f as 'none' | Unit)} />
+          <span>{t(k as Key)}</span>
+        </label>
+      {/each}
+    </div>
+    {#if repeat === 'interval'}
+      <div class="stepper">
+        <label for="every-n">{t('chore.every')}</label>
+        <button type="button" class="btn btn-quiet" aria-label={t('chore.fewer')} disabled={n <= 1} onclick={() => (n = Math.max(1, n - 1))}>&minus;</button>
+        <input id="every-n" type="number" min="1" max="1000" inputmode="numeric" bind:value={() => String(n), (v) => (n = Math.min(1000, Math.max(1, Math.round(Number(v)) || 1)))} />
+        <button type="button" class="btn btn-quiet" aria-label={t('chore.oneMore')} disabled={n >= 1000} onclick={() => (n = Math.min(1000, n + 1))}>+</button>
+        <span>{t(UNIT[unit], { count: n })}</span>
+      </div>
+    {/if}
+    {#if repeat === 'rule'}
+      <RuleBuilder bind:rule />
+    {:else}
+      <p><button type="button" class="linkish" onclick={() => setRepeat('rule')}>{t('chore.customRule')}</button></p>
+    {/if}
+  </fieldset>
+
+  {#if repeat !== 'none'}
+    <fieldset class="plain-fieldset stack-sm">
+      <legend class="label">{t('chore.anchor')}</legend>
+      <label class="opt card-opt">
+        <input type="radio" name="anchor" value="from_completion" bind:group={anchor} />
+        <span><strong>{t('chore.anchorCompletion')}</strong><span class="hint">{t('chore.anchorCompletionHint')}</span></span>
+      </label>
+      <label class="opt card-opt">
+        <input type="radio" name="anchor" value="from_scheduled" bind:group={anchor} />
+        <span><strong>{t('chore.anchorScheduled')}</strong><span class="hint">{t('chore.anchorScheduledHint')}</span></span>
+      </label>
+    </fieldset>
+  {/if}
+  {#if nextText}<p class="next" role="status">{nextText}</p>{/if}
+</Sheet>
+
+<Sheet open={sheet === 'reminder'} title={t('chore.reminders')} onclose={() => (sheet = '')}>
+  {#if showTime}
+    <Field label={t('chore.remindAt')} type="time" bind:value={() => remTime, setRemTime} hint={t(mixed ? 'chore.remindAtMixed' : 'chore.remindAtHint')} class="big-time" />
+  {/if}
+  <fieldset class="plain-fieldset stack-sm">
+    <legend class="visually-hidden">{t('chore.reminders')}</legend>
+    {#each ['', 'gentle', 'nag', 'none', 'custom'] as v (v)}
+      <label class="opt"><input type="radio" name="reminder" value={v} checked={reminder === v} onchange={() => setReminder(v)} /><span>{t(REMINDER_LABEL[v])}</span></label>
+    {/each}
+  </fieldset>
+  {#if reminder === 'custom'}<ReminderEditor bind:items={customRem} />{/if}
+  <p class="hint">{t('reminder.presetHint')}</p>
+</Sheet>
+
 <style>
+  :global(.big) {
+    font-size: 1.375rem;
+    font-weight: 700;
+  }
+  :global(.big-time) {
+    font-size: 2rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  /* On phones the quick chips scroll sideways in one line instead of taking several rows. */
+  @media (max-width: 767px) {
+    .chips.quick {
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      margin-inline: calc(var(--space) * -1.25);
+      padding-inline: calc(var(--space) * 1.25);
+      scrollbar-width: none;
+    }
+  }
+  .chip {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-block-size: var(--tap);
+    padding-inline: 16px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    font-weight: 500;
+    cursor: pointer;
+  }
+  .chip.ai {
+    border-color: var(--accent);
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .group {
+    margin: 0;
+    border: 0;
+    border-radius: var(--radius-lg);
+    background: var(--surface-2);
+    min-inline-size: 0;
+  }
+  .who {
+    display: grid;
+    gap: 10px;
+    padding: var(--space);
+  }
+  .who legend {
+    float: inline-start;
+    padding: 0;
+  }
+  .pills {
+    clear: both;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-block-size: var(--tap);
+    padding-inline: 6px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .pill {
+    position: relative;
+  }
+  /* The real checkbox covers the whole pill, invisible: clicks, taps and screen readers all reach it. */
+  .cover {
+    position: absolute;
+    inset: 0;
+    inline-size: 100%;
+    block-size: 100%;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+  .pill:has(input:checked) .avatar {
+    background: var(--surface);
+    color: var(--text);
+  }
+  .pill:has(input:checked) {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--accent-text);
+  }
+  .pill:has(input:focus-visible) {
+    outline: 3px solid var(--focus);
+    outline-offset: 2px;
+  }
   .order {
     list-style: decimal inside;
     margin: 0;
@@ -378,5 +577,168 @@
   }
   .order > li > span {
     flex: 1;
+  }
+  .rows {
+    display: grid;
+    overflow: hidden;
+  }
+  .rowbtn {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    inline-size: 100%;
+    min-block-size: 60px;
+    padding-block: 10px;
+    padding-inline: var(--space);
+    border: 0;
+    border-block-start: 1px solid var(--border);
+    background: none;
+    text-align: start;
+    cursor: pointer;
+  }
+  .rowbtn:first-child {
+    border-block-start: 0;
+  }
+  .txt {
+    flex: 1;
+    display: grid;
+    gap: 2px;
+    min-inline-size: 0;
+  }
+  .txt strong {
+    overflow-wrap: anywhere;
+  }
+  .sub {
+    font-size: 0.875rem;
+    color: var(--text-2);
+  }
+  .ico {
+    display: grid;
+    place-items: center;
+    inline-size: 36px;
+    block-size: 36px;
+    border-radius: 10px;
+    background: var(--surface);
+    color: var(--accent);
+    flex: none;
+  }
+  .rowbtn > :global(svg:last-child),
+  .chev {
+    color: var(--text-2);
+    flex: none;
+  }
+  :global([dir="rtl"]) .rowbtn > :global(svg:last-child) {
+    transform: scaleX(-1);
+  }
+  .chev {
+    display: grid;
+    transition: transform var(--dur) var(--ease);
+  }
+  .chev.open {
+    transform: rotate(90deg);
+  }
+  .notes {
+    padding: 0 var(--space) var(--space);
+  }
+  .notes[hidden] {
+    display: none;
+  }
+  .seg {
+    display: flex;
+    gap: 8px;
+  }
+  .seg > * {
+    flex: 1;
+  }
+  .seg button,
+  .seg span {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    inline-size: 100%;
+    min-block-size: var(--tap);
+    padding-inline: 4px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 0.9375rem;
+    white-space: nowrap;
+    background: var(--surface-2);
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .seg button[aria-pressed="true"],
+  .seg input:checked + span {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--accent-text);
+  }
+  .seg input:focus-visible + span {
+    outline: 3px solid var(--focus);
+    outline-offset: 2px;
+  }
+  .seg label {
+    position: relative;
+  }
+  .stepper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .stepper label {
+    font-weight: 600;
+  }
+  .stepper input {
+    inline-size: 5rem;
+    text-align: center;
+    font-weight: 700;
+  }
+  .opt {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-block-size: var(--tap);
+    cursor: pointer;
+  }
+  .opt input {
+    inline-size: 20px;
+    block-size: 20px;
+    margin: 0;
+    flex: none;
+  }
+  .card-opt {
+    align-items: flex-start;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+  .card-opt:has(input:checked) {
+    border: 2px solid var(--accent);
+    padding: 11px 13px;
+  }
+  .card-opt input {
+    margin-block-start: 2px;
+  }
+  .card-opt > span {
+    display: grid;
+    gap: 2px;
+  }
+  .linkish {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--accent);
+    font-weight: 600;
+    text-decoration: underline;
+    cursor: pointer;
+    min-block-size: var(--tap);
+  }
+  .next {
+    margin: 0;
+    padding: 12px 14px;
+    border-radius: var(--radius);
+    background: var(--surface-2);
+  }
+  p {
+    margin: 0;
   }
 </style>

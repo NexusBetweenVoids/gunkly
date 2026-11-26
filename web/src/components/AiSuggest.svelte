@@ -87,8 +87,7 @@
   const pending = $derived((list ?? []).filter((s) => !s.added).length);
 </script>
 
-<details class="ai" data-testid="ai-suggest">
-  <summary>{t('ai.describe')}</summary>
+<div class="ai" data-testid="ai-suggest">
   <form class="stack-sm" onsubmit={suggest}>
     <label class="label" for="ai-text">{t('ai.textLabel')}</label>
     <textarea id="ai-text" rows="3" maxlength="2000" bind:value={text} placeholder={t('ai.placeholder')}></textarea>
@@ -125,21 +124,12 @@
       {#if dropped}<p class="hint">{t('ai.dropped', { count: dropped })}</p>{/if}
     {/if}
   </div>
-</details>
+</div>
 
 <style>
   .ai {
-    margin-block-end: var(--space);
-    border: 1px solid var(--border);
-    border-radius: var(--radius, 12px);
-    padding: 0.75rem 1rem;
-  }
-  .ai summary {
-    cursor: pointer;
-    font-weight: 600;
-  }
-  .ai[open] summary {
-    margin-block-end: 0.75rem;
+    display: grid;
+    gap: var(--space);
   }
   textarea {
     inline-size: 100%;

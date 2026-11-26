@@ -31,9 +31,9 @@ test('axe WCAG 2.2 AA and no overflow on every main screen, light and dark', asy
   const screens: [string, string, string | RegExp][] = [
     ['/', 'home', c.name],
     ['/calendar', 'calendar', 'Subscribe from your own calendar app'],
-    ['/chores/new', 'add chore', 'Start from a template'],
+    ['/chores/new', 'add chore', 'Who can do it'],
     [`/chores/${c.id}`, 'chore detail', 'History'],
-    [`/chores/${c.id}/edit`, 'edit chore', 'Notes'],
+    [`/chores/${c.id}/edit`, 'edit chore', 'Notes and link'],
     ['/households/new', 'new household', 'Create household'],
     ['/settings/household-general', 'household settings', /^Time zone$/],
     ['/settings/household-people', 'household people', /^Invites$/],

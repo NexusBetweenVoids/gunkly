@@ -44,7 +44,7 @@ test('AI chore suggestions: the admin sets up an endpoint, a member reviews and 
     await world.household(member);
     const m = await member.open();
     await m.page.goto('/chores/new');
-    await m.page.getByText('Describe your chores (AI)').click();
+    await m.page.getByRole('button', { name: 'Describe with AI' }).click();
     await m.page.getByLabel('What needs doing?').fill('Vacuum the living room on Saturdays at 10, descale the kettle every 3 months');
     await m.page.getByRole('button', { name: 'Suggest chores' }).click();
     const box = m.page.getByTestId('ai-suggest');
@@ -55,7 +55,9 @@ test('AI chore suggestions: the admin sets up an endpoint, a member reviews and 
     await expect(box.getByRole('listitem').filter({ hasText: 'Descale the kettle' }).getByText('Added')).toBeVisible();
     // Open the other in the form, change it, save.
     await box.getByRole('listitem').filter({ hasText: 'Vacuum the living room' }).getByRole('button', { name: 'Edit' }).click();
+    await expect(m.page.getByRole('dialog')).toHaveCount(0);
     await expect(m.page.getByLabel('Name', { exact: true })).toHaveValue('Vacuum the living room');
+    await expect(m.page.getByRole('button', { name: /^Repeat: Every week/ })).toBeVisible();
     await m.page.getByLabel('Name', { exact: true }).fill('Vacuum downstairs');
     await m.page.getByRole('button', { name: 'Save' }).click();
     await expect(m.page.getByRole('heading', { name: 'Vacuum downstairs' })).toBeVisible();

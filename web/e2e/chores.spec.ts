@@ -16,7 +16,7 @@ test('areas are off for a new household and can be switched on and off without l
   // Off: no area field in the editor, no chips on Home.
   await page.goto('/chores/new');
   await expect(page.getByLabel('Name')).toBeVisible();
-  await expect(page.getByLabel('Area', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^Area:/ })).toHaveCount(0);
   await expect(page.getByRole('group', { name: 'Filter by area' })).toHaveCount(0);
 
   // On: the section appears with an "Add starter areas" button; chips and the editor field follow.
@@ -35,7 +35,7 @@ test('areas are off for a new household and can be switched on and off without l
   await expect(page.getByRole('group', { name: 'Filter by area' })).toBeVisible();
   await expect(page.getByRole('link', { name: new RegExp(`${chore.name}.*Kitchen`) })).toBeVisible();
   await page.goto(`/chores/${chore.id}/edit`);
-  await expect(page.getByLabel('Area', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Area:/ })).toBeVisible();
 
   // Off again: hidden everywhere, and editing a chore keeps its area.
   await page.goto(`/households/${hh.id}/general`);
@@ -47,7 +47,7 @@ test('areas are off for a new household and can be switched on and off without l
   await expect(page.getByRole('group', { name: 'Filter by area' })).toHaveCount(0);
   await expect(page.getByText('Kitchen')).toHaveCount(0);
   await page.goto(`/chores/${chore.id}/edit`);
-  await expect(page.getByLabel('Area', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^Area:/ })).toHaveCount(0);
   await page.getByLabel('Name').fill(`${chore.name}2`);
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByRole('heading', { level: 1, name: `${chore.name}2` })).toBeVisible();
@@ -63,9 +63,11 @@ test('with areas on: chores from a template and a custom one use areas', async (
 
   // From a template: name, area and interval are prefilled.
   await page.goto('/chores/new');
-  await page.getByLabel('Start from a template').selectOption({ label: 'Wipe counters' });
+  await page.getByRole('button', { name: 'More…' }).click();
+  await page.getByRole('dialog', { name: 'Start from a template' }).getByRole('button', { name: 'Wipe counters' }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page.getByLabel('Name')).toHaveValue('Wipe counters');
-  await expect(page.getByLabel('Area')).toHaveText(/Kitchen/);
+  await expect(page.getByRole('button', { name: 'Area: Kitchen' })).toBeVisible();
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'Wipe counters' })).toBeVisible();
   await expect(page.getByText('Kitchen', { exact: true })).toBeVisible();
@@ -74,10 +76,20 @@ test('with areas on: chores from a template and a custom one use areas', async (
   await page.goto('/chores/new');
   const custom = uniq('Custom ');
   await page.getByLabel('Name').fill(custom);
-  await page.getByLabel('Area').selectOption('__new');
-  await page.getByLabel('New area name').fill('Attic');
-  await page.getByLabel('Repeat').selectOption({ label: 'Every 2 weeks' });
-  await page.getByRole('button', { name: 'More options' }).click();
+  await page.getByRole('button', { name: /^Area:/ }).click();
+  const sheet = page.getByRole('dialog', { name: 'Area' });
+  await sheet.getByLabel('New area…').check();
+  await sheet.getByLabel('New area name').fill('Attic');
+  await sheet.getByRole('button', { name: 'Done' }).click();
+  await expect(page.getByRole('button', { name: 'Area: Attic' })).toBeVisible();
+  await page.getByRole('button', { name: /^Repeat:/ }).click();
+  const rep = page.getByRole('dialog', { name: 'Repeat' });
+  await rep.getByRole('button', { name: 'One more' }).click();
+  await expect(rep.getByRole('status')).toContainText('then about');
+  await rep.getByLabel('The scheduled date').check();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('button', { name: /^Repeat: Every 2 weeks/ })).toContainText('fixed dates');
+  await page.getByRole('button', { name: /Notes and link/ }).click();
   await page.getByLabel('Notes').fill('Bring a torch');
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByRole('heading', { level: 1, name: custom })).toBeVisible();
@@ -225,7 +237,8 @@ test('a new chore pre-ticks the assignees of the last chore created; editing kee
   // Next new chore starts with Bee ticked, also from a template.
   await page.goto('/chores/new');
   await expect(box(bee.displayName)).toBeChecked();
-  await page.getByLabel('Start from a template').selectOption({ label: 'Wipe counters' });
+  await page.getByRole('button', { name: 'More…' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Wipe counters' }).click();
   await expect(box(bee.displayName)).toBeChecked();
 
   // Untick everything and save: the next one starts as anyone.
@@ -253,30 +266,34 @@ test('the reminder time of a chore is set in the editor and shown again when reo
   const name = uniq('Timed ');
   await page.goto('/chores/new');
   await page.getByLabel('Name').fill(name);
-  await expect(page.getByRole('button', { name: 'More options' })).toHaveAttribute('aria-expanded', 'false');
-  await expect(page.getByLabel('Remind me at')).toBeVisible();
-  await page.getByLabel('Reminders', { exact: true }).selectOption('none');
-  await expect(page.getByLabel('Remind me at')).toHaveCount(0);
-  await page.getByLabel('Reminders', { exact: true }).selectOption('nag');
-  await page.getByLabel('Remind me at').fill('07:30');
+  const remRow = page.getByRole('button', { name: /^Reminders:/ });
+  const sheet = page.getByRole('dialog', { name: 'Reminders' });
+  await remRow.click();
+  await expect(sheet.getByLabel('Remind me at')).toBeVisible();
+  await sheet.getByLabel('No reminders').check();
+  await expect(sheet.getByLabel('Remind me at')).toHaveCount(0);
+  await sheet.getByLabel(/^Nag/).check();
+  await sheet.getByLabel('Remind me at').fill('07:30');
+  await sheet.getByRole('button', { name: 'Done' }).click();
+  await expect(remRow).toContainText('At 07:30');
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByRole('heading', { level: 1, name })).toBeVisible();
 
   // Reopen: the preset name and the time are shown; saving another field keeps them.
   await page.getByRole('link', { name: 'Edit' }).first().click();
-  await expect(page.getByLabel('Remind me at')).toHaveValue('07:30');
-  await expect(page.getByLabel('Reminders', { exact: true })).toHaveValue('nag');
+  await expect(remRow).toContainText('Nag');
+  await expect(remRow).toContainText('At 07:30');
   await page.getByLabel('Name').fill(`${name}2`);
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByRole('heading', { level: 1, name: `${name}2` })).toBeVisible();
   await page.getByRole('link', { name: 'Edit' }).first().click();
-  await expect(page.getByLabel('Remind me at')).toHaveValue('07:30');
+  await remRow.click();
+  await expect(sheet.getByLabel('Remind me at')).toHaveValue('07:30');
 
-  // More options: choosing Custom lists the reminders, all at 07:30.
-  await page.getByRole('button', { name: 'More options' }).click();
-  await page.getByLabel('Reminders', { exact: true }).selectOption('custom');
-  await expect(page.getByLabel('At', { exact: true })).toHaveCount(3);
-  for (const at of await page.getByLabel('At', { exact: true }).all()) await expect(at).toHaveValue('07:30');
+  // Choosing Custom lists the reminders, all at 07:30.
+  await sheet.getByLabel('Custom', { exact: true }).check();
+  await expect(sheet.getByLabel('At', { exact: true })).toHaveCount(3);
+  for (const at of await sheet.getByLabel('At', { exact: true }).all()) await expect(at).toHaveValue('07:30');
 });
 
 type Rem = { kind: string; days: number; minute: number };
@@ -289,14 +306,16 @@ test('the reminder time can be changed when editing chores in every reminder sta
   const times = async (id: string): Promise<number[]> =>
     (await u.api.get<{ reminders: Rem[] }>(`${base}/chores/${id}/reminders`)).reminders.map((r) => r.minute);
   const field = page.getByLabel('Remind me at');
-  const presetBox = page.getByLabel('Reminders', { exact: true });
+  const preset = (label: RegExp) => page.getByRole('dialog', { name: 'Reminders' }).getByLabel(label).check();
   const save = async (): Promise<void> => {
+    await page.getByRole('dialog', { name: 'Reminders' }).getByRole('button', { name: 'Done' }).click();
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(page.getByRole('link', { name: 'Edit' }).first()).toBeVisible();
   };
   const edit = async (id: string): Promise<void> => {
     await page.goto(`/chores/${id}/edit`);
     await expect(page.getByLabel('Name')).toBeVisible();
+    await page.getByRole('button', { name: /^Reminders:/ }).click();
   };
   const row = (kind: string, days: number, minute: number): Rem => ({ kind, days, minute });
 
@@ -312,7 +331,6 @@ test('the reminder time can be changed when editing chores in every reminder sta
   for (const [label, over] of cases) {
     const c = await world.chore(u, h, { name: uniq(`${label} `), ...over });
     await edit(c.id);
-    await expect(page.getByRole('button', { name: 'More options' })).toHaveAttribute('aria-expanded', 'false');
     await expect(field).toBeVisible();
     await field.fill('07:15');
     await save();
@@ -347,7 +365,7 @@ test('the reminder time can be changed when editing chores in every reminder sta
   const none = await world.chore(u, h, { name: uniq('none '), reminderPreset: 'none' });
   await edit(none.id);
   await expect(field).toHaveCount(0);
-  await presetBox.selectOption('gentle');
+  await preset(/^Gentle/);
   await field.fill('11:30');
   await save();
   expect(await times(none.id)).toEqual([690]);
@@ -357,7 +375,7 @@ test('the reminder time can be changed when editing chores in every reminder sta
   const dn = await world.chore(u, h, { name: uniq('defnone ') });
   await edit(dn.id);
   await expect(field).toHaveCount(0);
-  await presetBox.selectOption('nag');
+  await preset(/^Nag/);
   await field.fill('12:00');
   await save();
   expect(new Set(await times(dn.id))).toEqual(new Set([720]));
