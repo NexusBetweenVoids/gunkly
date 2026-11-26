@@ -66,3 +66,23 @@ export function describe(r: Rule): string {
   }
   return bits.length ? t('rule.preview', { base, detail: bits.join(', ') }) : base;
 }
+
+/** Whether the rule builder shows this rule exactly (rules set through the API may use more of RRULE,
+ *  for example BYSETPOS or several days of the month). */
+export const representable = (s: string): boolean => norm(toRRule(fromRRule(s))) === norm(s);
+
+// The same rule written differently compares equal: INTERVAL=1 is the default, and neither the order
+// of the parts nor of a part's values matters.
+const norm = (s: string): string =>
+  s
+    .split(';')
+    .filter((p) => p && p !== 'INTERVAL=1')
+    .map((p) => {
+      const [k, v = ''] = p.split('=');
+      return `${k}=${v.split(',').sort().join(',')}`;
+    })
+    .sort()
+    .join(';');
+
+/** Summary of a stored rule: described when the builder understands it, else shown as it is. */
+export const describeRRule = (s: string): string => (representable(s) ? describe(fromRRule(s)) : t('rule.customRaw', { rule: s }));

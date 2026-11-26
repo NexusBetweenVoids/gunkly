@@ -267,7 +267,18 @@ func TestMCPToolsHappyPath(t *testing.T) {
 	mustFail(t, cs, "get_chore", map[string]any{"chore": "BINS"}, "several chores")
 	mustFail(t, cs, "get_chore", map[string]any{"chore": "nothing"}, "no chore")
 	mustFail(t, cs, "create_chore", map[string]any{"name": "x", "repeat": "whenever"}, "not understood")
-	mustFail(t, cs, "create_chore", map[string]any{"name": "", "repeat": "daily"}, "invalid chore")
+	mustFail(t, cs, "create_chore", map[string]any{"name": "", "repeat": "daily"}, "invalid chore: name: must be 1 to 200 characters")
+
+	// BYSETPOS works (the rule an assistant used for twice-yearly gutters); a refused rule names the field and why.
+	gut := mustOK(t, cs, "create_chore", map[string]any{"name": "BYSETPOS test", "first_due": "2026-11-26",
+		"repeat": "FREQ=YEARLY;BYMONTH=4,10;BYDAY=SA;BYMONTHDAY=1,2,3,4,5,6,7,8,9,10,11,12,13,14;BYSETPOS=1,-1"})["chore"].(map[string]any)
+	if gut["dueDate"] != "2027-04-03" {
+		t.Fatalf("BYSETPOS chore %v", gut)
+	}
+	mustFail(t, cs, "create_chore", map[string]any{"name": "x", "repeat": "FREQ=MONTHLY;BYDAY=SA;BYSETPOS=0"},
+		"invalid chore: repeat: BYSETPOS must be 1..366 or -1..-366")
+	mustFail(t, cs, "update_chore", map[string]any{"chore": "BYSETPOS test", "repeat": "FREQ=MONTHLY;BYHOUR=9"},
+		`invalid chore update: repeat: unsupported part "BYHOUR"`)
 	mustFail(t, cs, "create_chore", map[string]any{"name": "x", "assignees": []string{"someone-else"}}, "")
 }
 

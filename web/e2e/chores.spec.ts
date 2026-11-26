@@ -433,3 +433,27 @@ test('"On" pins a weekly or monthly chore to weekdays or the first Saturday, and
   await expect(sheet.getByLabel('Every', { exact: true })).toHaveValue('3');
   await expect(sheet.getByLabel('Weekday', { exact: true })).toHaveValue('SA');
 });
+
+test('a calendar rule the editor cannot show (BYSETPOS) is shown as it is and kept when saving', async ({ world }) => {
+  const u = await world.newUser();
+  const { page } = await u.open();
+  const h = await world.household(u);
+  const rrule = 'FREQ=YEARLY;BYMONTH=4,10;BYMONTHDAY=1,2,3,4,5,6,7,8,9,10,11,12,13,14;BYDAY=SA;BYSETPOS=-1,1';
+  const c = await world.chore(u, h, { name: uniq('Gutters '), kind: 'recurring', schedule: { type: 'rrule', rrule, firstDue: '2026-11-26' } });
+  await page.goto(`/chores/${c.id}`);
+  await expect(page.getByText(`Custom rule: ${rrule}`)).toBeVisible();
+
+  await page.goto(`/chores/${c.id}/edit`);
+  const row = page.getByRole('button', { name: /^Repeat:/ });
+  await expect(row).toContainText('Custom rule');
+  await row.click();
+  const sheet = page.getByRole('dialog', { name: 'Repeat' });
+  await expect(sheet.getByText(/can't show\. It stays exactly as it is/)).toBeVisible();
+  await expect(sheet.getByText(rrule)).toBeVisible();
+  await sheet.getByRole('button', { name: 'Done' }).click();
+  await page.getByLabel('Name').fill(`${c.name} (both)`);
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: `${c.name} (both)` })).toBeVisible();
+  const after = await u.api.get<{ schedule: { rrule: string } }>(`/households/${h.id}/chores/${c.id}`);
+  expect(after.schedule.rrule).toBe(rrule);
+});

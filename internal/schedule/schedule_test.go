@@ -169,6 +169,11 @@ func TestRRuleNext(t *testing.T) {
 		{"FREQ=DAILY;BYDAY=SA,SU", "2025-01-01", "2025-01-01", "2025-01-04"},
 		{"FREQ=DAILY;BYMONTH=2;BYMONTHDAY=29;BYDAY=MO", "2017-01-01", "2017-01-01", "2044-02-29"},
 		{"FREQ=MONTHLY;BYMONTHDAY=15", "2025-03-01", "2024-01-01", "2025-03-15"}, // nothing before start
+		// BYSETPOS picks from each period's dates: first Saturday, last weekday of the month.
+		{"FREQ=MONTHLY;BYDAY=SA;BYSETPOS=1", "2026-11-26", "2026-11-26", "2026-12-05"},
+		{"FREQ=MONTHLY;BYDAY=MO,TU,WE,TH,FR;BYSETPOS=-1", "2026-01-01", "2026-01-01", "2026-01-30"},
+		{"FREQ=MONTHLY;BYDAY=MO,TU,WE,TH,FR;BYSETPOS=-1", "2026-01-01", "2026-01-30", "2026-02-27"},
+		{"FREQ=MONTHLY;BYDAY=SA;BYSETPOS=7", "2026-01-01", "2026-01-01", ""}, // no month has 7 Saturdays
 	}
 	for _, tt := range tests {
 		r, err := ParseRRule(tt.rule)
@@ -192,6 +197,8 @@ func TestParseRRuleRejects(t *testing.T) {
 	for _, s := range []string{
 		"", "RRULE:FREQ=DAILY", "FREQ=HOURLY", "FREQ=SECONDLY", "freq=daily", "FREQ=daily",
 		"FREQ=DAILY;COUNT=3", "FREQ=DAILY;UNTIL=20250101", "FREQ=MONTHLY;BYSETPOS=1",
+		"FREQ=MONTHLY;BYDAY=SA;BYSETPOS=0", "FREQ=MONTHLY;BYDAY=SA;BYSETPOS=367", "FREQ=MONTHLY;BYDAY=SA;BYSETPOS=-367",
+		"FREQ=MONTHLY;BYDAY=SA;BYSETPOS=1,1", "FREQ=MONTHLY;BYDAY=SA;BYSETPOS=", "FREQ=MONTHLY;BYDAY=SA;BYSETPOS=+1",
 		"FREQ=DAILY;BYHOUR=9", "FREQ=DAILY;WKST=MO", "FREQ=DAILY;X-FOO=1",
 		"FREQ=DAILY;FREQ=DAILY", "FREQ=DAILY;INTERVAL=2;INTERVAL=2", "INTERVAL=2",
 		"FREQ=DAILY;", ";FREQ=DAILY", "FREQ=DAILY;;INTERVAL=2", "FREQ=", "FREQ", " FREQ=DAILY",
@@ -225,6 +232,7 @@ func TestRRuleCanonical(t *testing.T) {
 		"FREQ=MONTHLY;INTERVAL=1000;BYDAY=-5SU":           "FREQ=MONTHLY;INTERVAL=1000;BYDAY=-5SU",
 		"FREQ=DAILY;BYMONTH=2;BYMONTHDAY=29;BYDAY=MO":     "FREQ=DAILY;BYMONTH=2;BYMONTHDAY=29;BYDAY=MO",
 		"FREQ=YEARLY;BYMONTH=12;BYMONTHDAY=-31;BYDAY=2WE": "FREQ=YEARLY;BYMONTH=12;BYMONTHDAY=-31;BYDAY=2WE",
+		"FREQ=MONTHLY;BYSETPOS=-1,1;BYDAY=SA":             "FREQ=MONTHLY;BYDAY=SA;BYSETPOS=-1,1",
 	} {
 		r, err := ParseRRule(in)
 		if err != nil {
@@ -394,4 +402,26 @@ func nilEmpty(r RRule) RRule {
 		r.ByDay = nil
 	}
 	return r
+}
+
+// The rule an AI assistant sent through MCP: of the Saturdays in the first 14 days of April and
+// October, the first and the last of each year.
+func TestRRuleBySetPosYearly(t *testing.T) {
+	r, err := ParseRRule("FREQ=YEARLY;BYMONTH=4,10;BYDAY=SA;BYMONTHDAY=1,2,3,4,5,6,7,8,9,10,11,12,13,14;BYSETPOS=1,-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	start, after := d("2026-11-26"), d("2026-11-26")
+	var got []string
+	for range 4 {
+		next, ok := r.Next(start, after)
+		if !ok {
+			t.Fatalf("no occurrence after %v", after)
+		}
+		got = append(got, next.String())
+		after = next
+	}
+	if want := "2027-04-03 2027-10-09 2028-04-01 2028-10-14"; strings.Join(got, " ") != want {
+		t.Fatalf("got %v, want %s", got, want)
+	}
 }

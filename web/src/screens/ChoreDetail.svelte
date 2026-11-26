@@ -11,7 +11,7 @@
   import { failure } from '../lib/errors';
   import { formatDate, t, type Key } from '../lib/i18n';
   import { navigate } from '../lib/router.svelte';
-  import { describe, fromRRule } from '../lib/rrule';
+  import { describeRRule } from '../lib/rrule';
   import { app, currentHousehold } from '../lib/session.svelte';
   import { STATUS, UNIT } from '../lib/names';
   import { toast } from '../lib/toast.svelte';
@@ -100,7 +100,7 @@
   const remText = (r: Reminder) =>
     t(r.kind === 'before' ? 'reminder.t.before' : r.kind === 'on' ? 'reminder.t.on' : 'reminder.t.overdue', { count: r.days, time: clock(r.minute) });
   const repeatText = (x: Chore) =>
-    x.kind === 'oneoff' ? t('repeat.none') : x.schedule.type === 'rrule' ? describe(fromRRule(x.schedule.rrule ?? '')) : t('repeat.every', { count: x.schedule.interval!.every, unit: t(UNIT[x.schedule.interval!.unit], { count: x.schedule.interval!.every }) });
+    x.kind === 'oneoff' ? t('repeat.none') : x.schedule.type === 'rrule' ? describeRRule(x.schedule.rrule ?? '') : t('repeat.every', { count: x.schedule.interval!.every, unit: t(UNIT[x.schedule.interval!.unit], { count: x.schedule.interval!.every }) });
 </script>
 
 {#if c}

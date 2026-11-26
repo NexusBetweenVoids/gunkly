@@ -92,6 +92,27 @@ func (e mcpToolError) Error() string { return string(e) }
 
 func toolErrf(format string, args ...any) error { return mcpToolError(fmt.Sprintf(format, args...)) }
 
+// mcpFields names the REST fields of a chore the way the MCP tools call them.
+var mcpFields = map[string]string{
+	"schedule.rrule": "repeat", "schedule.interval": "repeat", "schedule.type": "repeat", "kind": "repeat",
+	"schedule": "repeat and first_due", "schedule.firstDue": "first_due", "schedule.anchor": "anchor",
+	"reminderPreset": "reminder_preset", "reminderTime": "remind_at", "advanceOn": "advance_on", "rotation": "take_turns",
+}
+
+// mcpInvalid says which field of a chore was refused and why ("invalid chore: repeat: unsupported part
+// ..."), so an AI assistant can fix that field; without such detail it falls back to the general hint.
+func mcpInvalid(err error, prefix, hint string) error {
+	var ae *apiError
+	if !errors.As(err, &ae) || ae.reason == "" {
+		return toolErrf("%s: %s", prefix, hint)
+	}
+	field := ae.path
+	if f, ok := mcpFields[field]; ok {
+		field = f
+	}
+	return toolErrf("%s: %s: %s", prefix, field, ae.reason)
+}
+
 // mcpFail turns an error into text safe for the model; details go to the log.
 func (s *Server) mcpFail(err error) error {
 	var te mcpToolError
@@ -350,7 +371,7 @@ type snoozeIn struct {
 type createIn struct {
 	Household string   `json:"household,omitempty" jsonschema:"household id or name; may be omitted when the token has exactly one household"`
 	Name      string   `json:"name" jsonschema:"chore name, 1 to 200 characters"`
-	Repeat    string   `json:"repeat,omitempty" jsonschema:"how often it repeats: 'every 2 weeks', 'every day', 'monthly', 'every 3 months', 'every year', or an RRULE such as 'FREQ=WEEKLY;BYDAY=MO,TH'; omit or 'once' for a one-off chore"`
+	Repeat    string   `json:"repeat,omitempty" jsonschema:"how often it repeats: 'every 2 weeks', 'every day', 'monthly', 'every 3 months', 'every year', or an RRULE (FREQ DAILY/WEEKLY/MONTHLY/YEARLY with INTERVAL, BYMONTH, BYMONTHDAY, BYDAY incl. ordinals like 1SA, BYSETPOS) such as 'FREQ=WEEKLY;BYDAY=MO,TH'; omit or 'once' for a one-off chore"`
 	FirstDue  string   `json:"first_due,omitempty" jsonschema:"first due date YYYY-MM-DD in the household's time zone; default today"`
 	Assignees []string `json:"assignees,omitempty" jsonschema:"people responsible: 'me' for the token owner (member ids are also accepted); omit for the whole household"`
 	Notes     string   `json:"notes,omitempty" jsonschema:"optional free-text notes (at most 10000 characters)"`
@@ -776,7 +797,7 @@ func (m mcpCall) createChore(ctx context.Context, in createIn) (any, error) {
 	}
 	si, err := doc.build(loc, nil)
 	if err != nil {
-		return nil, toolErrf("invalid chore: check the name (1 to 200 characters), first_due (YYYY-MM-DD), repeat and remind_at (HH:MM)")
+		return nil, mcpInvalid(err, "invalid chore", "check the name (1 to 200 characters), first_due (YYYY-MM-DD), repeat and remind_at (HH:MM)")
 	}
 	if err := m.writeAllowed(h); err != nil {
 		return nil, err

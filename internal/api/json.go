@@ -23,6 +23,12 @@ func (e *apiError) Error() string { return e.code }
 
 func errf(status int, code string) error { return &apiError{status: status, code: code} }
 
+// invalidAt is a 400 "invalid" naming the field (path) and what is wrong with it (reason),
+// so API clients and AI assistants can tell which part of a request to fix.
+func invalidAt(path, reason string) error {
+	return &apiError{status: http.StatusBadRequest, code: "invalid", reason: reason, path: path}
+}
+
 var (
 	errCSRF               = errf(http.StatusForbidden, "csrf_failed")
 	errBaseURL            = errf(http.StatusForbidden, "base_url_mismatch")

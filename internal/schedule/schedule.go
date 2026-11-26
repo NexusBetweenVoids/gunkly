@@ -288,6 +288,8 @@ type WeekdayNum struct {
 // FREQ=DAILY|WEEKLY|MONTHLY|YEARLY, INTERVAL=1..1000, BYMONTH=1..12,
 // BYMONTHDAY=±1..31 (not with WEEKLY), BYDAY=[±1..5]MO..SU (ordinals only for
 // MONTHLY, and YEARLY with BYMONTH, where they count within the month).
+// BYSETPOS=±1..366 picks the n-th (or n-th from last) of each FREQ period's
+// dates (a month for MONTHLY, a year for YEARLY) and needs another BY part.
 // Days that do not exist are skipped as in RFC 5545 (BYMONTHDAY=31 skips
 // 30-day months); the editor uses BYMONTHDAY=-1 for "last day of the month".
 // Lists are sorted and duplicate-free; Interval is 1 when absent.
@@ -297,6 +299,7 @@ type RRule struct {
 	ByMonth    []time.Month
 	ByMonthDay []int
 	ByDay      []WeekdayNum
+	BySetPos   []int
 }
 
 // ErrInvalidRRule is wrapped by every ParseRRule error.
@@ -358,6 +361,14 @@ func ParseRRule(s string) (RRule, error) {
 				}
 				r.ByDay = append(r.ByDay, wd)
 			}
+		case "BYSETPOS":
+			for item := range strings.SplitSeq(v, ",") {
+				n, err := parseNum(item)
+				if err != nil {
+					return RRule{}, rruleErr("BYSETPOS must be 1..366 or -1..-366")
+				}
+				r.BySetPos = append(r.BySetPos, n)
+			}
 		default:
 			return RRule{}, rruleErr("unsupported part %q", k)
 		}
@@ -371,7 +382,9 @@ func ParseRRule(s string) (RRule, error) {
 	slices.Sort(r.ByMonth)
 	slices.Sort(r.ByMonthDay)
 	slices.SortFunc(r.ByDay, cmpWeekdayNum)
-	if len(slices.Compact(slices.Clone(r.ByMonth))) != len(r.ByMonth) ||
+	slices.Sort(r.BySetPos)
+	if len(slices.Compact(slices.Clone(r.BySetPos))) != len(r.BySetPos) ||
+		len(slices.Compact(slices.Clone(r.ByMonth))) != len(r.ByMonth) ||
 		len(slices.Compact(slices.Clone(r.ByMonthDay))) != len(r.ByMonthDay) ||
 		len(slices.Compact(slices.Clone(r.ByDay))) != len(r.ByDay) {
 		return RRule{}, rruleErr("duplicate list value")
@@ -448,11 +461,19 @@ func (r RRule) validate() error {
 			return rruleErr("BYDAY ordinal must be ±1..5 and needs MONTHLY or YEARLY with BYMONTH")
 		}
 	}
+	if len(r.BySetPos) > 0 && len(r.ByMonth)+len(r.ByMonthDay)+len(r.ByDay) == 0 {
+		return rruleErr("BYSETPOS needs BYMONTH, BYMONTHDAY or BYDAY")
+	}
+	for _, n := range r.BySetPos {
+		if n == 0 || n < -366 || n > 366 {
+			return rruleErr("BYSETPOS must be 1..366 or -1..-366")
+		}
+	}
 	return nil
 }
 
 // String returns the canonical form: FREQ;INTERVAL (omitted when 1);
-// BYMONTH;BYMONTHDAY;BYDAY. ParseRRule(r.String()) equals r for parsed rules.
+// BYMONTH;BYMONTHDAY;BYDAY;BYSETPOS. ParseRRule(r.String()) equals r for parsed rules.
 func (r RRule) String() string {
 	var b strings.Builder
 	if r.Freq >= Daily && r.Freq <= Yearly {
@@ -470,6 +491,7 @@ func (r RRule) String() string {
 		}
 		return s
 	})
+	writeList(&b, "BYSETPOS", r.BySetPos, strconv.Itoa)
 	return b.String()
 }
 
@@ -541,6 +563,7 @@ func (r RRule) periodStart(p int) Date {
 
 // expand appends period p's occurrences, in order, to buf.
 func (r RRule) expand(p int, start Date, buf []Date) []Date {
+	from := len(buf)
 	switch r.Freq {
 	case Daily:
 		d := fromDays(p)
@@ -574,7 +597,22 @@ func (r RRule) expand(p int, start Date, buf []Date) []Date {
 			buf = r.expandMonth(p, m, start.Day, buf)
 		}
 	}
-	return buf
+	return r.setPos(buf, from)
+}
+
+// setPos applies BYSETPOS to one period's dates, buf[from:] (in date order).
+func (r RRule) setPos(buf []Date, from int) []Date {
+	if len(r.BySetPos) == 0 {
+		return buf
+	}
+	set := slices.Clone(buf[from:])
+	out := buf[:from]
+	for i, d := range set {
+		if slices.ContainsFunc(r.BySetPos, func(n int) bool { return n == i+1 || n == i-len(set) }) {
+			out = append(out, d)
+		}
+	}
+	return out
 }
 
 func (r RRule) expandMonth(y int, m time.Month, defaultDay int, buf []Date) []Date {

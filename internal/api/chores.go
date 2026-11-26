@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 	"unicode/utf8"
 
@@ -248,7 +249,10 @@ func (in choreInput) reminderMinute() (int, bool, error) {
 		return 0, false, nil
 	}
 	m, err := parseReminderTime(*in.ReminderTime)
-	return m, err == nil, err
+	if err != nil {
+		return 0, false, invalidAt("reminderTime", "must be a time HH:MM")
+	}
+	return m, true, nil
 }
 
 // applyReminderTime turns the requested reminder time into explicit reminder
@@ -317,13 +321,19 @@ func (in choreInput) build(loc *time.Location, existing *store.Chore) (store.Cho
 		out.Kind = store.KindRecurring
 	}
 	if out.Kind != store.KindRecurring && out.Kind != store.KindOneOff {
-		return out, errInvalid
+		return out, invalidAt("kind", "must be recurring or oneoff")
 	}
-	if n := utf8.RuneCountInString(in.Name); n < 1 || n > 200 || utf8.RuneCountInString(in.Notes) > 10000 || len(in.Link) > 2000 || !validLink(in.Link) {
-		return out, errInvalid
+	if n := utf8.RuneCountInString(in.Name); n < 1 || n > 200 {
+		return out, invalidAt("name", "must be 1 to 200 characters")
+	}
+	if utf8.RuneCountInString(in.Notes) > 10000 {
+		return out, invalidAt("notes", "must be at most 10000 characters")
+	}
+	if len(in.Link) > 2000 || !validLink(in.Link) {
+		return out, invalidAt("link", "must be an http or https address of at most 2000 characters")
 	}
 	if len(in.Assignees) > 100 {
-		return out, errInvalid
+		return out, invalidAt("assignees", "at most 100")
 	}
 	out.RotationAdvance = store.AdvanceAny
 	if existing != nil && existing.RotationAdvance != "" {
@@ -331,7 +341,7 @@ func (in choreInput) build(loc *time.Location, existing *store.Chore) (store.Cho
 	}
 	if in.AdvanceOn != nil {
 		if *in.AdvanceOn != store.AdvanceAny && *in.AdvanceOn != store.AdvanceAssignee {
-			return out, errInvalid
+			return out, invalidAt("advanceOn", "must be any or assignee")
 		}
 		out.RotationAdvance = *in.AdvanceOn
 	}
@@ -341,7 +351,7 @@ func (in choreInput) build(loc *time.Location, existing *store.Chore) (store.Cho
 	if in.Rotation != nil {
 		out.Rotation = *in.Rotation
 		if out.Rotation && (len(in.Assignees) < 2 || out.Kind != store.KindRecurring) {
-			return out, errInvalid
+			return out, invalidAt("rotation", "taking turns needs 2 or more assignees and a recurring chore")
 		}
 	}
 	if len(in.Assignees) < 2 || out.Kind != store.KindRecurring {
@@ -355,7 +365,7 @@ func (in choreInput) build(loc *time.Location, existing *store.Chore) (store.Cho
 	}
 	first, err := schedule.ParseDate(in.Schedule.FirstDue)
 	if err != nil || first.Year < 1970 || first.Year > 9000 {
-		return out, errInvalid
+		return out, invalidAt("schedule.firstDue", "must be a date YYYY-MM-DD between 1970 and 9000")
 	}
 	out.FirstDue = first.String()
 	sc := in.Schedule
@@ -365,21 +375,24 @@ func (in choreInput) build(loc *time.Location, existing *store.Chore) (store.Cho
 	case sc.Type == store.ScheduleInterval:
 		if sc.Interval == nil || sc.RRule != "" || sc.Interval.Every < 1 || sc.Interval.Every > schedule.MaxInterval ||
 			!slices.Contains([]string{"day", "week", "month"}, sc.Interval.Unit) {
-			return out, errInvalid
+			return out, invalidAt("schedule.interval", fmt.Sprintf("needs every 1..%d and unit day, week or month (and no rrule)", schedule.MaxInterval))
 		}
 		out.ScheduleType, out.IntervalN, out.IntervalUnit, out.Anchor = store.ScheduleInterval, sc.Interval.Every, sc.Interval.Unit, store.AnchorFromCompletion
 	case sc.Type == store.ScheduleRRule:
 		rule, err := schedule.ParseRRule(sc.RRule)
-		if err != nil || sc.Interval != nil {
-			return out, errInvalid
+		if err != nil {
+			return out, invalidAt("schedule.rrule", strings.TrimPrefix(err.Error(), schedule.ErrInvalidRRule.Error()+": "))
+		}
+		if sc.Interval != nil {
+			return out, invalidAt("schedule.interval", "not allowed with an rrule")
 		}
 		out.ScheduleType, out.RRule, out.Anchor = store.ScheduleRRule, rule.String(), store.AnchorFromScheduled
 	default:
-		return out, errInvalid
+		return out, invalidAt("schedule.type", "must be interval or rrule")
 	}
 	if sc.Anchor != "" && out.Kind == store.KindRecurring {
 		if sc.Anchor != store.AnchorFromCompletion && sc.Anchor != store.AnchorFromScheduled {
-			return out, errInvalid
+			return out, invalidAt("schedule.anchor", "must be from_completion or from_scheduled")
 		}
 		out.Anchor = sc.Anchor
 	}
@@ -390,7 +403,7 @@ func (in choreInput) build(loc *time.Location, existing *store.Chore) (store.Cho
 	switch {
 	case in.ReminderPreset != nil:
 		if !validPreset(*in.ReminderPreset) {
-			return out, errInvalid
+			return out, invalidAt("reminderPreset", "must be empty (household default), gentle, nag or none")
 		}
 		out.ReminderPreset = *in.ReminderPreset
 	case existing != nil:
@@ -409,7 +422,7 @@ func (in choreInput) build(loc *time.Location, existing *store.Chore) (store.Cho
 			}
 			var ok bool
 			if due, ok = rule.Next(first, first.AddDays(-1)); !ok {
-				return out, errInvalid
+				return out, invalidAt("schedule", "the schedule has no occurrence on or after the first due date")
 			}
 		}
 		out.DueDate, out.NextDue = due.String(), store.OccurrenceInstant(due, loc)

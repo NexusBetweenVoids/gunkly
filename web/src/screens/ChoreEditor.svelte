@@ -15,7 +15,7 @@
   import { nameOf, UNIT } from '../lib/names';
   import { DEFAULT_MINUTE, derive, hm, PRESET_REMINDERS, toMinute } from '../lib/reminders';
   import { navigate } from '../lib/router.svelte';
-  import { DAYS, describe, fromRRule, newRule, nthKey, toRRule, type Rule } from '../lib/rrule';
+  import { DAYS, describe, fromRRule, newRule, nthKey, representable, toRRule, type Rule } from '../lib/rrule';
   import { app, currentHousehold } from '../lib/session.svelte';
   import { toast } from '../lib/toast.svelte';
   import type { Area, Chore, Member, Reminder, Template } from '../lib/types';
@@ -49,6 +49,9 @@
   let n = $state(1);
   let unit = $state<Unit>('week');
   let rule = $state(newRule());
+  // A stored rule the builder cannot show exactly (set through the API, e.g. with BYSETPOS): kept as it is
+  // unless the user picks another repeat or replaces it.
+  let rawRule = $state('');
   // "On": pins a weekly or monthly interval to weekdays, a date, or e.g. the first Saturday. Saved as a
   // calendar rule; with nothing picked it stays a plain interval.
   let onDays = $state<string[]>([]);
@@ -94,6 +97,7 @@
 
   // A calendar rule usually means fixed dates; an interval usually counts from completion.
   function setRepeat(v: typeof repeat): void {
+    if (v !== 'rule') rawRule = '';
     if (v === repeat) return;
     repeat = v;
     anchor = v === 'rule' ? 'from_scheduled' : 'from_completion';
@@ -156,7 +160,10 @@
     reminder = c.reminderPreset;
     anchor = c.schedule.anchor ?? 'from_completion';
     if (c.schedule.interval) [n, unit] = [c.schedule.interval.every, c.schedule.interval.unit];
-    if (c.schedule.type === 'rrule') rule = fromRRule(c.schedule.rrule ?? '');
+    if (c.schedule.type === 'rrule') {
+      rule = fromRRule(c.schedule.rrule ?? '');
+      rawRule = representable(c.schedule.rrule ?? '') ? '' : (c.schedule.rrule ?? '');
+    }
     repeat = c.kind === 'oneoff' ? 'none' : c.schedule.type === 'rrule' ? 'rule' : 'interval';
     if (repeat === 'rule') adoptSimpleRule(c.schedule.rrule ?? '');
     notesOpen = !!notes || !!link;
@@ -165,7 +172,7 @@
   // A rule the "On" line can show (weekly on weekdays, monthly on a date or an nth weekday) opens as an
   // interval with "On" set; anything else stays a custom rule.
   function adoptSimpleRule(s: string): void {
-    if (toRRule(rule) !== s) return; // something the builder can't represent exactly
+    if (!representable(s)) return; // something the builder cannot represent
     if (rule.freq === 'WEEKLY' && rule.weekdays.length) [unit, onDays] = ['week', [...rule.weekdays]];
     else if (rule.freq === 'MONTHLY' && rule.mode === 'day') [unit, monthOn, monthDay] = ['month', 'date', rule.day];
     else if (rule.freq === 'MONTHLY' && rule.mode === 'nth') [unit, monthOn, nth, nthDay] = ['month', 'nth', rule.nth, rule.weekday];
@@ -244,7 +251,7 @@
         rotation: takesTurns, advanceOn: onlyTurn ? 'assignee' : 'any',
         kind: recurring ? 'recurring' : 'oneoff',
         schedule: repeat === 'rule' || pinned
-          ? { type: 'rrule', rrule: toRRule(pinned ?? rule), anchor, firstDue }
+          ? { type: 'rrule', rrule: repeat === 'rule' && rawRule ? rawRule : toRRule(pinned ?? rule), anchor, firstDue }
           : { type: 'interval', interval: { every: n, unit }, anchor, firstDue },
         reminderPreset: custom ? (id ? null : '') : reminder,
         ...(sendTime ? { reminderTime: remTime } : {}),
@@ -310,7 +317,7 @@
   const today = householdToday();
   const repeatText = $derived(
     repeat === 'none' ? t('repeat.none')
-      : repeat === 'rule' ? describe(rule)
+      : repeat === 'rule' ? (rawRule ? t('rule.customRaw', { rule: rawRule }) : describe(rule))
         : pinned ? describe(pinned)
         : PRESET[`${n}${unit}`] ? t(PRESET[`${n}${unit}`]) : t('repeat.every', { count: n, unit: t(UNIT[unit], { count: n }) }),
   );
@@ -522,7 +529,13 @@
         </fieldset>
       {/if}
     {/if}
-    {#if repeat === 'rule'}
+    {#if repeat === 'rule' && rawRule}
+      <div class="raw stack-sm">
+        <p class="hint">{t('rule.rawNote')}</p>
+        <p class="mono">{rawRule}</p>
+        <p><button type="button" class="linkish" onclick={() => (rawRule = '')}>{t('rule.rawReplace')}</button></p>
+      </div>
+    {:else if repeat === 'rule'}
       <RuleBuilder bind:rule />
     {:else}
       <p><button type="button" class="linkish" onclick={() => setRepeat('rule')}>{t('chore.customRule')}</button></p>
@@ -870,6 +883,11 @@
     text-decoration: underline;
     cursor: pointer;
     min-block-size: var(--tap);
+  }
+  .raw {
+    padding: 12px 14px;
+    border-radius: var(--radius);
+    background: var(--surface-2);
   }
   .next {
     margin: 0;

@@ -5,7 +5,7 @@
   import { failure } from '../lib/errors';
   import { t, type Key } from '../lib/i18n';
   import { UNIT } from '../lib/names';
-  import { describe, fromRRule } from '../lib/rrule';
+  import { describeRRule } from '../lib/rrule';
   import { toast } from '../lib/toast.svelte';
   import type { Area, Member } from '../lib/types';
   import Alert from './Alert.svelte';
@@ -77,7 +77,7 @@
   };
   function when(s: Suggestion): string {
     if (s.kind === 'oneoff') return t('repeat.none');
-    if (s.schedule.type === 'rrule') return describe(fromRRule(s.schedule.rrule ?? ''));
+    if (s.schedule.type === 'rrule') return describeRRule(s.schedule.rrule ?? '');
     const { every, unit } = s.schedule.interval!;
     const p = PRESET[`${every}${unit}`];
     return p ? t(p) : t('repeat.every', { count: every, unit: t(UNIT[unit], { count: every }) });

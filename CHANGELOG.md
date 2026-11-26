@@ -8,8 +8,12 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 - Settings, Sign-in & security, **Recovery codes**: shows how many unused codes are left (with a "Running low" hint) and creates a new set on request (after confirming it's you; the old codes stop working). Until now codes were only shown once, with the first second factor (on the hosted service when the email address is confirmed), which was easy to miss. API: `GET` / `POST /api/v1/account/recovery-codes`.
 
+- Calendar rules may use `BYSETPOS` (for example `FREQ=MONTHLY;BYDAY=MO,TU,WE,TH,FR;BYSETPOS=-1` for the last weekday of the month), as AI assistants tend to write them.
+
 ### Changed
 
+- When a chore is refused, the API names the field and the reason (`error.path`, `error.reason`, for example `schedule.rrule`: `unsupported part "BYHOUR"`), and the MCP tools say it in their terms (`invalid chore: repeat: ...`) instead of listing every field.
+- The chore editor keeps calendar rules it cannot show (set through the API or an AI assistant, for example with `BYSETPOS` or several days of the month) exactly as they are, shown as "Custom rule", instead of simplifying them on save; chore pages show such rules as they are instead of a wrong summary.
 - Signing in with a password on an account that has a passkey and email codes no longer emails a code straight away: the passkey is offered first, with "Email me a code instead" and "Use a recovery code instead" next to it. The code is only sent when asked for (API: `sendEmailCode` on `POST /api/v1/session`, `emailSent` in the answer). Adding a passkey when recovery codes already exist now says that they still work.
 
 ## [0.8.0] - 2026-11-26

@@ -279,7 +279,7 @@ func (m mcpCall) updateChore(ctx context.Context, in updateIn) (any, error) {
 	}
 	si, err := doc.build(loc, &old)
 	if err != nil {
-		return nil, toolErrf("invalid chore update: check name (1 to 200 characters), notes, link (http or https), first_due (YYYY-MM-DD), repeat, anchor (from_completion or from_scheduled), reminder_preset, remind_at (HH:MM), advance_on (any or assignee), and that take_turns needs 2 or more assignees and a recurring chore")
+		return nil, mcpInvalid(err, "invalid chore update", "check name (1 to 200 characters), notes, link (http or https), first_due (YYYY-MM-DD), repeat, anchor (from_completion or from_scheduled), reminder_preset, remind_at (HH:MM), advance_on (any or assignee), and that take_turns needs 2 or more assignees and a recurring chore")
 	}
 	if err := m.writeAllowed(h); err != nil {
 		return nil, err

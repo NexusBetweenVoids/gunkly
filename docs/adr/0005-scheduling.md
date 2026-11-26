@@ -26,7 +26,10 @@ Due-date math has many edge cases (overdue, early completion, month ends, DST). 
 | `BYDAY` | weekdays; with ordinal for `MONTHLY`/`YEARLY` (e.g. `1SA`, `-1FR`) |
 | `BYMONTHDAY` | `1..31` and `-1..-31` (counted from month end); days missing from a month are skipped (RFC 5545). The editor uses `-1` for "last day". |
 | `BYMONTH` | `1..12` |
-| `COUNT`, `UNTIL`, `BYSETPOS`, `BYHOUR`, others | rejected |
+| `BYSETPOS` | `1..366` and `-1..-366`: picks the n-th (or n-th from last) of each `FREQ` period's dates (a month for `MONTHLY`, a year for `YEARLY`); needs `BYMONTH`, `BYMONTHDAY` or `BYDAY` (added in 0.9, for rules AI assistants write) |
+| `COUNT`, `UNTIL`, `BYHOUR`, others | rejected |
+
+Rules outside what the editor's rule builder can show (for example `BYSETPOS`, or several `BYMONTHDAY` values) are shown as "Custom rule" and kept exactly as stored when the chore is saved in the web app.
 
 ## Consequences
 - A strict grammar makes the parser fuzzable and iCal generation simple.
