@@ -86,6 +86,13 @@
   ];
   const metricsFields: FieldSpec[] = [{ key: 'metrics.token', label: t('svcAdmin.metricsToken'), secret: true, hint: t('svcAdmin.metricsTokenHint') }];
   const hookFields: FieldSpec[] = [
+    {
+      key: 'updates.webhook_kind', label: t('svcAdmin.hookKind'), kind: 'select', hint: t('svcAdmin.hookKindHint'),
+      options: [
+        { value: 'watchtower', label: 'Watchtower' }, { value: 'portainer', label: 'Portainer' },
+        { value: 'dockhand', label: 'Dockhand' }, { value: 'other', label: t('svcAdmin.hookKindOther') },
+      ],
+    },
     { key: 'updates.webhook_url', label: t('svcAdmin.hookUrl'), hint: t('svcAdmin.hookUrlHint'), placeholder: 'http://watchtower:8080/v1/update' },
     { key: 'updates.webhook_token', label: t('svcAdmin.hookToken'), secret: true, hint: t('svcAdmin.hookTokenHint') },
   ];

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -131,10 +132,12 @@ func TestSSONeedsHTTPS(t *testing.T) {
 }
 
 func TestUpdateWebhook(t *testing.T) {
-	var gotAuth, gotMethod string
+	var gotAuth, gotMethod, gotType, gotBody string
 	status := 200
 	hook := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		gotAuth, gotMethod = r.Header.Get("Authorization"), r.Method
+		gotAuth, gotMethod, gotType = r.Header.Get("Authorization"), r.Method, r.Header.Get("Content-Type")
+		b, _ := io.ReadAll(r.Body)
+		gotBody = string(b)
 		w.WriteHeader(status)
 	}))
 	defer hook.Close()
@@ -150,8 +153,15 @@ func TestUpdateWebhook(t *testing.T) {
 		t.Fatalf("canUpdate after: %v", u)
 	}
 	st, v = root.do("POST", "/api/v1/admin/updates/apply", nil)
-	if st != 200 || str(v, "result") != "accepted" || gotAuth != "Bearer wt-token" || gotMethod != "POST" {
-		t.Fatalf("apply: %d %v %q %q", st, v, gotAuth, gotMethod)
+	if st != 200 || str(v, "result") != "accepted" || gotAuth != "Bearer wt-token" || gotMethod != "POST" || gotBody != "" {
+		t.Fatalf("apply: %d %v %q %q %q", st, v, gotAuth, gotMethod, gotBody)
+	}
+	// Dockhand: its stack deploy API, asked to pull the newest images first.
+	patchConfig(t, root, map[string]any{"updates.webhook_kind": "kubernetes"}, 400, "invalid")
+	patchConfig(t, root, map[string]any{"updates.webhook_kind": "dockhand", "updates.webhook_url": hook.URL + "/api/stacks/gunkly/deploy?env=1", "updates.webhook_token": "dh_x"}, 200, "")
+	st, v = root.do("POST", "/api/v1/admin/updates/apply", nil)
+	if st != 200 || str(v, "result") != "accepted" || gotAuth != "Bearer dh_x" || gotType != "application/json" || gotBody != `{"pull":true}` {
+		t.Fatalf("dockhand: %d %v %q %q %q", st, v, gotAuth, gotType, gotBody)
 	}
 	status = 401
 	st, v = root.do("POST", "/api/v1/admin/updates/apply", nil)

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/NexusBetweenVoids/gunkly/internal/store"
@@ -85,6 +86,8 @@ const updateHookTimeout = 15 * time.Second
 
 // adminApplyUpdate calls the configured update webhook once: POST with an
 // empty body and, when a token is set, "Authorization: Bearer <token>".
+// For Dockhand the URL is its stack deploy API (/api/stacks/<name>/deploy) and
+// the body {"pull":true} makes it pull the newest images before recreating.
 // Gunkly never touches the container runtime itself.
 func (s *Server) adminApplyUpdate(w http.ResponseWriter, r *http.Request, c *call) error {
 	cfg, err := s.config(r.Context(), true)
@@ -97,15 +100,23 @@ func (s *Server) adminApplyUpdate(w http.ResponseWriter, r *http.Request, c *cal
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), updateHookTimeout)
 	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, target, nil)
+	var body io.Reader
+	dockhand := cfg.str("updates.webhook_kind") == "dockhand"
+	if dockhand {
+		body = strings.NewReader(`{"pull":true}`)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, target, body)
 	if err != nil {
 		return errf(http.StatusConflict, "update_webhook_missing")
+	}
+	if dockhand {
+		req.Header.Set("Content-Type", "application/json")
 	}
 	req.Header.Set("User-Agent", "gunkly/"+s.version)
 	if tok := cfg.str("updates.webhook_token"); tok != "" {
 		req.Header.Set("Authorization", "Bearer "+tok)
 	}
-	s.audit(r.Context(), c, c.user.ID, store.AuditAdminUpdate, "", map[string]string{"from": s.version})
+	s.audit(r.Context(), c, c.user.ID, store.AuditAdminUpdate, "", map[string]string{"from": s.version, "updater": cfg.str("updates.webhook_kind")})
 	out := map[string]any{}
 	resp, err := s.updateHTTP.Do(req)
 	switch {

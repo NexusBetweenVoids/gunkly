@@ -14,7 +14,9 @@ Gunkly cannot update itself, on purpose: replacing its own container would need 
 
 Instead, Gunkly can **ask an updater you run**. You give it the updater's address (and a token if it needs one) under Administration, **Updates**, **Update button**. When a new version is out, **Update now** sends that address one `POST` request (with `Authorization: Bearer <token>` when a token is set). The updater pulls the image and restarts Gunkly; the page waits and reloads when the new version answers. Gunkly holds nothing more than a token that can start an update.
 
-You can also set it in the environment (`GUNKLY_UPDATE_WEBHOOK_URL`, `GUNKLY_UPDATE_WEBHOOK_TOKEN`); then the admin page shows it locked.
+Pick your updater (Watchtower, Portainer, Dockhand or Other) so the page shows the right hints. Only Dockhand changes the request: see below.
+
+You can also set it in the environment (`GUNKLY_UPDATE_WEBHOOK_KIND` = `watchtower`, `portainer`, `dockhand` or `other`, `GUNKLY_UPDATE_WEBHOOK_URL`, `GUNKLY_UPDATE_WEBHOOK_TOKEN`); then the admin page shows it locked.
 
 ### Example: Watchtower
 
@@ -47,6 +49,26 @@ Notes:
 - In this mode Watchtower stops checking on a schedule; add `WATCHTOWER_HTTP_API_PERIODIC_POLLS: "true"` if you also want that.
 - Check your Watchtower version's documentation for how it expects the token; Gunkly sends `Authorization: Bearer <token>`.
 - An updater only pulls new images for the tag you run: with `ghcr.io/nexusbetweenvoids/gunkly:0.6` you get 0.6.x fixes, with `latest` every release.
+
+### Example: Portainer
+
+Portainer can redeploy a stack or recreate a container when its webhook URL is called; the URL itself is the secret, so leave the token empty.
+
+1. In Portainer, open Gunkly's stack (or container) and turn on its **webhook**; for a stack also turn on **Re-pull image** so it fetches the new version.
+2. Copy the webhook URL (it looks like `https://<portainer>/api/stacks/webhooks/<id>` or `https://<portainer>/api/webhooks/<id>`).
+3. In Gunkly: Updater **Portainer**, Updater address = that URL, no token.
+
+Which webhooks your Portainer edition offers differs per version; check its documentation.
+
+### Example: Dockhand
+
+[Dockhand](https://dockhand.pro/manual/#api-reference) has an API that redeploys a compose stack. Gunkly calls it with `{"pull": true}`, so Dockhand pulls the newest images and recreates the stack.
+
+1. In Dockhand, open your profile, **API tokens**, **Generate token** (it starts with `dh_`).
+2. Note the stack name Gunkly runs in and the environment's ID.
+3. In Gunkly: Updater **Dockhand**, Updater address `https://<dockhand>/api/stacks/<stack name>/deploy?env=<environment ID>`, Token = the `dh_…` token.
+
+Dockhand runs the deploy as a job and answers right away, so Gunkly shows **accepted** and waits for the new version.
 
 ### Other updaters
 

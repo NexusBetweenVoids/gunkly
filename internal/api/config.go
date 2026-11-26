@@ -70,6 +70,9 @@ var cfgFields = []cfgField{
 	// container manager's redeploy webhook, an own script). Gunkly only asks.
 	{key: "updates.webhook_url", env: "GUNKLY_UPDATE_WEBHOOK_URL", group: "updatehook", kind: cfgString, check: validUpdateURL},
 	{key: "updates.webhook_token", env: "GUNKLY_UPDATE_WEBHOOK_TOKEN", group: "updatehook", kind: cfgSecret, check: validHeaderValue},
+	// Which updater it is: only "dockhand" changes the request (a JSON body
+	// asking its stack deploy API to pull the newest images first).
+	{key: "updates.webhook_kind", env: "GUNKLY_UPDATE_WEBHOOK_KIND", group: "updatehook", kind: cfgString, def: "watchtower", check: validUpdateKind},
 }
 
 func cfgFieldByKey(k string) (cfgField, bool) {
@@ -321,6 +324,10 @@ func validFrom(v string) bool {
 }
 
 func validTLSMode(v string) bool { return v == "starttls" || v == "tls" || v == "none" }
+
+func validUpdateKind(v string) bool {
+	return v == "watchtower" || v == "portainer" || v == "dockhand" || v == "other"
+}
 
 // validIssuer matches the environment rule: https, or http only for localhost.
 func validIssuer(v string) bool {

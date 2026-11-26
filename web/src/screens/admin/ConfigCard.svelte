@@ -109,7 +109,7 @@
             {#if f.hint}<p class="hint">{f.hint}</p>{/if}
           {/if}
         {:else if f.kind === 'select' && !field?.locked}
-          <Select label={f.label} options={f.options ?? []} bind:value={draft[f.key]} />
+          <Select label={f.label} options={f.options ?? []} bind:value={draft[f.key]} hint={f.hint} />
         {:else if f.secret}
           {#key gen}
             <ConfigField {field} label={f.label} hint={f.hint} secret bind:value={secrets[f.key]} onremove={() => remove(f.key)} />

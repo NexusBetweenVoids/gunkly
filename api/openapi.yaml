@@ -1504,8 +1504,9 @@ paths:
       summary: Ask the configured updater to update Gunkly (admin, recent step-up)
       description: |
         Calls the update webhook set in Administration (updates.webhook_url, or GUNKLY_UPDATE_WEBHOOK_URL) once:
-        POST with an empty body and "Authorization: Bearer <token>" when updates.webhook_token is set. Gunkly never
-        touches the container runtime. result is accepted (2xx), sent (no answer within 15 s: the updater may be
+        POST with an empty body and "Authorization: Bearer <token>" when updates.webhook_token is set. With
+        updates.webhook_kind dockhand the body is {"pull":true} (application/json), for Dockhand's stack deploy
+        API. Gunkly never touches the container runtime. result is accepted (2xx), sent (no answer within 15 s: the updater may be
         restarting Gunkly), or failed with error unreachable or rejected (and the HTTP status). 409
         update_webhook_missing when none is configured. Audited as admin_update_requested.
       responses:
