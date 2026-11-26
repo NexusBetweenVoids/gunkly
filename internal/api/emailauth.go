@@ -48,7 +48,9 @@ func (s *Server) sendVerification(ctx context.Context, c *call, u store.User, ne
 }
 
 // sendLoginCode emails the user a fresh second-factor code (replacing any
-// earlier one). It returns the wait if an email cap is full.
+// earlier one). It returns the wait if an email cap is full. unauth is true
+// while signing in; otherwise the code confirms a sensitive action of a
+// signed-in user (step-up, approving an app), and the email says so.
 func (s *Server) sendLoginCode(ctx context.Context, c *call, u store.User, unauth bool) (time.Duration, error) {
 	ip := ""
 	if unauth {
@@ -61,7 +63,11 @@ func (s *Server) sendLoginCode(ctx context.Context, c *call, u store.User, unaut
 	if err := s.st.IssueEmailOTP(ctx, u.ID, challenge, auth.HashEmailOTP(challenge, code), s.now().Add(otpTTL)); err != nil {
 		return 0, err
 	}
-	s.dispatchMail(ctx, mailRequest{user: u, kind: "otp", params: map[string]string{
+	kind := "otp"
+	if !unauth {
+		kind = "otpconfirm"
+	}
+	s.dispatchMail(ctx, mailRequest{user: u, kind: kind, params: map[string]string{
 		"code": code, "minutes": strconv.Itoa(int(otpTTL.Minutes()))}, ttl: otpTTL})
 	return 0, nil
 }

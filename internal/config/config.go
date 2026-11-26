@@ -45,6 +45,14 @@ type Config struct {
 	// MetricsToken enables GET /metrics (Prometheus) behind
 	// "Authorization: Bearer <token>"; empty = no metrics endpoint.
 	MetricsToken string
+	// PrivacyURL and TermsURL link the hosted service's privacy policy and
+	// terms from the sign-up and sign-in screens. Hosted mode only (https).
+	PrivacyURL string
+	TermsURL   string
+	// SecurityContact enables /.well-known/security.txt (RFC 9116): a mailto:
+	// or https: URI. SecurityPolicy optionally links a disclosure policy.
+	SecurityContact string
+	SecurityPolicy  string
 	// Overrides holds the set (non-empty) variables of OverrideVars: settings an
 	// admin can otherwise change in the app, where these always win.
 	Overrides map[string]string
@@ -215,6 +223,33 @@ func Load(lookup func(string) string) (*Config, error) {
 			fail("GUNKLY_SIGNUP_POW_MAX: must be 1000-1000000")
 		}
 		c.PoWMaxNumber = n
+	}
+
+	httpsURL := func(k string) string {
+		v := get(k)
+		if v == "" {
+			return ""
+		}
+		if u, err := url.Parse(v); err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil {
+			fail("GUNKLY_%s: must be an https:// URL", k)
+		}
+		return v
+	}
+	c.PrivacyURL, c.TermsURL = httpsURL("PRIVACY_URL"), httpsURL("TERMS_URL")
+	if (c.PrivacyURL != "" || c.TermsURL != "") && !c.HostedMode {
+		fail("GUNKLY_PRIVACY_URL and GUNKLY_TERMS_URL are for the hosted service: they need GUNKLY_HOSTED_MODE=true")
+	}
+	c.SecurityPolicy = httpsURL("SECURITY_POLICY")
+	if v := get("SECURITY_CONTACT"); v != "" {
+		u, err := url.Parse(v)
+		ok := err == nil && ((u.Scheme == "mailto" && strings.Contains(u.Opaque, "@")) || (u.Scheme == "https" && u.Host != "" && u.User == nil))
+		if !ok || strings.ContainsAny(v, "\r\n") {
+			fail("GUNKLY_SECURITY_CONTACT: must be a mailto: or https:// URI")
+		}
+		c.SecurityContact = v
+	}
+	if c.SecurityPolicy != "" && c.SecurityContact == "" {
+		fail("GUNKLY_SECURITY_POLICY needs GUNKLY_SECURITY_CONTACT")
 	}
 
 	// Hosted mode: the public multi-tenant service. Stricter requirements.

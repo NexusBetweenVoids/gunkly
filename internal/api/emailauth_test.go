@@ -510,13 +510,22 @@ func TestEmailOTPStepUp(t *testing.T) {
 	e.enableEmailOTP("ann")
 	c := e.client()
 	c.login("ann", nil)
-	code := codeIn(t, e.oneMail("ann@example.com"))
+	m := e.oneMail("ann@example.com")
+	if !strings.Contains(m.Subject, "sign-in code") {
+		t.Fatalf("sign-in subject: %q", m.Subject)
+	}
+	code := codeIn(t, m)
 	st, v := c.login("ann", map[string]string{"emailCode": code})
 	expect(t, st, v, 200, "")
 
+	// Confirming an action while signed in is not a sign-in: the email says so.
 	st, v = c.do("POST", "/api/v1/session/step-up", map[string]string{"password": "password-ann"})
 	expect(t, st, v, 401, "two_factor_required")
-	code = codeIn(t, e.oneMail("ann@example.com"))
+	m = e.oneMail("ann@example.com")
+	if !strings.Contains(m.Subject, "confirmation code") || strings.Contains(m.Body, "sign in") {
+		t.Fatalf("step-up mail: %q %q", m.Subject, m.Body)
+	}
+	code = codeIn(t, m)
 	st, v = c.do("POST", "/api/v1/session/step-up", map[string]string{"password": "password-ann", "emailCode": code})
 	expect(t, st, v, 204, "")
 }

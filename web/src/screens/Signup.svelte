@@ -2,6 +2,7 @@
   import Alert from '../components/Alert.svelte';
   import Button from '../components/Button.svelte';
   import Field from '../components/Field.svelte';
+  import LegalLinks from '../components/LegalLinks.svelte';
   import { api } from '../lib/api';
   import { failure } from '../lib/errors';
   import { locale, t } from '../lib/i18n';
@@ -88,6 +89,7 @@
       <p class="muted" role="status" aria-live="polite">
         {#if percent >= 0}{t('signup.working')} {t('signup.progress', { percent })}{/if}
       </p>
+      <LegalLinks agree />
       <Button type="submit" {busy}>{t('signup.submit')}</Button>
     </form>
     <p class="muted">{t('invite.haveAccount')} <a href="/signin">{t('signIn.title')}</a></p>

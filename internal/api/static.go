@@ -20,6 +20,13 @@ func (s *Server) serveStatic(w http.ResponseWriter, r *http.Request, _ *call) er
 	if name == "" {
 		name = "index.html"
 	}
+	// No app route starts with a dot: /.git/config, /.env and unknown
+	// /.well-known/* paths are real 404s, not the app shell.
+	for seg := range strings.SplitSeq(name, "/") {
+		if strings.HasPrefix(seg, ".") {
+			return errNotFound
+		}
+	}
 	f, err := s.static.Open(name)
 	if err == nil {
 		if st, serr := f.Stat(); serr != nil || st.IsDir() {

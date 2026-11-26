@@ -416,7 +416,7 @@ paths:
       tags: [setup]
       summary: What this instance offers (public)
       responses:
-        "200": {description: OK, content: {application/json: {schema: {type: object, properties: {openSignup: {type: boolean}, emailEnabled: {type: boolean}, hostedMode: {type: boolean}, requirePow: {type: boolean, description: "Sign-up needs a proof of work"}, baseUrl: {type: string, description: "Configured public address (GUNKLY_BASE_URL), empty when not set"}, mcpEnabled: {type: boolean, description: "The MCP endpoint /mcp is served"}, sso: {type: object, properties: {name: {type: string, description: "Button label from GUNKLY_OIDC_NAME; may be empty"}}, description: "Present only while single sign-on is configured (self-hosted)"}, passkeysAvailable: {type: boolean, description: "GUNKLY_BASE_URL is https (or localhost), so passkeys can be registered and used"}, oauthEnabled: {type: boolean, description: "Present (true) only while OAuth sign-in for MCP clients is on; absent otherwise"}, webhooksEnabled: {type: boolean, description: "Present (true) only while outgoing webhooks are on; absent otherwise"}, aiEnabled: {type: boolean, description: "Present (true) only while AI chore suggestions are configured and on; absent otherwise"}}}}}}
+        "200": {description: OK, content: {application/json: {schema: {type: object, properties: {openSignup: {type: boolean}, emailEnabled: {type: boolean}, hostedMode: {type: boolean}, requirePow: {type: boolean, description: "Sign-up needs a proof of work"}, baseUrl: {type: string, description: "Configured public address (GUNKLY_BASE_URL), empty when not set"}, mcpEnabled: {type: boolean, description: "The MCP endpoint /mcp is served"}, sso: {type: object, properties: {name: {type: string, description: "Button label from GUNKLY_OIDC_NAME; may be empty"}}, description: "Present only while single sign-on is configured (self-hosted)"}, passkeysAvailable: {type: boolean, description: "GUNKLY_BASE_URL is https (or localhost), so passkeys can be registered and used"}, oauthEnabled: {type: boolean, description: "Present (true) only while OAuth sign-in for MCP clients is on; absent otherwise"}, webhooksEnabled: {type: boolean, description: "Present (true) only while outgoing webhooks are on; absent otherwise"}, aiEnabled: {type: boolean, description: "Present (true) only while AI chore suggestions are configured and on; absent otherwise"}, privacyUrl: {type: string, description: "Hosted service only (GUNKLY_PRIVACY_URL): link to its privacy policy; absent otherwise"}, termsUrl: {type: string, description: "Hosted service only (GUNKLY_TERMS_URL): link to its terms of use; absent otherwise"}}}}}}
   /signup/challenge:
     get:
       tags: [setup]
@@ -2259,6 +2259,10 @@ x-outside-api-v1:
       undo_completion, snooze_chore, skip_chore (chores:complete); create_chore (chores:write). Every tool applies the
       token's household binding and its owner's current role, like the REST routes; a missing scope or role is a tool
       error. Results are JSON text; chore names and notes in them are untrusted user data.
+    "GET /.well-known/security.txt": |
+      RFC 9116 security contact file (text/plain): Contact (GUNKLY_SECURITY_CONTACT), Expires (180 days ahead, generated per
+      request), Policy (GUNKLY_SECURITY_POLICY, optional), Preferred-Languages, Canonical (with GUNKLY_BASE_URL). 404 while no
+      contact is configured. Other paths with a segment starting with "." (for example /.env) are 404, never the app shell.
     "GET /.well-known/oauth-protected-resource": |
       RFC 9728 protected resource metadata of /mcp (ADR 0016): resource, authorization_servers, scopes_supported,
       bearer_methods_supported ["header"]. 404 unless the instance admin turned oauthEnabled on (and GUNKLY_BASE_URL is https).

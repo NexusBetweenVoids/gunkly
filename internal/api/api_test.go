@@ -1246,3 +1246,45 @@ func TestBaseURLMismatchIsExplained(t *testing.T) {
 		})
 	}
 }
+
+func TestSecurityTxtAndDotPaths(t *testing.T) {
+	plain := newEnv(t)
+	for _, p := range []string{"/.well-known/security.txt", "/.git/config", "/.env", "/x/.hidden", "/.well-known/nothing"} {
+		resp := plain.client().raw("GET", p, nil, "")
+		_ = resp.Body.Close()
+		if resp.StatusCode != 404 {
+			t.Fatalf("%s: %d, want 404", p, resp.StatusCode)
+		}
+	}
+	resp := plain.client().raw("GET", "/settings/profile", nil, "")
+	_ = resp.Body.Close()
+	if resp.StatusCode != 200 {
+		t.Fatalf("app route: %d", resp.StatusCode)
+	}
+
+	e := newEnv(t, func(o *Options) {
+		o.BaseURL, o.SecurityContact, o.SecurityPolicy = "https://gunkly.example", "mailto:security@gunkly.example", "https://gunkly.example/policy"
+	})
+	resp = e.client().raw("GET", "/.well-known/security.txt", nil, "")
+	body, _ := io.ReadAll(resp.Body)
+	_ = resp.Body.Close()
+	want := "Contact: mailto:security@gunkly.example\nExpires: 2027-05-20T00:00:00Z\nPolicy: https://gunkly.example/policy\n" +
+		"Preferred-Languages: en\nCanonical: https://gunkly.example/.well-known/security.txt\n"
+	if resp.StatusCode != 200 || !strings.HasPrefix(resp.Header.Get("Content-Type"), "text/plain") || string(body) != want {
+		t.Fatalf("%d %q %q", resp.StatusCode, resp.Header.Get("Content-Type"), body)
+	}
+}
+
+func TestLegalLinksOnlyInHostedMode(t *testing.T) {
+	links := func(o *Options) {
+		o.PrivacyURL, o.TermsURL = "https://gunkly.example/privacy", "https://gunkly.example/terms"
+	}
+	self := newEnv(t, links)
+	if _, v := self.client().do("GET", "/api/v1/instance", nil); field(v, "privacyUrl") != nil || field(v, "termsUrl") != nil {
+		t.Fatalf("self-hosted shows legal links: %v", v)
+	}
+	hosted := newEnv(t, links, func(o *Options) { o.HostedMode = true })
+	if _, v := hosted.client().do("GET", "/api/v1/instance", nil); field(v, "privacyUrl") != "https://gunkly.example/privacy" || field(v, "termsUrl") != "https://gunkly.example/terms" {
+		t.Fatalf("hosted: %v", v)
+	}
+}

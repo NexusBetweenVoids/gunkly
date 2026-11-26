@@ -106,6 +106,12 @@ func TestErrors(t *testing.T) {
 		"bad from":         {"GUNKLY_EMAIL_ENABLED": "true", "GUNKLY_SMTP_HOST": "h", "GUNKLY_SMTP_FROM": "not an address", "GUNKLY_BASE_URL": "https://x.example"},
 		"bad pow":          {"GUNKLY_SIGNUP_POW_MAX": "5"},
 		"hosted no email":  {"GUNKLY_HOSTED_MODE": "true", "GUNKLY_BASE_URL": "https://x.example"},
+		"legal self-host":  {"GUNKLY_PRIVACY_URL": "https://x.example/privacy"},
+		"terms self-host":  {"GUNKLY_TERMS_URL": "https://x.example/terms"},
+		"http privacy":     {"GUNKLY_PRIVACY_URL": "http://x.example/privacy"},
+		"bad sec contact":  {"GUNKLY_SECURITY_CONTACT": "security@x.example"},
+		"sec contact crlf": {"GUNKLY_SECURITY_CONTACT": "https://x.example/\r\nPolicy: x"},
+		"policy alone":     {"GUNKLY_SECURITY_POLICY": "https://x.example/policy"},
 		"hosted http base": {"GUNKLY_HOSTED_MODE": "true", "GUNKLY_EMAIL_ENABLED": "true", "GUNKLY_SMTP_HOST": "h", "GUNKLY_SMTP_FROM": "f", "GUNKLY_BASE_URL": "http://x.example"},
 	}
 	for name, extra := range cases {
@@ -160,5 +166,30 @@ func TestEnvExampleListsEveryKey(t *testing.T) {
 		if !read[k] {
 			t.Errorf(".env.example documents %s, which config.Load does not read", k)
 		}
+	}
+}
+
+func TestLegalAndSecurityTxt(t *testing.T) {
+	m := base()
+	for k, v := range map[string]string{
+		"GUNKLY_HOSTED_MODE": "true", "GUNKLY_EMAIL_ENABLED": "true", "GUNKLY_SMTP_HOST": "h", "GUNKLY_SMTP_FROM": "a@x.example",
+		"GUNKLY_BASE_URL": "https://x.example", "GUNKLY_PRIVACY_URL": "https://x.example/privacy", "GUNKLY_TERMS_URL": "https://x.example/terms",
+		"GUNKLY_SECURITY_CONTACT": "mailto:security@x.example", "GUNKLY_SECURITY_POLICY": "https://x.example/policy",
+	} {
+		m[k] = v
+	}
+	c, err := Load(env(m))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.PrivacyURL != "https://x.example/privacy" || c.TermsURL != "https://x.example/terms" ||
+		c.SecurityContact != "mailto:security@x.example" || c.SecurityPolicy != "https://x.example/policy" {
+		t.Fatalf("%+v", c)
+	}
+	// security.txt alone works on a self-hosted instance too.
+	m = base()
+	m["GUNKLY_SECURITY_CONTACT"] = "https://x.example/report"
+	if c, err = Load(env(m)); err != nil || c.SecurityContact != "https://x.example/report" {
+		t.Fatalf("%v %+v", err, c)
 	}
 }

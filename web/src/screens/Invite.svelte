@@ -3,6 +3,7 @@
   import Alert from '../components/Alert.svelte';
   import Button from '../components/Button.svelte';
   import Field from '../components/Field.svelte';
+  import LegalLinks from '../components/LegalLinks.svelte';
   import { api } from '../lib/api';
   import { failure } from '../lib/errors';
   import { t } from '../lib/i18n';
@@ -86,6 +87,7 @@
         error={pwCodes.includes(err.code) ? err.message : ''}
       />
       {#if !pwCodes.includes(err.code)}<Alert message={message()} />{/if}
+      <LegalLinks agree />
       <Button type="submit" {busy}>{t('invite.register')}</Button>
     </form>
     <p class="muted">

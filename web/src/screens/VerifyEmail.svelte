@@ -4,7 +4,7 @@
   import { api } from '../lib/api';
   import { failure } from '../lib/errors';
   import { t } from '../lib/i18n';
-  import { app, refreshMe } from '../lib/session.svelte';
+  import { announceAccountChange, app, refreshMe } from '../lib/session.svelte';
 
   // The token only lives in this page: take it out of the address bar (and history).
   const token = new URLSearchParams(location.search).get('token') ?? '';
@@ -19,6 +19,7 @@
       const r = await api<{ verified: boolean; recoveryCodes?: string[] }>('POST', '/account/email/verify', { token });
       codes = r.recoveryCodes ?? [];
       phase = 'done';
+      announceAccountChange(); // other open tabs drop their "confirm your email" banner
       if (app.user) await refreshMe().catch(() => {});
     } catch (x) {
       err = failure(x);

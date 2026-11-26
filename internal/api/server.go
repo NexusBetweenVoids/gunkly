@@ -49,6 +49,10 @@ type Options struct {
 	Updates *updates.Checker
 	// HostedMode forces the egress guard on, whatever the admin setting says.
 	HostedMode bool
+	// PrivacyURL and TermsURL (hosted mode only) are shown at sign-up and sign-in.
+	PrivacyURL, TermsURL string
+	// SecurityContact (and optional SecurityPolicy) enable /.well-known/security.txt.
+	SecurityContact, SecurityPolicy string
 	// Sender delivers test notifications. Nil builds the Shoutrrr sender
 	// whose egress guard follows the instance setting; use Server.Sender()
 	// for the scheduler so both behave alike.
@@ -92,6 +96,10 @@ type Server struct {
 	version       string
 	updates       *updates.Checker
 	hosted        bool
+	privacyURL    string
+	termsURL      string
+	secContact    string
+	secPolicy     string
 	sender        notify.Sender
 	push          *notify.WebPush
 	webhooks      *webhook.Sender
@@ -161,6 +169,10 @@ func New(o Options) *Server {
 		s.env = map[string]string{}
 	}
 	s.hosted, s.sender = o.HostedMode, o.Sender
+	if o.HostedMode {
+		s.privacyURL, s.termsURL = o.PrivacyURL, o.TermsURL
+	}
+	s.secContact, s.secPolicy = o.SecurityContact, o.SecurityPolicy
 	if s.sender == nil {
 		s.sender = notify.NewSwitchSender(s.EgressGuardEnabled)
 	}

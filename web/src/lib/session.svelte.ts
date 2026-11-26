@@ -41,6 +41,30 @@ export async function refreshMe(): Promise<void> {
   app.user = await api<Me>('GET', '/me');
 }
 
+// Account changes made in another tab (confirming the email address from the link in a second tab, for
+// example) reach this one: the other tab announces them on a BroadcastChannel, and a tab that comes back
+// into view while the email is still unconfirmed checks again. Both re-read /me only.
+const channel = typeof BroadcastChannel === 'undefined' ? null : new BroadcastChannel('gunkly-account');
+let lastCheck = 0;
+
+/** Tell other open tabs that this account changed. */
+export function announceAccountChange(): void {
+  channel?.postMessage('me');
+}
+
+function recheck(): void {
+  if (!app.user) return;
+  lastCheck = Date.now();
+  void refreshMe().catch(() => {});
+}
+
+channel?.addEventListener('message', recheck);
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && app.user?.email && !app.user.emailVerified && Date.now() - lastCheck > 5000) recheck();
+  });
+}
+
 /** Adopt a signed-in session response and load what the shell needs. */
 export async function adopt(s: SessionView): Promise<void> {
   app.user = s.user ?? null;

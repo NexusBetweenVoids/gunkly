@@ -187,6 +187,7 @@ The server itself is configured through environment variables, all documented wi
 | `GUNKLY_TRUSTED_PROXIES` | Reverse-proxy CIDRs/IPs whose `X-Forwarded-For` / `Forwarded` is trusted; see [Behind a reverse proxy](#behind-a-reverse-proxy) |
 | `GUNKLY_EMAIL_ENABLED` and `GUNKLY_SMTP_*` | Email verification, password reset, email codes (optional; or Administration, Email) |
 | `GUNKLY_METRICS_TOKEN` | Enables `/metrics` (or Administration, Connections) |
+| `GUNKLY_SECURITY_CONTACT`, `GUNKLY_SECURITY_POLICY` | Serve `/.well-known/security.txt` (RFC 9116) with this contact (`mailto:` or `https:`) and an optional policy link |
 | `GUNKLY_OIDC_ISSUER`, `GUNKLY_OIDC_CLIENT_ID`, `GUNKLY_OIDC_CLIENT_SECRET`, `GUNKLY_OIDC_NAME`, `GUNKLY_OIDC_SCOPES` | Single sign-on with an OpenID Connect provider (self-hosted only; or Administration, Sign-up & sign-in; [docs/sso.md](docs/sso.md)) |
 | `GUNKLY_AUTO_MIGRATE` | Apply migrations on start (default `true`) |
 | `GUNKLY_AI_ENABLED`, `GUNKLY_AI_URL`, `GUNKLY_AI_MODEL`, `GUNKLY_AI_KEY` | AI chore suggestions (optional); also settable in Administration, AI, where a variable set here wins ([docs/ai-chore-suggestions.md](docs/ai-chore-suggestions.md)) |

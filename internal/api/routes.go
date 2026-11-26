@@ -139,6 +139,7 @@ func (s *Server) registerRoutes() {
 	// consent page (a session is read by the handler, which redirects to
 	// sign-in), tokens and revocation; the user's list of connected apps.
 	oauthMeta := public.oauthOnly()
+	s.handle("GET /.well-known/security.txt", public, s.securityTxt)
 	s.handle("GET /.well-known/oauth-protected-resource", oauthMeta, s.protectedResource)
 	s.handle("GET /.well-known/oauth-protected-resource/mcp", oauthMeta, s.protectedResource)
 	s.handle("GET /.well-known/oauth-authorization-server", oauthMeta, s.authorizationServer)

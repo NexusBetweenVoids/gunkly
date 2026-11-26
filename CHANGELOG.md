@@ -4,6 +4,19 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-26
+
+### Added
+
+- `/.well-known/security.txt` (RFC 9116) when `GUNKLY_SECURITY_CONTACT` is set (`mailto:` or `https:`), with an optional `GUNKLY_SECURITY_POLICY` link; Expires is always 180 days ahead.
+- Hosted service only: `GUNKLY_PRIVACY_URL` and `GUNKLY_TERMS_URL` show links to its privacy policy and terms at sign-up, when joining by invite and at sign-in. Gunkly refuses to start with them set outside hosted mode, so self-hosted instances never show them.
+
+### Fixed
+
+- The "Confirm your email address" banner disappears in other open tabs as soon as the address is confirmed (and when you return to a tab), instead of staying until a full reload.
+- The email with a code to confirm an action while signed in (for example an admin change) is now a "confirmation code", no longer a "sign-in code".
+- Paths such as `/.git/config` or `/.env` answer 404 instead of the app page.
+
 ### Changed
 
 - Docs and compose files use the `latest` image by default; pin a version (`IMAGE_TAG`, or `:0.7` in your compose file) to control when you upgrade.

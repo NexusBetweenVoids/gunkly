@@ -61,6 +61,7 @@ func serve(ctx context.Context, logOut io.Writer) error {
 		Updates: a.updater,
 		Store:   a.store, Limits: a.limits, Keyring: a.keyring, BaseURL: a.cfg.BaseURL,
 		TrustedProxies: a.cfg.TrustedProxies, Logger: a.log, Ready: a.ready, Static: dist, HostedMode: a.cfg.HostedMode,
+		PrivacyURL: a.cfg.PrivacyURL, TermsURL: a.cfg.TermsURL, SecurityContact: a.cfg.SecurityContact, SecurityPolicy: a.cfg.SecurityPolicy,
 		Metrics: reg, MetricsToken: a.cfg.MetricsToken, Version: version,
 		PoWMaxNumber: a.cfg.PoWMaxNumber, SMTP: a.smtp(), SSO: a.ssoConfig(),
 	})

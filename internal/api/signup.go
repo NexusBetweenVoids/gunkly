@@ -49,6 +49,12 @@ func (s *Server) getInstance(w http.ResponseWriter, r *http.Request, _ *call) er
 	if s.aiEnabled(r.Context()) {
 		out["aiEnabled"] = true // absent while off: AI chore suggestions are configured
 	}
+	if s.privacyURL != "" {
+		out["privacyUrl"] = s.privacyURL // hosted service only
+	}
+	if s.termsURL != "" {
+		out["termsUrl"] = s.termsURL
+	}
 	return ok(w, out)
 }
 

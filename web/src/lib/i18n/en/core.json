@@ -220,5 +220,8 @@
   "err.sso_already_linked": "That single sign-on user (or this account) is already linked.",
   "err.sso_last_login": "Add a password or a passkey first: without one, you could no longer sign in.",
   "err.passkey_last_login": "This passkey is your only way to sign in. Set a password or link single sign-on first.",
-  "nav.settings": "Settings"
+  "nav.settings": "Settings",
+  "legal.agree": "By creating an account you accept the",
+  "legal.terms": "Terms of use",
+  "legal.privacy": "Privacy policy"
 }

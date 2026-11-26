@@ -1,4 +1,5 @@
 <script lang="ts">
+  import LegalLinks from '../components/LegalLinks.svelte';
   import Logo from '../components/Logo.svelte';
   import Alert from '../components/Alert.svelte';
   import Button from '../components/Button.svelte';
@@ -151,6 +152,7 @@
       {#if app.instance.openSignup}<a href="/signup">{t('signIn.createAccount')}</a>{/if}
     </div>
   {/if}
+  <LegalLinks />
 </section>
 
 <style>

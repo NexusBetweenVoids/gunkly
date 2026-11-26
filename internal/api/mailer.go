@@ -140,7 +140,7 @@ func (s *Server) mailQuota(ctx context.Context, accountID, ip string, acct limit
 type mailRequest struct {
 	user   store.User // recipient account (locale, display name, quota key)
 	to     string     // address; empty means user.Email
-	kind   string     // i18n key stem: "verify", "reset", "otp", "emailchange"
+	kind   string     // i18n key stem: "verify", "reset", "otp", "otpconfirm", "emailchange"
 	params map[string]string
 	// ttl is how long the email is still worth sending: retries stop when it
 	// has passed (the lifetime of the code or link it carries). 0 = a day.
