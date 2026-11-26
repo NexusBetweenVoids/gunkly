@@ -16,6 +16,7 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 - The "Confirm your email address" banner disappears in other open tabs as soon as the address is confirmed (and when you return to a tab), instead of staying until a full reload.
 - The email with a code to confirm an action while signed in (for example an admin change) is now a "confirmation code", no longer a "sign-in code".
 - Paths such as `/.git/config` or `/.env` answer 404 instead of the app page.
+- Signing in (or any change) no longer fails with "Your session expired" after signing out in another tab: when the CSRF cookie has vanished, the app fetches a fresh one and retries once.
 
 ### Changed
 

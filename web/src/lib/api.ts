@@ -32,13 +32,28 @@ function csrfToken(): string {
 type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
 export async function api<T>(method: Method, path: string, body?: unknown): Promise<T> {
+  let res = await send(method, path, body);
+  // The CSRF cookie can vanish under a page, for example when another tab signs out (its response
+  // deletes the cookie). GET /session hands out a fresh one; retry the request once with it.
+  if (res.status === 403 && method !== 'GET') {
+    const data: unknown = await res.clone().json().catch(() => null);
+    if ((data as { error?: { code?: string } } | null)?.error?.code === 'csrf_failed') {
+      await send('GET', '/session').catch(() => null);
+      res = await send(method, path, body);
+    }
+  }
+  if (res.status === 204) return undefined as T;
+  const data: unknown = await res.json().catch(() => null);
+  if (!res.ok) throw failed(res, data);
+  return data as T;
+}
+
+async function send(method: Method, path: string, body?: unknown): Promise<Response> {
   const headers: Record<string, string> = { Accept: 'application/json' };
   if (body !== undefined) headers['Content-Type'] = 'application/json';
   if (method !== 'GET') headers['X-CSRF-Token'] = csrfToken();
-
-  let res: Response;
   try {
-    res = await fetch(BASE + path, {
+    return await fetch(BASE + path, {
       method,
       headers,
       credentials: 'same-origin',
@@ -47,10 +62,6 @@ export async function api<T>(method: Method, path: string, body?: unknown): Prom
   } catch {
     throw new ApiError(0, 'network');
   }
-  if (res.status === 204) return undefined as T;
-  const data: unknown = await res.json().catch(() => null);
-  if (!res.ok) throw failed(res, data);
-  return data as T;
 }
 
 /** Builds the error for a non-2xx response. Body: {"error": {"code", "reason"?, "path"?}}. */

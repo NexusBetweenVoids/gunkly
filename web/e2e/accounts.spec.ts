@@ -141,3 +141,18 @@ test('signed-out visitors are sent to sign in and back; sign out ends the sessio
   await page.goto('/settings');
   await expect(page).toHaveURL(/\/signin/);
 });
+
+test('signing in still works after another tab signed out (the CSRF cookie vanished under the page)', async ({ world }) => {
+  const u = await world.newUser();
+  const { context, page } = await u.open();
+  await page.goto('/');
+  await (await headerItem(page, 'button', 'Sign out')).click();
+  await expect(page).toHaveURL(/signin/);
+  await page.getByLabel('Email or username').fill(u.username);
+  await page.getByLabel('Password').fill(u.password);
+  // What a sign-out in another tab does to this one: its response deletes the cookie.
+  await context.clearCookies({ name: 'gunkly_csrf' });
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await expect(page).not.toHaveURL(/signin/);
+  await expect(page.getByText('Your session expired')).toHaveCount(0);
+});
