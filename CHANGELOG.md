@@ -4,6 +4,12 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-11-26
+
+### Fixed
+
+- Things created within the same millisecond (for example webhook deliveries or passkeys) now keep their creation order in lists: new IDs count up within a millisecond instead of using random bits there (they stay unguessable).
+
 ## [0.7.0] - 2026-11-26
 
 ### Added

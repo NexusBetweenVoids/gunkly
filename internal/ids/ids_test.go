@@ -30,3 +30,15 @@ func TestTokenHash(t *testing.T) {
 		t.Fatal("hash compare broken")
 	}
 }
+
+// IDs made in a burst (many per millisecond) sort in creation order.
+func TestNewIncreasing(t *testing.T) {
+	prev := New()
+	for range 20000 {
+		id := New()
+		if id <= prev {
+			t.Fatalf("not increasing: %s then %s", prev, id)
+		}
+		prev = id
+	}
+}
