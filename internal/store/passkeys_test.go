@@ -2,6 +2,7 @@ package store_test
 
 import (
 	"context"
+	"slices"
 	"testing"
 	"time"
 
@@ -38,8 +39,10 @@ func TestPasskeyLifecycle(t *testing.T) {
 
 	keys, err := e.s.ListPasskeys(ctx, ann.UserID)
 	noErr(t, err)
-	if len(keys) != 2 || keys[0].Name != "Laptop" || string(keys[0].CredentialID) != "c1" || string(keys[0].PublicKey) != "pub-c1" ||
-		len(keys[0].Transports) != 2 || len(keys[0].AAGUID) != 16 || keys[0].Flags != 0x45 {
+	// Both keys are created at the same (test clock) instant, so the order falls back to the random ID bits.
+	lap := slices.IndexFunc(keys, func(k store.Passkey) bool { return k.Name == "Laptop" })
+	if len(keys) != 2 || lap < 0 || string(keys[lap].CredentialID) != "c1" || string(keys[lap].PublicKey) != "pub-c1" ||
+		len(keys[lap].Transports) != 2 || len(keys[lap].AAGUID) != 16 || keys[lap].Flags != 0x45 {
 		t.Fatalf("round trip: %+v", keys)
 	}
 	if other, _ := e.s.ListPasskeys(ctx, bob.UserID); len(other) != 0 {

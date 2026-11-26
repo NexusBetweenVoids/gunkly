@@ -3,6 +3,7 @@ package store_test
 import (
 	"context"
 	"encoding/json"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -293,9 +294,11 @@ func TestWebhookFinishRetryAndAutoDisable(t *testing.T) {
 	if got.Failures != 0 || got.LastSuccessAt.IsZero() {
 		t.Fatalf("after success: %+v", got)
 	}
+	// Several deliveries share a millisecond here, so find this one rather than relying on the order.
 	log := must(f.s.WebhookDeliveries(f.ctx, f.owner, f.hh, w.ID))
-	if len(log) == 0 || log[0].Status != "sent" || log[0].Attempts != 2 || log[0].HTTPStatus != 204 {
-		t.Fatalf("log[0] = %+v", log)
+	i := slices.IndexFunc(log, func(d store.WebhookDelivery) bool { return d.ID == ds[0].ID })
+	if i < 0 || log[i].Status != "sent" || log[i].Attempts != 2 || log[i].HTTPStatus != 204 {
+		t.Fatalf("delivery %s in %+v", ds[0].ID, log)
 	}
 }
 
