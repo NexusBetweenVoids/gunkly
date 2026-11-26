@@ -26,7 +26,7 @@ A self-hostable, **AI-friendly** chore tracker for recurring household chores an
 - **Works with your smart home:** a [Home Assistant integration](https://github.com/NexusBetweenVoids/gunkly-homeassistant) adds to-do lists, sensors and a calendar; a scoped REST API covers the rest.
 - **Built and maintained with AI, openly:** most of the code, tests and docs are written by AI coding agents working from a public plan and strict rules ([AGENTS.md](AGENTS.md)), with a human maintainer deciding scope and reviewing. Every change has to pass the same automated gates — tests on SQLite and Postgres, linting, security scanning (CodeQL, govulncheck, ZAP), accessibility checks and independent AI security reviews. If you find something an AI or a human missed, please [report it](SECURITY.md).
 
-**Status: early release.** Expect rough edges; please [report issues](https://github.com/NexusBetweenVoids/gunkly/issues). Pin a version tag in production and back up before upgrading.
+**Status: early release.** Expect rough edges; please [report issues](https://github.com/NexusBetweenVoids/gunkly/issues). Back up before upgrading; to control when you upgrade, pin a version tag (for example `:0.7`) instead of `latest`.
 
 ## Screenshots
 
@@ -89,7 +89,7 @@ Needs Docker with Compose. No checkout needed: make an empty folder, save this a
 ```yaml
 services:
   gunkly:
-    image: gunkly/gunkly:0.5   # pin a version; also on ghcr.io/nexusbetweenvoids/gunkly
+    image: gunkly/gunkly:latest   # or pin a version, e.g. :0.7; also on ghcr.io/nexusbetweenvoids/gunkly
     restart: unless-stopped
     ports:
       - "4865:4865"

@@ -5,7 +5,7 @@ name: gunkly
 
 services:
   gunkly:
-    # Production: pin a version tag or digest (e.g. :1.2.3 or @sha256:...) instead of :latest
+    # The latest release. To pin a version, set IMAGE_TAG (e.g. 0.7 or 0.7.1) in .env.
     image: ghcr.io/nexusbetweenvoids/gunkly:${IMAGE_TAG:-latest}
     # Gunkly drains requests and sends for up to 30 s on shutdown (GUNKLY_SHUTDOWN_TIMEOUT).
     stop_grace_period: 40s
