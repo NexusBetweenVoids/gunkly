@@ -70,6 +70,8 @@ Which webhooks your Portainer edition offers differs per version; check its docu
 
 Dockhand runs the deploy as a job and answers right away, so Gunkly shows **accepted** and waits for the new version.
 
+Tip: use Dockhand's address on your own network (`http://<docker host IP>:<port>/…`, or `http://dockhand:<port>/…` when both containers share a Docker network), not a public hostname behind a reverse proxy. A proxy with an access list often refuses requests coming from the Docker network with **HTTP 403** even though the same request works from the host; the internal address also keeps the token on your network.
+
 ### Other updaters
 
 Anything that starts an update on a web request works: a redeploy webhook from your container manager, a CI job, or a small script of your own behind a reverse proxy. Addresses on your own network are allowed for this setting (cloud metadata addresses are not), and Gunkly does not follow redirects.
@@ -78,6 +80,6 @@ Anything that starts an update on a web request works: a redeploy webhook from y
 
 - **accepted**: the updater answered with success.
 - **sent**: no answer within 15 seconds; many updaters only answer when done, and that includes restarting Gunkly. The page keeps waiting.
-- **refused** or **couldn't reach**: check the address and token, and that the updater runs.
+- **refused** or **couldn't reach**: check the address and token, and that the updater runs. A 403 while the same request works from the Docker host usually means a reverse proxy in between blocks the container's address: use the updater's internal address instead.
 
 Every request is recorded in the audit log (`admin_update_requested`).
