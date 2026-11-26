@@ -17,7 +17,7 @@ import (
 // lists ordered by (created_at, id) then match the order things happened.
 var (
 	seqMu  sync.Mutex
-	lastMS int64
+	lastMS uint64
 	seq    uint16
 )
 
@@ -25,10 +25,13 @@ var (
 // starts the counter at a random value in the lower half (room to count up);
 // a full counter borrows the next millisecond; a clock going back never
 // produces a smaller ID.
-func next(random uint16) (int64, uint16) {
+func next(random uint16) (uint64, uint16) {
 	seqMu.Lock()
 	defer seqMu.Unlock()
-	ms := time.Now().UnixMilli()
+	var ms uint64
+	if now := time.Now().UnixMilli(); now > 0 {
+		ms = uint64(now)
+	}
 	switch {
 	case ms > lastMS:
 		lastMS, seq = ms, random&0x7ff
@@ -46,7 +49,7 @@ func New() string {
 	var b [16]byte
 	rand.Read(b[:]) // crypto/rand.Read never returns an error (Go 1.24+).
 	ms, n := next(binary.BigEndian.Uint16(b[6:8]))
-	binary.BigEndian.PutUint64(b[:8], uint64(ms)<<16|uint64(n))
+	binary.BigEndian.PutUint64(b[:8], ms<<16|uint64(n))
 	b[6] = 0x70 | b[6]&0x0f
 	b[8] = 0x80 | b[8]&0x3f
 	var s [36]byte
