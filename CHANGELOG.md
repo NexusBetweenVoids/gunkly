@@ -4,6 +4,8 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-26
+
 ### Added
 
 - Settings, Sign-in & security, **Recovery codes**: shows how many unused codes are left (with a "Running low" hint) and creates a new set on request (after confirming it's you; the old codes stop working). Until now codes were only shown once, with the first second factor (on the hosted service when the email address is confirmed), which was easy to miss. API: `GET` / `POST /api/v1/account/recovery-codes`.
