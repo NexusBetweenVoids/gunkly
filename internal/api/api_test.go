@@ -109,8 +109,28 @@ type client struct {
 
 // client returns an HTTP client with a cookie jar that has fetched a CSRF
 // cookie; do() echoes it like the SPA does.
+// testJar is a standard cookie jar whose expiry dates are moved from the
+// test's fake clock to real time: the server sets Expires from the fake clock,
+// and the standard jar would otherwise drop cookies once real time passes that
+// date (a time bomb for tests with a fixed start date). Server-side expiry is
+// unaffected; deletion (Max-Age<0) works as before.
+type testJar struct {
+	http.CookieJar
+	now func() time.Time
+}
+
+func (j testJar) SetCookies(u *url.URL, cs []*http.Cookie) {
+	for _, c := range cs {
+		if !c.Expires.IsZero() {
+			c.Expires = time.Now().Add(c.Expires.Sub(j.now()))
+		}
+	}
+	j.CookieJar.SetCookies(u, cs)
+}
+
 func (e *env) client() *client {
-	jar, _ := cookiejar.New(nil)
+	std, _ := cookiejar.New(nil)
+	jar := testJar{CookieJar: std, now: e.clock.Now}
 	c := &client{e: e, c: &http.Client{Jar: jar}, h: map[string]string{}}
 	if st, _ := c.do("GET", "/api/v1/session", nil); st != 200 {
 		e.t.Fatalf("GET session: %d", st)
