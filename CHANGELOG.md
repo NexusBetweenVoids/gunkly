@@ -4,6 +4,8 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-11-26
+
 ### Changed
 
 - The chore editor is one short screen: a large name field with template chips ("More…" lists them all) and "Describe with AI" next to them, people picked as tap-friendly pills, then one row each for area, repeat, reminders and notes. Area, Repeat and Reminders open a sheet (a bottom sheet on phones, a dialog on wider screens). Repeat has Today / Tomorrow, Once / Daily / Weekly / Monthly with an "Every N" stepper, "Custom rule…" for calendar rules, the two ways the next date is counted explained side by side, and a preview of the next dates. Reminders has the preset choices, Custom and the time. "More options" is gone: everything is one tap away. No API change.
