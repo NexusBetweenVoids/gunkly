@@ -24,6 +24,7 @@ export type SessionView = {
   twoFactorRequired?: boolean;
   method?: 'totp' | 'email' | 'passkey';
   passkey?: boolean; // a passkey can be the second factor
+  emailSent?: boolean; // the emailed code went out (with a passkey offered: only on request)
   user?: Me;
 };
 export type Instance = { openSignup: boolean; emailEnabled: boolean; hostedMode: boolean; requirePow: boolean; baseUrl?: string; passkeysAvailable?: boolean; sso?: { name: string }; mcpEnabled?: boolean; oauthEnabled?: boolean; webhooksEnabled?: boolean; aiEnabled?: boolean; privacyUrl?: string; termsUrl?: string };

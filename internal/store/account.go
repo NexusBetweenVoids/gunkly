@@ -254,6 +254,18 @@ func (s *Store) UseTOTPStep(ctx context.Context, userID string, step int64) erro
 
 // UseRecoveryCode consumes one unused recovery code. ErrNotFound if no
 // unused code has this hash.
+// RecoveryCodesLeft counts the user's unused recovery codes.
+func (s *Store) RecoveryCodesLeft(ctx context.Context, userID string) (int, error) {
+	var n int
+	err := s.db.QueryRowContext(ctx, s.d.Rebind("SELECT count(*) FROM recovery_codes WHERE user_id = ? AND used_at IS NULL"), userID).Scan(&n)
+	return n, err
+}
+
+// ReplaceRecoveryCodes replaces all of the user's recovery codes (used or not) with new hashes.
+func (s *Store) ReplaceRecoveryCodes(ctx context.Context, userID string, hashes []string) error {
+	return s.inTx(ctx, true, func(t *tx) error { return t.replaceRecoveryCodes(ctx, userID, hashes, s.nowMS()) })
+}
+
 func (s *Store) UseRecoveryCode(ctx context.Context, userID, codeHash string) error {
 	return s.inTx(ctx, true, func(t *tx) error {
 		return t.execOne(ctx, "UPDATE recovery_codes SET used_at = ? WHERE user_id = ? AND code_hash = ? AND used_at IS NULL",

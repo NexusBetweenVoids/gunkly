@@ -46,7 +46,7 @@
       codes = r.recoveryCodes ?? [];
       adding = false;
       name = '';
-      toast(t('passkeys.added'));
+      toast(codes.length ? t('passkeys.added') : t('passkeys.addedKeepCodes'));
       await Promise.all([load(), refreshMe()]);
     } catch (x) {
       err = failure(x);

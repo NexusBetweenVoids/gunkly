@@ -75,8 +75,9 @@ paths:
                 emailCode: {type: string, description: "Code emailed to the user (second factor: email)"}
                 recoveryCode: {type: string}
                 passkey: {$ref: "#/components/schemas/PasskeyAnswer"}
+                sendEmailCode: {type: boolean, description: "Second step of an account with email codes and a passkey: send the emailed code now (it is not sent automatically while a passkey is offered)"}
       responses:
-        "200": {description: "Signed in, or twoFactorRequired with method totp, email or passkey (for email the code is sent by this call; repeat it without a code to resend)", content: {application/json: {schema: {$ref: "#/components/schemas/Session"}}}}
+        "200": {description: "Signed in, or twoFactorRequired with method totp, email or passkey (for email the code is sent by this call and emailSent is true; repeat it without a code to resend; when a passkey is offered too, the code is only sent with sendEmailCode)", content: {application/json: {schema: {$ref: "#/components/schemas/Session"}}}}
         "401": {description: invalid_credentials or invalid_code}
         "429": {$ref: "#/components/responses/RateLimited"}
     delete:
@@ -341,6 +342,19 @@ paths:
         "403": {$ref: "#/components/responses/Forbidden"}
         "404": {$ref: "#/components/responses/NotFound"}
         "409": {description: two_factor_mandatory}
+  /account/recovery-codes:
+    get:
+      tags: [account]
+      summary: How many unused recovery codes are left (the codes are only shown when created)
+      responses:
+        "200": {description: OK, content: {application/json: {schema: {type: object, properties: {remaining: {type: integer}, available: {type: boolean, description: "The account has a second factor, so recovery codes can be created"}}}}}}
+    post:
+      tags: [account]
+      summary: Replace all recovery codes with a new set (step-up required); returns them once
+      responses:
+        "200": {description: OK, content: {application/json: {schema: {type: object, properties: {recoveryCodes: {type: array, items: {type: string}}}}}}}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "409": {description: no_second_factor}
   /account/email-otp:
     post:
       tags: [account]
@@ -1823,6 +1837,7 @@ components:
         twoFactorRequired: {type: boolean}
         method: {type: string, enum: [totp, email, passkey], description: "Second factor asked for when twoFactorRequired"}
         passkey: {type: boolean, description: "A passkey can be used as the second factor (send passkey with the same login and password; options from /session/passkey/options)"}
+        emailSent: {type: boolean, description: "With method email: the code was emailed by this call. Absent while a passkey is offered first; ask with sendEmailCode"}
         user: {$ref: "#/components/schemas/Me"}
         csrf: {type: string}
     Me:

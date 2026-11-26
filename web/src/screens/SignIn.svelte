@@ -26,24 +26,36 @@
   let needSecond = $state(false);
   let method = $state<'totp' | 'email' | 'passkey'>('totp');
   let passkeyOffered = $state(false); // the account has a passkey it can use as second factor
+  let emailSent = $state(false); // the emailed code went out (with a passkey offered, only on request)
+  // Passkey first: the email code is only sent when the user asks for it.
+  const choosing = $derived(needSecond && passkeyOffered && method === 'email' && !emailSent && !recovery);
   const passkeyReady = $derived(!!app.instance.passkeysAvailable && typeof window !== 'undefined' && !!window.PublicKeyCredential);
   let busy = $state(false);
   let err = $state({ code: '', message: '' });
 
-  async function submit(e?: SubmitEvent, resend = false): Promise<void> {
+  // sendEmail: post the password again without a code, asking the server to email one (a new one
+  // on a repeat). Without a passkey on offer the server sends it on the first step by itself.
+  async function submit(e?: SubmitEvent, sendEmail = false): Promise<void> {
     e?.preventDefault();
     busy = true;
     err = { code: '', message: '' };
     try {
-      const body: Record<string, string> = { login, password };
-      // Posting the password again without a code makes the server email a new one.
-      if (needSecond && !resend) body[recovery ? 'recoveryCode' : method === 'email' ? 'emailCode' : 'totp'] = code.trim();
+      const body: Record<string, string | boolean> = { login, password };
+      if (sendEmail) body.sendEmailCode = true;
+      else if (needSecond && !choosing) body[recovery ? 'recoveryCode' : method === 'email' ? 'emailCode' : 'totp'] = code.trim();
       const s = await api<SessionView>('POST', '/session', body);
       if (s.twoFactorRequired) {
+        const again = emailSent;
         needSecond = true;
         method = s.method ?? 'totp';
         passkeyOffered = !!s.passkey && passkeyReady;
-        if (resend) toast(t('twofa.resent'));
+        emailSent = !!s.emailSent;
+        if (sendEmail && again) toast(t('twofa.resent'));
+        // The server offered a passkey this browser cannot use: go straight to the emailed code.
+        if (method === 'email' && !emailSent && !passkeyOffered && !sendEmail) {
+          busy = false;
+          return submit(undefined, true);
+        }
       } else {
         await done(s);
       }
@@ -85,7 +97,15 @@
   <p class="logo-hero"><Logo size={72} /></p>
   <h1>{t('signIn.title')}</h1>
   <form class="stack" onsubmit={submit}>
-    {#if needSecond}
+    {#if choosing}
+      <p class="muted">{t('signIn.passkeyPrompt')}</p>
+      <Button {busy} onclick={() => withPasskey(true)}>{t('twofa.usePasskey')}</Button>
+      <div class="stack-sm alternatives">
+        <p class="or">{t('signIn.or')}</p>
+        <Button variant="quiet" {busy} onclick={() => submit(undefined, true)}>{t('twofa.emailInstead')}</Button>
+        <Button variant="quiet" onclick={() => (recovery = true)}>{t('twofa.useRecovery')}</Button>
+      </div>
+    {:else if needSecond}
       {#if passkeyOffered && !recovery}
         <p class="muted">{t('signIn.passkeyPrompt')}</p>
         <Button {busy} onclick={() => withPasskey(true)}>{t('twofa.usePasskey')}</Button>
@@ -119,7 +139,7 @@
       />
     {/if}
     {#if err.code !== 'invalid_credentials' && err.code !== 'invalid_code'}<Alert message={err.message || (needSecond ? '' : ssoMessage)} />{/if}
-    {#if !needSecond || method !== 'passkey' || recovery}
+    {#if !needSecond || (method !== 'passkey' && !choosing) || recovery}
       <Button type="submit" {busy} variant={needSecond && passkeyOffered && !recovery ? 'quiet' : 'primary'}>{needSecond ? t('signIn.verify') : t('signIn.title')}</Button>
     {/if}
     {#if needSecond}
@@ -127,6 +147,8 @@
         variant="quiet"
         onclick={() => {
           needSecond = false;
+          emailSent = false;
+          recovery = false;
           code = '';
           err = { code: '', message: '' };
         }}>{t('common.back')}</Button

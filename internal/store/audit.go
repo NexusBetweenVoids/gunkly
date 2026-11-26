@@ -19,6 +19,7 @@ const (
 	AuditTOTPEnable        = "totp_enable"
 	AuditTOTPDisable       = "totp_disable"
 	AuditRecoveryCodeUse   = "recovery_code_use"
+	AuditRecoveryCodesNew  = "recovery_codes_new" // the user replaced their recovery codes
 	AuditSessionRevoke     = "session_revoke"
 	AuditMemberRoleChange  = "member_role_change"
 	AuditMemberRemove      = "member_remove"

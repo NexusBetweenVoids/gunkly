@@ -788,3 +788,79 @@ func TestEmailReminderToggleNeedsEmailOnInstance(t *testing.T) {
 	st, v := c.do("PATCH", "/api/v1/me", map[string]any{"emailReminders": true})
 	expect(t, st, v, 400, "invalid")
 }
+
+// An account with email codes and a passkey is offered the passkey first: no email goes out
+// until the user asks for the code (sendEmailCode); without a passkey the code is sent at once.
+func TestEmailCodeOnlyOnRequestWhenPasskeyOffered(t *testing.T) {
+	e := newMailEnv(t, func(o *Options) { o.BaseURL = pkOrigin })
+	u := e.user("ann", false)
+	e.verified("ann")
+	e.enableEmailOTP("ann")
+
+	// Without a passkey: sent straight away, as before.
+	st, v := e.client().login("ann", nil)
+	if st != 200 || field(v, "method") != "email" || field(v, "emailSent") != true {
+		t.Fatalf("no passkey: %d %v", st, v)
+	}
+	e.oneMail("ann@example.com")
+
+	_, _, err := e.st.AddPasskey(context.Background(), u.ID, "", store.NewPasskey{Name: "Phone", CredentialID: []byte("cid"), PublicKey: []byte("pk")}, 20, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := e.client()
+	st, v = c.login("ann", nil)
+	if st != 200 || field(v, "method") != "email" || field(v, "passkey") != true || field(v, "emailSent") != nil {
+		t.Fatalf("passkey offered: %d %v", st, v)
+	}
+	if ms := e.mails(); len(ms) != 0 {
+		t.Fatalf("email sent although a passkey was offered: %+v", ms)
+	}
+	// "Email me a code instead".
+	st, v = c.do("POST", "/api/v1/session", map[string]any{"login": "ann", "password": "password-ann", "sendEmailCode": true})
+	if st != 200 || field(v, "emailSent") != true {
+		t.Fatalf("on request: %d %v", st, v)
+	}
+	code := codeIn(t, e.oneMail("ann@example.com"))
+	st, v = c.login("ann", map[string]string{"emailCode": code})
+	expect(t, st, v, 200, "")
+}
+
+func TestRecoveryCodesCountAndRenew(t *testing.T) {
+	e := newMailEnv(t)
+	e.user("ann", false)
+	e.verified("ann")
+	c := e.signedInStepUp("ann")
+	// No second factor yet: nothing to create.
+	if _, v := c.do("GET", "/api/v1/account/recovery-codes", nil); field(v, "remaining") != 0.0 || field(v, "available") != false {
+		t.Fatalf("before: %v", v)
+	}
+	st, v := c.do("POST", "/api/v1/account/recovery-codes", nil)
+	expect(t, st, v, 409, "no_second_factor")
+
+	old := e.enableEmailOTP("ann")
+	c = e.client()
+	c.login("ann", nil)
+	st, v = c.login("ann", map[string]string{"emailCode": codeIn(t, e.oneMail("ann@example.com"))})
+	expect(t, st, v, 200, "")
+	e.stepUpEmail(c, "ann")
+	if _, v := c.do("GET", "/api/v1/account/recovery-codes", nil); field(v, "remaining") != float64(len(old)) || field(v, "available") != true {
+		t.Fatalf("after enabling: %v", v)
+	}
+	st, v = c.do("POST", "/api/v1/account/recovery-codes", nil)
+	if st != 200 {
+		t.Fatalf("renew: %d %v", st, v)
+	}
+	fresh := v.(map[string]any)["recoveryCodes"].([]any)
+	if len(fresh) != len(old) {
+		t.Fatalf("renew returned %d codes", len(fresh))
+	}
+	// The old codes no longer work, a new one does.
+	c2 := e.client()
+	c2.login("ann", nil)
+	e.mails()
+	st, v = c2.login("ann", map[string]string{"recoveryCode": old[0]})
+	expect(t, st, v, 401, "invalid_code")
+	st, v = c2.login("ann", map[string]string{"recoveryCode": fresh[0].(string)})
+	expect(t, st, v, 200, "")
+}

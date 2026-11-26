@@ -12,6 +12,7 @@
   import QuietHours from './account/QuietHours.svelte';
   import EmailCodes from './account/EmailCodes.svelte';
   import Passkeys from './account/Passkeys.svelte';
+  import RecoveryCodesSection from './account/RecoveryCodesSection.svelte';
   import Password from './account/Password.svelte';
   import PushNotifications from './account/PushNotifications.svelte';
   import Profile from './account/Profile.svelte';
@@ -56,6 +57,7 @@
       {#if app.instance.sso}<Sso />{/if}
       <Totp />
       <EmailCodes />
+      <RecoveryCodesSection />
       <Sessions />
       <Audit />
     {:else if g === 'notifications'}

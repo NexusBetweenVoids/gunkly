@@ -149,12 +149,15 @@ func (s *Server) openSession(w http.ResponseWriter, r *http.Request, c *call, u 
 }
 
 type sessionView struct {
-	Authenticated     bool    `json:"authenticated"`
-	TwoFactorRequired bool    `json:"twoFactorRequired,omitempty"`
-	Method            string  `json:"method,omitempty"`  // second factor asked for: "totp", "email" or "passkey"
-	Passkey           bool    `json:"passkey,omitempty"` // a passkey can be used as the second factor
-	User              *meView `json:"user,omitempty"`
-	CSRF              string  `json:"csrf,omitempty"`
+	Authenticated     bool   `json:"authenticated"`
+	TwoFactorRequired bool   `json:"twoFactorRequired,omitempty"`
+	Method            string `json:"method,omitempty"`  // second factor asked for: "totp", "email" or "passkey"
+	Passkey           bool   `json:"passkey,omitempty"` // a passkey can be used as the second factor
+	// EmailSent: the emailed code went out. With a passkey available it is only sent on request
+	// (sendEmailCode), so method "email" without emailSent means "offer the passkey first".
+	EmailSent bool    `json:"emailSent,omitempty"`
+	User      *meView `json:"user,omitempty"`
+	CSRF      string  `json:"csrf,omitempty"`
 }
 
 // dummy returns a fixed hash verified for unknown users, so a login for a
@@ -185,6 +188,8 @@ type credentials struct {
 func (s *Server) login(w http.ResponseWriter, r *http.Request, c *call) error {
 	var in struct {
 		Login string `json:"login"`
+		// SendEmailCode asks for the emailed code when the second step offered a passkey first.
+		SendEmailCode bool `json:"sendEmailCode"`
 		credentials
 	}
 	if err := decode(r, &in); err != nil {
@@ -198,7 +203,7 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request, c *call) error {
 	pwKey := "u:" + u.ID
 	if u.HasSecondFactor() {
 		if in.TOTP == "" && in.RecoveryCode == "" && in.EmailCode == "" && in.Passkey == nil {
-			return s.askSecondFactor(ctx, w, c, u)
+			return s.askSecondFactor(ctx, w, c, u, in.SendEmailCode)
 		}
 		if s.acctDelay(w, "2fa:"+u.ID) {
 			return nil
@@ -266,11 +271,14 @@ func (s *Server) checkLoginPassword(w http.ResponseWriter, r *http.Request, c *c
 }
 
 // askSecondFactor answers a correct password of an account with a second
-// factor: which one to use, and whether a passkey is an option. Emailed codes
-// are sent now (again, on a repeat).
-func (s *Server) askSecondFactor(ctx context.Context, w http.ResponseWriter, c *call, u store.User) error {
+// factor: which one to use, and whether a passkey is an option. An emailed code
+// is sent now (again, on a repeat), unless the account can use a passkey: then
+// only when the user asks for it (sendEmail), so no email goes out for nothing.
+func (s *Server) askSecondFactor(ctx context.Context, w http.ResponseWriter, c *call, u store.User, sendEmail bool) error {
 	v := sessionView{TwoFactorRequired: true, Method: "totp", Passkey: u.Passkeys > 0 && s.passkeyRP() != nil}
 	switch {
+	case u.EmailOTPEnabled && v.Passkey && !sendEmail:
+		v.Method = "email"
 	case u.EmailOTPEnabled:
 		wait, err := s.sendLoginCode(ctx, c, u, true)
 		if err != nil {
@@ -278,7 +286,7 @@ func (s *Server) askSecondFactor(ctx context.Context, w http.ResponseWriter, c *
 		} else if wait > 0 {
 			return tooMany(w, wait)
 		}
-		v.Method = "email"
+		v.Method, v.EmailSent = "email", true
 	case !u.TOTPEnabled:
 		v.Method = "passkey"
 	}

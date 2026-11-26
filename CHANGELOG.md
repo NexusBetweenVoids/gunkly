@@ -4,6 +4,14 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ## [Unreleased]
 
+### Added
+
+- Settings, Sign-in & security, **Recovery codes**: shows how many unused codes are left (with a "Running low" hint) and creates a new set on request (after confirming it's you; the old codes stop working). Until now codes were only shown once, with the first second factor (on the hosted service when the email address is confirmed), which was easy to miss. API: `GET` / `POST /api/v1/account/recovery-codes`.
+
+### Changed
+
+- Signing in with a password on an account that has a passkey and email codes no longer emails a code straight away: the passkey is offered first, with "Email me a code instead" and "Use a recovery code instead" next to it. The code is only sent when asked for (API: `sendEmailCode` on `POST /api/v1/session`, `emailSent` in the answer). Adding a passkey when recovery codes already exist now says that they still work.
+
 ## [0.8.0] - 2026-11-26
 
 ### Added

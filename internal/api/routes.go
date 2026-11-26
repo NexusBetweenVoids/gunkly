@@ -65,6 +65,8 @@ func (s *Server) registerRoutes() {
 	s.handle("PATCH /api/v1/account/email", session.noToken().withStepUp().withRate(rateEmail), s.changeEmail)
 	s.handle("POST /api/v1/password-reset/request", publicRateLimited(rateReset), s.requestPasswordReset)
 	s.handle("POST /api/v1/password-reset/confirm", publicRateLimited(rateReset), s.confirmPasswordReset)
+	s.handle("GET /api/v1/account/recovery-codes", session.noToken(), s.getRecoveryCodes)
+	s.handle("POST /api/v1/account/recovery-codes", session.noToken().withStepUp(), s.newRecoveryCodes)
 	s.handle("POST /api/v1/account/email-otp", session.noToken().withStepUp().withRate(rateTwoFA), s.enableEmailOTP)
 	s.handle("DELETE /api/v1/account/email-otp", session.noToken().withStepUp(), s.disableEmailOTP)
 
