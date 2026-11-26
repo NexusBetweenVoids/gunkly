@@ -4,6 +4,11 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ## [Unreleased]
 
+### Changed
+
+- Docs and compose files use the `latest` image by default; pin a version (`IMAGE_TAG`, or `:0.7` in your compose file) to control when you upgrade.
+- Settings, Integrations, Home Assistant: the install steps mention the Marketplace that replaces HACS in Home Assistant 2026.11 (the button works with both).
+
 ## [0.7.1] - 2026-11-26
 
 ### Fixed

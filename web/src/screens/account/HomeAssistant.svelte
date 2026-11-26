@@ -1,6 +1,7 @@
 <script lang="ts" module>
   // My Home Assistant links: they open the user's own Home Assistant (my.home-assistant.io
-  // asks for its address once). HACS adds the integration's repository; config_flow_start
+  // asks for its address once). hacs_repository opens the repository in the Marketplace (HA 2026.11+)
+  // or HACS (older), offering to add it when it is not listed yet; config_flow_start
   // opens "Add integration" for Gunkly (offered next to a new key, with the address to paste).
   // Nothing about this server is sent along.
   export const HA_REPO = 'https://github.com/NexusBetweenVoids/gunkly-homeassistant';
