@@ -1,16 +1,19 @@
+# Every other day (cron). Dependabot only opens a PR when an update exists, so quiet days cost nothing.
 version: 2
 updates:
   - package-ecosystem: gomod
     directory: /
     schedule:
-      interval: weekly
+      interval: cron
+      cronjob: "0 4 */2 * *" # every other day, 04:00 UTC
     groups:
       go:
         patterns: ['*']
   - package-ecosystem: npm
     directory: /web
     schedule:
-      interval: weekly
+      interval: cron
+      cronjob: "0 4 */2 * *" # every other day, 04:00 UTC
     ignore:
       # svelte-check 4.x peers typescript ^5 || ^6.
       - dependency-name: typescript
@@ -21,14 +24,16 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
+      interval: cron
+      cronjob: "0 4 */2 * *" # every other day, 04:00 UTC
     groups:
       actions:
         patterns: ['*']
   - package-ecosystem: docker
     directory: /
     schedule:
-      interval: weekly
+      interval: cron
+      cronjob: "0 4 */2 * *" # every other day, 04:00 UTC
     groups:
       images:
         patterns: ['*']
