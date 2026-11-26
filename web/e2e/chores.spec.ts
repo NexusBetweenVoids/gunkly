@@ -382,3 +382,54 @@ test('the reminder time can be changed when editing chores in every reminder sta
   await edit(dn.id);
   await expect(field).toHaveValue('12:00');
 });
+
+test('"On" pins a weekly or monthly chore to weekdays or the first Saturday, and reopens that way', async ({ world }) => {
+  const u = await world.newUser();
+  const { page } = await u.open();
+  const h = await world.household(u);
+  const get = async (name: string) =>
+    (await u.api.get<{ name: string; schedule: { type: string; rrule?: string; firstDue: string } }[]>(`/households/${h.id}/chores`)).find((c) => c.name === name)!;
+  const repeatRow = page.getByRole('button', { name: /^Repeat:/ });
+  const sheet = page.getByRole('dialog', { name: 'Repeat' });
+
+  // Weekly on Saturday: the first due date moves to a Saturday.
+  const sat = uniq('Sat ');
+  await page.goto('/chores/new');
+  await page.getByLabel('Name').fill(sat);
+  await repeatRow.click();
+  await sheet.getByRole('button', { name: 'Saturday' }).click();
+  await expect(sheet.getByRole('button', { name: 'Saturday' })).toHaveAttribute('aria-pressed', 'true');
+  await sheet.getByRole('button', { name: 'Done' }).click();
+  await expect(repeatRow).toContainText('Saturday');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: sat })).toBeVisible();
+  const a = await get(sat);
+  expect(a.schedule.type).toBe('rrule');
+  expect(a.schedule.rrule).toBe('FREQ=WEEKLY;BYDAY=SA');
+  expect(new Date(`${a.schedule.firstDue}T00:00:00Z`).getUTCDay()).toBe(6);
+
+  // Monthly, every 3 months on the first Saturday.
+  const first = uniq('First ');
+  await page.goto('/chores/new');
+  await page.getByLabel('Name').fill(first);
+  await repeatRow.click();
+  await sheet.getByText('Monthly', { exact: true }).click();
+  await sheet.getByRole('button', { name: 'One more' }).click();
+  await sheet.getByRole('button', { name: 'One more' }).click();
+  await sheet.getByLabel(/^A weekday/).check();
+  await sheet.getByLabel('Weekday', { exact: true }).selectOption('SA');
+  await sheet.getByRole('button', { name: 'Done' }).click();
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: first })).toBeVisible();
+  const b = await get(first);
+  expect(b.schedule.rrule).toBe('FREQ=MONTHLY;INTERVAL=3;BYDAY=1SA');
+  const d = new Date(`${b.schedule.firstDue}T00:00:00Z`);
+  expect([d.getUTCDay(), d.getUTCDate() <= 7]).toEqual([6, true]);
+
+  // Reopening shows the simple form with "On" set, not a custom rule.
+  await page.getByRole('link', { name: 'Edit' }).first().click();
+  await repeatRow.click();
+  await expect(sheet.getByLabel(/^A weekday/)).toBeChecked();
+  await expect(sheet.getByLabel('Every', { exact: true })).toHaveValue('3');
+  await expect(sheet.getByLabel('Weekday', { exact: true })).toHaveValue('SA');
+});

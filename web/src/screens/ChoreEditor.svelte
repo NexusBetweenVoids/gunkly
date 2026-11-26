@@ -6,6 +6,7 @@
   import Icon from '../components/Icon.svelte';
   import ReminderEditor from '../components/ReminderEditor.svelte';
   import RuleBuilder from '../components/RuleBuilder.svelte';
+  import Select from '../components/Select.svelte';
   import Sheet from '../components/Sheet.svelte';
   import { api } from '../lib/api';
   import { addDays, fmt, householdToday, initials, parseYmd, ymd } from '../lib/dates';
@@ -14,7 +15,7 @@
   import { nameOf, UNIT } from '../lib/names';
   import { DEFAULT_MINUTE, derive, hm, PRESET_REMINDERS, toMinute } from '../lib/reminders';
   import { navigate } from '../lib/router.svelte';
-  import { describe, fromRRule, newRule, toRRule } from '../lib/rrule';
+  import { DAYS, describe, fromRRule, newRule, nthKey, toRRule, type Rule } from '../lib/rrule';
   import { app, currentHousehold } from '../lib/session.svelte';
   import { toast } from '../lib/toast.svelte';
   import type { Area, Chore, Member, Reminder, Template } from '../lib/types';
@@ -48,6 +49,13 @@
   let n = $state(1);
   let unit = $state<Unit>('week');
   let rule = $state(newRule());
+  // "On": pins a weekly or monthly interval to weekdays, a date, or e.g. the first Saturday. Saved as a
+  // calendar rule; with nothing picked it stays a plain interval.
+  let onDays = $state<string[]>([]);
+  let monthOn = $state<'any' | 'date' | 'nth'>('any');
+  let monthDay = $state(1);
+  let nth = $state(1);
+  let nthDay = $state('SA');
   let anchor = $state<'from_completion' | 'from_scheduled'>('from_completion');
   let reminder = $state('');
   let customRem = $state<Reminder[]>([]);
@@ -95,7 +103,45 @@
   function chooseFreq(f: 'none' | Unit): void {
     if (f === 'none') return setRepeat('none');
     setRepeat('interval');
-    if (unit !== f) [unit, n] = [f, 1];
+    if (unit !== f) [unit, n, onDays, monthOn] = [f, 1, [], 'any'];
+  }
+
+  // The interval as a calendar rule when "On" pins it, else null.
+  const pinned = $derived.by((): Rule | null => {
+    if (repeat !== 'interval') return null;
+    const r = { ...newRule(), interval: n, months: [] };
+    if (unit === 'week' && onDays.length) return { ...r, freq: 'WEEKLY', weekdays: onDays };
+    if (unit === 'month' && monthOn === 'date') return { ...r, freq: 'MONTHLY', mode: 'day', day: monthDay };
+    if (unit === 'month' && monthOn === 'nth') return { ...r, freq: 'MONTHLY', mode: 'nth', nth, weekday: nthDay };
+    return null;
+  });
+
+  // Weekday code (MO..SU) and whether a date matches the "On" choice.
+  const dow = (s: string) => DAYS[(parseYmd(s).getUTCDay() + 6) % 7];
+  function matches(s: string, r: Rule): boolean {
+    const d = parseYmd(s);
+    const last = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
+    if (r.freq === 'WEEKLY') return r.weekdays.includes(dow(s));
+    if (r.mode === 'day') return r.day === -1 ? d.getUTCDate() === last : d.getUTCDate() === r.day;
+    if (dow(s) !== r.weekday) return false;
+    return r.nth === -1 ? d.getUTCDate() + 7 > last : Math.ceil(d.getUTCDate() / 7) === r.nth;
+  }
+  // After changing "On", move the first due date to the first matching day from it (or from today).
+  function alignFirstDue(): void {
+    const r = pinned;
+    if (!r) return;
+    let s = firstDue && firstDue > today ? firstDue : today;
+    for (let i = 0; i < 400 && !matches(s, r); i++) s = addDays(s, 1);
+    firstDue = s;
+  }
+  function toggleDay(d: string): void {
+    onDays = onDays.includes(d) ? onDays.filter((x) => x !== d) : [...onDays, d];
+    alignFirstDue();
+  }
+  function setMonthOn(v: typeof monthOn): void {
+    monthOn = v;
+    if (v === 'date' && firstDue) monthDay = parseYmd(firstDue).getUTCDate();
+    alignFirstDue();
   }
 
   function applyChore(c: Chore): void {
@@ -112,7 +158,19 @@
     if (c.schedule.interval) [n, unit] = [c.schedule.interval.every, c.schedule.interval.unit];
     if (c.schedule.type === 'rrule') rule = fromRRule(c.schedule.rrule ?? '');
     repeat = c.kind === 'oneoff' ? 'none' : c.schedule.type === 'rrule' ? 'rule' : 'interval';
+    if (repeat === 'rule') adoptSimpleRule(c.schedule.rrule ?? '');
     notesOpen = !!notes || !!link;
+  }
+
+  // A rule the "On" line can show (weekly on weekdays, monthly on a date or an nth weekday) opens as an
+  // interval with "On" set; anything else stays a custom rule.
+  function adoptSimpleRule(s: string): void {
+    if (toRRule(rule) !== s) return; // something the builder can't represent exactly
+    if (rule.freq === 'WEEKLY' && rule.weekdays.length) [unit, onDays] = ['week', [...rule.weekdays]];
+    else if (rule.freq === 'MONTHLY' && rule.mode === 'day') [unit, monthOn, monthDay] = ['month', 'date', rule.day];
+    else if (rule.freq === 'MONTHLY' && rule.mode === 'nth') [unit, monthOn, nth, nthDay] = ['month', 'nth', rule.nth, rule.weekday];
+    else return;
+    [n, repeat] = [rule.interval, 'interval'];
   }
 
   // "Edit" on an AI suggestion: fill the form with it, then the person saves as usual.
@@ -185,8 +243,8 @@
         name: name.trim(), notes, link: link.trim(), ...(areasOn ? { areaId: area } : {}), assignees,
         rotation: takesTurns, advanceOn: onlyTurn ? 'assignee' : 'any',
         kind: recurring ? 'recurring' : 'oneoff',
-        schedule: repeat === 'rule'
-          ? { type: 'rrule', rrule: toRRule(rule), anchor, firstDue }
+        schedule: repeat === 'rule' || pinned
+          ? { type: 'rrule', rrule: toRRule(pinned ?? rule), anchor, firstDue }
           : { type: 'interval', interval: { every: n, unit }, anchor, firstDue },
         reminderPreset: custom ? (id ? null : '') : reminder,
         ...(sendTime ? { reminderTime: remTime } : {}),
@@ -253,6 +311,7 @@
   const repeatText = $derived(
     repeat === 'none' ? t('repeat.none')
       : repeat === 'rule' ? describe(rule)
+        : pinned ? describe(pinned)
         : PRESET[`${n}${unit}`] ? t(PRESET[`${n}${unit}`]) : t('repeat.every', { count: n, unit: t(UNIT[unit], { count: n }) }),
   );
   const repeatSub = $derived(
@@ -261,9 +320,13 @@
   );
   const nextText = $derived(
     !firstDue || repeat === 'none' ? ''
-      : repeat === 'rule' ? t('chore.nextOnly', { date: day(firstDue) })
+      : repeat === 'rule' || pinned ? t('chore.nextOnly', { date: day(firstDue) })
         : t(anchor === 'from_completion' ? 'chore.nextAbout' : 'chore.next', { date: day(firstDue), next: day(addPeriod(firstDue, n, unit)) }),
   );
+  const dayLong = (d: string) => fmt(`2024-01-0${DAYS.indexOf(d) + 1}`, { weekday: 'long' }); // 2024-01-01 is a Monday
+  const dayShort = (d: string) => fmt(`2024-01-0${DAYS.indexOf(d) + 1}`, { weekday: 'short' });
+  const monthDays = [...Array.from({ length: 31 }, (_, i) => ({ value: String(i + 1), label: String(i + 1) })), { value: '-1', label: t('rule.lastDay.option') }];
+  const nths = [1, 2, 3, 4, 5, -1].map((v) => ({ value: String(v), label: t(nthKey(v)) }));
   const REMINDER_LABEL: Record<string, Key> = {
     '': 'reminder.default', gentle: 'reminder.gentle', nag: 'reminder.nag', none: 'reminder.none', custom: 'reminder.customOption',
   };
@@ -282,12 +345,17 @@
     <p role="status" class="muted">{t('common.loading')}</p>
   {:else}
     <form class="stack" id="chore-form" onsubmit={submit}>
-      <Field label={t('chore.name')} bind:value={name} required maxlength={200} placeholder={t('chore.namePlaceholder')} class="big" />
-      {#if !id && (templates.length || app.instance.aiEnabled)}
-        <div class="chips quick" role="group" aria-label={t('chore.template')}>
-          {#if app.instance.aiEnabled}
-            <button type="button" class="chip ai" aria-haspopup="dialog" onclick={() => (sheet = 'ai')}><Icon name="sparkle" />{t('ai.chip')}</button>
+      <div class="field">
+        <label for="chore-name">{t('chore.name')}</label>
+        <div class="namebox" class:with-ai={!id && app.instance.aiEnabled}>
+          <input id="chore-name" class="big" bind:value={name} required maxlength="200" placeholder={t('chore.namePlaceholder')} />
+          {#if !id && app.instance.aiEnabled}
+            <button type="button" class="ai-in" aria-haspopup="dialog" aria-label={t('ai.chip')} title={t('ai.chip')} onclick={() => (sheet = 'ai')}><Icon name="sparkle" /></button>
           {/if}
+        </div>
+      </div>
+      {#if !id && templates.length}
+        <div class="chips quick" role="group" aria-label={t('chore.template')}>
           {#each quick as tp (tp.key)}
             <button type="button" class="chip" onclick={() => useTemplate(tp.key)}>{nameOf('template', tp.key)}</button>
           {/each}
@@ -424,6 +492,35 @@
         <button type="button" class="btn btn-quiet" aria-label={t('chore.oneMore')} disabled={n >= 1000} onclick={() => (n = Math.min(1000, n + 1))}>+</button>
         <span>{t(UNIT[unit], { count: n })}</span>
       </div>
+      {#if unit === 'week'}
+        <div class="stack-sm" role="group" aria-labelledby="on-week">
+          <span class="label" id="on-week">{t('chore.on')}</span>
+          <div class="days">
+            {#each DAYS as d (d)}
+              <button type="button" aria-pressed={onDays.includes(d)} aria-label={dayLong(d)} onclick={() => toggleDay(d)}>{dayShort(d)}</button>
+            {/each}
+          </div>
+          <p class="hint">{onDays.length ? t('chore.onDaysHint') : t('chore.onAnyHint')}</p>
+        </div>
+      {:else if unit === 'month'}
+        <fieldset class="plain-fieldset stack-sm">
+          <legend class="label">{t('chore.on')}</legend>
+          <label class="opt"><input type="radio" name="monthOn" checked={monthOn === 'any'} onchange={() => setMonthOn('any')} /><span>{t('chore.onAny')}</span></label>
+          <label class="opt"><input type="radio" name="monthOn" checked={monthOn === 'date'} onchange={() => setMonthOn('date')} /><span>{t('chore.onDate')}</span></label>
+          {#if monthOn === 'date'}
+            <div class="indent">
+              <Select label={t('rule.dayOfMonth')} bind:value={() => String(monthDay), (v) => { monthDay = Number(v); alignFirstDue(); }} options={monthDays} />
+            </div>
+          {/if}
+          <label class="opt"><input type="radio" name="monthOn" checked={monthOn === 'nth'} onchange={() => setMonthOn('nth')} /><span>{t('chore.onNth')}</span></label>
+          {#if monthOn === 'nth'}
+            <div class="indent row">
+              <Select label={t('rule.nth')} bind:value={() => String(nth), (v) => { nth = Number(v); alignFirstDue(); }} options={nths} />
+              <Select label={t('rule.weekday')} bind:value={() => nthDay, (v) => { nthDay = v; alignFirstDue(); }} options={DAYS.map((d) => ({ value: d, label: dayLong(d) }))} />
+            </div>
+          {/if}
+        </fieldset>
+      {/if}
     {/if}
     {#if repeat === 'rule'}
       <RuleBuilder bind:rule />
@@ -500,10 +597,52 @@
     font-weight: 500;
     cursor: pointer;
   }
-  .chip.ai {
-    border-color: var(--accent);
+  .namebox {
+    position: relative;
+  }
+  .namebox.with-ai input {
+    padding-inline-end: 56px;
+  }
+  .ai-in {
+    position: absolute;
+    inset-block: 0;
+    inset-inline-end: 4px;
+    margin-block: auto;
+    display: grid;
+    place-items: center;
+    inline-size: var(--tap);
+    block-size: var(--tap);
+    border: 0;
+    border-radius: var(--radius);
+    background: none;
     color: var(--accent);
+    cursor: pointer;
+  }
+  .ai-in:hover {
+    background: var(--surface-2);
+  }
+  .days {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 6px;
+  }
+  .days button {
+    min-block-size: var(--tap);
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface-2);
+    font-size: 0.875rem;
     font-weight: 600;
+    cursor: pointer;
+  }
+  .days button[aria-pressed="true"] {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--accent-text);
+  }
+  .indent {
+    padding-inline-start: 32px;
   }
   .group {
     margin: 0;

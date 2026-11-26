@@ -4,6 +4,15 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ## [Unreleased]
 
+### Added
+
+- Chore editor: "On" in the Repeat sheet pins a chore to a day. Weekly: pick weekdays (for example Saturday, or Tuesday and Friday). Monthly: a date of the month, or a weekday such as the first or last Saturday. The chore then always lands on that day, also when done early or late (saved as a calendar rule; such rules reopen in this simple form). The first due date moves to the first matching day.
+- Update button: choose the updater (Watchtower, Portainer, Dockhand or Other). For Dockhand, Gunkly calls its stack deploy API with `{"pull": true}` and a `dh_` API token, so it pulls the newest image and recreates the stack (`GUNKLY_UPDATE_WEBHOOK_KIND`). The docs have Portainer and Dockhand walkthroughs.
+
+### Changed
+
+- Chore editor: "Describe with AI" is now the stars button inside the name field.
+
 ## [0.6.1] - 2026-11-26
 
 ### Changed
