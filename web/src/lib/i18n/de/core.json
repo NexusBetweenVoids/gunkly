@@ -39,6 +39,7 @@
   "field.usernameHint": "2 bis 32 Buchstaben, Ziffern, Punkte, Bindestriche oder Unterstriche.",
   "field.emailOptional": "E-Mail (optional)",
   "field.password": "Passwort",
+  "field.passwordHint": "Mindestens {n} Zeichen.",
   "field.timezone": "Zeitzone",
   "field.timezoneHint": "Tippe zum Suchen, zum Beispiel Europe/Berlin.",
   "signIn.twoFactor": "Gib den Code aus deiner Authenticator-App ein, um die Anmeldung abzuschließen.",

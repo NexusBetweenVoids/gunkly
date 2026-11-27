@@ -94,6 +94,7 @@ func (s *Server) registerRoutes() {
 	s.handle("POST /api/v1/households/{hh}/invites", owner.noToken(), s.createInvite)
 	s.handle("GET /api/v1/households/{hh}/invites", owner.noToken(), s.listInvites)
 	s.handle("DELETE /api/v1/households/{hh}/invites/{invite}", owner.noToken(), s.revokeInvite)
+	s.handle("GET /api/v1/invites/{token}", publicRateLimited(rateInvite), s.previewInvite)
 	s.handle("POST /api/v1/invites/{token}/accept", session.noToken().withRate(rateInvite), s.acceptInvite)
 	s.handle("POST /api/v1/invites/{token}/register", publicRateLimited(rateInvite), s.registerWithInvite)
 

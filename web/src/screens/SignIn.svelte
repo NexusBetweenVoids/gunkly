@@ -94,7 +94,7 @@
   }
 </script>
 
-<section class="card narrow">
+<section class="card narrow auth">
   <p class="logo-hero"><Logo size={72} /></p>
   <h1>{t('signIn.title')}</h1>
   <form class="stack" onsubmit={submit}>

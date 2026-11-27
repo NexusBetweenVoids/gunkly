@@ -61,7 +61,7 @@
   const next = () => navigate(app.households.length ? '/' : '/welcome', true);
 </script>
 
-<section class="card narrow stack">
+<section class="card narrow stack auth">
   <h1>{t('verifyEmail.title')}</h1>
   {#if phase === 'working'}
     <p role="status" class="muted">{t('verifyEmail.working')}</p>
@@ -70,16 +70,20 @@
     <Button {busy} onclick={() => verify(true)}>{t('verifyEmail.continueAs', { name: continueAs })}</Button>
     <p class="hint">{t('verifyEmail.offerHint')}</p>
     <p><button type="button" class="linkish" disabled={busy} onclick={() => verify(false)}>{t('verifyEmail.onlyConfirm')}</button></p>
-  {:else if phase === 'invalid'}
-    <p role="alert">{t('verifyEmail.invalid')}</p>
-  {:else if phase === 'error'}
-    <Alert message={err.message} />
+  {:else if phase === 'invalid' || phase === 'error'}
+    {#if phase === 'invalid'}<p role="alert">{t('verifyEmail.invalid')}</p>{:else}<Alert message={err.message} />{/if}
+    <!-- Never a dead end: on to the app when signed in, else to sign-in. -->
+    {#if app.user}
+      <Button onclick={next}>{t('verifyEmail.continue')}</Button>
+    {:else}
+      <a class="btn" href={href('/signin')}>{t('verifyEmail.toSignIn')}</a>
+    {/if}
   {:else}
     <p role="status">{t('verifyEmail.done')}</p>
     {#if codes.length}
       <RecoveryCodes {codes} intro={t('verifyEmail.codesIntro')} onsaved={() => (app.user ? next() : (codes = []))} />
     {:else if app.user}
-      <div><Button onclick={next}>{t('verifyEmail.continue')}</Button></div>
+      <Button onclick={next}>{t('verifyEmail.continue')}</Button>
     {:else}
       <p><a href={href('/signin')}>{t('signIn.title')}</a></p>
     {/if}

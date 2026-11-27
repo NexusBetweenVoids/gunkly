@@ -7,7 +7,7 @@
   import { failure } from '../lib/errors';
   import { t } from '../lib/i18n';
   import { navigate } from '../lib/router.svelte';
-  import { clearSession } from '../lib/session.svelte';
+  import { app, clearSession } from '../lib/session.svelte';
   import { toast } from '../lib/toast.svelte';
 
   // The token only lives in this page: take it out of the address bar (and history).
@@ -39,7 +39,7 @@
   }
 </script>
 
-<section class="card narrow">
+<section class="card narrow auth">
   <h1>{t('reset.title')}</h1>
   {#if invalid}
     <p role="alert">{t('reset.invalid')}</p>
@@ -51,6 +51,7 @@
         type="password"
         bind:value={password}
         autocomplete="new-password"
+        hint={app.instance.minPasswordLength ? t('field.passwordHint', { n: app.instance.minPasswordLength }) : ''}
         required
         error={pwCodes.includes(err.code) ? err.message : ''}
       />
@@ -58,4 +59,5 @@
       <Button type="submit" {busy}>{t('reset.submit')}</Button>
     </form>
   {/if}
+  <p><a href={href('/signin')}>{t('forgot.back')}</a></p>
 </section>

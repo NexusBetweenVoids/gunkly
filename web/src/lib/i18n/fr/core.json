@@ -40,6 +40,7 @@
   "field.usernameHint": "De 2 à 32 lettres, chiffres, points, tirets ou tirets bas.",
   "field.emailOptional": "E-mail (facultatif)",
   "field.password": "Mot de passe",
+  "field.passwordHint": "Au moins {n} caractères.",
   "field.timezone": "Fuseau horaire",
   "field.timezoneHint": "Commence à écrire pour chercher, par exemple Europe/Paris.",
   "signIn.twoFactor": "Saisis le code de ton application d’authentification pour finir de te connecter.",

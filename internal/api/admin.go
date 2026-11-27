@@ -8,7 +8,6 @@ import (
 	"slices"
 	"time"
 
-	"github.com/NexusBetweenVoids/gunkly/internal/auth"
 	"github.com/NexusBetweenVoids/gunkly/internal/ids"
 	"github.com/NexusBetweenVoids/gunkly/internal/limits"
 	"github.com/NexusBetweenVoids/gunkly/internal/notify"
@@ -160,12 +159,8 @@ func (s *Server) adminGetSettings(w http.ResponseWriter, r *http.Request, _ *cal
 	if err != nil {
 		return err
 	}
-	minLen := st.MinPasswordLength
-	if minLen <= 0 {
-		minLen = auth.DefaultMinPasswordLen // 0 is stored as "unset"; show the effective value
-	}
 	open, pow := s.signupSettings(st)
-	v := settingsView{OpenSignup: open, RequirePoW: pow, InviteRegistration: st.InviteRegistration, MinPasswordLength: minLen,
+	v := settingsView{OpenSignup: open, RequirePoW: pow, InviteRegistration: st.InviteRegistration, MinPasswordLength: minPasswordLength(st),
 		SessionIdleDays: st.SessionIdleDays, SessionMaxDays: st.SessionMaxDays,
 		AuditRetentionDays: st.AuditRetentionDays, DeliveryRetentionDays: st.DeliveryRetentionDays,
 		Limits: map[limits.Kind]int{}, LimitDefaults: limits.Defaults,

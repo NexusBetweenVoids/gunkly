@@ -714,6 +714,7 @@ func TestNewRoutesDeclareTheirPolicies(t *testing.T) {
 		"POST /api/v1/households":                   session.noToken(),
 		"GET /api/v1/admin/updates":                 admin.noToken(),
 		"POST /api/v1/admin/updates/check":          admin.noToken(),
+		"GET /api/v1/invites/{token}":               publicRateLimited(rateInvite),
 		"POST /api/v1/invites/{token}/accept":       session.noToken().withRate(rateInvite),
 		"POST /api/v1/invites/{token}/register":     publicRateLimited(rateInvite),
 	}

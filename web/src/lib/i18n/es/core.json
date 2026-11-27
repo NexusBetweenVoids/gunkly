@@ -40,6 +40,7 @@
   "field.usernameHint": "De 2 a 32 letras, números, puntos, guiones o guiones bajos.",
   "field.emailOptional": "Correo electrónico (opcional)",
   "field.password": "Contraseña",
+  "field.passwordHint": "Al menos {n} caracteres.",
   "field.timezone": "Zona horaria",
   "field.timezoneHint": "Empieza a escribir para buscar, por ejemplo Europe/Madrid.",
   "signIn.twoFactor": "Introduce el código de tu aplicación de autenticación para terminar de iniciar sesión.",

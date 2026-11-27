@@ -118,3 +118,42 @@ func TestInviteUseIsAtomic(t *testing.T) {
 		t.Fatalf("%d joins succeeded, want exactly 2", okN)
 	}
 }
+
+// An invite link names its household and inviter only while it can be used.
+func TestPreviewInvite(t *testing.T) {
+	ctx := context.Background()
+	s := newStore(t)
+	owner := mkUser(t, s, "owner")
+	other := mkUser(t, s, "other")
+	hh := mkHousehold(t, s, owner, "Maple Street 12")
+	noErr(t, s.AddMember(ctx, owner, hh, other.UserID, store.RoleOwner))
+	mk := func(a store.Actor, hash string) store.Invite {
+		return must(s.CreateInvite(ctx, a, hh, store.NewInvite{Role: store.RoleMember, TokenHash: hash, ExpiresAt: time.Now().Add(time.Hour), MaxActive: 9}))
+	}
+	mk(owner, "live")
+	p := must(s.PreviewInvite(ctx, "live"))
+	if p.HouseholdName != "Maple Street 12" || p.InviterName != "owner" {
+		t.Fatalf("preview = %+v", p)
+	}
+	_, err := s.PreviewInvite(ctx, "unknown")
+	is(t, err, store.ErrNotFound)
+
+	revoked := mk(owner, "revoked")
+	noErr(t, s.RevokeInvite(ctx, owner, hh, revoked.ID))
+	_, err = s.PreviewInvite(ctx, "revoked")
+	is(t, err, store.ErrNotFound)
+
+	mk(owner, "used")
+	joiner := mkUser(t, s, "joiner")
+	must(s.AcceptInvite(ctx, joiner.UserID, "used", store.JoinLimits{MaxMembers: 50, MaxHouseholds: 20}))
+	_, err = s.PreviewInvite(ctx, "used")
+	is(t, err, store.ErrNotFound)
+
+	// The inviter's account is gone: the household still shows, the name does not.
+	mk(other, "orphan")
+	must(s.DeleteAccount(ctx, other.UserID, store.AccountDeletion{}))
+	p = must(s.PreviewInvite(ctx, "orphan"))
+	if p.HouseholdName != "Maple Street 12" || p.InviterName != "" {
+		t.Fatalf("orphan preview = %+v", p)
+	}
+}

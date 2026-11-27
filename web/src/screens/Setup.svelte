@@ -7,7 +7,7 @@
   import { failure } from '../lib/errors';
   import { t } from '../lib/i18n';
   import { navigate } from '../lib/router.svelte';
-  import { adopt } from '../lib/session.svelte';
+  import { adopt, app } from '../lib/session.svelte';
   import type { SessionView } from '../lib/types';
 
   let code = $state('');
@@ -36,7 +36,7 @@
   }
 </script>
 
-<section class="card narrow">
+<section class="card narrow auth">
   <p class="logo-hero"><Logo size={72} /></p>
   <h1>{t('setup.title')}</h1>
   <p class="muted">{t('setup.intro')}</p>
@@ -66,6 +66,7 @@
       type="password"
       bind:value={password}
       autocomplete="new-password"
+      hint={app.instance.minPasswordLength ? t('field.passwordHint', { n: app.instance.minPasswordLength }) : ''}
       required
       error={on('password_too_short', 'password_too_long', 'password_invalid')}
     />
