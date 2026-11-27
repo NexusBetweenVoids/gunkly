@@ -13,6 +13,7 @@
     openSignup: boolean;
     requirePow: boolean;
     inviteRegistration: boolean;
+    securityAlerts: boolean;
     minPasswordLength: number;
     sessionIdleDays: number;
     sessionMaxDays: number;
@@ -101,6 +102,7 @@
             openSignup: s!.openSignup,
             requirePow: s!.requirePow,
             inviteRegistration: s!.inviteRegistration,
+            securityAlerts: s!.securityAlerts,
             mcpEnabled: s!.mcpEnabled,
             oauthEnabled: s!.oauthEnabled,
             webhooksEnabled: s!.webhooksEnabled,
@@ -138,6 +140,8 @@
         <label class="check"><input type="checkbox" bind:checked={s.openSignup} />{t('admin.openSignup')}</label>
         <label class="check"><input type="checkbox" bind:checked={s.requirePow} />{t('admin.requirePow')}</label>
         <label class="check"><input type="checkbox" bind:checked={s.inviteRegistration} />{t('admin.inviteRegistration')}</label>
+        <label class="check"><input type="checkbox" bind:checked={s.securityAlerts} aria-describedby="sec-alerts-hint" />{t('admin.securityAlerts')}</label>
+        <p class="hint" id="sec-alerts-hint">{t('admin.securityAlertsHint')}</p>
         {#if s.ssoConfigured}
           <h3>{t('admin.ssoAccounts')}</h3>
           <label class="check"><input type="checkbox" bind:checked={s.ssoCreateAccounts} aria-describedby="sso-hint" />{t('admin.ssoCreateAccounts')}</label>

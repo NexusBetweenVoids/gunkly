@@ -377,12 +377,22 @@ paths:
     post:
       tags: [account]
       summary: Confirm an email address with the token from the emailed link (single use, valid 24 hours). In hosted mode a user without a second factor is enrolled in emailed codes and receives recovery codes once
-      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [token], properties: {token: {type: string}}}}}}
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [token], properties: {token: {type: string}, signIn: {type: boolean, description: "Also sign in on this device, once: only for the first confirmation of an account created in the last 24 hours, not an email change, and only without a session (see /account/email/verify/preview)"}}}}}}
       responses:
-        "200": {description: Verified, content: {application/json: {schema: {type: object, properties: {verified: {type: boolean}, recoveryCodes: {type: array, items: {type: string}}}}}}}
+        "200": {description: "Verified; with signIn (when allowed) also the new session (cookies set)", content: {application/json: {schema: {type: object, properties: {verified: {type: boolean}, recoveryCodes: {type: array, items: {type: string}}, session: {$ref: "#/components/schemas/Session"}}}}}}
         "400": {description: "invalid_token (unknown, used or expired)", content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
         "404": {$ref: "#/components/responses/NotFound"}
         "409": {description: email_unavailable}
+        "429": {$ref: "#/components/responses/RateLimited"}
+  /account/email/verify/preview:
+    post:
+      tags: [account]
+      summary: "Look the confirmation token up without using it: continueAs (the display name) is present when confirming may also sign in on this device (signIn on /account/email/verify)"
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [token], properties: {token: {type: string}}}}}}
+      responses:
+        "200": {description: OK, content: {application/json: {schema: {type: object, properties: {continueAs: {type: string}}}}}}
+        "400": {description: "invalid_token (unknown, used or expired)", content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
+        "404": {$ref: "#/components/responses/NotFound"}
         "429": {$ref: "#/components/responses/RateLimited"}
   /account/email/resend:
     post:
@@ -756,7 +766,7 @@ paths:
               required: [role]
               properties:
                 role: {type: string, enum: [member, guest]}
-                expiresInHours: {type: integer, minimum: 1, maximum: 720}
+                expiresInHours: {type: integer, minimum: 1, maximum: 720, default: 72, description: "The app offers 1, 3 (default) or 7 days"}
                 maxUses: {type: integer, minimum: 1, maximum: 100, default: 1, description: How many people may join with the link}
       responses:
         "201": {description: Created, content: {application/json: {schema: {$ref: "#/components/schemas/Invite"}}}}
@@ -1640,6 +1650,7 @@ paths:
                 enabledNotificationKinds: {type: array, items: {type: string}, description: "Allowed notification services; must be a subset of availableNotificationKinds"}
                 egressGuard: {type: boolean, description: "Block outbound requests to private addresses; rejected while egressGuardLocked"}
                 updateCheck: {type: boolean, description: "Check for new releases in the background (default true)"}
+                securityAlerts: {type: boolean, description: "Email admins about suspicious activity, such as a household hitting the daily invite limit (default true)"}
                 mcpEnabled: {type: boolean, description: "Serve the MCP endpoint /mcp for AI assistants (default true); off answers 404"}
                 oauthEnabled: {type: boolean, description: "Let MCP clients such as ChatGPT sign in with OAuth (ADR 0016); default false. Turning it on needs GUNKLY_BASE_URL to be https (or http on localhost), else 400 oauth_requires_https. While off every /oauth endpoint and /.well-known/oauth-* document answers 404."}
                 webhooksEnabled: {type: boolean, description: "Let household owners add outgoing webhooks (ADR 0017); default false. While off every webhook route answers 404 and nothing is sent; queued deliveries are dropped."}
@@ -2065,6 +2076,7 @@ components:
         egressGuard: {type: boolean}
         egressGuardLocked: {type: boolean, description: "Hosted mode: the guard cannot be turned off"}
         updateCheck: {type: boolean}
+        securityAlerts: {type: boolean}
         mcpEnabled: {type: boolean, description: "The MCP endpoint /mcp is served"}
         oauthEnabled: {type: boolean, description: "OAuth sign-in for MCP clients is switched on (default false)"}
         webhooksEnabled: {type: boolean, description: "Household owners may add outgoing webhooks (ADR 0017); default false"}
@@ -2106,6 +2118,16 @@ components:
             properties:
               ip: {type: string, description: "Direct peer address (IPv4 or IPv6)"}
               lastSeen: {type: string, format: date-time}
+        securityEvents:
+          type: array
+          description: "Security events of the last 7 days, newest first (at most 50): a household hitting the daily invite limit"
+          items:
+            type: object
+            properties:
+              event: {type: string, enum: [invite_limit_reached]}
+              householdId: {type: string}
+              username: {type: string, description: "The account that caused it; empty if deleted"}
+              at: {type: string, format: date-time}
     AdminConfig:
       type: object
       properties:

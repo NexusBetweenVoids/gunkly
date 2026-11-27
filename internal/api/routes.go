@@ -61,6 +61,7 @@ func (s *Server) registerRoutes() {
 
 	// Email: verification, address change, password reset, emailed codes.
 	s.handle("POST /api/v1/account/email/verify", publicRateLimited(rateVerify), s.verifyEmail)
+	s.handle("POST /api/v1/account/email/verify/preview", publicRateLimited(rateVerify), s.previewVerifyEmail)
 	s.handle("POST /api/v1/account/email/resend", session.noToken().withRate(rateEmail), s.resendVerification)
 	s.handle("PATCH /api/v1/account/email", session.noToken().withStepUp().withRate(rateEmail), s.changeEmail)
 	s.handle("POST /api/v1/password-reset/request", publicRateLimited(rateReset), s.requestPasswordReset)

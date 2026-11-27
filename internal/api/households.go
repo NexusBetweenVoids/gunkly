@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/NexusBetweenVoids/gunkly/internal/ids"
@@ -188,7 +189,7 @@ func (s *Server) removeMember(w http.ResponseWriter, r *http.Request, c *call) e
 
 // Invite link lifetime bounds.
 const (
-	inviteDefaultTTL = 7 * 24 * time.Hour
+	inviteDefaultTTL = 3 * 24 * time.Hour
 	inviteMaxTTL     = 30 * 24 * time.Hour
 )
 
@@ -231,11 +232,21 @@ func (s *Server) createInvite(w http.ResponseWriter, r *http.Request, c *call) e
 	if err != nil {
 		return err
 	}
+	maxDay, err := s.limits.Limit(ctx, limits.InvitesPerHouseholdDay, c.hh)
+	if err != nil {
+		return err
+	}
 	token := ids.Token()
 	inv, err := s.st.CreateInvite(ctx, c.actor(), c.hh, store.NewInvite{
-		Role: in.Role, TokenHash: ids.Hash(token), ExpiresAt: s.now().Add(ttl), MaxActive: maxActive, MaxUses: in.MaxUses,
+		Role: in.Role, TokenHash: ids.Hash(token), ExpiresAt: s.now().Add(ttl), MaxActive: maxActive, MaxPerDay: maxDay, MaxUses: in.MaxUses,
 	})
-	if err != nil {
+	switch {
+	case errors.Is(err, store.ErrInviteDaily):
+		s.inviteLimitAlert(ctx, c, maxDay)
+		return &apiError{status: http.StatusConflict, code: "limit_reached", reason: "invites_per_day"}
+	case errors.Is(err, store.ErrLimit):
+		return &apiError{status: http.StatusConflict, code: "limit_reached", reason: "active_invites"}
+	case err != nil:
 		return err
 	}
 	s.audit(ctx, c, c.user.ID, store.AuditInviteCreate, c.hh, map[string]string{"invite": inv.ID, "role": string(inv.Role)})
@@ -370,4 +381,11 @@ func (s *Server) registerWithInvite(w http.ResponseWriter, r *http.Request, c *c
 	s.audit(ctx, c, u.ID, store.AuditRegisterByInvite, j.HouseholdID, nil)
 	s.verifyNewAccount(ctx, c, u)
 	return nil
+}
+
+// inviteLimitAlert: a household hit the daily invite limit (suspicious: links created and revoked
+// over and over).
+func (s *Server) inviteLimitAlert(ctx context.Context, c *call, limit int) {
+	s.securityAlert(ctx, c, securityAlert{event: store.AuditInviteLimit, scope: c.hh, household: c.hh, actor: c.user.ID,
+		mail: "securityinvites", params: map[string]string{"username": c.user.Username, "household": c.hh, "limit": strconv.Itoa(limit)}})
 }

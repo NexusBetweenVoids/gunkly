@@ -25,6 +25,7 @@ const (
 	settingAuditRetentionDays = "audit_retention_days"
 	settingDeliveryRetention  = "delivery_retention_days"
 	settingUpdateCheck        = "update_check"
+	settingSecurityAlerts     = "security_alerts"
 	settingMCPEnabled         = "mcp_enabled"
 	settingOAuthEnabled       = "oauth_enabled"
 	settingWebhooksEnabled    = "webhooks_enabled"
@@ -59,6 +60,9 @@ type InstanceSettings struct {
 	// UpdateCheck lets the server ask GitHub for the latest release (the
 	// Updates page). Default true.
 	UpdateCheck bool
+	// SecurityAlerts emails admins about suspicious activity (a household
+	// hitting the daily invite limit). Default true.
+	SecurityAlerts bool
 	// MCPEnabled serves the MCP endpoint (/mcp, ADR 0015). Default true.
 	MCPEnabled bool
 	// OAuthEnabled serves the OAuth endpoints MCP clients sign in with (ADR
@@ -111,6 +115,7 @@ type SettingsUpdate struct {
 	NotificationKinds *[]string
 	EgressGuard       *bool
 	UpdateCheck       *bool
+	SecurityAlerts    *bool
 	MCPEnabled        *bool
 	OAuthEnabled      *bool
 	WebhooksEnabled   *bool
@@ -129,7 +134,7 @@ type SettingsUpdate struct {
 
 // InstanceSettings reads the instance settings.
 func (s *Store) InstanceSettings(ctx context.Context) (InstanceSettings, error) {
-	out := InstanceSettings{InviteRegistration: true, EgressGuard: true, UpdateCheck: true, MCPEnabled: true, Limits: map[string]int{},
+	out := InstanceSettings{InviteRegistration: true, EgressGuard: true, UpdateCheck: true, SecurityAlerts: true, MCPEnabled: true, Limits: map[string]int{},
 		SessionIdleDays: DefaultSessionIdleDays, SessionMaxDays: DefaultSessionMaxDays,
 		AuditRetentionDays: DefaultAuditRetentionDays, DeliveryRetentionDays: DefaultDeliveryRetentionDays,
 		InactiveWarnAfterDays: DefaultInactiveWarnDays, InactiveDeleteAfterDays: DefaultInactiveDeleteDays}
@@ -160,6 +165,8 @@ func (s *Store) InstanceSettings(ctx context.Context) (InstanceSettings, error) 
 				out.EgressGuard = v != "false"
 			case k == settingUpdateCheck:
 				out.UpdateCheck = v != "false"
+			case k == settingSecurityAlerts:
+				out.SecurityAlerts = v != "false"
 			case k == settingMCPEnabled:
 				out.MCPEnabled = v != "false"
 			case k == settingOAuthEnabled:
@@ -295,6 +302,9 @@ func (s *Store) UpdateInstanceSettings(ctx context.Context, u SettingsUpdate) er
 		}
 		if err == nil && u.UpdateCheck != nil {
 			err = set(settingUpdateCheck, strconv.FormatBool(*u.UpdateCheck))
+		}
+		if err == nil && u.SecurityAlerts != nil {
+			err = set(settingSecurityAlerts, strconv.FormatBool(*u.SecurityAlerts))
 		}
 		if err == nil && u.MCPEnabled != nil {
 			err = set(settingMCPEnabled, strconv.FormatBool(*u.MCPEnabled))

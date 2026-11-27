@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/NexusBetweenVoids/gunkly/internal/ids"
@@ -26,6 +27,7 @@ const (
 	AuditInviteCreate      = "invite_create"
 	AuditInviteAccept      = "invite_accept"
 	AuditInviteRevoke      = "invite_revoke"
+	AuditInviteLimit       = "invite_limit_reached" // a household hit the daily invite limit (security alert)
 	AuditHouseholdCreate   = "household_create"
 	AuditAdminUserCreate   = "admin_user_create"
 	AuditAdminSettings     = "admin_settings"
@@ -122,4 +124,76 @@ func (s *Store) ListAuditForUser(ctx context.Context, userID string, limit int) 
 		return rows.Err()
 	})
 	return out, err
+}
+
+// AlertEvents are the audit events that are security alerts: listed on the
+// Administration page and, with security alerts on, emailed to the admins.
+// Add a new alert's event here.
+var AlertEvents = []string{AuditInviteLimit}
+
+// AlertCountSince counts alert events of one kind and scope since a moment.
+// The scope (stored as meta "scope") is what an alert is deduplicated by: a
+// household, an account, an address, or "" for instance-wide.
+func (s *Store) AlertCountSince(ctx context.Context, event, scope string, since time.Time) (int, error) {
+	frag, _ := json.Marshal(map[string]string{"scope": scope}) // {"scope":"..."}
+	var n int
+	err := s.db.QueryRowContext(ctx, s.d.Rebind("SELECT count(*) FROM audit_log WHERE event = ? AND created_at > ? AND meta LIKE ?"),
+		event, since.UnixMilli(), "%"+strings.Trim(string(frag), "{}")+"%").Scan(&n)
+	return n, err
+}
+
+// SecurityEvent is a recent alert event for the Administration page.
+type SecurityEvent struct {
+	Event       string
+	HouseholdID string
+	Username    string // the account that caused it; empty if none or deleted
+	Meta        map[string]string
+	At          time.Time
+}
+
+// RecentSecurityEvents lists the alert events (AlertEvents) since a moment, newest first (at most 50).
+func (s *Store) RecentSecurityEvents(ctx context.Context, since time.Time) ([]SecurityEvent, error) {
+	marks := strings.TrimSuffix(strings.Repeat("?,", len(AlertEvents)), ",")
+	args := []any{since.UnixMilli()}
+	for _, e := range AlertEvents {
+		args = append(args, e)
+	}
+	rows, err := s.db.QueryContext(ctx, s.d.Rebind(`SELECT a.event, COALESCE(a.household_id, ''), COALESCE(u.username, ''), a.meta, a.created_at
+		FROM audit_log a LEFT JOIN users u ON u.id = a.actor_user_id
+		WHERE a.created_at > ? AND a.event IN (`+marks+`) ORDER BY a.created_at DESC LIMIT 50`), args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []SecurityEvent{}
+	for rows.Next() {
+		var e SecurityEvent
+		var meta string
+		var at int64
+		if err := rows.Scan(&e.Event, &e.HouseholdID, &e.Username, &meta, &at); err != nil {
+			return nil, err
+		}
+		_ = json.Unmarshal([]byte(meta), &e.Meta)
+		e.At = time.UnixMilli(at).UTC()
+		out = append(out, e)
+	}
+	return out, rows.Err()
+}
+
+// AlertRecipients are the instance admins with a confirmed email address.
+func (s *Store) AlertRecipients(ctx context.Context) ([]User, error) {
+	rows, err := s.db.QueryContext(ctx, "SELECT "+userCols+" FROM users WHERE is_admin = TRUE AND email_verified = TRUE AND email IS NOT NULL")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []User
+	for rows.Next() {
+		u, err := scanUser(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, u)
+	}
+	return out, rows.Err()
 }

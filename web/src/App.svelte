@@ -166,7 +166,7 @@
     {:else if editId}
       {#key `${app.hhId}/${editId}`}<Lazy load={() => import('./screens/ChoreEditor.svelte')} ns={['chores']} props={{ id: editId }} />{/key}
     {:else if route.path === '/welcome'}
-      <Lazy load={() => import('./screens/Welcome.svelte')} ns={['household', 'chores']} />
+      <Lazy load={() => import('./screens/Welcome.svelte')} ns={['household', 'chores', 'account']} />
     {:else if route.path === '/households/new'}
       <Lazy load={() => import('./screens/NewHousehold.svelte')} ns={['household']} />
     {:else if settingsMatch}

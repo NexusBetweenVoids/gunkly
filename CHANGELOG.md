@@ -4,6 +4,16 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ## [Unreleased]
 
+### Changed
+
+- Confirming the email address of a brand-new account (created in the last 24 hours) on a device that is signed out, typically the phone's mail app, offers "Confirm and continue as <name>": confirming then also signs in there, once, so setting up carries on without signing in and entering an emailed code again. Not for email changes, older accounts or used links; the activity log records it as a sign-in via email confirmation. In the browser that is already signed in, the page continues to the welcome flow.
+- Sign-in with a code: "Verify and sign in" now sits directly under the code field, above "Email me a new code" and "Use a recovery code instead".
+- Welcome flow: "Group chores by area" is off until ticked.
+- Invite links: at most 5 open links per household (was 20), and at most 10 created per household per 24 hours, revoked ones included, so creating and revoking links over and over is capped (both in Administration, Limits; the error is `limit_reached` with `reason` `active_invites` or `invites_per_day`, and the app says which).
+- Security alerts (on by default, Administration, Sign-up & sign-in): when a household hits the daily invite limit, the admins with a confirmed email address get an email (at most one per household per day), and the Administration page lists such events of the last 7 days. The audit log records each hit (`invite_limit_reached`).
+- Invite links: the app offers 1, 3 or 7 days (default 3; was 1, 7 or 30 with 7). Without `expiresInHours` the API also defaults to 3 days; API clients may still ask for up to 30 days.
+- Welcome flow: a last, optional "Security" step to add a passkey or an authenticator app (the same sections as in Settings, Sign-in & security), recommended but skippable.
+
 ## [0.10.0] - 2026-11-27
 
 ### Added

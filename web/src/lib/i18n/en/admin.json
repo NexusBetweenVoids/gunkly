@@ -58,6 +58,7 @@
   "limit.emails_ip_hour": "Emails per IP address per hour",
   "limit.emails_global_hour": "Emails per hour, instance-wide",
   "limit.active_invites_per_household": "Active invites per household",
+  "limit.invites_per_household_day": "Invite links created per household per 24 hours (revoked ones count too)",
   "limit.calendar_feeds_per_user": "Calendar feeds per user",
   "limit.push_subscriptions_per_user": "Push notification devices per user",
   "limit.signups_per_ip_hour": "Sign-ups per IP address per hour",
@@ -241,5 +242,12 @@
   "guide.doneHousehold": "Create your household",
   "guide.doneUsers": "Add accounts for others (or invite them from the household)",
   "guide.doneAdmin": "Go to Administration",
-  "guide.againLead": "Email, sign-in, AI and updates step by step:"
+  "guide.againLead": "Email, sign-in, AI and updates step by step:",
+  "admin.securityAlerts": "Security alerts by email",
+  "admin.securityAlertsHint": "Emails the admins (with a confirmed address) about suspicious activity, such as a household creating invite links up to the daily limit. At most one email per household per day; the events are always listed on the Administration page.",
+  "secEvents.title": "Recent security events",
+  "secEvents.intro": "Worth a look: these happened in the last 7 days.",
+  "secEvents.invite_limit_reached": "{username} hit the daily invite limit in household {household}",
+  "secEvents.deletedUser": "A deleted account",
+  "secEvents.hint": "Each of these can be a sign of abuse or an attack. Check the account under Users; the audit log has the details. Emails about them can be turned off under Sign-up & sign-in, Security alerts."
 }

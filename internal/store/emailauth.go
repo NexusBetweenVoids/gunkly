@@ -94,6 +94,20 @@ func (t *tx) useToken(ctx context.Context, purpose, hash string, now int64) (use
 	return userID, ne.String, nil
 }
 
+// PeekVerifyEmail looks a verification token up without using it: its user and,
+// for an email change, the new address. ErrNotFound as for VerifyEmail.
+func (s *Store) PeekVerifyEmail(ctx context.Context, tokenHash string) (u User, newEmail string, err error) {
+	var id string
+	var ne sql.NullString
+	err = s.db.QueryRowContext(ctx, s.d.Rebind(`SELECT user_id, new_email FROM user_tokens
+		WHERE token_hash = ? AND purpose = ? AND used_at IS NULL AND expires_at > ?`), tokenHash, tokenVerifyEmail, s.nowMS()).Scan(&id, &ne)
+	if err != nil {
+		return User{}, "", notFound(err)
+	}
+	u, err = scanUser(s.db.QueryRowContext(ctx, s.d.Rebind("SELECT "+userCols+" FROM users WHERE id = ?"), id))
+	return u, ne.String, notFound(err)
+}
+
 // VerifyEmail consumes a verification token. It marks the user's email
 // verified, or, for an email change, switches the account to the new address
 // (verified). With autoEmailOTP, a user who then has no second factor gets

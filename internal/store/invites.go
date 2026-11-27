@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/NexusBetweenVoids/gunkly/internal/db"
@@ -35,11 +36,17 @@ type NewInvite struct {
 	TokenHash string
 	ExpiresAt time.Time
 	MaxActive int
+	MaxPerDay int // invite links created in the last 24 hours, revoked ones included (from the audit log)
 	MaxUses   int // 0 means 1; at most MaxInviteUses
 }
 
+// ErrInviteDaily is the ErrLimit of too many invite links created in the last 24 hours.
+var ErrInviteDaily = fmt.Errorf("%w: invites created in the last 24 hours", ErrLimit)
+
 // CreateInvite creates an invite link. Owner only. ErrLimit when the
-// household already has MaxActive unexpired, unrevoked invites.
+// household already has MaxActive unexpired, unrevoked invites; ErrInviteDaily
+// when MaxPerDay were created in the last 24 hours (counted from the audit log,
+// which keeps revoked and expired ones).
 func (s *Store) CreateInvite(ctx context.Context, a Actor, householdID string, in NewInvite) (Invite, error) {
 	if (in.Role != RoleMember && in.Role != RoleGuest) || in.TokenHash == "" {
 		return Invite{}, ErrInvalid
@@ -61,6 +68,15 @@ func (s *Store) CreateInvite(ctx context.Context, a Actor, householdID string, i
 		}
 		if n >= in.MaxActive {
 			return ErrLimit
+		}
+		if in.MaxPerDay > 0 {
+			if err := t.queryRow(ctx, "SELECT count(*) FROM audit_log WHERE household_id = ? AND event = ? AND created_at > ?",
+				householdID, AuditInviteCreate, now-24*60*60*1000).Scan(&n); err != nil {
+				return err
+			}
+			if n >= in.MaxPerDay {
+				return ErrInviteDaily
+			}
 		}
 		_, err := t.exec(ctx, `INSERT INTO invites (id, household_id, token_hash, role, created_by, created_at, expires_at, max_uses)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, inv.ID, householdID, in.TokenHash, in.Role, a.UserID, now, in.ExpiresAt.UnixMilli(), in.MaxUses)

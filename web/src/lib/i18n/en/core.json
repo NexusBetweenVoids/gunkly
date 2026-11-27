@@ -82,6 +82,8 @@
   "err.two_factor_required": "A code from your authenticator app is required.",
   "err.conflict": "That conflicts with the current state. Reload and try again.",
   "err.limit_reached": "A limit has been reached.",
+  "err.limit_reached.active_invites": "This household already has the most open invite links allowed. Revoke one, or wait until one is used or expires.",
+  "err.limit_reached.invites_per_day": "Too many invite links were created for this household in the last 24 hours (revoked ones count too). Try again later.",
   "err.body_too_large": "That request is too large.",
   "err.internal": "The server had a problem. Please try again later.",
   "err.rate_limited": "Too many attempts. Please wait {wait} and try again.",

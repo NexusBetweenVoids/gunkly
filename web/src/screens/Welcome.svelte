@@ -6,6 +6,8 @@
   import Button from '../components/Button.svelte';
   import Field from '../components/Field.svelte';
   import TimeZone from '../components/TimeZone.svelte';
+  import Passkeys from './account/Passkeys.svelte';
+  import Totp from './account/Totp.svelte';
   import { api } from '../lib/api';
   import { copyText } from '../lib/clip';
   import { addDays, householdToday } from '../lib/dates';
@@ -18,18 +20,18 @@
   import type { Area, Household, Template } from '../lib/types';
   import { localZone, zones } from '../lib/zones';
 
-  type Step = 'verify' | 'household' | 'chores' | 'invite';
+  type Step = 'verify' | 'household' | 'chores' | 'invite' | 'secure';
   // The hosted service needs a confirmed email address (which also turns on two-step verification)
   // before a household can be created; self-hosted instances skip that step.
   const needsVerify = $derived(app.instance.hostedMode && !!app.user?.email && !app.user.emailVerified);
-  const steps = $derived<Step[]>(app.instance.hostedMode ? ['verify', 'household', 'chores', 'invite'] : ['household', 'chores', 'invite']);
+  const steps = $derived<Step[]>(app.instance.hostedMode ? ['verify', 'household', 'chores', 'invite', 'secure'] : ['household', 'chores', 'invite', 'secure']);
   let step = $state<Step>('household');
   $effect(() => {
     if (step === 'verify' && !needsVerify) step = 'household';
   });
   if (app.instance.hostedMode && app.user?.email && !app.user.emailVerified) step = 'verify';
   const LABELS: Record<Step, Key> = {
-    verify: 'welcome.step.verify', household: 'welcome.step.household', chores: 'welcome.step.chores', invite: 'welcome.step.invite',
+    verify: 'welcome.step.verify', household: 'welcome.step.household', chores: 'welcome.step.chores', invite: 'welcome.step.invite', secure: 'welcome.step.secure',
   };
 
   let busy = $state(false);
@@ -52,7 +54,7 @@
   const first = (app.user?.displayName ?? '').trim().split(/\s+/)[0] ?? '';
   let name = $state(first ? t('welcome.nameSuggestion', { name: first }) : '');
   let timezone = $state(localZone);
-  let areas = $state(true);
+  let areas = $state(false); // opt-in: grouping by area is something to choose, not a default
   let tzErr = $state('');
   let hh = $state<Household | null>(null);
 
@@ -140,7 +142,7 @@
     busy = true;
     err = '';
     try {
-      const inv = await api<{ token: string }>('POST', `/households/${hh.id}/invites`, { role: 'member', expiresInHours: 168, maxUses: 1 });
+      const inv = await api<{ token: string }>('POST', `/households/${hh.id}/invites`, { role: 'member', expiresInHours: 72, maxUses: 1 });
       link = `${location.origin}/invite/${inv.token}`;
     } catch (x) {
       err = failure(x).message;
@@ -212,7 +214,7 @@
         <Button variant="quiet" onclick={() => (step = 'invite')}>{t('welcome.skip')}</Button>
       </div>
     </div>
-  {:else}
+  {:else if step === 'invite'}
     <div class="stack">
       <h2>{t('welcome.inviteTitle')}</h2>
       <p class="hint">{t('welcome.inviteHint')}</p>
@@ -227,6 +229,17 @@
         <div><Button variant="quiet" {busy} onclick={makeInvite}>{t('welcome.makeInvite')}</Button></div>
       {/if}
       <Alert message={err} />
+      <div class="row finish">
+        <Button onclick={() => (step = 'secure')}>{t('welcome.next')}</Button>
+      </div>
+    </div>
+  {:else}
+    <div class="stack secure">
+      <h2>{t('welcome.secureTitle')} <span class="badge">{t('welcome.optional')}</span></h2>
+      <p class="hint">{app.user?.emailOtpEnabled ? t('welcome.secureHintEmail') : t('welcome.secureHint')}</p>
+      {#if app.instance.passkeysAvailable}<Passkeys />{/if}
+      <Totp />
+      <p class="hint">{t('welcome.secureLater')}</p>
       <div class="row finish">
         <Button onclick={finish}>{t('welcome.finish')}</Button>
       </div>
@@ -313,5 +326,29 @@
   }
   .finish {
     margin-block-start: 8px;
+  }
+  .secure h2 {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+  /* The settings sections, as lighter blocks inside the welcome card. */
+  .secure :global(section.card) {
+    box-shadow: none;
+    border: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .secure :global(section.card h2) {
+    font-size: 1.0625rem;
+  }
+  .secure :global(section.card p) {
+    font-size: 0.9375rem;
+  }
+  /* Optional here: outlined, so "Go to my chores" stays the main action. */
+  .secure :global(section.card .btn:not(.btn-quiet):not(.btn-danger)) {
+    background: transparent;
+    color: var(--accent);
+    box-shadow: inset 0 0 0 2px var(--accent);
   }
 </style>

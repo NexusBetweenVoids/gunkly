@@ -19,5 +19,7 @@ export function failure(e: unknown): Failure {
   if (e.code === 'cancelled') return { code: e.code, message: '' };
   if (e.status === 429) return { code: 'rate_limited', message: t('err.rate_limited', { wait: wait(e.retryAfter) }) };
   const k = `err.${ALIAS[e.code] ?? e.code}`;
-  return { code: e.code, message: t(has(k) ? (k as Key) : 'err.unknown') };
+  // A reason can make the message specific (err.limit_reached.active_invites); else the code's own.
+  const specific = e.reason ? `${k}.${e.reason}` : '';
+  return { code: e.code, message: t(specific && has(specific) ? (specific as Key) : has(k) ? (k as Key) : 'err.unknown') };
 }

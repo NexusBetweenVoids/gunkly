@@ -7,18 +7,19 @@ test('welcome flow: household, starter chores spread over the week, invite link,
   await page.getByRole('link', { name: 'Set up your home' }).click();
   await expect(page).toHaveURL(/\/welcome$/);
   const steps = page.getByRole('list', { name: 'Setup steps' });
-  await expect(steps.getByRole('listitem')).toHaveCount(3); // self-hosted: no email step
+  await expect(steps.getByRole('listitem')).toHaveCount(4); // self-hosted: no email step
   await expect(steps.locator('[aria-current="step"]')).toContainText('Household');
   for (const theme of ['light', 'dark'] as const) {
     await setTheme(page, theme);
     await axe(page, `welcome: household (${theme})`);
   }
 
-  // Household: a name is suggested; areas on by default.
+  // Household: a name is suggested; grouping by area is off until ticked (ticked here to cover it).
   const name = page.getByLabel('Household name');
   await expect(name).not.toHaveValue('');
   await name.fill('Test home');
-  await expect(page.getByLabel(/Group chores by area/)).toBeChecked();
+  await expect(page.getByLabel(/Group chores by area/)).not.toBeChecked();
+  await page.getByLabel(/Group chores by area/).check();
   await page.getByRole('button', { name: 'Create household' }).click();
 
   // Chores: common ones ticked; untick one, tick another.
@@ -34,6 +35,13 @@ test('welcome flow: household, starter chores spread over the week, invite link,
   await page.getByRole('button', { name: 'Create an invite link' }).click();
   await expect(page.getByText(/\/invite\//)).toBeVisible();
   await axe(page, 'welcome: invite');
+  await page.getByRole('button', { name: 'Next' }).click();
+
+  // Security: optional, with the passkey and authenticator sections.
+  await expect(page.getByRole('heading', { name: /Secure your account/ })).toBeVisible();
+  await expect(page.getByText('Optional', { exact: true })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Two-factor authentication' })).toBeVisible();
+  await axe(page, 'welcome: security');
   await page.getByRole('button', { name: 'Go to my chores' }).click();
   await expect(page.getByRole('heading', { name: 'Chores' })).toBeVisible();
 

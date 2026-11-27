@@ -1,18 +1,21 @@
 <script lang="ts">
+  import type { Snippet } from 'svelte';
   import { t } from '../lib/i18n';
   import Button from './Button.svelte';
   import Field from './Field.svelte';
 
   // The second step: a code from the authenticator app or from email (with
   // "email me a new code"), or a recovery code. The parent decides which body
-  // field the code goes into from `method` and `recovery`.
+  // field the code goes into from `method` and `recovery`. `action` (the submit
+  // button) sits right under the code, before the alternatives.
   let {
     code = $bindable(''),
     recovery = $bindable(false),
     error = '',
     method = 'totp',
     onresend,
-  }: { code: string; recovery: boolean; error?: string; method?: 'totp' | 'email' | 'passkey'; onresend?: () => void } = $props();
+    action,
+  }: { code: string; recovery: boolean; error?: string; method?: 'totp' | 'email' | 'passkey'; onresend?: () => void; action?: Snippet } = $props();
 </script>
 
 {#if recovery}
@@ -26,6 +29,7 @@
     spellcheck="false"
     required
   />
+  {@render action?.()}
 {:else if method !== 'passkey'}
   <Field
     label={method === 'email' ? t('twofa.emailCode') : t('twofa.code')}
@@ -36,6 +40,7 @@
     autocomplete="one-time-code"
     required
   />
+  {@render action?.()}
   {#if method === 'email' && onresend}
     <Button variant="quiet" onclick={onresend}>{t('twofa.resend')}</Button>
   {/if}

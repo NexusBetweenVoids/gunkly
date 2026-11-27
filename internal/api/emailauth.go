@@ -83,7 +83,26 @@ func validToken(t string) bool { return t != "" && len(t) <= 128 }
 // often opened on another device. In hosted mode, 2FA is mandatory, so a user
 // without any second factor is enrolled in email codes right here and the
 // recovery codes are shown once.
-func (s *Server) verifyEmail(w http.ResponseWriter, r *http.Request, c *call) error {
+// verifySignInWindow is how young an account must be for its first email
+// confirmation to also sign it in (once), on a device that is signed out.
+const verifySignInWindow = 24 * time.Hour
+
+// canSignInByVerify: the token confirms a new account's first address (no
+// email change, never confirmed before, created within the window) and this
+// browser has no session. Then confirming may also sign in, once: opening the
+// link proves the mailbox, which a password reset relies on too.
+func (s *Server) canSignInByVerify(w http.ResponseWriter, r *http.Request, u store.User, newEmail string) bool {
+	if newEmail != "" || u.EmailVerified || s.now().Sub(u.CreatedAt) > verifySignInWindow {
+		return false
+	}
+	_, _, signedIn := s.authenticate(w, r)
+	return !signedIn
+}
+
+// previewVerifyEmail tells the confirmation page, without using the token,
+// whether confirming can also sign in, and as whom (so the person sees which
+// account it is before continuing).
+func (s *Server) previewVerifyEmail(w http.ResponseWriter, r *http.Request, _ *call) error {
 	if err := s.requireEmail(); err != nil {
 		return err
 	}
@@ -96,7 +115,41 @@ func (s *Server) verifyEmail(w http.ResponseWriter, r *http.Request, c *call) er
 	if !validToken(in.Token) {
 		return errf(http.StatusBadRequest, "invalid_token")
 	}
+	u, newEmail, err := s.st.PeekVerifyEmail(r.Context(), ids.Hash(in.Token))
+	if errors.Is(err, store.ErrNotFound) {
+		return errf(http.StatusBadRequest, "invalid_token")
+	} else if err != nil {
+		return err
+	}
+	out := map[string]any{}
+	if s.canSignInByVerify(w, r, u, newEmail) {
+		out["continueAs"] = u.DisplayName
+	}
+	return ok(w, out)
+}
+
+func (s *Server) verifyEmail(w http.ResponseWriter, r *http.Request, c *call) error {
+	if err := s.requireEmail(); err != nil {
+		return err
+	}
+	var in struct {
+		Token string `json:"token"`
+		// SignIn also signs in, when canSignInByVerify allows it (the "Continue as" button).
+		SignIn bool `json:"signIn"`
+	}
+	if err := decode(r, &in); err != nil {
+		return err
+	}
+	if !validToken(in.Token) {
+		return errf(http.StatusBadRequest, "invalid_token")
+	}
 	ctx := r.Context()
+	signIn := false
+	if in.SignIn {
+		if pu, newEmail, err := s.st.PeekVerifyEmail(ctx, ids.Hash(in.Token)); err == nil {
+			signIn = s.canSignInByVerify(w, r, pu, newEmail)
+		}
+	}
 	codes, hashes := auth.GenerateRecoveryCodes(auth.RecoveryCodeCount)
 	u, enrolled, err := s.st.VerifyEmail(ctx, ids.Hash(in.Token), s.hosted, hashes)
 	switch {
@@ -114,6 +167,14 @@ func (s *Server) verifyEmail(w http.ResponseWriter, r *http.Request, c *call) er
 	out := map[string]any{"verified": true}
 	if enrolled {
 		out["recoveryCodes"] = codes
+	}
+	if signIn {
+		csrf, err := s.openSession(w, r, c, u)
+		if err != nil {
+			return err
+		}
+		s.audit(ctx, c, u.ID, store.AuditLoginSuccess, "", map[string]string{"via": "email_verification"})
+		out["session"] = sessionView{Authenticated: true, User: viewMe(u), CSRF: csrf}
 	}
 	return ok(w, out)
 }

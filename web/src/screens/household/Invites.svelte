@@ -13,13 +13,13 @@
   let { id }: { id: string } = $props();
   const expiries: { hours: number; label: Key }[] = [
     { hours: 24, label: 'invite.exp1' },
+    { hours: 72, label: 'invite.exp3' },
     { hours: 168, label: 'invite.exp7' },
-    { hours: 720, label: 'invite.exp30' },
   ];
 
   let invites = $state<Invite[]>([]);
   let role = $state<Role>('member');
-  let hours = $state(168);
+  let hours = $state(72);
   let several = $state(false);
   let maxUses = $state(5);
   let link = $state('');

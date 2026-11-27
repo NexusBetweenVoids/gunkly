@@ -698,23 +698,24 @@ func TestWindowCounter(t *testing.T) {
 func TestNewRoutesDeclareTheirPolicies(t *testing.T) {
 	e := newEnv(t)
 	want := map[string]policy{
-		"GET /api/v1/instance":                  public,
-		"GET /api/v1/signup/challenge":          publicRateLimited(rateSignup),
-		"POST /api/v1/signup":                   publicRateLimited(rateSignup),
-		"POST /api/v1/account/email/verify":     publicRateLimited(rateVerify),
-		"POST /api/v1/account/email/resend":     session.noToken().withRate(rateEmail),
-		"PATCH /api/v1/account/email":           session.noToken().withStepUp().withRate(rateEmail),
-		"POST /api/v1/password-reset/request":   publicRateLimited(rateReset),
-		"POST /api/v1/password-reset/confirm":   publicRateLimited(rateReset),
-		"POST /api/v1/account/email-otp":        session.noToken().withStepUp().withRate(rateTwoFA),
-		"DELETE /api/v1/account/email-otp":      session.noToken().withStepUp(),
-		"POST /api/v1/account/totp/setup":       session.noToken().withStepUp(),
-		"POST /api/v1/session/step-up":          session.noToken().withRate(rateTwoFA),
-		"POST /api/v1/households":               session.noToken(),
-		"GET /api/v1/admin/updates":             admin.noToken(),
-		"POST /api/v1/admin/updates/check":      admin.noToken(),
-		"POST /api/v1/invites/{token}/accept":   session.noToken().withRate(rateInvite),
-		"POST /api/v1/invites/{token}/register": publicRateLimited(rateInvite),
+		"GET /api/v1/instance":                      public,
+		"GET /api/v1/signup/challenge":              publicRateLimited(rateSignup),
+		"POST /api/v1/signup":                       publicRateLimited(rateSignup),
+		"POST /api/v1/account/email/verify":         publicRateLimited(rateVerify),
+		"POST /api/v1/account/email/verify/preview": publicRateLimited(rateVerify),
+		"POST /api/v1/account/email/resend":         session.noToken().withRate(rateEmail),
+		"PATCH /api/v1/account/email":               session.noToken().withStepUp().withRate(rateEmail),
+		"POST /api/v1/password-reset/request":       publicRateLimited(rateReset),
+		"POST /api/v1/password-reset/confirm":       publicRateLimited(rateReset),
+		"POST /api/v1/account/email-otp":            session.noToken().withStepUp().withRate(rateTwoFA),
+		"DELETE /api/v1/account/email-otp":          session.noToken().withStepUp(),
+		"POST /api/v1/account/totp/setup":           session.noToken().withStepUp(),
+		"POST /api/v1/session/step-up":              session.noToken().withRate(rateTwoFA),
+		"POST /api/v1/households":                   session.noToken(),
+		"GET /api/v1/admin/updates":                 admin.noToken(),
+		"POST /api/v1/admin/updates/check":          admin.noToken(),
+		"POST /api/v1/invites/{token}/accept":       session.noToken().withRate(rateInvite),
+		"POST /api/v1/invites/{token}/register":     publicRateLimited(rateInvite),
 	}
 	seen := 0
 	for _, r := range e.srv.routes {
@@ -865,4 +866,126 @@ func TestRecoveryCodesCountAndRenew(t *testing.T) {
 	expect(t, st, v, 401, "invalid_code")
 	st, v = c2.login("ann", map[string]string{"recoveryCode": fresh[0].(string)})
 	expect(t, st, v, 200, "")
+}
+
+// Opening the confirmation link of a brand-new account on a signed-out device can also sign in, once,
+// after "Continue as": not for an email change, a signed-in browser, an old account or a used link.
+func TestVerifyEmailCanSignInOnce(t *testing.T) {
+	e := newMailEnv(t)
+	e.user("ann", false)
+	c := e.signedIn("ann")
+	c.do("POST", "/api/v1/account/email/resend", nil)
+	token := tokenIn(t, e.oneMail("ann@example.com"))
+
+	// The signed-in browser itself: confirming works, no second session.
+	if _, v := c.do("POST", "/api/v1/account/email/verify/preview", map[string]string{"token": token}); field(v, "continueAs") != nil {
+		t.Fatalf("signed in: %v", v)
+	}
+
+	// Another, signed-out device: offered, then signed in by confirming.
+	phone := e.client()
+	st, v := phone.do("POST", "/api/v1/account/email/verify/preview", map[string]string{"token": token})
+	if st != 200 || field(v, "continueAs") != "ann" {
+		t.Fatalf("preview: %d %v", st, v)
+	}
+	st, v = phone.do("POST", "/api/v1/account/email/verify", map[string]any{"token": token, "signIn": true})
+	if st != 200 || field(v, "verified") != true || v.(map[string]any)["session"] == nil {
+		t.Fatalf("verify+sign in: %d %v", st, v)
+	}
+	if st, v := phone.do("GET", "/api/v1/me", nil); st != 200 || field(v, "emailVerified") != true {
+		t.Fatalf("phone not signed in: %d %v", st, v)
+	}
+	// The link is used up: no second sign-in with it.
+	other := e.client()
+	st, v = other.do("POST", "/api/v1/account/email/verify", map[string]any{"token": token, "signIn": true})
+	expect(t, st, v, 400, "invalid_token")
+
+	// An email change is never a sign-in.
+	c2 := e.signedInStepUp("ann")
+	st, v = c2.do("PATCH", "/api/v1/account/email", map[string]string{"email": "ann2@example.com"})
+	if st >= 300 {
+		t.Fatalf("change email: %d %v", st, v)
+	}
+	var change string
+	for _, m := range e.mails() { // the confirmation to the new address, and a notice to the old one
+		if m.To == "ann2@example.com" {
+			change = tokenIn(t, m)
+		}
+	}
+	anon := e.client()
+	if _, v := anon.do("POST", "/api/v1/account/email/verify/preview", map[string]string{"token": change}); field(v, "continueAs") != nil {
+		t.Fatalf("email change offered sign-in: %v", v)
+	}
+	st, v = anon.do("POST", "/api/v1/account/email/verify", map[string]any{"token": change, "signIn": true})
+	if st != 200 || v.(map[string]any)["session"] != nil {
+		t.Fatalf("email change signed in: %d %v", st, v)
+	}
+
+	// An account older than a day: confirming still works, without signing in.
+	e.user("bob", false)
+	e.clock.Add(25 * time.Hour)
+	cb := e.signedIn("bob")
+	cb.do("POST", "/api/v1/account/email/resend", nil)
+	tb := tokenIn(t, e.oneMail("bob@example.com"))
+	st, v = e.client().do("POST", "/api/v1/account/email/verify", map[string]any{"token": tb, "signIn": true})
+	if st != 200 || v.(map[string]any)["session"] != nil {
+		t.Fatalf("old account signed in: %d %v", st, v)
+	}
+}
+
+// A household hitting the daily invite limit emails the admins (once per household per day, unless
+// security alerts are off) and shows up as a security event for them.
+func TestInviteLimitAlertsAdmins(t *testing.T) {
+	e := newMailEnv(t)
+	e.user("root", true)
+	e.verified("root")
+	e.user("ann", false)
+	ann := e.signedIn("ann")
+	e.mails()
+	mkHH := func() string {
+		st, v := ann.do("POST", "/api/v1/households", map[string]string{"name": "Home", "timezone": "UTC"})
+		if st != 201 {
+			t.Fatalf("household: %d %v", st, v)
+		}
+		return field(v, "id").(string)
+	}
+	burn := func(hh string) (int, any) { // create and revoke until the daily limit answers
+		base := "/api/v1/households/" + hh + "/invites"
+		for {
+			st, v := ann.do("POST", base, map[string]string{"role": "guest"})
+			if st != 201 {
+				return st, v
+			}
+			ann.do("DELETE", base+"/"+field(v, "id").(string), nil)
+		}
+	}
+	hh := mkHH()
+	if st, v := burn(hh); st != 409 || reason(v) != "invites_per_day" {
+		t.Fatalf("limit: %d %v", st, v)
+	}
+	m := e.oneMail("root@example.com")
+	if !strings.Contains(m.Subject, "invite limit") || !strings.Contains(m.Body, "ann") || !strings.Contains(m.Body, hh) {
+		t.Fatalf("alert mail: %+v", m)
+	}
+	// Trying again the same day: recorded, but no second email.
+	burn(hh)
+	if ms := e.mails(); len(ms) != 0 {
+		t.Fatalf("second alert mailed: %+v", ms)
+	}
+	root := e.signedIn("root")
+	_, v := root.do("GET", "/api/v1/admin/health", nil)
+	evs, _ := v.(map[string]any)["securityEvents"].([]any)
+	if len(evs) != 2 || str(evs[0], "username") != "ann" || str(evs[0], "householdId") != hh {
+		t.Fatalf("security events: %v", v)
+	}
+
+	// Alerts off: still recorded, no email.
+	rootUp := e.signedInStepUp("root")
+	if st, v := rootUp.do("PATCH", "/api/v1/admin/settings", map[string]any{"securityAlerts": false}); st != 200 || field(v, "securityAlerts") != false {
+		t.Fatalf("turn off: %d %v", st, v)
+	}
+	burn(mkHH())
+	if ms := e.mails(); len(ms) != 0 {
+		t.Fatalf("alert mailed while off: %+v", ms)
+	}
 }

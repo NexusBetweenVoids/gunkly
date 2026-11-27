@@ -126,7 +126,8 @@ Legal and compliance documents for the maintainer's hosted service are kept outs
 | Completions kept per chore (oldest non-reverted pruned beyond this) | 1,000 |
 | Authenticated write requests | 120/minute per user (burst 60); 300/minute per household (burst 100); fixed, not admin-tunable |
 | API token requests | 120/minute per token (burst 60); 300/minute per client IP (burst 100); fixed, not admin-tunable |
-| Active invite links per household | 20 (each link: 1-100 uses, default 1) |
+| Active invite links per household | 5 (each link: 1-100 uses, default 1; valid 1, 3 or 7 days in the app, default 3) |
+| Invite links created per household per 24 hours | 10 (revoked and expired ones count too; counted from the audit log) |
 | Calendar feeds per user | 10 |
 | Outgoing webhooks per household (only while the admin enables webhooks) | 10 |
 | API tokens per user (active) | 20 |

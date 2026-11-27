@@ -4,8 +4,8 @@
   "invite.role": "Role",
   "invite.expires": "Expires after",
   "invite.exp1": "1 day",
+  "invite.exp3": "3 days",
   "invite.exp7": "7 days",
-  "invite.exp30": "30 days",
   "invite.usesLabel": "Can be used by",
   "invite.usesOne": "1 person",
   "invite.usesMany": "Several people",
@@ -193,5 +193,12 @@
   "welcome.share": "Share link",
   "welcome.shareTitle": "Join my household on Gunkly",
   "welcome.shareText": "Join {household} on Gunkly to share our chores:",
-  "welcome.finish": "Go to my chores"
+  "welcome.finish": "Go to my chores",
+  "welcome.step.secure": "Security",
+  "welcome.next": "Next",
+  "welcome.optional": "Optional",
+  "welcome.secureTitle": "Secure your account",
+  "welcome.secureHintEmail": "You already get a code by email when you sign in. A passkey (your fingerprint, face or device PIN) is quicker and safer, and an authenticator app works without email. Recommended, but you can skip this.",
+  "welcome.secureHint": "Add a second step to signing in, so a password alone is not enough: a passkey (your fingerprint, face or device PIN) or an authenticator app. Recommended, but you can skip this.",
+  "welcome.secureLater": "You can do this any time later under Settings, Sign-in & security."
 }

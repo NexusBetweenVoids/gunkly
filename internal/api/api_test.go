@@ -894,6 +894,43 @@ func TestInviteLimit(t *testing.T) {
 	}
 	st, v := f.a.do("POST", "/api/v1/households/"+f.hA+"/invites", map[string]string{"role": "guest"})
 	expect(t, st, v, 409, "limit_reached")
+	if reason(v) != "active_invites" {
+		t.Fatalf("reason: %v", v)
+	}
+}
+
+// Creating and revoking invite links over and over is capped per household per 24 hours.
+func TestInviteDailyLimit(t *testing.T) {
+	f := newHH(t)
+	base := "/api/v1/households/" + f.hA + "/invites"
+	revokeAll := func() {
+		_, list := f.a.do("GET", base, nil)
+		for _, inv := range list.([]any) {
+			f.a.do("DELETE", base+"/"+inv.(map[string]any)["id"].(string), nil)
+		}
+	}
+	day := limits.Defaults[limits.InvitesPerHouseholdDay]
+	for i := 1; i < day; i++ { // the fixture created one
+		revokeAll()
+		st, v := f.a.do("POST", base, map[string]string{"role": "guest"})
+		expect(t, st, v, 201, "")
+	}
+	revokeAll()
+	st, v := f.a.do("POST", base, map[string]string{"role": "guest"})
+	expect(t, st, v, 409, "limit_reached")
+	if reason(v) != "invites_per_day" {
+		t.Fatalf("reason: %v", v)
+	}
+	f.e.clock.Add(24*time.Hour + time.Minute)
+	st, v = f.a.do("POST", base, map[string]string{"role": "guest"})
+	expect(t, st, v, 201, "")
+}
+
+func reason(v any) string {
+	m, _ := v.(map[string]any)
+	e, _ := m["error"].(map[string]any)
+	s, _ := e["reason"].(string)
+	return s
 }
 
 func TestAdmin(t *testing.T) {

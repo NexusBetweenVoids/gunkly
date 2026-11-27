@@ -3,6 +3,7 @@
   import { t } from '../lib/i18n';
   import Ai from './admin/Ai.svelte';
   import ProxyWarning from './admin/ProxyWarning.svelte';
+  import SecurityEvents from './admin/SecurityEvents.svelte';
   import ServiceCards from './admin/ServiceCards.svelte';
   import Settings from './admin/Settings.svelte';
   import Updates from './admin/Updates.svelte';
@@ -22,7 +23,7 @@
 </script>
 
 <SettingsLayout title={t('admin.title')} base="/admin" {groups} {section}>
-  {#snippet intro()}<ProxyWarning /><p class="hint">{t('guide.againLead')} <a href="/setup/guide">{t('guide.again')}</a></p>{/snippet}
+  {#snippet intro()}<ProxyWarning /><SecurityEvents /><p class="hint">{t('guide.againLead')} <a href="/setup/guide">{t('guide.again')}</a></p>{/snippet}
   {#snippet children(g: string)}
     {#if g === 'users'}
       <Users />

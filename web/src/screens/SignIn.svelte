@@ -119,7 +119,11 @@
         {method}
         onresend={() => submit(undefined, true)}
         error={err.code === 'invalid_code' ? err.message : ''}
-      />
+      >
+        {#snippet action()}
+          <Button type="submit" {busy} variant={passkeyOffered && !recovery ? 'quiet' : 'primary'}>{t('signIn.verify')}</Button>
+        {/snippet}
+      </SecondFactor>
     {:else}
       <Field
         label={t('signIn.username')}
@@ -139,8 +143,8 @@
       />
     {/if}
     {#if err.code !== 'invalid_credentials' && err.code !== 'invalid_code'}<Alert message={err.message || (needSecond ? '' : ssoMessage)} />{/if}
-    {#if !needSecond || (method !== 'passkey' && !choosing) || recovery}
-      <Button type="submit" {busy} variant={needSecond && passkeyOffered && !recovery ? 'quiet' : 'primary'}>{needSecond ? t('signIn.verify') : t('signIn.title')}</Button>
+    {#if !needSecond}
+      <Button type="submit" {busy}>{t('signIn.title')}</Button>
     {/if}
     {#if needSecond}
       <Button

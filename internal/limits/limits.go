@@ -26,18 +26,21 @@ const (
 	EmailsIPHour               Kind = "emails_ip_hour"
 	EmailsGlobalHour           Kind = "emails_global_hour"
 	ActiveInvitesPerHousehold  Kind = "active_invites_per_household"
-	CalendarFeedsPerUser       Kind = "calendar_feeds_per_user"
-	PushSubscriptionsPerUser   Kind = "push_subscriptions_per_user"
-	SignupsPerIPHour           Kind = "signups_per_ip_hour"
-	LoginAttemptsPerMinute     Kind = "login_attempts_per_minute"
-	AreasPerHousehold          Kind = "areas_per_household"
-	CompletionsPerChore        Kind = "completions_per_chore"
-	APITokensPerUser           Kind = "api_tokens_per_user" //nolint:gosec // G101: a limit name, not a credential
-	OAuthClients               Kind = "oauth_clients"       // registered OAuth clients, instance-wide
-	OAuthGrantsPerUser         Kind = "oauth_grants_per_user"
-	OAuthUnusedClientsPerIP    Kind = "oauth_unused_clients_per_ip" // registered, never approved clients per registering IP
-	WebhooksPerHousehold       Kind = "webhooks_per_household"
-	PasskeysPerUser            Kind = "passkeys_per_user"
+	// InvitesPerHouseholdDay caps invite links created per household over 24 hours, revoked ones
+	// included, so creating and revoking links over and over is bounded too.
+	InvitesPerHouseholdDay   Kind = "invites_per_household_day"
+	CalendarFeedsPerUser     Kind = "calendar_feeds_per_user"
+	PushSubscriptionsPerUser Kind = "push_subscriptions_per_user"
+	SignupsPerIPHour         Kind = "signups_per_ip_hour"
+	LoginAttemptsPerMinute   Kind = "login_attempts_per_minute"
+	AreasPerHousehold        Kind = "areas_per_household"
+	CompletionsPerChore      Kind = "completions_per_chore"
+	APITokensPerUser         Kind = "api_tokens_per_user" //nolint:gosec // G101: a limit name, not a credential
+	OAuthClients             Kind = "oauth_clients"       // registered OAuth clients, instance-wide
+	OAuthGrantsPerUser       Kind = "oauth_grants_per_user"
+	OAuthUnusedClientsPerIP  Kind = "oauth_unused_clients_per_ip" // registered, never approved clients per registering IP
+	WebhooksPerHousehold     Kind = "webhooks_per_household"
+	PasskeysPerUser          Kind = "passkeys_per_user"
 	// AIRequestsPerUserDay caps chore suggestions per user over 24 hours (a
 	// paid AI endpoint costs money per request).
 	AIRequestsPerUserDay Kind = "ai_requests_per_user_day"
@@ -58,7 +61,8 @@ var Defaults = map[Kind]int{
 	EmailCodesAccountHour:      20,
 	EmailsIPHour:               5,
 	EmailsGlobalHour:           500,
-	ActiveInvitesPerHousehold:  20,
+	ActiveInvitesPerHousehold:  5,
+	InvitesPerHouseholdDay:     10,
 	CalendarFeedsPerUser:       10,
 	PushSubscriptionsPerUser:   10,
 	SignupsPerIPHour:           5,

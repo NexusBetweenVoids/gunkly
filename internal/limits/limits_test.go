@@ -29,17 +29,17 @@ func TestLimitPrecedence(t *testing.T) {
 		{MembersPerHousehold, "", 10},
 		{MembersPerHousehold, "h", 99},
 		{ChoresPerHousehold, "h", 2000}, // zero override ignored
-		{ActiveInvitesPerHousehold, "h", 20},
+		{ActiveInvitesPerHousehold, "h", 5},
 	}
 	for _, c := range cases {
 		if got, err := s.Limit(ctx, c.k, c.hh); err != nil || got != c.want {
 			t.Errorf("Limit(%s, %q) = %d, %v; want %d", c.k, c.hh, got, err, c.want)
 		}
 	}
-	if err := s.Check(ctx, ActiveInvitesPerHousehold, "h", 19); err != nil {
+	if err := s.Check(ctx, ActiveInvitesPerHousehold, "h", 4); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Check(ctx, ActiveInvitesPerHousehold, "h", 20); !errors.Is(err, ErrExceeded) {
+	if err := s.Check(ctx, ActiveInvitesPerHousehold, "h", 5); !errors.Is(err, ErrExceeded) {
 		t.Fatal(err)
 	}
 	for k := range Defaults {

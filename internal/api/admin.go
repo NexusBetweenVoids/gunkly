@@ -122,6 +122,7 @@ type settingsView struct {
 	EgressGuard                bool     `json:"egressGuard"`
 	EgressGuardLocked          bool     `json:"egressGuardLocked"` // hosted mode: cannot be turned off
 	UpdateCheck                bool     `json:"updateCheck"`       // ask GitHub for the latest release (Updates page)
+	SecurityAlerts             bool     `json:"securityAlerts"`    // email admins about suspicious activity (default on)
 	MCPEnabled                 bool     `json:"mcpEnabled"`        // serve the MCP endpoint /mcp (ADR 0015)
 	WebhooksEnabled            bool     `json:"webhooksEnabled"`   // let household owners add outgoing webhooks (ADR 0017); off by default
 	OAuthEnabled               bool     `json:"oauthEnabled"`      // let MCP clients sign in with OAuth (ADR 0016); off by default
@@ -163,7 +164,7 @@ func (s *Server) adminGetSettings(w http.ResponseWriter, r *http.Request, _ *cal
 		AuditRetentionDays: st.AuditRetentionDays, DeliveryRetentionDays: st.DeliveryRetentionDays,
 		Limits: map[limits.Kind]int{}, LimitDefaults: limits.Defaults,
 		EnabledNotificationKinds: append([]string{}, slices.Sorted(maps.Keys(kindSet(st)))...), AvailableNotificationKinds: notify.AllKinds(),
-		EgressGuard: s.hosted || st.EgressGuard, EgressGuardLocked: s.hosted, UpdateCheck: st.UpdateCheck, MCPEnabled: st.MCPEnabled,
+		EgressGuard: s.hosted || st.EgressGuard, EgressGuardLocked: s.hosted, UpdateCheck: st.UpdateCheck, SecurityAlerts: st.SecurityAlerts, MCPEnabled: st.MCPEnabled,
 		OAuthEnabled: st.OAuthEnabled, WebhooksEnabled: st.WebhooksEnabled, OAuthPossible: oauthBaseURLOK(s.baseURL), SSOConfigured: sp != nil, SSOCreateAccounts: st.SSOCreateAccounts, SSOName: st.SSOName, SSONameDefault: s.ssoNameDefault(),
 		InactiveEnabled: st.InactiveEnabled, InactiveWarnAfterDays: st.InactiveWarnAfterDays, InactiveDeleteAfterDays: st.InactiveDeleteAfterDays}
 	v.SSOAvailable, v.SSOCallback = !s.hosted, s.baseURL+"/api/v1/auth/oidc/callback"
@@ -194,6 +195,7 @@ func (s *Server) adminPatchSettings(w http.ResponseWriter, r *http.Request, c *c
 		EnabledNotificationKinds optional[[]string] `json:"enabledNotificationKinds"`
 		EgressGuard              *bool              `json:"egressGuard"`
 		UpdateCheck              *bool              `json:"updateCheck"`
+		SecurityAlerts           *bool              `json:"securityAlerts"`
 		MCPEnabled               *bool              `json:"mcpEnabled"`
 		OAuthEnabled             *bool              `json:"oauthEnabled"`
 		WebhooksEnabled          *bool              `json:"webhooksEnabled"`
@@ -215,7 +217,7 @@ func (s *Server) adminPatchSettings(w http.ResponseWriter, r *http.Request, c *c
 		}
 	}
 	upd := store.SettingsUpdate{OpenSignup: in.OpenSignup, RequirePoW: in.RequirePoW,
-		InviteRegistration: in.InviteRegistration, MinPasswordLength: in.MinPasswordLength, Limits: in.Limits, EgressGuard: in.EgressGuard, UpdateCheck: in.UpdateCheck, MCPEnabled: in.MCPEnabled, OAuthEnabled: in.OAuthEnabled, WebhooksEnabled: in.WebhooksEnabled, SSOCreateAccounts: in.SSOCreateAccounts, SSOName: in.SSOName,
+		InviteRegistration: in.InviteRegistration, MinPasswordLength: in.MinPasswordLength, Limits: in.Limits, EgressGuard: in.EgressGuard, UpdateCheck: in.UpdateCheck, SecurityAlerts: in.SecurityAlerts, MCPEnabled: in.MCPEnabled, OAuthEnabled: in.OAuthEnabled, WebhooksEnabled: in.WebhooksEnabled, SSOCreateAccounts: in.SSOCreateAccounts, SSOName: in.SSOName,
 		SessionIdleDays: in.SessionIdleDays, SessionMaxDays: in.SessionMaxDays,
 		AuditRetentionDays: in.AuditRetentionDays, DeliveryRetentionDays: in.DeliveryRetentionDays,
 		InactiveEnabled: in.InactiveEnabled, InactiveWarnAfterDays: in.InactiveWarnAfterDays, InactiveDeleteAfterDays: in.InactiveDeleteAfterDays}
