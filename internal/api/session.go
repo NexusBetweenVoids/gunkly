@@ -254,6 +254,7 @@ func (s *Server) checkLoginPassword(w http.ResponseWriter, r *http.Request, c *c
 	if errors.Is(err, store.ErrNotFound) {
 		_, _ = s.verifyPassword(s.dummy(), password)
 		s.acct.fail(pwKey)
+		s.signinSpreadFail(ctx, c, login)
 		return u, false, errInvalidCredentials
 	} else if err != nil {
 		return u, false, err
@@ -265,6 +266,7 @@ func (s *Server) checkLoginPassword(w http.ResponseWriter, r *http.Request, c *c
 	if good, err := s.verifyPassword(hash, password); err != nil || !good || !u.HasPassword() {
 		s.acct.fail(pwKey)
 		s.audit(ctx, c, u.ID, store.AuditLoginFailure, "", nil)
+		s.signinSpreadFail(ctx, c, login)
 		return u, false, errInvalidCredentials
 	}
 	return u, false, nil
@@ -497,5 +499,7 @@ func (s *Server) audit(ctx context.Context, c *call, actor, event, hh string, me
 	}
 	if err := s.st.Audit(ctx, store.AuditEvent{ActorUserID: actor, HouseholdID: hh, Event: event, IP: c.ip, Meta: meta}); err != nil {
 		s.log.Error("audit", "event", event, "err", err)
+		return
 	}
+	s.afterAudit(ctx, c, actor, event)
 }

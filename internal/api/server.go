@@ -106,6 +106,7 @@ type Server struct {
 	secure        bool // cookies get Secure; HSTS is sent
 	proxies       []netip.Prefix
 	untrusted     untrustedProxies
+	spread        signinSpread
 	log           *slog.Logger
 	ready         func(context.Context) error
 	static        fs.FS

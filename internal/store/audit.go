@@ -11,57 +11,60 @@ import (
 
 // Audit event names. Stable strings: the UI translates them.
 const (
-	AuditSetup             = "setup"
-	AuditLoginSuccess      = "login_success"
-	AuditLoginFailure      = "login_failure"
-	AuditLogout            = "logout"
-	AuditPasswordChange    = "password_change"
-	AuditPasswordReset     = "password_reset"
-	AuditTOTPEnable        = "totp_enable"
-	AuditTOTPDisable       = "totp_disable"
-	AuditRecoveryCodeUse   = "recovery_code_use"
-	AuditRecoveryCodesNew  = "recovery_codes_new" // the user replaced their recovery codes
-	AuditSessionRevoke     = "session_revoke"
-	AuditMemberRoleChange  = "member_role_change"
-	AuditMemberRemove      = "member_remove"
-	AuditInviteCreate      = "invite_create"
-	AuditInviteAccept      = "invite_accept"
-	AuditInviteRevoke      = "invite_revoke"
-	AuditInviteLimit       = "invite_limit_reached" // a household hit the daily invite limit (security alert)
-	AuditHouseholdCreate   = "household_create"
-	AuditAdminUserCreate   = "admin_user_create"
-	AuditAdminSettings     = "admin_settings"
-	AuditAdminUpdate       = "admin_update_requested" // the update webhook was called
-	AuditAISuggest         = "ai_suggest"             // a member asked the AI for chore suggestions (count only, never the text)
-	AuditRegisterByInvite  = "register_invite"
-	AuditSignup            = "signup"
-	AuditEmailVerify       = "email_verify"
-	AuditEmailChange       = "email_change"
-	AuditEmailOTPEnable    = "email_otp_enable"
-	AuditEmailOTPDisable   = "email_otp_disable"
-	AuditHouseholdSettings = "household_settings"
-	AuditChoreDelete       = "chore_delete"
-	AuditChoreSkip         = "chore_skip"
-	AuditCompletionRevert  = "completion_revert"
-	AuditTokenCreate       = "token_create"
-	AuditTokenRevoke       = "token_revoke"
-	AuditTokenComplete     = "token_complete"    // a chore completed with an API token; meta token = its ID
-	AuditOAuthGrant        = "oauth_grant"       // an OAuth client was given tokens; meta grant, client
-	AuditOAuthTokenReuse   = "oauth_token_reuse" //nolint:gosec // G101: an event name, not a credential; a used code or rotated refresh token came back: the grant was revoked
-	AuditOAuthRevoke       = "oauth_revoke"      // grants revoked (disconnect, revocation endpoint, password change...)
-	AuditPasskeyAdd        = "passkey_add"       // meta passkey
-	AuditPasskeyRemove     = "passkey_remove"    // meta passkey
-	AuditSSOLink           = "sso_link"          // single sign-on identity linked to the account
-	AuditSSOUnlink         = "sso_unlink"
-	AuditSSOSignup         = "sso_signup"           // account created by a first single sign-on
-	AuditAccountDelete     = "account_delete"       // actor-less: the account is gone
-	AuditOwnerTransfer     = "owner_transfer"       // household_id, meta owner = new owner
-	AuditWebhookCreate     = "webhook_create"       // household_id, meta webhook
-	AuditWebhookUpdate     = "webhook_update"       // household_id, meta webhook
-	AuditWebhookDelete     = "webhook_delete"       // household_id, meta webhook
-	AuditWebhookRotate     = "webhook_rotate"       // the signing secret was replaced; household_id, meta webhook
-	AuditWebhookAutoOff    = "webhook_auto_disable" // system: too many consecutive failures; household_id, meta webhook
-	AuditInactiveWarn      = "inactive_warn"        // system, meta user = account
+	AuditSetup               = "setup"
+	AuditLoginSuccess        = "login_success"
+	AuditLoginFailure        = "login_failure"
+	AuditLogout              = "logout"
+	AuditPasswordChange      = "password_change"
+	AuditPasswordReset       = "password_reset"
+	AuditTOTPEnable          = "totp_enable"
+	AuditTOTPDisable         = "totp_disable"
+	AuditRecoveryCodeUse     = "recovery_code_use"
+	AuditRecoveryCodesNew    = "recovery_codes_new" // the user replaced their recovery codes
+	AuditSessionRevoke       = "session_revoke"
+	AuditMemberRoleChange    = "member_role_change"
+	AuditMemberRemove        = "member_remove"
+	AuditInviteCreate        = "invite_create"
+	AuditInviteAccept        = "invite_accept"
+	AuditInviteRevoke        = "invite_revoke"
+	AuditSigninAttackAccount = "signin_attack_account" // many failed sign-ins against one account (security alert)
+	AuditSigninAttackIP      = "signin_attack_ip"      // one address failed against many accounts (security alert)
+	AuditSignupWave          = "signup_wave"           // many new accounts within an hour (security alert)
+	AuditInviteLimit         = "invite_limit_reached"  // a household hit the daily invite limit (security alert)
+	AuditHouseholdCreate     = "household_create"
+	AuditAdminUserCreate     = "admin_user_create"
+	AuditAdminSettings       = "admin_settings"
+	AuditAdminUpdate         = "admin_update_requested" // the update webhook was called
+	AuditAISuggest           = "ai_suggest"             // a member asked the AI for chore suggestions (count only, never the text)
+	AuditRegisterByInvite    = "register_invite"
+	AuditSignup              = "signup"
+	AuditEmailVerify         = "email_verify"
+	AuditEmailChange         = "email_change"
+	AuditEmailOTPEnable      = "email_otp_enable"
+	AuditEmailOTPDisable     = "email_otp_disable"
+	AuditHouseholdSettings   = "household_settings"
+	AuditChoreDelete         = "chore_delete"
+	AuditChoreSkip           = "chore_skip"
+	AuditCompletionRevert    = "completion_revert"
+	AuditTokenCreate         = "token_create"
+	AuditTokenRevoke         = "token_revoke"
+	AuditTokenComplete       = "token_complete"    // a chore completed with an API token; meta token = its ID
+	AuditOAuthGrant          = "oauth_grant"       // an OAuth client was given tokens; meta grant, client
+	AuditOAuthTokenReuse     = "oauth_token_reuse" //nolint:gosec // G101: an event name, not a credential; a used code or rotated refresh token came back: the grant was revoked
+	AuditOAuthRevoke         = "oauth_revoke"      // grants revoked (disconnect, revocation endpoint, password change...)
+	AuditPasskeyAdd          = "passkey_add"       // meta passkey
+	AuditPasskeyRemove       = "passkey_remove"    // meta passkey
+	AuditSSOLink             = "sso_link"          // single sign-on identity linked to the account
+	AuditSSOUnlink           = "sso_unlink"
+	AuditSSOSignup           = "sso_signup"           // account created by a first single sign-on
+	AuditAccountDelete       = "account_delete"       // actor-less: the account is gone
+	AuditOwnerTransfer       = "owner_transfer"       // household_id, meta owner = new owner
+	AuditWebhookCreate       = "webhook_create"       // household_id, meta webhook
+	AuditWebhookUpdate       = "webhook_update"       // household_id, meta webhook
+	AuditWebhookDelete       = "webhook_delete"       // household_id, meta webhook
+	AuditWebhookRotate       = "webhook_rotate"       // the signing secret was replaced; household_id, meta webhook
+	AuditWebhookAutoOff      = "webhook_auto_disable" // system: too many consecutive failures; household_id, meta webhook
+	AuditInactiveWarn        = "inactive_warn"        // system, meta user = account
 )
 
 // AuditEvent is one audit-log entry. Meta must never contain secrets.
@@ -129,7 +132,25 @@ func (s *Store) ListAuditForUser(ctx context.Context, userID string, limit int) 
 // AlertEvents are the audit events that are security alerts: listed on the
 // Administration page and, with security alerts on, emailed to the admins.
 // Add a new alert's event here.
-var AlertEvents = []string{AuditInviteLimit}
+var AlertEvents = []string{AuditInviteLimit, AuditSigninAttackAccount, AuditSigninAttackIP, AuditSignupWave}
+
+// CountAuditSince counts audit entries of the given events since a moment, of one actor
+// (of all actors when actorID is empty).
+func (s *Store) CountAuditSince(ctx context.Context, events []string, actorID string, since time.Time) (int, error) {
+	marks := strings.TrimSuffix(strings.Repeat("?,", len(events)), ",")
+	q := "SELECT count(*) FROM audit_log WHERE created_at > ? AND event IN (" + marks + ")"
+	args := []any{since.UnixMilli()}
+	for _, e := range events {
+		args = append(args, e)
+	}
+	if actorID != "" {
+		q += " AND actor_user_id = ?"
+		args = append(args, actorID)
+	}
+	var n int
+	err := s.db.QueryRowContext(ctx, s.d.Rebind(q), args...).Scan(&n)
+	return n, err
+}
 
 // AlertCountSince counts alert events of one kind and scope since a moment.
 // The scope (stored as meta "scope") is what an alert is deduplicated by: a

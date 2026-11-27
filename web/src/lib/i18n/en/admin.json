@@ -247,6 +247,9 @@
   "admin.securityAlertsHint": "Emails the admins (with a confirmed address) about suspicious activity, such as a household creating invite links up to the daily limit. At most one email per household per day; the events are always listed on the Administration page.",
   "secEvents.title": "Recent security events",
   "secEvents.intro": "Worth a look: these happened in the last 7 days.",
+  "secEvents.signin_attack_account": "{count} failed sign-ins against {username} within an hour",
+  "secEvents.signin_attack_ip": "The address {ip} failed to sign in to {count} different accounts within an hour",
+  "secEvents.signup_wave": "{count} new accounts were created within an hour",
   "secEvents.invite_limit_reached": "{username} hit the daily invite limit in household {household}",
   "secEvents.deletedUser": "A deleted account",
   "secEvents.hint": "Each of these can be a sign of abuse or an attack. Check the account under Users; the audit log has the details. Emails about them can be turned off under Sign-up & sign-in, Security alerts."
