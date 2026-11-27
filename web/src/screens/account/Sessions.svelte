@@ -53,7 +53,7 @@
 <section class="card" aria-labelledby="a-sessions">
   <h2 id="a-sessions">{t('sessions.title')}</h2>
   <Alert message={err} />
-  <ul class="list">
+  <ul class="list devices">
     {#each devices as d (d.id)}
       <li>
         <span>
@@ -69,3 +69,15 @@
     <p><Button variant="danger" onclick={revokeOthers}>{t('sessions.signOutOthers')}</Button></p>
   {/if}
 </section>
+
+<style>
+  /* Same text sizes as the "Ways to sign in" rows above. */
+  .devices strong {
+    font-size: 1rem;
+    font-weight: 700;
+  }
+  .devices .muted {
+    font-size: 0.875rem;
+    color: var(--text-2);
+  }
+</style>

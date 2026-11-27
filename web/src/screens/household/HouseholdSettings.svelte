@@ -367,8 +367,14 @@
   }
   /* Phones: name and date on one line, role and Remove below it (Remove at the end). */
   @media (max-width: 47.99rem) {
+    /* A row nobody can manage stays compact: its role sits beside the name, without the Remove
+       placeholder that only keeps the columns aligned on wider screens. */
     .role.static {
       padding-inline: 0;
+      min-block-size: 0;
+    }
+    span.remove {
+      display: none;
     }
     .remove {
       margin-inline-start: auto;

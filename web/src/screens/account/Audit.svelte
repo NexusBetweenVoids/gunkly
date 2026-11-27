@@ -22,13 +22,25 @@
   {#if events.length === 0 && !err}
     <p class="muted">{t('audit.none')}</p>
   {:else}
-    <ul class="list">
+    <ul class="list events">
       {#each events as e, i (i)}
         <li>
-          <span>{label(e.event)}</span>
+          <strong>{label(e.event)}</strong>
           <span class="muted">{formatDate(new Date(e.createdAt), { dateStyle: 'medium', timeStyle: 'short' })} · {e.ip}</span>
         </li>
       {/each}
     </ul>
   {/if}
 </section>
+
+<style>
+  /* Same text sizes as the "Ways to sign in" rows above. */
+  .events strong {
+    font-size: 1rem;
+    font-weight: 700;
+  }
+  .events .muted {
+    font-size: 0.875rem;
+    color: var(--text-2);
+  }
+</style>

@@ -22,10 +22,12 @@ export default defineConfig({
       output: {
         // Fewer, larger chunks gzip far better than many tiny ones (the budget sums per-file gzip sizes):
         // the Svelte runtime and entry-time UI stay separate; each screen group ships with its message file.
+        // Components the entry imports must sit in 'shared': a screen group pulls in its unclaimed
+        // dependencies, and a lazy screen sharing a chunk with entry code loads on first paint.
         advancedChunks: {
           groups: [
             { name: 'svelte', test: /node_modules\/svelte/, priority: 9 },
-            { name: 'shared', test: /src\/(components\/(Alert|Button|Field|Toast|Logo|Lazy|Initials|SecondFactor|LegalLinks)\.svelte|lib\/(?!rrule|zones|pow|qr|markdown|i18n\/(?!en\/core)[a-z-]+\/))/, priority: 8 },
+            { name: 'shared', test: /src\/(components\/(Alert|Button|Field|Toast|Logo|Lazy|Initials|SecondFactor|LegalLinks|Icon|ChoreRow)\.svelte|lib\/(?!rrule|zones|pow|qr|markdown|i18n\/(?!en\/core)[a-z-]+\/))/, priority: 8 },
             { name: 'ui', test: /src\/components\/(Dialog|Select|Confirm|TimeZone|RecoveryCodes)\.svelte/, priority: 7 },
             { name: 'calendar', test: /src\/(screens\/Calendar|lib\/i18n\/en\/calendar)/, priority: 5 },
             { name: 'auth', test: /src\/(screens\/(Setup|Signup|ForgotPassword|ResetPassword|VerifyEmail|Invite)|components\/StepUp|lib\/i18n\/en\/auth)/, priority: 5 },

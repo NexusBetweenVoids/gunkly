@@ -122,7 +122,8 @@
 </script>
 
 <section class:card={!bare} aria-labelledby="ch-{sid}">
-  <h2 id="ch-{sid}">{title}</h2>
+  <!-- Bare (inside a settings row that already names it): the heading only labels the region. -->
+  <h2 id="ch-{sid}" class:visually-hidden={bare}>{title}</h2>
   {#if intro}<p class="muted">{intro}</p>{/if}
   <p class="hint">{t('channels.privacy')}</p>
   <div aria-live="polite">
