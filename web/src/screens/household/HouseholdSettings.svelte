@@ -365,6 +365,15 @@
     text-align: end;
     cursor: pointer;
   }
+  /* Phones: name and date on one line, role and Remove below it (Remove at the end). */
+  @media (max-width: 47.99rem) {
+    .role.static {
+      padding-inline: 0;
+    }
+    .remove {
+      margin-inline-start: auto;
+    }
+  }
   button.remove:hover {
     text-decoration: underline;
   }

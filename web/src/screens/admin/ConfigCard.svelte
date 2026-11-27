@@ -122,7 +122,7 @@
     {@render badge?.()}
   </div>
   {@render intro?.()}
-  <div aria-live="polite"><Alert message={err} /></div>
+  <div class="live" aria-live="polite"><Alert message={err} /></div>
   {#if cfg}
     {#if locked.length}
       <div class="locked" data-testid="cfg-{id}-locked">
@@ -164,6 +164,10 @@
 </section>
 
 <style>
+  /* An empty live region takes no slot in the card's spacing. */
+  .live:empty {
+    display: none;
+  }
   .head {
     display: flex;
     flex-wrap: wrap;

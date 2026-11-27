@@ -124,7 +124,7 @@
     <ul class="list">
       {#each invites as inv (inv.id)}
         <li>
-          <span>{[t(roleLabel[inv.role]), t('invite.usesLeft', { count: inv.maxUses - inv.uses }), t('invite.expiresOn', { date: when(inv.expiresAt) })].join(' · ')}</span>
+          <span class="inv">{[t(roleLabel[inv.role]), t('invite.usesLeft', { count: inv.maxUses - inv.uses }), t('invite.expiresOn', { date: when(inv.expiresAt) })].join(' · ')}</span>
           <button type="button" class="revoke" onclick={() => revoke(inv)}>{t('invite.revoke')}</button>
         </li>
       {/each}
@@ -133,9 +133,18 @@
 </section>
 
 <style>
+  .list > li:has(.inv) {
+    flex-wrap: nowrap;
+  }
+  .inv {
+    flex: 1;
+    min-inline-size: 0;
+  }
   .revoke {
+    flex: none;
     min-block-size: var(--tap);
-    padding-inline: 8px;
+    padding-block: 0;
+    padding-inline: 8px 0;
     border: 0;
     background: transparent;
     color: var(--danger);

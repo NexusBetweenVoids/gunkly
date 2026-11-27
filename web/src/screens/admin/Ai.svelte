@@ -112,14 +112,16 @@
     {:else if cfg}
       <label class="check"><input type="checkbox" bind:checked={enabled} aria-describedby="ai-intro" />{t('aiAdmin.enable')}</label>
     {/if}
-    <p class="muted" id="ai-intro">{t('aiAdmin.intro')}</p>
-    <div aria-live="polite"><Alert message={err} /></div>
+    <div class="stack-sm" id="ai-intro">
+      <p class="muted">{t('aiAdmin.intro')}</p>
+      <ul class="hint bullets">
+        <li>{t('aiAdmin.paid')}</li>
+        <li>{t('aiAdmin.local')}</li>
+      </ul>
+    </div>
+    <div class="live" aria-live="polite"><Alert message={err} /></div>
     {#if cfg}
       {#if on}
-        <ul class="hint bullets">
-          <li>{t('aiAdmin.paid')}</li>
-          <li>{t('aiAdmin.local')}</li>
-        </ul>
         <p class="hint">{t('aiAdmin.privacy')}</p>
         <ConfigField field={cfg['ai.url']} label={t('aiAdmin.url')} hint={t('aiAdmin.urlHint')} bind:value={url} placeholder="https://api.openai.com/v1" />
         <ConfigField field={cfg['ai.model']} label={t('aiAdmin.model')} hint={t('aiAdmin.modelHint')} bind:value={model} placeholder="gpt-4o-mini" />
@@ -141,3 +143,10 @@
     {/if}
   </form>
 </section>
+
+<style>
+  /* An empty live region takes no slot in the card's spacing. */
+  .live:empty {
+    display: none;
+  }
+</style>

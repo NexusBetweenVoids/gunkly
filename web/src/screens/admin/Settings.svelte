@@ -365,8 +365,19 @@
   }
   .limit input {
     flex: none;
-    inline-size: 6.5rem;
+    inline-size: 5.5rem;
+    padding-inline: 10px;
     text-align: end;
     font-variant-numeric: tabular-nums;
+  }
+  /* Compact on wide screens; full tap height on phones. */
+  @media (min-width: 48rem) {
+    .limit input {
+      min-block-size: 36px;
+      padding-block: 4px;
+    }
+    .limit {
+      padding-block: 4px;
+    }
   }
 </style>

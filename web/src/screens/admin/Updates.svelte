@@ -94,7 +94,7 @@
 
 <section class="card stack" aria-labelledby="ad-updates">
   <h2 id="ad-updates">{t('updates.title')}</h2>
-  <div aria-live="polite"><Alert message={err} /></div>
+  <div class="live" aria-live="polite"><Alert message={err} /></div>
   {#if u}
     <div class="stack-sm">
       <label class="check"><input type="checkbox" checked={u.enabled} onchange={(e) => toggle(e.currentTarget.checked)} aria-describedby="upd-privacy" />{t('updates.enable')}</label>
@@ -133,6 +133,9 @@
 </section>
 
 <style>
+  .live:empty {
+    display: none;
+  }
   .changelog {
     max-block-size: 24rem;
     overflow: auto;

@@ -78,7 +78,7 @@
       {#each events as e, i (i)}
         <li>
           <span class="ev">{text(e)}{#if e.byYou}&nbsp;<span class="badge">{t('secEvents.byYou')}</span>{/if}</span>
-          <span class="muted">{when(e.at)}</span>
+          <span class="muted when">{when(e.at)}</span>
         </li>
       {/each}
     </ul>
@@ -133,6 +133,15 @@
   }
   #sec-title:focus {
     outline: none;
+  }
+  /* Each event on its own line with its time underneath. */
+  .list > li {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+  }
+  .when {
+    font-size: 0.875rem;
   }
   .ev {
     overflow-wrap: anywhere;
