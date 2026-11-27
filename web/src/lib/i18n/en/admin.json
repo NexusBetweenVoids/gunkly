@@ -244,7 +244,7 @@
   "guide.doneAdmin": "Go to Administration",
   "guide.againLead": "Email, sign-in, AI and updates step by step:",
   "admin.securityAlerts": "Security alerts by email",
-  "admin.securityAlertsHint": "Emails the admins (with a confirmed address) about suspicious activity, such as a household creating invite links up to the daily limit. At most one email per household per day; the events are always listed on the Administration page.",
+  "admin.securityAlertsHint": "Emails the admins (with a confirmed address) about suspicious activity and changes to admin power, such as a household creating invite links up to the daily limit or sign-up being opened. At most one email per event per period; the events are always listed on the Administration page. Turning this off is itself always emailed.",
   "secEvents.title": "Recent security events",
   "secEvents.intro": "Worth a look: these happened in the last 7 days.",
   "secEvents.invite_limit_reached": "{username} hit the daily invite limit in household {household}",
