@@ -112,12 +112,15 @@ test('email codes: turn them on in the account screen, then sign in with an emai
 
   const section = () => page.getByRole('region', { name: 'Email codes' });
   await page.goto('/settings/security');
-  await expect(section().getByRole('button', { name: 'Use email codes' })).toBeDisabled(); // not confirmed yet
+  // Not confirmed yet: no button, the reason and a way to fix it instead.
+  await expect(section().getByTestId('emailcodes-reason')).toHaveText('Confirm your email address first.');
+  await expect(section().getByRole('link', { name: 'Confirm email' })).toBeVisible();
+  await expect(section().getByRole('button')).toHaveCount(0);
 
   await page.goto(verify.link);
   await expect(page.getByText('Your email address is confirmed.')).toBeVisible();
   await page.goto('/settings/security');
-  await section().getByRole('button', { name: 'Use email codes' }).click();
+  await section().getByRole('button', { name: 'Turn on' }).click();
   const dialog = page.getByRole('dialog');
   await dialog.getByLabel('Password').fill(PASSWORD);
   await dialog.getByRole('button', { name: 'Confirm' }).click();

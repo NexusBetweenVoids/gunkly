@@ -58,7 +58,8 @@ test('TOTP: enrol in the account screen, then sign in with a code', async ({ wor
 
   // Enrol; the step-up dialog asks for the password first.
   await page.goto('/settings/security');
-  const section = page.getByRole('region', { name: 'Two-factor authentication' });
+  await expect(page.getByTestId('security-verdict')).toHaveText(/Only a password protects this account/);
+  const section = page.getByRole('region', { name: 'Authenticator app' });
   await section.getByRole('button', { name: 'Set up' }).click();
   const dialog = page.getByRole('dialog');
   const secretLine = section.getByLabel('Secret', { exact: true });
@@ -80,6 +81,7 @@ test('TOTP: enrol in the account screen, then sign in with a code', async ({ wor
   await expect(section.getByRole('list', { name: 'Recovery codes' }).getByRole('listitem')).not.toHaveCount(0);
   await section.getByRole('button', { name: "I've saved them" }).click();
   await expect(section.getByText('On', { exact: true })).toBeVisible();
+  await expect(page.getByTestId('security-verdict')).toHaveText(/Protected by a password and an authenticator app/);
 
   // A fresh device now needs the second factor.
   const page2 = await (await world.newContext()).newPage();

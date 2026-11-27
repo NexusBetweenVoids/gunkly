@@ -11,6 +11,10 @@
   --accent: #345461;
   --accent-text: #ffffff;
   --danger: #b3261e;
+  --ok: #1f5a3f;
+  --ok-bg: #dcefe4;
+  --warn: #8a5a00;
+  --warn-bg: #f7e6c4;
   --focus: #345461;
   --radius: 12px;
   --radius-lg: 18px;
@@ -38,6 +42,10 @@
     --accent: #8fcdb4;
     --accent-text: #1f2b31;
     --danger: #ff8f86;
+    --ok: #9fdcbf;
+    --ok-bg: #2c4a3d;
+    --warn: #f0c674;
+    --warn-bg: #4a3f2a;
     --focus: #8fcdb4;
     --shadow: none;
   }
@@ -54,6 +62,10 @@
   --accent: #8fcdb4;
   --accent-text: #1f2b31;
   --danger: #ff8f86;
+  --ok: #9fdcbf;
+  --ok-bg: #2c4a3d;
+  --warn: #f0c674;
+  --warn-bg: #4a3f2a;
   --focus: #8fcdb4;
   --shadow: none;
 }
@@ -314,6 +326,16 @@ input[aria-invalid="true"] {
   border: 1px solid var(--border);
   font-size: 0.8125rem;
   font-weight: 600;
+}
+.badge.ok {
+  background: var(--ok-bg);
+  border-color: transparent;
+  color: var(--ok);
+}
+.badge.warn {
+  background: var(--warn-bg);
+  border-color: transparent;
+  color: var(--warn);
 }
 .mono {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;

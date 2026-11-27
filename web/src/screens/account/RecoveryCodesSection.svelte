@@ -12,6 +12,7 @@
   import { app } from '../../lib/session.svelte';
   import { withStepUp } from '../../lib/stepup.svelte';
   import { toast } from '../../lib/toast.svelte';
+  import MethodRow from './MethodRow.svelte';
 
   let info = $state<{ remaining: number; available: boolean } | null>(null);
   let codes = $state<string[]>([]);
@@ -53,28 +54,25 @@
   }
 </script>
 
-<section class="card" aria-labelledby="a-recovery">
-  <h2 id="a-recovery">{t('recovery.title')}</h2>
-  {#if codes.length}
-    <RecoveryCodes {codes} intro={t('recovery.newIntro')} onsaved={saved} />
-  {:else if info}
-    <div class="stack">
-      {#if !info.available}
-        <p class="muted">{t('recovery.none')}</p>
-      {:else}
-        <p class="muted">{t('recovery.intro')}</p>
-        <p>
-          <strong>{t('recovery.left', { count: info.remaining })}</strong>
-          {#if info.remaining <= 3}<span class="badge">{t('recovery.low')}</span>{/if}
-        </p>
-        <Alert message={err} />
-        <div><Button variant={info.remaining <= 3 ? 'primary' : 'quiet'} {busy} onclick={() => (confirming = true)}>{t('recovery.renew')}</Button></div>
-      {/if}
-    </div>
-  {:else}
-    <Alert message={err} />
-  {/if}
-</section>
+<MethodRow
+  id="a-recovery"
+  name={t('recovery.title')}
+  hint={info?.available ? t('recovery.left', { count: info.remaining }) : t('recovery.none')}
+  state={info ? (!info.available ? t('ways.none') : info.remaining <= 3 ? t('recovery.low') : t('ways.ready')) : ''}
+  tone={info?.available ? (info.remaining <= 3 ? 'warn' : 'ok') : ''}
+  open={codes.length > 0}
+>
+  {#snippet notes()}
+    {#if info?.available}<p class="hint">{t('recovery.intro')}</p>{/if}
+    <div aria-live="polite"><Alert message={err} /></div>
+  {/snippet}
+  {#snippet action()}
+    {#if info?.available && !codes.length}
+      <Button variant={info.remaining <= 3 ? 'primary' : 'quiet'} {busy} onclick={() => (confirming = true)}>{t('recovery.renew')}</Button>
+    {/if}
+  {/snippet}
+  <RecoveryCodes {codes} intro={t('recovery.newIntro')} onsaved={saved} />
+</MethodRow>
 
 <Confirm
   open={confirming}

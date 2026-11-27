@@ -40,7 +40,7 @@ test('welcome flow: household, starter chores spread over the week, invite link,
   // Security: optional, with the passkey and authenticator sections.
   await expect(page.getByRole('heading', { name: /Secure your account/ })).toBeVisible();
   await expect(page.getByText('Optional', { exact: true })).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Two-factor authentication' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Authenticator app' })).toBeVisible();
   await axe(page, 'welcome: security');
   await page.getByRole('button', { name: 'Go to my chores' }).click();
   await expect(page.getByRole('heading', { name: 'Chores', exact: true })).toBeVisible();

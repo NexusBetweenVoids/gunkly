@@ -53,7 +53,7 @@ test('AI: explains what it does and how to set it up', async ({ world }) => {
   const { page } = await u.open();
   await page.goto('/settings/ai');
   const hero = page.getByRole('region', { name: 'Use Gunkly with your AI assistant' });
-  await expect(hero.getByText('Gunkly has no AI built in')).toBeVisible();
+  await expect(hero.getByText(/^Connect the AI assistant you already use/)).toBeVisible();
   await expect(hero.getByRole('heading', { name: 'How to set it up' })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Connect an AI assistant' }).getByRole('button', { name: 'Connect an assistant' })).toBeVisible();
   await axe(page, 'ai settings');

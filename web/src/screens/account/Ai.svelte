@@ -13,7 +13,7 @@
 
 <section class="card hero" aria-labelledby="ai-title">
   <h2 id="ai-title">{t('ai.title')}</h2>
-  <p class="lead">{t('ai.lead')}</p>
+  <p class="card-desc">{t('ai.lead')}</p>
   <ul class="examples" aria-label={t('ai.examplesLabel')}>
     {#each examples as e (e)}<li>{t(e)}</li>{/each}
   </ul>
@@ -36,9 +36,6 @@
 {/if}
 
 <style>
-  .lead {
-    font-size: 1.0625rem;
-  }
   .examples {
     display: flex;
     flex-wrap: wrap;

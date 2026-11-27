@@ -42,7 +42,7 @@ test('axe WCAG 2.2 AA and no overflow on every main screen, light and dark', asy
     ['/settings/household-data', 'household data', /^Export and import$/],
     ['/settings/profile', 'account', /^Display name$/],
     ['/settings/security', 'account security', 'Recent account activity'],
-    ['/settings/notifications', 'account notifications', 'Email me reminders'],
+    ['/settings/notifications', 'account notifications', 'Ways to get reminders'],
     ['/settings/ai', 'settings ai', /^Connect an AI assistant$/],
     ['/settings/integrations', 'settings integrations', /^Home Assistant$/],
     ['/settings/data', 'account data', /^Delete account$/],

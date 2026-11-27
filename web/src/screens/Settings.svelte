@@ -1,26 +1,14 @@
 <script lang="ts">
-  import Channels from '../components/Channels.svelte';
-  import Deliveries from '../components/Deliveries.svelte';
   import Lazy from '../components/Lazy.svelte';
   import SettingsLayout, { type Group, type GroupSet } from '../components/SettingsLayout.svelte';
   import { t, type Key } from '../lib/i18n';
-  import { app, currentHousehold } from '../lib/session.svelte';
+  import { currentHousehold } from '../lib/session.svelte';
   import type { Role } from '../lib/types';
-  import Audit from './account/Audit.svelte';
   import Email from './account/Email.svelte';
-  import EmailReminders from './account/EmailReminders.svelte';
-  import QuietHours from './account/QuietHours.svelte';
-  import EmailCodes from './account/EmailCodes.svelte';
-  import Passkeys from './account/Passkeys.svelte';
-  import RecoveryCodesSection from './account/RecoveryCodesSection.svelte';
-  import Password from './account/Password.svelte';
-  import PushNotifications from './account/PushNotifications.svelte';
+  import Notifications from './account/Notifications.svelte';
   import Profile from './account/Profile.svelte';
+  import Security from './account/Security.svelte';
   import SetupAgain from './account/SetupAgain.svelte';
-  import Sessions from './account/Sessions.svelte';
-  import SigninAlerts from './account/SigninAlerts.svelte';
-  import Sso from './account/Sso.svelte';
-  import Totp from './account/Totp.svelte';
   import HouseholdSettings, { householdGroups } from './household/HouseholdSettings.svelte';
 
   // One settings screen: your own settings, then the current household's
@@ -55,25 +43,9 @@
       <Email />
       <SetupAgain />
     {:else if g === 'security'}
-      <Password />
-      <Passkeys />
-      {#if app.instance.sso}<Sso />{/if}
-      <Totp />
-      <EmailCodes />
-      <RecoveryCodesSection />
-      <Sessions />
-      <SigninAlerts />
-      <Audit />
+      <Security />
     {:else if g === 'notifications'}
-      <PushNotifications />
-      <EmailReminders />
-      <QuietHours />
-      <details class="card advanced">
-        <summary>{t('channels.advancedTitle')}</summary>
-        <p class="hint">{t('channels.advancedHint')}</p>
-        <Channels base="/account/channels" title={t('channels.personalTitle')} id="me" bare />
-      </details>
-      <Deliveries path="/account/deliveries" title={t('delivery.personalTitle')} id="me" />
+      <Notifications />
     {:else if g === 'ai'}
       <Lazy load={() => import('./account/Ai.svelte')} />
     {:else if g === 'integrations'}

@@ -10,6 +10,8 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 - Navigation uses line icons (house, calendar, plus, gear) instead of text characters, in both the sidebar and the phone tab bar; the desktop sidebar now runs the full height of long pages.
 - With more than one household, the household name in the header shows a chevron so it reads as a switcher (still a native select for keyboard and screen readers).
 - On phones, a Settings or Administration page shows a small back link and the page's own name as its title, instead of "Settings" twice.
+- Settings, Sign-in & security: a one-line verdict at the top ("Only a password protects this account", "Protected by a password and a passkey"), then every way to sign in (password, passkeys, single sign-on, authenticator app, email codes, recovery codes) in one list with its state and one action that opens the same forms and checks as before. "Email me about unusual sign-ins" shows as inactive, with the reason, until an email address is confirmed.
+- Settings, Notifications: a status line answers "will I get reminders?" (a warning when nothing is on), then this device, email and messaging apps as one list with state and one action; quiet hours shows only its switch until turned on. Settings, AI no longer says Gunkly has no AI built in.
 
 ## [0.12.2] - 2026-11-27
 
