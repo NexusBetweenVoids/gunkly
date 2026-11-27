@@ -258,6 +258,16 @@
   "secEvents.egress_guard_off": "{username} switched off the outbound-connection guard",
   "secEvents.state.on": "on",
   "secEvents.state.off": "off",
+  "secEvents.email_failing": "Email delivery started failing: confirmation emails and sign-in codes are not arriving",
+  "emailFailing.title": "Email delivery is failing",
+  "emailFailing.body": "Gunkly has not been able to send email since {since}. Confirmation links and sign-in codes cannot be delivered, so people may be unable to sign up or sign in with an email code.",
+  "emailFailing.reason.connect": "Latest error: the mail server could not be reached.",
+  "emailFailing.reason.tls": "Latest error: a secure (TLS) connection to the mail server could not be set up.",
+  "emailFailing.reason.auth": "Latest error: the mail server refused the username or password.",
+  "emailFailing.reason.timeout": "Latest error: the mail server took too long to answer.",
+  "emailFailing.reason.refused": "Latest error: the mail server refused to accept the message.",
+  "emailFailing.reason.other": "Latest error: the message could not be sent.",
+  "emailFailing.fix": "Check the SMTP settings under Administration, Email, and the status of your mail provider. This warning goes away as soon as an email is sent.",
   "secEvents.deletedUser": "A deleted account",
   "secEvents.hint": "Each of these can be a sign of abuse or an attack. Check the account under Users; the audit log has the details. Emails about them can be turned off under Sign-up & sign-in, Security alerts."
 }

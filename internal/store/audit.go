@@ -138,7 +138,7 @@ func (s *Store) ListAuditForUser(ctx context.Context, userID string, limit int) 
 // Administration page and, with security alerts on, emailed to the admins.
 // Add a new alert's event here.
 var AlertEvents = []string{AuditInviteLimit, AuditAdminGranted, AuditSecurityAlertsOff, AuditSignupChanged, AuditPoWOff, AuditEgressGuardOff,
-	AuditSigninAttackAccount, AuditSigninAttackIP, AuditSignupWave}
+	AuditSigninAttackAccount, AuditSigninAttackIP, AuditSignupWave, AuditEmailFailing}
 
 // CountAuditSince counts audit entries of the given events since a moment, of one actor
 // (of all actors when actorID is empty).

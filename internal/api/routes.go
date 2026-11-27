@@ -14,6 +14,7 @@ func (s *Server) registerRoutes() {
 	// Probes and static files.
 	s.handle("GET /healthz", public, s.healthz)
 	s.handle("GET /readyz", public, s.readyz)
+	s.handle("GET /healthz/email", public, s.healthzEmail)
 	if s.metrics != nil {
 		s.handle("GET /metrics", metricsToken, s.metricsHandler)
 	}
@@ -224,6 +225,22 @@ func (s *Server) registerLinkAndNotifyRoutes() {
 }
 
 func (s *Server) healthz(w http.ResponseWriter, _ *http.Request, _ *call) error {
+	return ok(w, map[string]string{"status": "ok"})
+}
+
+// healthzEmail is the probe for email delivery: 503 while sends are failing.
+// It is separate from /readyz on purpose, so a mail outage never fails a deploy.
+func (s *Server) healthzEmail(w http.ResponseWriter, r *http.Request, _ *call) error {
+	if !s.emailEnabled() {
+		return ok(w, map[string]string{"status": "disabled"})
+	}
+	f, err := s.st.MailFailing(r.Context(), s.now())
+	if err != nil {
+		return err
+	}
+	if f != nil {
+		return errf(http.StatusServiceUnavailable, "email_failing")
+	}
 	return ok(w, map[string]string{"status": "ok"})
 }
 
