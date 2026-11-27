@@ -984,6 +984,9 @@ func TestInviteLimitAlertsAdmins(t *testing.T) {
 	if st, v := rootUp.do("PATCH", "/api/v1/admin/settings", map[string]any{"securityAlerts": false}); st != 200 || field(v, "securityAlerts") != false {
 		t.Fatalf("turn off: %d %v", st, v)
 	}
+	if m := e.oneMail("root@example.com"); !strings.Contains(m.Subject, "turned off") { // the one alert that bypasses the setting
+		t.Fatalf("turn-off mail: %+v", m)
+	}
 	burn(mkHH())
 	if ms := e.mails(); len(ms) != 0 {
 		t.Fatalf("alert mailed while off: %+v", ms)

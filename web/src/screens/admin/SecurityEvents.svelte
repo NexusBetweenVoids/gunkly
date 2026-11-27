@@ -13,7 +13,10 @@
   const when = (s: string) => formatDate(new Date(s), { dateStyle: 'medium', timeStyle: 'short' });
   const text = (e: Ev) => {
     const k = `secEvents.${e.event}`;
-    const params = { ...(e.meta ?? {}), username: e.username || t('secEvents.deletedUser'), household: e.householdId };
+    const meta = { ...(e.meta ?? {}) };
+    const sk = `secEvents.state.${meta.state}`;
+    if (meta.state && has(sk)) meta.state = t(sk as Key);
+    const params = { ...meta, username: e.username || t('secEvents.deletedUser'), household: e.householdId };
     return has(k) ? t(k as Key, params) : e.event;
   };
 </script>

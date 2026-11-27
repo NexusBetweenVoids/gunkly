@@ -61,6 +61,11 @@ const (
 	AuditWebhookDelete     = "webhook_delete"       // household_id, meta webhook
 	AuditWebhookRotate     = "webhook_rotate"       // the signing secret was replaced; household_id, meta webhook
 	AuditWebhookAutoOff    = "webhook_auto_disable" // system: too many consecutive failures; household_id, meta webhook
+	AuditAdminGranted      = "admin_granted"        // a new admin account was created (security alert); meta user = its username
+	AuditSecurityAlertsOff = "security_alerts_off"  // an admin turned security alert emails off (security alert)
+	AuditSignupChanged     = "signup_changed"       // open sign-up switched; meta state on/off (security alert)
+	AuditPoWOff            = "pow_off"              // proof of work for sign-up switched off (security alert)
+	AuditEgressGuardOff    = "egress_guard_off"     // the outbound-connection guard switched off (security alert)
 	AuditInactiveWarn      = "inactive_warn"        // system, meta user = account
 )
 
@@ -129,7 +134,7 @@ func (s *Store) ListAuditForUser(ctx context.Context, userID string, limit int) 
 // AlertEvents are the audit events that are security alerts: listed on the
 // Administration page and, with security alerts on, emailed to the admins.
 // Add a new alert's event here.
-var AlertEvents = []string{AuditInviteLimit}
+var AlertEvents = []string{AuditInviteLimit, AuditAdminGranted, AuditSecurityAlertsOff, AuditSignupChanged, AuditPoWOff, AuditEgressGuardOff}
 
 // AlertCountSince counts alert events of one kind and scope since a moment.
 // The scope (stored as meta "scope") is what an alert is deduplicated by: a

@@ -2120,11 +2120,11 @@ components:
               lastSeen: {type: string, format: date-time}
         securityEvents:
           type: array
-          description: "Security events of the last 7 days, newest first (at most 50): a household hitting the daily invite limit"
+          description: "Security events of the last 7 days, newest first (at most 50): a household hitting the daily invite limit, or a change of admin power (a new admin account, security alert emails, open sign-up, proof of work or the egress guard switched)"
           items:
             type: object
             properties:
-              event: {type: string, enum: [invite_limit_reached]}
+              event: {type: string, enum: [invite_limit_reached, admin_granted, security_alerts_off, signup_changed, pow_off, egress_guard_off]}
               householdId: {type: string}
               username: {type: string, description: "The account that caused it; empty if deleted"}
               at: {type: string, format: date-time}

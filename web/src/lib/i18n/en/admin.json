@@ -248,6 +248,13 @@
   "secEvents.title": "Recent security events",
   "secEvents.intro": "Worth a look: these happened in the last 7 days.",
   "secEvents.invite_limit_reached": "{username} hit the daily invite limit in household {household}",
+  "secEvents.admin_granted": "{username} created the admin account {user}",
+  "secEvents.security_alerts_off": "{username} turned security alert emails off",
+  "secEvents.signup_changed": "{username} switched open sign-up {state}",
+  "secEvents.pow_off": "{username} switched off proof of work for sign-up",
+  "secEvents.egress_guard_off": "{username} switched off the outbound-connection guard",
+  "secEvents.state.on": "on",
+  "secEvents.state.off": "off",
   "secEvents.deletedUser": "A deleted account",
   "secEvents.hint": "Each of these can be a sign of abuse or an attack. Check the account under Users; the audit log has the details. Emails about them can be turned off under Sign-up & sign-in, Security alerts."
 }

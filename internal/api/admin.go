@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"maps"
 	"net/http"
 	"regexp"
@@ -62,6 +63,9 @@ func (s *Server) adminCreateUser(w http.ResponseWriter, r *http.Request, c *call
 		return err
 	}
 	s.audit(ctx, c, c.user.ID, store.AuditAdminUserCreate, "", map[string]string{"user": u.ID})
+	if u.IsAdmin {
+		s.adminChangeAlert(ctx, c, store.AuditAdminGranted, u.ID, "securityadmingranted", false, map[string]string{"user": u.Username})
+	}
 	if s.emailEnabled() && u.Email != "" {
 		// Sent on the admin's account quota, not the new user's request.
 		if _, err := s.sendVerification(ctx, c, u, "", false); err != nil {
@@ -243,12 +247,47 @@ func (s *Server) adminPatchSettings(w http.ResponseWriter, r *http.Request, c *c
 		}
 		upd.NotificationKinds = &kinds
 	}
-	err := s.st.UpdateInstanceSettings(r.Context(), upd)
+	ctx := r.Context()
+	before, err := s.st.InstanceSettings(ctx)
+	if err != nil {
+		return err
+	}
+	err = s.st.UpdateInstanceSettings(ctx, upd)
 	s.forgetLifetimes()
 	s.forgetMCP()
 	if err != nil {
 		return err
 	}
-	s.audit(r.Context(), c, c.user.ID, store.AuditAdminSettings, "", nil)
+	s.audit(ctx, c, c.user.ID, store.AuditAdminSettings, "", nil)
+	s.alertSettingChanges(ctx, c, before)
 	return s.adminGetSettings(w, r, c)
+}
+
+// alertSettingChanges tells the admins when this PATCH took power away from the safeguards: security
+// alerts off (always mailed, even though alerts are now off), open sign-up switched, proof of work
+// off, the egress guard off. before is the stored state before the update.
+func (s *Server) alertSettingChanges(ctx context.Context, c *call, before store.InstanceSettings) {
+	after, err := s.st.InstanceSettings(ctx)
+	if err != nil {
+		s.log.Error("security alert", "err", err)
+		return
+	}
+	if before.SecurityAlerts && !after.SecurityAlerts {
+		s.adminChangeAlert(ctx, c, store.AuditSecurityAlertsOff, "off", "securityalertsoff", true, nil)
+	}
+	openBefore, powBefore := s.signupSettings(before)
+	openAfter, powAfter := s.signupSettings(after)
+	if openBefore != openAfter {
+		state, mail := "off", "securitysignupoff"
+		if openAfter {
+			state, mail = "on", "securitysignupon"
+		}
+		s.adminChangeAlert(ctx, c, store.AuditSignupChanged, state, mail, false, map[string]string{"state": state})
+	}
+	if powBefore && !powAfter {
+		s.adminChangeAlert(ctx, c, store.AuditPoWOff, "off", "securitypowoff", false, nil)
+	}
+	if before.EgressGuard && !after.EgressGuard {
+		s.adminChangeAlert(ctx, c, store.AuditEgressGuardOff, "off", "securityegressoff", false, nil)
+	}
 }
