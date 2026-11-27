@@ -22,11 +22,13 @@ test('household settings: areas, calendar feed, notification channel from the se
   const areas = page.getByRole('region', { name: 'Areas' });
   const name = uniq('Cellar');
   await areas.getByLabel('New area').fill(name);
-  await areas.getByRole('button', { name: 'Add area' }).click();
+  await areas.getByRole('button', { name: 'Add', exact: true }).click();
   await expect(areas.getByText(name, { exact: true })).toBeVisible();
+  // Rename in place: the row turns into a field.
   await areas.getByRole('button', { name: `Rename ${name}` }).click();
-  await page.getByRole('dialog').getByLabel('Area name').fill(`${name} 2`);
-  await page.getByRole('dialog').getByRole('button', { name: 'Save' }).click();
+  await expect(areas.getByLabel('Area name')).toBeFocused();
+  await areas.getByLabel('Area name').fill(`${name} 2`);
+  await areas.getByRole('button', { name: 'Save' }).click();
   await expect(areas.getByText(`${name} 2`, { exact: true })).toBeVisible();
   await areas.getByRole('button', { name: `Delete ${name} 2` }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Delete' }).click();
@@ -115,6 +117,7 @@ async function adminFlow(world: World): Promise<void> {
 
   const users = page.getByRole('region', { name: 'Users' });
   const username = uniq('made');
+  await users.getByRole('button', { name: 'Create user' }).click(); // opens the form
   await users.getByLabel('Display name').fill('Made In Ui');
   await users.getByLabel('Username', { exact: true }).fill(username);
   await users.getByLabel('Initial password').fill(PASSWORD);
@@ -141,7 +144,7 @@ async function adminFlow(world: World): Promise<void> {
 
   expect(await save('Save')).not.toHaveProperty('enabledNotificationKinds');
 
-  const gotify = settings.getByRole('checkbox', { name: 'gotify', exact: true });
+  const gotify = settings.getByRole('checkbox', { name: 'Gotify', exact: true });
   await gotify.check();
   const changed = await save('Save');
   expect(changed.enabledNotificationKinds).toContain('gotify');

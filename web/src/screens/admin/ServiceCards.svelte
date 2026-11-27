@@ -8,6 +8,7 @@
   import { t, type Key } from '../../lib/i18n';
   import { app } from '../../lib/session.svelte';
   import ConfigCard, { type FieldSpec } from './ConfigCard.svelte';
+  import SsoAccounts from './SsoAccounts.svelte';
 
   let { which }: { which: 'email' | 'sso' | 'metrics' | 'pow' | 'updatehook' } = $props();
 
@@ -67,7 +68,7 @@
   const ssoDocs = 'https://github.com/NexusBetweenVoids/gunkly/blob/main/docs/sso.md';
 
   const emailFields: FieldSpec[] = [
-    { key: 'email.enabled', label: t('svcAdmin.emailEnable'), kind: 'bool', hint: t('svcAdmin.emailEnableHint') },
+    { key: 'email.enabled', label: t('svcAdmin.emailEnable'), kind: 'bool', hint: t('svcAdmin.emailEnableHint'), status: true },
     { key: 'email.host', label: t('svcAdmin.smtpHost'), placeholder: 'smtp.example.com' },
     { key: 'email.port', label: t('svcAdmin.smtpPort'), hint: t('svcAdmin.smtpPortHint'), placeholder: '587' },
     {
@@ -102,20 +103,18 @@
 
 {#if which === 'email'}
   <ConfigCard id="email" title={t('svcAdmin.emailTitle')} fields={emailFields} onsaved={saved}>
+    {#snippet badge()}
+      {#if st}<span class="badge" data-testid="email-status">{st.emailOn ? t('admin.ssoOn') : t('admin.ssoOff')}</span>{/if}
+    {/snippet}
     {#snippet intro()}
-      <p>{t('svcAdmin.emailIntro')}</p>
-      {#if st}
-        <p data-testid="email-status">
-          <span class="badge">{st.emailOn ? t('admin.ssoOn') : t('admin.ssoOff')}</span>
-          {#if st.emailProblem}<span class="error-text">{t(PROBLEM[st.emailProblem] ?? 'svcAdmin.incomplete')}</span>{/if}
-        </p>
-      {/if}
+      <p class="muted">{t('svcAdmin.emailIntro')}</p>
+      {#if st?.emailProblem}<p class="error-text">{t(PROBLEM[st.emailProblem] ?? 'svcAdmin.incomplete')}</p>{/if}
     {/snippet}
     {#snippet after()}
       {#if st?.emailOn}
-        <form class="stack-sm test" onsubmit={testEmail}>
+        <form class="test" onsubmit={testEmail}>
           <Field label={t('svcAdmin.emailTestTo')} type="email" bind:value={testTo} required />
-          <div><Button type="submit" variant="quiet" busy={testing}>{t('svcAdmin.emailTest')}</Button></div>
+          <Button type="submit" variant="quiet" busy={testing}>{t('svcAdmin.emailTest')}</Button>
         </form>
       {/if}
       {#if result}<p role="status" class={result.ok ? '' : 'error-text'}>{result.text}</p>{/if}
@@ -126,31 +125,34 @@
     <section class="card"><h2>{t('admin.ssoTitle')}</h2><p class="muted" data-testid="sso-status">{t('admin.ssoHosted')}</p></section>
   {:else}
     <ConfigCard id="sso" title={t('admin.ssoTitle')} fields={ssoFields} onsaved={saved}>
+      {#snippet badge()}
+        {#if st}<span class="badge" data-testid="sso-status">{st.ssoOn ? t('admin.ssoOn') : t('admin.ssoOff')}</span>{/if}
+      {/snippet}
       {#snippet intro()}
-        <p>{t('svcAdmin.ssoIntro')} <a href={ssoDocs} rel="noopener noreferrer" target="_blank">{t('admin.ssoDocs')}</a></p>
+        <p class="muted">{t('svcAdmin.ssoIntro')} <a href={ssoDocs} rel="noopener noreferrer" target="_blank">{t('admin.ssoDocs')}</a></p>
         {#if st}
-          <p data-testid="sso-status">
-            <span class="badge">{st.ssoOn ? t('admin.ssoOn') : t('admin.ssoOff')}</span>
-            {#if st.ssoProblem}<span class="error-text">{t(PROBLEM[st.ssoProblem] ?? 'svcAdmin.incomplete')}</span>{/if}
-          </p>
-          <p class="hint">{t('admin.ssoStep1')}</p>
-          <pre class="code">{st.ssoCallback}</pre>
+          {#if st.ssoProblem}<p class="error-text">{t(PROBLEM[st.ssoProblem] ?? 'svcAdmin.incomplete')}</p>{/if}
+          <div class="stack-sm">
+            <p class="hint">{t('admin.ssoStep1')}</p>
+            <pre class="code">{st.ssoCallback}</pre>
+          </div>
         {/if}
       {/snippet}
       {#snippet after()}
         {#if st?.ssoOn}<div><Button variant="quiet" busy={testing} onclick={testSSO}>{t('svcAdmin.ssoTest')}</Button></div>{/if}
         {#if result}<p role="status" class={result.ok ? '' : 'error-text'}>{result.text}</p>{/if}
+        <SsoAccounts />
       {/snippet}
     </ConfigCard>
   {/if}
 {:else if which === 'metrics'}
   <ConfigCard id="metrics" title={t('svcAdmin.metricsTitle')} fields={metricsFields} onsaved={saved}>
-    {#snippet intro()}<p class="hint">{t('svcAdmin.metricsIntro')}</p>{/snippet}
+    {#snippet intro()}<p class="muted">{t('svcAdmin.metricsIntro')}</p>{/snippet}
   </ConfigCard>
 {:else if which === 'updatehook'}
   <ConfigCard id="updatehook" title={t('svcAdmin.hookTitle')} fields={hookFields} onsaved={saved}>
     {#snippet intro()}
-      <p>{t('svcAdmin.hookIntro')}</p>
+      <p class="muted">{t('svcAdmin.hookIntro')}</p>
       <p class="hint">{t('svcAdmin.hookWhy')} <a href={updateDocs} rel="noopener noreferrer" target="_blank">{t('svcAdmin.hookDocs')}</a></p>
     {/snippet}
   </ConfigCard>
@@ -159,7 +161,14 @@
 {/if}
 
 <style>
+  /* Address and Send test on one line where there is room. */
   .test {
-    margin-block-start: var(--space);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 8px;
+  }
+  .test :global(.field) {
+    flex: 1 1 16rem;
   }
 </style>

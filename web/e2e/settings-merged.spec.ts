@@ -95,12 +95,15 @@ test('admin: single sign-on set in the environment is shown locked, never the se
   await page.goto('/admin/signin');
   await expect(page.getByRole('heading', { name: 'Single sign-on (SSO)' })).toBeVisible();
   await expect(page.getByTestId('sso-status')).toContainText('On');
-  // Set in the environment: shown read-only with the variable's name; the secret never.
+  // Set in the environment: a read-only list with one note naming the variables; the secret never.
   const card = page.getByRole('region', { name: 'Single sign-on (SSO)' });
-  await expect(card.getByLabel('Client ID')).toHaveValue(IDP_CLIENT);
-  await expect(card.getByLabel('Client ID')).toHaveAttribute('readonly', '');
-  await expect(card.getByText('Set by GUNKLY_OIDC_CLIENT_ID in the server\'s environment')).toBeVisible();
-  await expect(card.getByLabel('Client secret')).toHaveValue('••••••••');
-  await expect(card.getByRole('button', { name: 'Save' })).toHaveCount(0);
+  const locked = card.getByTestId('cfg-sso-locked');
+  await expect(locked.getByText('Set in the server\'s environment (GUNKLY_OIDC_*). Change it there.')).toBeVisible();
+  await expect(locked.getByText(IDP_CLIENT, { exact: true })).toBeVisible();
+  await expect(locked.getByText('Set (hidden)')).toBeVisible();
+  await expect(card.getByRole('textbox', { name: 'Client ID' })).toHaveCount(0);
+  // Only the accounts settings (kept by Gunkly, not the environment) can be saved here.
+  await expect(card.getByLabel('Create accounts for new single sign-on users')).toBeVisible();
+  await expect(card.getByRole('button', { name: 'Save' })).toHaveCount(1);
   await expect(page.getByText(/\/api\/v1\/auth\/oidc\/callback$/)).toBeVisible();
 });

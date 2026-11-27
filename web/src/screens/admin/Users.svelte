@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from 'svelte';
   import Alert from '../../components/Alert.svelte';
   import Button from '../../components/Button.svelte';
   import Confirm from '../../components/Confirm.svelte';
@@ -19,11 +20,18 @@
   let displayName = $state('');
   let password = $state('');
   let isAdmin = $state(false);
+  let creating = $state(false);
   let busy = $state(false);
   let cerr = $state({ code: '', message: '' });
   let resetFor = $state<U | null>(null);
   let newPassword = $state('');
   const pwCodes = ['password_too_short', 'password_too_long', 'password_invalid'];
+
+  async function openCreate(): Promise<void> {
+    creating = true;
+    await tick();
+    document.querySelector<HTMLInputElement>('#create-user input')?.focus();
+  }
 
   async function load(): Promise<void> {
     try {
@@ -42,6 +50,7 @@
       await withStepUp(() => api('POST', '/admin/users', { username, email, displayName, password, isAdmin }));
       username = email = displayName = password = '';
       isAdmin = false;
+      creating = false;
       toast(t('admin.created'));
       await load();
     } catch (x) {
@@ -82,16 +91,23 @@
     {/each}
   </ul>
 
-  <h3 class="mt-lg">{t('admin.createUser')}</h3>
-  <form class="stack" onsubmit={create}>
-    <Field label={t('field.displayName')} bind:value={displayName} required maxlength={100} />
-    <Field label={t('field.username')} hint={t('field.usernameHint')} bind:value={username} autocapitalize="none" spellcheck="false" required />
-    <Field label={t('field.emailOptional')} type="email" bind:value={email} />
-    <Field label={t('admin.tempPassword')} type="password" bind:value={password} autocomplete="new-password" required error={pwCodes.includes(cerr.code) ? cerr.message : ''} />
-    <label class="check"><input type="checkbox" bind:checked={isAdmin} />{t('admin.makeAdmin')}</label>
-    {#if !pwCodes.includes(cerr.code)}<Alert message={cerr.message} />{/if}
-    <div><Button type="submit" {busy}>{t('admin.create')}</Button></div>
-  </form>
+  {#if creating}
+    <h3 class="mt-lg">{t('admin.createUser')}</h3>
+    <form class="stack" id="create-user" onsubmit={create}>
+      <Field label={t('field.displayName')} bind:value={displayName} required maxlength={100} />
+      <Field label={t('field.username')} hint={t('field.usernameHint')} bind:value={username} autocapitalize="none" spellcheck="false" required />
+      <Field label={t('field.emailOptional')} type="email" bind:value={email} />
+      <Field label={t('admin.tempPassword')} type="password" bind:value={password} autocomplete="new-password" required error={pwCodes.includes(cerr.code) ? cerr.message : ''} />
+      <label class="check"><input type="checkbox" bind:checked={isAdmin} />{t('admin.makeAdmin')}</label>
+      {#if !pwCodes.includes(cerr.code)}<Alert message={cerr.message} />{/if}
+      <div class="actions">
+        <Button type="submit" {busy}>{t('admin.create')}</Button>
+        <Button variant="quiet" onclick={() => ((creating = false), (cerr = { code: '', message: '' }))}>{t('common.cancel')}</Button>
+      </div>
+    </form>
+  {:else}
+    <div class="actions mt-md"><Button variant="quiet" onclick={openCreate}>{t('admin.create')}</Button></div>
+  {/if}
 </section>
 
 <Confirm

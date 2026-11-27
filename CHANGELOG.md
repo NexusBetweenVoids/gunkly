@@ -10,6 +10,10 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 - Navigation uses line icons (house, calendar, plus, gear) instead of text characters, in both the sidebar and the phone tab bar; the desktop sidebar now runs the full height of long pages.
 - With more than one household, the household name in the header shows a chevron so it reads as a switcher (still a native select for keyboard and screen readers).
 - On phones, a Settings or Administration page shows a small back link and the page's own name as its title, instead of "Settings" twice.
+- Household settings: areas are plain rows with a pencil (rename in place) and a bin; the new-area field and Add share one line. Member rows all have the same shape (name, joined date, role, Remove). Invites read "Member · 1 use left · expires 30 Nov, 14:55". Quiet hours explain themselves and show their times only when on. The import file picker matches the other buttons.
+- Administration: recent security events are a one-line banner ("3 security events in the last 7 days · all by you", Review) with the full list on Users; events you caused are marked "by you", and when all of them are, the banner shows on Users only. The admin health check (`GET /api/v1/admin/health`) adds `byYou` to each security event.
+- Administration: settings set in the server's environment (email, SSO and others) are a read-only list with one lock note; SSO account creation and the button name moved into the SSO card; notification services are an aligned grid with their real names, with a warning when the private-network guard is off; limits are grouped by topic in compact rows, showing the default and Reset only where a value was changed; "Create user", AI fields, inactive-account days and the update check's status show only when relevant.
+- Setup guide: an http://localhost address no longer claims to use https, and the progress bar sits under "Step N of 7".
 
 ## [0.12.2] - 2026-11-27
 

@@ -92,50 +92,52 @@
     }
   }
 
+  // On: what the form says, or what the environment fixed.
+  const on = $derived(cfg?.['ai.enabled']?.locked ? cfg['ai.enabled'].value === 'true' : enabled);
+  // Why Test connection is unavailable: it tests the saved settings.
+  const notReady = $derived.by((): Key | '' => {
+    if (!cfg) return '';
+    if (cfg['ai.enabled']?.value !== 'true') return 'aiAdmin.testNeedsOn';
+    if (!cfg['ai.url']?.value || !cfg['ai.model']?.value) return 'aiAdmin.testNeedsFields';
+    return '';
+  });
   const ready = $derived(!!cfg && cfg['ai.enabled']?.value === 'true' && !!cfg['ai.url']?.value && !!cfg['ai.model']?.value);
 </script>
 
 <section class="card" aria-labelledby="ad-ai">
-  <h2 id="ad-ai">{t('aiAdmin.title')}</h2>
-  <p>{t('aiAdmin.intro')}</p>
-  <ul class="hint list">
-    <li>{t('aiAdmin.paid')}</li>
-    <li>{t('aiAdmin.local')}</li>
-  </ul>
-  <p class="hint">{t('aiAdmin.privacy')}</p>
-  <div aria-live="polite"><Alert message={err} /></div>
-  {#if cfg}
-    <form class="stack" onsubmit={save}>
-      {#if cfg['ai.enabled']?.locked}
-        <p class="hint">{t('config.locked', { env: cfg['ai.enabled'].env })}: {cfg['ai.enabled'].value === 'true' ? t('aiAdmin.on') : t('aiAdmin.off')}</p>
-      {:else}
-        <label class="check"><input type="checkbox" bind:checked={enabled} />{t('aiAdmin.enable')}</label>
+  <form class="stack" onsubmit={save}>
+    <h2 id="ad-ai">{t('aiAdmin.title')}</h2>
+    {#if cfg?.['ai.enabled']?.locked}
+      <p class="hint">{t('config.locked', { env: cfg['ai.enabled'].env })}: {cfg['ai.enabled'].value === 'true' ? t('aiAdmin.on') : t('aiAdmin.off')}</p>
+    {:else if cfg}
+      <label class="check"><input type="checkbox" bind:checked={enabled} aria-describedby="ai-intro" />{t('aiAdmin.enable')}</label>
+    {/if}
+    <p class="muted" id="ai-intro">{t('aiAdmin.intro')}</p>
+    <div aria-live="polite"><Alert message={err} /></div>
+    {#if cfg}
+      {#if on}
+        <ul class="hint bullets">
+          <li>{t('aiAdmin.paid')}</li>
+          <li>{t('aiAdmin.local')}</li>
+        </ul>
+        <p class="hint">{t('aiAdmin.privacy')}</p>
+        <ConfigField field={cfg['ai.url']} label={t('aiAdmin.url')} hint={t('aiAdmin.urlHint')} bind:value={url} placeholder="https://api.openai.com/v1" />
+        <ConfigField field={cfg['ai.model']} label={t('aiAdmin.model')} hint={t('aiAdmin.modelHint')} bind:value={model} placeholder="gpt-4o-mini" />
+        <ConfigField field={cfg['ai.key']} label={t('aiAdmin.key')} hint={t('aiAdmin.keyHint')} bind:value={key} secret onremove={removeKey} />
       {/if}
-      <ConfigField field={cfg['ai.url']} label={t('aiAdmin.url')} hint={t('aiAdmin.urlHint')} bind:value={url} placeholder="https://api.openai.com/v1" />
-      <ConfigField field={cfg['ai.model']} label={t('aiAdmin.model')} hint={t('aiAdmin.modelHint')} bind:value={model} placeholder="gpt-4o-mini" />
-      <ConfigField field={cfg['ai.key']} label={t('aiAdmin.key')} hint={t('aiAdmin.keyHint')} bind:value={key} secret onremove={removeKey} />
-      <p class="row">
+      <div class="actions">
         <Button type="submit" disabled={busy}>{t('common.save')}</Button>
-        <Button variant="quiet" disabled={!ready || testing} onclick={test}>{testing ? t('aiAdmin.testing') : t('aiAdmin.test')}</Button>
-      </p>
+        {#if on}
+          <Button variant="quiet" disabled={!ready || testing} aria-describedby={notReady ? 'ai-test-why' : undefined} onclick={test}>{testing ? t('aiAdmin.testing') : t('aiAdmin.test')}</Button>
+        {/if}
+      </div>
+      {#if on && notReady}<p class="hint" id="ai-test-why">{t(notReady)}</p>{/if}
       {#if result}
         <p role="status" class={result.ok ? 'ok' : 'error-text'}>
           {result.ok ? t('aiAdmin.testOk', { ms: result.ms }) : t(FAIL[result.error ?? ''] ?? 'aiAdmin.fail.server')}
         </p>
       {/if}
-      <p class="hint">{t('aiAdmin.limitHint')}</p>
-    </form>
-  {/if}
+      {#if on}<p class="hint">{t('aiAdmin.limitHint')}</p>{/if}
+    {/if}
+  </form>
 </section>
-
-<style>
-  .list {
-    margin: 0;
-    padding-inline-start: 1.2em;
-  }
-  .row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-  }
-</style>
