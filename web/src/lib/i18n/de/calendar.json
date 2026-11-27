@@ -5,5 +5,6 @@
   "calendar.month": "Monat",
   "calendar.week": "Woche",
   "calendar.none": "An diesem Tag ist keine Aufgabe fällig.",
-  "calendar.feeds": "In deiner eigenen Kalender-App abonnieren"
+  "calendar.feeds": "In deiner eigenen Kalender-App abonnieren",
+  "calendar.subscribe": "Abonnieren"
 }

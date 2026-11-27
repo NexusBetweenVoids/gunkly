@@ -5,5 +5,6 @@
   "calendar.month": "Mes",
   "calendar.week": "Semana",
   "calendar.none": "No hay tareas para este día.",
-  "calendar.feeds": "Suscríbete desde tu propia aplicación de calendario"
+  "calendar.feeds": "Suscríbete desde tu propia aplicación de calendario",
+  "calendar.subscribe": "Suscríbete"
 }

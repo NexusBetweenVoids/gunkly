@@ -10,6 +10,8 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 - Navigation uses line icons (house, calendar, plus, gear) instead of text characters, in both the sidebar and the phone tab bar; the desktop sidebar now runs the full height of long pages.
 - With more than one household, the household name in the header shows a chevron so it reads as a switcher (still a native select for keyboard and screen readers).
 - On phones, a Settings or Administration page shows a small back link and the page's own name as its title, instead of "Settings" twice.
+- Home: on phones each chore is two compact lines (name; area, status, turn and people) with a round check button, so about twice as many fit on screen; on wider screens the Done button is filled only for overdue and today's chores and quiet for later ones; only the status is red on an overdue chore; an empty group is one short line; area chips fade at the edge when there are more to scroll to.
+- Calendar: past days with chores still open show a red count; one toolbar (‹ month › with a Month/Week switch, Today and Subscribe); month rows have the same height on phones; the selected day lists chores as full rows (area, people, status, Done with Undo) like Home.
 
 ## [0.12.2] - 2026-11-27
 

@@ -2,14 +2,12 @@
   import { href } from '../lib/base';
   import type { Component } from 'svelte';
   import Alert from '../components/Alert.svelte';
-  import Button from '../components/Button.svelte';
-  import Initials from '../components/Initials.svelte';
+  import ChoreRow from '../components/ChoreRow.svelte';
   import { api } from '../lib/api';
-  import { dueText } from '../lib/dates';
+  import { completeChore } from '../lib/complete';
   import { failure } from '../lib/errors';
   import { formatDate, t, type Key } from '../lib/i18n';
   import { app, currentHousehold } from '../lib/session.svelte';
-  import { toast } from '../lib/toast.svelte';
   import type { Area, Chore, Member, Status } from '../lib/types';
 
   const groups: { id: Status; title: Key; empty: Key }[] = [
@@ -93,23 +91,10 @@
     const i = chores.findIndex((x) => x.id === c.id);
     chores = chores.filter((x) => x.id !== c.id); // optimistic
     try {
-      const r = await api<{ completion: { id: string }; chore: Chore }>('POST', `${base}/chores/${c.id}/complete`);
-      if (!archived) chores = [...chores, r.chore];
-      toast(t('home.completed', { name: c.name }), {
-        label: t('common.undo'),
-        run: () => undo(c, r.completion.id),
-      });
+      const next = await completeChore(base, c, swap, (m) => (doneErr = m));
+      if (!archived) chores = [...chores, next];
     } catch (x) {
       chores = [...chores.slice(0, i), c, ...chores.slice(i)]; // roll back
-      doneErr = failure(x).message;
-    }
-  }
-
-  async function undo(c: Chore, id: string): Promise<void> {
-    try {
-      swap(await api<Chore>('POST', `${base}/chores/${c.id}/completions/${id}/revert`));
-      toast(t('home.undone', { name: c.name }));
-    } catch (x) {
       doneErr = failure(x).message;
     }
   }
@@ -120,9 +105,9 @@
 
 {#if !hh}
   <section class="card stack" aria-labelledby="h-welcome">
-    <h2 id="h-welcome">{t('home.welcome')}</h2>
-    <p class="muted">{t('home.noHousehold')}</p>
-    <p><a class="btn" href={href('/welcome')}>{t('household.createFirst')}</a></p>
+    <h2 id="h-welcome" class="card-title">{t('home.welcome')}</h2>
+    <p class="card-desc">{t('home.noHousehold')}</p>
+    <div class="actions"><a class="btn" href={href('/welcome')}>{t('household.createFirst')}</a></div>
   </section>
 {:else}
   {#if Prompt}<Prompt />{/if}
@@ -154,20 +139,13 @@
   <div aria-live="polite"><Alert message={err || doneErr} /></div>
 
   {#snippet item(c: Chore)}
-    <li class="chore">
-      <a class="chore-main" href={href(`/chores/${c.id}`)}>
-        <strong>{c.name}</strong>
-        <span class="muted" class:late={c.status === 'overdue'}>
-          {#if areaName(c.areaId)}{areaName(c.areaId)} &middot; {/if}
-          {#if c.status === 'paused'}{t('status.paused')}{:else if c.status === 'none' || c.status === 'archived'}{t(c.status === 'none' ? 'status.none' : 'home.archived')}{:else}{dueText(c.dueDate)}{/if}
-        </span>
-        {#if turnName(c)}<span class="badge turn">{t('chore.turnOf', { name: turnName(c) })}</span>{/if}
-      </a>
-      <Initials names={who(c)} />
-      {#if canEdit && !archived && c.status !== 'paused' && c.status !== 'none'}
-        <Button onclick={() => done(c)} aria-label={t('home.doneFor', { name: c.name })}>{t('common.done')}</Button>
-      {/if}
-    </li>
+    <ChoreRow
+      chore={c}
+      area={areaName(c.areaId)}
+      names={who(c)}
+      turn={turnName(c)}
+      ondone={canEdit && !archived && c.status !== 'paused' && c.status !== 'none' ? () => done(c) : undefined}
+    />
   {/snippet}
 
   {#if !loaded}
@@ -178,9 +156,9 @@
       {#if visible.length}<ul class="list">{#each visible as c (c.id)}{@render item(c)}{/each}</ul>{:else}<p class="muted">{t('home.empty.archived')}</p>{/if}
     </section>
   {:else if !scoped.length}
-    <section class="card mt-md">
+    <section class="card stack mt-md">
       <p>{showMine ? t('home.empty.mine') : t('home.empty.all')}</p>
-      {#if canEdit}<a class="btn" href={href('/chores/new')}>{t('chore.add')}</a>{/if}
+      {#if canEdit}<div class="actions"><a class="btn" href={href('/chores/new')}>{t('chore.add')}</a></div>{/if}
     </section>
   {:else if needle && !visible.length}
     <p class="muted mt-md" role="status">{t('home.searchNone')}</p>
@@ -188,16 +166,24 @@
     <div class="groups">
       {#each groups as g (g.id)}
         {@const items = visible.filter((c) => c.status === g.id).sort((a, b) => a.dueDate.localeCompare(b.dueDate))}
-        <section class="card" aria-labelledby="group-{g.id}">
-          <h2 id="group-{g.id}">
-            {t(g.title)}
-            <span class="count muted">{t('home.count', { count: items.length })}</span>
-          </h2>
-          {#if items.length}<ul class="list">{#each items as c (c.id)}{@render item(c)}{/each}</ul>{:else}<p class="muted empty">{t(g.empty)}</p>{/if}
-        </section>
+        {#if items.length}
+          <section class="card group" aria-labelledby="group-{g.id}">
+            <h2 id="group-{g.id}">
+              {t(g.title)}
+              <span class="count muted">{t('home.count', { count: items.length })}</span>
+            </h2>
+            <ul class="list">{#each items as c (c.id)}{@render item(c)}{/each}</ul>
+          </section>
+        {:else}
+          <!-- An empty group is one compact line, not a tall empty card. -->
+          <section class="card group none" aria-labelledby="group-{g.id}">
+            <h2 id="group-{g.id}">{t(g.title)}</h2>
+            <p class="muted">{t(g.empty)}</p>
+          </section>
+        {/if}
       {/each}
       {#if rest.length}
-        <section class="card" aria-labelledby="group-rest">
+        <section class="card group" aria-labelledby="group-rest">
           <h2 id="group-rest">{t('home.other')}</h2>
           <ul class="list">{#each rest as c (c.id)}{@render item(c)}{/each}</ul>
         </section>
@@ -211,21 +197,41 @@
     display: grid;
     gap: var(--space);
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+    align-items: start; /* a short group stays short next to a long one */
     margin-block-start: var(--space);
   }
-  h2 {
+  .group {
+    padding-block: 12px 4px;
+  }
+  .group :global(.list > li:first-child) {
+    border-block-start: 1px solid var(--border);
+  }
+  .group.none {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 4px 12px;
+    padding-block: 12px;
+  }
+  .group.none h2,
+  .group.none p {
+    margin: 0;
+  }
+  .group.none p {
+    font-size: 0.875rem;
+  }
+  .group h2 {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
     gap: 8px;
-    font-size: 1.125rem;
+    margin-block-end: 4px;
+    font-size: 1.0625rem;
   }
   .count {
     font-size: 0.875rem;
     font-weight: 400;
-  }
-  .empty {
-    margin: 0;
   }
   .search {
     position: relative;
@@ -266,25 +272,26 @@
     .chips :global(.chip) {
       flex: none;
     }
+    /* Fade the far edge while there is more to scroll to. A scroll timeline is
+       only active when the row overflows, so a row that fits gets no fade. */
+    @supports (animation-timeline: scroll()) {
+      .chips {
+        --chips-fade: linear-gradient(to right, #000 calc(100% - 40px), transparent);
+        animation: chips-fade linear both;
+        animation-timeline: scroll(self inline);
+      }
+      :global([dir='rtl']) .chips {
+        --chips-fade: linear-gradient(to left, #000 calc(100% - 40px), transparent);
+      }
+    }
   }
-  .chore {
-    flex-wrap: nowrap;
-  }
-  .chore-main {
-    flex: 1;
-    display: grid;
-    min-inline-size: 0;
-    min-block-size: var(--tap);
-    align-content: center;
-    color: var(--text);
-    text-decoration: none;
-  }
-  .turn {
-    justify-self: start;
-    margin-block-start: 4px;
-  }
-  .late {
-    color: var(--danger);
-    font-weight: 600;
+  @keyframes chips-fade {
+    0%,
+    95% {
+      mask-image: var(--chips-fade);
+    }
+    100% {
+      mask-image: none;
+    }
   }
 </style>

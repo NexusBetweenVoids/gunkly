@@ -30,7 +30,7 @@ test('axe WCAG 2.2 AA and no overflow on every main screen, light and dark', asy
   const { page } = await u.open();
   const screens: [string, string, string | RegExp][] = [
     ['/', 'home', c.name],
-    ['/calendar', 'calendar', 'Subscribe from your own calendar app'],
+    ['/calendar', 'calendar', 'Subscribe'],
     ['/chores/new', 'add chore', 'Who can do it'],
     [`/chores/${c.id}`, 'chore detail', 'History'],
     [`/chores/${c.id}/edit`, 'edit chore', 'Notes and link'],

@@ -2,11 +2,14 @@
   import { href } from '../lib/base';
   import Alert from '../components/Alert.svelte';
   import Button from '../components/Button.svelte';
+  import ChoreRow from '../components/ChoreRow.svelte';
   import { api } from '../lib/api';
+  import { completeChore } from '../lib/complete';
   import { addDays, fmt, parseYmd, today, weekStart, ymd } from '../lib/dates';
   import { failure } from '../lib/errors';
   import { t } from '../lib/i18n';
-  import { app } from '../lib/session.svelte';
+  import { app, currentHousehold } from '../lib/session.svelte';
+  import type { Area, Chore, Member } from '../lib/types';
 
   type Entry = { choreId: string; name: string; dates: string[] };
 
@@ -14,7 +17,14 @@
   let sel = $state(today());
   let entries = $state<Entry[]>([]);
   let err = $state('');
+  let doneErr = $state('');
   let focus = false;
+  // The day list shows full chore rows (area, people, status, Done), so the
+  // chores, areas and members are loaded alongside the calendar entries.
+  let chores = $state<Chore[]>([]);
+  let areas = $state<Area[]>([]);
+  let members = $state<Member[]>([]);
+  let version = $state(0); // bump to reload after a completion or an Undo
 
   const ws = weekStart();
   const dow = (s: string) => parseYmd(s).getUTCDay();
@@ -41,13 +51,44 @@
 
   const from = $derived(days[0]);
   const to = $derived(days[days.length - 1]);
+  const base = $derived(`/households/${app.hhId}`);
+  const areasOn = $derived(!!currentHousehold()?.areasEnabled);
+  const canEdit = $derived(currentHousehold()?.role !== 'guest');
   $effect(() => {
     const hh = app.hhId;
+    void version;
     if (!hh) return;
     api<{ items: Entry[] }>('GET', `/households/${hh}/calendar?from=${from}&to=${to}`)
       .then((r) => ((entries = r.items), (err = '')))
       .catch((x) => (err = failure(x).message));
   });
+  $effect(() => {
+    const hh = app.hhId;
+    void version;
+    if (!hh) return;
+    Promise.all([
+      api<Chore[]>('GET', `/households/${hh}/chores`),
+      areasOn ? api<Area[]>('GET', `/households/${hh}/areas`) : Promise.resolve([] as Area[]),
+      api<Member[]>('GET', `/households/${hh}/members`),
+    ])
+      .then((r) => ([chores, areas, members] = r))
+      .catch((x) => (err = failure(x).message));
+  });
+  const byId = $derived(new Map(chores.map((c) => [c.id, c])));
+  const areaName = (id: string | null) => (!areasOn ? '' : areas.find((a) => a.id === id)?.name ?? '');
+  const memberName = (id: string | null) => members.find((m) => m.userId === id)?.displayName ?? '';
+  const who = (c: Chore) => c.assignees.map(memberName).filter(Boolean);
+  const turnName = (c: Chore) => (c.rotation && c.turnUserId ? memberName(c.turnUserId) : '');
+
+  async function done(c: Chore): Promise<void> {
+    doneErr = '';
+    try {
+      await completeChore(base, c, () => version++, (m) => (doneErr = m));
+    } catch (x) {
+      doneErr = failure(x).message;
+    }
+    version++;
+  }
   $effect(() => {
     void [sel, days];
     if (focus) {
@@ -80,20 +121,23 @@
   const list = $derived(byDate[sel] ?? []);
 </script>
 
-<h1>{t('nav.calendar')}</h1>
-<div class="row toolbar">
-  <div class="row">
-    <Button variant="quiet" aria-label={t('calendar.prev')} onclick={() => shift(-1)}>&lsaquo;</Button>
-    <Button variant="quiet" aria-label={t('calendar.next')} onclick={() => shift(1)}>&rsaquo;</Button>
-    <Button variant="quiet" onclick={() => (sel = today())}>{t('home.dueToday')}</Button>
+<h1 class="visually-hidden">{t('nav.calendar')}</h1>
+<div class="bar">
+  <div class="nav">
+    <Button variant="quiet" class="btn-icon" aria-label={t('calendar.prev')} onclick={() => shift(-1)}>&lsaquo;</Button>
+    <h2 id="cal-title" aria-live="polite">{title}</h2>
+    <Button variant="quiet" class="btn-icon" aria-label={t('calendar.next')} onclick={() => shift(1)}>&rsaquo;</Button>
   </div>
-  <div role="group" aria-label={t('calendar.view')} class="row">
-    <button type="button" class="btn btn-quiet" aria-pressed={view === 'month'} onclick={() => (view = 'month')}>{t('calendar.month')}</button>
-    <button type="button" class="btn btn-quiet" aria-pressed={view === 'week'} onclick={() => (view = 'week')}>{t('calendar.week')}</button>
+  <div class="ctl">
+    <div role="group" aria-label={t('calendar.view')} class="seg">
+      <button type="button" aria-pressed={view === 'month'} onclick={() => (view = 'month')}>{t('calendar.month')}</button>
+      <button type="button" aria-pressed={view === 'week'} onclick={() => (view = 'week')}>{t('calendar.week')}</button>
+    </div>
+    <Button variant="quiet" class="today-btn" onclick={() => (sel = today())}>{t('home.dueToday')}</Button>
+    <a class="feeds" href={href('/settings/household-connections')} aria-label={t('calendar.feeds')} title={t('calendar.feeds')}>{t('calendar.subscribe')}</a>
   </div>
 </div>
-<h2 id="cal-title" aria-live="polite">{title}</h2>
-<div aria-live="polite"><Alert message={err} /></div>
+<div aria-live="polite"><Alert message={err || doneErr} /></div>
 
 <table role="grid" aria-labelledby="cal-title" aria-readonly="true" class="cal" class:week={view === 'week'}>
   <thead>
@@ -104,6 +148,7 @@
       <tr>
         {#each days.slice(r * 7, r * 7 + 7) as d (d)}
           {@const n = byDate[d]?.length ?? 0}
+          {@const late = n > 0 && d < today()}
           <td
             role="gridcell"
             id="cal-{d}"
@@ -123,11 +168,11 @@
             }}
           >
             <span class="num" aria-hidden="true">{+d.slice(8)}</span>
-            <span class="visually-hidden">{fmt(d, { dateStyle: 'full' })}, {t('home.count', { count: n })}</span>
+            <span class="visually-hidden">{fmt(d, { dateStyle: 'full' })}, {t('home.count', { count: n })}{#if late}, {t('home.overdue')}{/if}</span>
             {#if n}
               {#if view === 'week'}
-                <ul aria-hidden="true">{#each byDate[d] as e (e.choreId)}<li>{e.name}</li>{/each}</ul>
-              {:else}<span class="pill" aria-hidden="true">{n}</span>{/if}
+                <ul aria-hidden="true">{#each byDate[d] as e (e.choreId)}<li class:late>{e.name}</li>{/each}</ul>
+              {:else}<span class="pill" class:late aria-hidden="true">{n}</span>{/if}
             {/if}
           </td>
         {/each}
@@ -136,20 +181,126 @@
   </tbody>
 </table>
 
-<section class="card mt-md" aria-labelledby="cal-day" aria-live="polite">
-  <h2 id="cal-day">{fmt(sel, { dateStyle: 'full' })}</h2>
+<section class="card day mt-md" aria-labelledby="cal-day" aria-live="polite">
+  <h2 id="cal-day">
+    {fmt(sel, { weekday: 'long', day: 'numeric', month: 'long', year: sel.slice(0, 4) === today().slice(0, 4) ? undefined : 'numeric' })}
+    {#if list.length}<span class="count muted">{t('home.count', { count: list.length })}</span>{/if}
+  </h2>
   {#if list.length}
-    <ul class="list">{#each list as e (e.choreId)}<li><a href={href(`/chores/${e.choreId}`)}>{e.name}</a></li>{/each}</ul>
+    <ul class="list">
+      {#each list as e (e.choreId)}
+        {@const c = byId.get(e.choreId)}
+        {#if c}
+          <ChoreRow
+            chore={c}
+            due={sel}
+            area={areaName(c.areaId)}
+            names={who(c)}
+            turn={turnName(c)}
+            ondone={canEdit && sel === c.dueDate && c.status !== 'paused' && c.status !== 'none' ? () => done(c) : undefined}
+          />
+        {:else}
+          <li><a href={href(`/chores/${e.choreId}`)}>{e.name}</a></li>
+        {/if}
+      {/each}
+    </ul>
   {:else}
     <p class="muted">{t('calendar.none')}</p>
   {/if}
-  <p class="hint mt-md"><a href={href('/settings/household-connections')}>{t('calendar.feeds')}</a></p>
 </section>
 
 <style>
-  .toolbar {
+  /* One toolbar: ‹ title › on the left, view switch, Today and the feeds link.
+     On phones the controls drop to a second compact line under the title. */
+  .bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 16px;
+    margin-block-end: 12px;
+  }
+  .nav,
+  .ctl {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .ctl {
+    flex: 1;
+    flex-wrap: wrap;
+  }
+  .nav h2 {
+    margin: 0;
+    font-size: 1.25rem;
+    white-space: nowrap;
+  }
+  .seg {
+    display: inline-flex;
+    padding: 3px;
+    border-radius: var(--radius);
+    background: var(--surface-2);
+  }
+  .seg button {
+    min-block-size: 38px;
+    padding-inline: 14px;
+    border: 0;
+    border-radius: 9px;
+    background: transparent;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .ctl :global(.today-btn) {
+    padding-inline: 14px;
+    font-size: 0.9375rem;
+  }
+  .seg button[aria-pressed='true'] {
+    background: var(--surface);
+    box-shadow: var(--shadow), 0 0 0 1px var(--text-2);
+  }
+  .feeds {
+    margin-inline-start: auto;
+    min-block-size: var(--tap);
+    display: inline-flex;
+    align-items: center;
+    font-weight: 600;
+    font-size: 0.9375rem;
+  }
+  @media (max-width: 767px) {
+    .bar {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .nav h2 {
+      flex: 1;
+      text-align: center;
+      font-size: 1.125rem;
+      white-space: normal;
+    }
+  }
+  @media (min-width: 768px) {
+    .seg {
+      margin-inline-start: auto;
+    }
+    .feeds {
+      margin-inline-start: 8px;
+    }
+  }
+  .day h2 {
+    display: flex;
+    align-items: baseline;
     justify-content: space-between;
-    margin-block-end: 8px;
+    gap: 8px;
+    margin-block-end: 4px;
+    font-size: 1.0625rem;
+  }
+  .count {
+    font-size: 0.875rem;
+    font-weight: 400;
+    white-space: nowrap;
+  }
+  .day :global(.list > li:first-child) {
+    border-block-start: 1px solid var(--border);
   }
   .cal {
     inline-size: 100%;
@@ -201,6 +352,36 @@
     border: 1px solid var(--border);
     font-size: 0.75rem;
     font-weight: 600;
+  }
+  /* Past days with chores still open: a filled warning badge (the screen
+     reader text says "Overdue"). */
+  .pill.late {
+    background: var(--danger);
+    border-color: var(--danger);
+    color: var(--surface);
+    font-weight: 700;
+  }
+  td li.late {
+    color: var(--danger);
+    font-weight: 600;
+  }
+  /* Phones: every month row the same height, the count under the date. */
+  @media (max-width: 767px) {
+    .cal:not(.week) td {
+      block-size: 52px;
+      text-align: center;
+      vertical-align: top;
+    }
+    .cal:not(.week) .num {
+      display: inline-block;
+    }
+    .cal:not(.week) .pill {
+      display: block;
+      inline-size: fit-content;
+      min-inline-size: 20px;
+      margin-inline: auto;
+      margin-block-start: 2px;
+    }
   }
   td ul {
     list-style: none;

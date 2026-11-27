@@ -59,7 +59,7 @@ test("README and website screenshots", async ({ world, browser }) => {
     "dark",
     { width: 1100, height: 760 },
     1,
-    "Subscribe from your own calendar app",
+    "Subscribe",
   );
   await shot(
     `/chores/${gutters}/edit`,

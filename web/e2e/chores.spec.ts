@@ -216,6 +216,37 @@ test('calendar month and week show the chore; arrow keys move the selection', as
   await expect(page.locator('#cal-title')).not.toHaveText(title ?? '');
 });
 
+test('calendar: overdue days are marked; the day list completes a chore with Undo like Home', async ({ world }) => {
+  const u = await world.newUser();
+  const h = await world.household(u);
+  const late = await world.chore(u, h, { name: uniq('Late '), kind: 'oneoff', schedule: { firstDue: ymd(-1) } });
+  const c = await world.chore(u, h, { name: uniq('CalDone ') });
+  const { page } = await u.open();
+  await page.goto('/calendar');
+  const cell = page.locator(`#cal-${ymd(-1)}`);
+  if (!(await cell.count())) await page.getByRole('button', { name: 'Previous' }).click();
+  await expect(cell).toContainText('1 chore, Overdue');
+  await expect(cell.locator('.pill.late')).toHaveText('1');
+  await expect(page.locator(`#cal-${ymd(0)} .pill.late`)).toHaveCount(0);
+
+  // Past day: a full row with its overdue status and a Done button.
+  await cell.click();
+  const day = page.getByRole('region', { name: /./ }).filter({ has: page.locator('#cal-day') });
+  await expect(day.getByRole('link', { name: late.name })).toContainText('1 day overdue');
+  await expect(day.getByRole('button', { name: `Mark ${late.name} as done` })).toBeVisible();
+
+  // Today: complete, then Undo from the toast.
+  await page.getByRole('button', { name: 'Today' }).click();
+  await day.getByRole('button', { name: `Mark ${c.name} as done` }).click();
+  await expect(page.getByText(`Done: ${c.name}`)).toBeVisible();
+  await expect(day.getByRole('link', { name: c.name })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await expect(page.getByText(`Undone: ${c.name}`)).toBeVisible();
+  await expect(day.getByRole('link', { name: c.name })).toBeVisible();
+  const list = await u.api.get<{ id: string; status: string }[]>(`/households/${h.id}/chores`);
+  expect(list.find((x) => x.id === c.id)?.status).toBe('today');
+});
+
 test('a new chore pre-ticks the assignees of the last chore created; editing keeps its own', async ({ world }) => {
   const owner = await world.newUser();
   const bee = await world.newUser();
