@@ -23,7 +23,7 @@ export default defineConfig({
         advancedChunks: {
           groups: [
             { name: 'svelte', test: /node_modules\/svelte/, priority: 9 },
-            { name: 'shared', test: /src\/(components\/(Alert|Button|Field|Toast|Logo|Lazy|Initials|SecondFactor|LegalLinks)\.svelte|lib\/(?!rrule|zones|pow|qr|markdown|i18n\/en\/(?!core)))/, priority: 8 },
+            { name: 'shared', test: /src\/(components\/(Alert|Button|Field|Toast|Logo|Lazy|Initials|SecondFactor|LegalLinks)\.svelte|lib\/(?!rrule|zones|pow|qr|markdown|i18n\/(?!en\/core)[a-z-]+\/))/, priority: 8 },
             { name: 'ui', test: /src\/components\/(Dialog|Select|Confirm|TimeZone|RecoveryCodes)\.svelte/, priority: 7 },
             { name: 'calendar', test: /src\/(screens\/Calendar|lib\/i18n\/en\/calendar)/, priority: 5 },
             { name: 'auth', test: /src\/(screens\/(Setup|Signup|ForgotPassword|ResetPassword|VerifyEmail|Invite)|components\/StepUp|lib\/i18n\/en\/auth)/, priority: 5 },

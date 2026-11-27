@@ -7,7 +7,9 @@ import { join, extname } from 'node:path';
 import { gzipSync } from 'node:zlib';
 
 const KB = 1024;
-const BUDGET = { initialJs: 50 * KB, totalJs: 200 * KB, css: 15 * KB }; // total counts lazy screens; initial load is the strict one
+const BUDGET = { initialJs: 50 * KB, totalJs: 200 * KB, css: 15 * KB, locale: 40 * KB }; // total counts lazy screens; initial load is the strict one
+// Translations other than English are data a browser fetches for its own language only: they
+// count per language (locale budget), not toward the total.
 const dist = new URL('../dist', import.meta.url).pathname;
 const gz = new Map(); // dist-relative path -> gzipped size
 let css = 0;
@@ -44,9 +46,16 @@ const initial = new Set();
 })(entryKey);
 
 const sum = (files) => [...files].reduce((n, f) => n + (gz.get(f) ?? 0), 0);
+const locales = new Map(); // locale -> its chunk files
+for (const c of Object.values(manifest)) {
+  const m = /src\/lib\/i18n\/([a-z-]+)\/[^/]+\.json$/.exec(c.src ?? '');
+  if (m && m[1] !== 'en') locales.set(m[1], [...(locales.get(m[1]) ?? []), c.file]);
+}
+const localeFiles = new Set([...locales.values()].flat());
 const results = [
   ['initial JS (entry + static imports)', sum(initial), BUDGET.initialJs],
-  ['total JS', sum(gz.keys()), BUDGET.totalJs],
+  ['total JS (without translations)', sum([...gz.keys()].filter((f) => !localeFiles.has(f))), BUDGET.totalJs],
+  ...[...locales].sort().map(([loc, files]) => [`translation ${loc}`, sum(files), BUDGET.locale]),
   ['CSS', css, BUDGET.css],
 ];
 let ok = gz.size > 0;
