@@ -2,10 +2,17 @@ import { type World, ymd } from "./helpers";
 
 // Synthetic demo data for screenshots (README, website, design review): Alex and Sam share
 // "Maple Street 12" with areas and ten chores, some overdue, some taking turns.
-export async function seedDemo(world: World, opts: { admin?: boolean } = {}) {
-  const alex = await world.newUser(opts);
+// `names`: usernames "alex" and "sam" (only on a fresh server, as in the screenshot run).
+export async function seedDemo(
+  world: World,
+  opts: { admin?: boolean; names?: boolean } = {},
+) {
+  const alex = await world.newUser({
+    admin: opts.admin,
+    ...(opts.names ? { username: "alex" } : {}),
+  });
   await alex.api.call("PATCH", "/me", { displayName: "Alex" });
-  const sam = await world.newUser();
+  const sam = await world.newUser(opts.names ? { username: "sam" } : {});
   await sam.api.call("PATCH", "/me", { displayName: "Sam" });
   const h = await world.household(alex, "Maple Street 12", { areas: true });
   const inv = await alex.api.post<{ token: string }>(

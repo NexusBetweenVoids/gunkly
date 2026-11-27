@@ -101,7 +101,8 @@ export type World = {
   baseURL: string;
   admin: Api;
   signIn: (username: string, password: string) => Promise<Api>;
-  newUser: (opts?: { admin?: boolean }) => Promise<User>;
+  /** A new user; `username` only where the run is known to be fresh (screenshots). */
+  newUser: (opts?: { admin?: boolean; username?: string }) => Promise<User>;
   /** A fresh client with no session, with its own IP, tracked for CSP violations. */
   newContext: (opts?: Parameters<Browser['newContext']>[0]) => Promise<BrowserContext>;
   /** A household; areas are off unless `areas` is set (then with the starter areas). */
@@ -168,7 +169,7 @@ export const test = base.extend<{ world: World; csp: string[] }>({
       signIn,
       newContext,
       async newUser(opts = {}) {
-        const username = uniq('user');
+        const username = opts.username ?? uniq('user');
         const displayName = `Test ${username}`;
         await admin.post('/admin/users', { username, password: PASSWORD, displayName, isAdmin: !!opts.admin });
         const a = await signIn(username, PASSWORD);

@@ -32,13 +32,23 @@ A self-hostable, **AI-friendly** chore tracker for recurring household chores an
 
 | Home, phone (light) | Home, phone (dark) |
 |-|-|
-| <img alt="Home screen on a phone, light theme: overdue and due-today chores with Done buttons" src="docs/assets/screens/home-phone-light.png" width="270"> | <img alt="Home screen on a phone, dark theme" src="docs/assets/screens/home-phone-dark.png" width="270"> |
+| <img alt="Home screen on a phone, light theme: overdue and today's chores as two-line rows with round check buttons" src="docs/assets/screens/home-phone-light.png" width="270"> | <img alt="Home screen on a phone, dark theme" src="docs/assets/screens/home-phone-dark.png" width="270"> |
 
 | Calendar, desktop (dark) | Chore editor, desktop (light) |
 |-|-|
-| <img alt="Month calendar with the chores due on the selected day" src="docs/assets/screens/calendar-desktop-dark.png" width="420"> | <img alt="Edit chore form: name, people taking turns, then rows for area, repeat and reminders" src="docs/assets/screens/chore-editor-desktop-light.png" width="420"> |
+| <img alt="Month calendar with a red count on past days with open chores, and the selected day's chores with Done buttons" src="docs/assets/screens/calendar-desktop-dark.png" width="420"> | <img alt="Edit chore form: name, people taking turns, then rows for area, repeat and reminders" src="docs/assets/screens/chore-editor-desktop-light.png" width="420"> |
 
-<p align="center"><img alt="Settings, the household's People group: your settings groups and the household's on the side, members and invites next to them" src="docs/assets/screens/household-desktop-light.png" width="420"><br><sub>Settings (light): your own groups, then the current household's General, People, Notifications, Connections and Data.</sub></p>
+| Calendar, phone (light) | Chore detail, phone (light) |
+|-|-|
+| <img alt="Month calendar on a phone with the selected day's chores listed below" src="docs/assets/screens/calendar-phone-light.png" width="270"> | <img alt="A chore's page on a phone: next date, area, repeat, people and reminders, a Done button with snooze, skip and pause, and its history with a note" src="docs/assets/screens/chore-detail-phone-light.png" width="270"> |
+
+| Sign-in & security, desktop (light) | Administration, desktop (light) |
+|-|-|
+| <img alt="Settings, Sign-in and security: a verdict line saying the account is protected by a password and a passkey, then every way to sign in with its state and one action" src="docs/assets/screens/account-security-desktop-light.png" width="420"> | <img alt="Administration, Users: a one-line banner with recent security events and a Review link above the list of users" src="docs/assets/screens/admin-users-desktop-light.png" width="420"> |
+
+| Notifications, phone (dark) | Invite link, phone (light) |
+|-|-|
+| <img alt="Settings, Notifications on a phone: a status line saying reminders come by email, then this device, email and messaging apps with their state" src="docs/assets/screens/notifications-phone-dark.png" width="270"> | <img alt="An invite link opened on a phone: Join Maple Street 12, Alex invited you, and a form to create an account" src="docs/assets/screens/invite-phone-light.png" width="270"> |
 
 All screenshots show synthetic demo data.
 
