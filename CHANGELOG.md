@@ -4,6 +4,12 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ## [Unreleased]
 
+### Fixed
+
+- Changing a chore's repeat rule now moves its due date to the first date the new rule produces (on or after the current due date, so an overdue chore stays overdue); before, the old date stayed even when the new rule could never produce it. Applies to the app, the API and MCP.
+- A repeat rule that never produces a date (such as 30 February) is now refused when a chore is edited or a household is imported, as it already was on create.
+- Repeat rules accept spaces around parts and a trailing `;` (`FREQ=WEEKLY; BYDAY=MO;`).
+
 ## [0.12.1] - 2026-11-27
 
 ### Fixed
