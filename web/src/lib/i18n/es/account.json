@@ -335,5 +335,10 @@
   "ha.nextStep": "Ahora añade la integración de Gunkly en Home Assistant y pega allí la dirección y la clave.",
   "setupAgain.title": "Guía de configuración",
   "setupAgain.hint": "Repite la configuración inicial: elige o crea un hogar, añade tareas iniciales, invita a alguien y protege tu cuenta. No se cambia nada hasta que confirmes un paso.",
-  "setupAgain.start": "Repetir la configuración"
+  "setupAgain.start": "Repetir la configuración",
+  "audit.signin_unusual": "Inicio de sesión desde un lugar inusual (país nuevo o red de alojamiento)",
+  "signinAlerts.title": "Inicios de sesión inusuales",
+  "signinAlerts.label": "Avisarme por correo de inicios de sesión desde un lugar inusual",
+  "signinAlerts.hint": "Recibes un correo cuando alguien inicia sesión desde un país desde el que no lo has hecho últimamente, o desde una red de alojamiento o en la nube. Se envía a tu correo confirmado, como máximo una vez por hora. Solo se guardan el país y si era una red de alojamiento, junto al inicio de sesión en tu registro de actividad.",
+  "signinAlerts.needEmail": "Para recibir estos correos, añade primero tu dirección de correo y confírmala."
 }

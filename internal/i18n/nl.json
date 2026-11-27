@@ -113,5 +113,9 @@
   "oauth.session_heading": "Je sessie is beëindigd.",
   "oauth.session_note": "Open Gunkly, log in en begin opnieuw met het koppelen van de app.",
   "oauth.limit_heading": "Te veel gekoppelde apps.",
-  "oauth.limit_note": "Ontkoppel er een die je niet meer gebruikt onder Instellingen, AI en probeer het opnieuw."
+  "oauth.limit_note": "Ontkoppel er een die je niet meer gebruikt onder Instellingen, AI en probeer het opnieuw.",
+  "mail.signinunusual.subject": "Gunkly: ongebruikelijke inlog op je account",
+  "mail.signinunusual.country": "vanuit een land waar je nog niet vandaan hebt ingelogd ({country})",
+  "mail.signinunusual.network": "vanaf een hosting-, cloud- of anonimiseringsnetwerk (een datacenter of een dienst als Tor, geen gewone thuis- of mobiele verbinding)",
+  "mail.signinunusual.body": "Hallo,\n\nEr is zojuist ingelogd op je Gunkly-account op {time}, vanaf het IP-adres {ip}:\n\n{reasons}\n\nWas jij dit (bijvoorbeeld omdat je op reis bent of een VPN gebruikt), dan kun je dit bericht negeren.\n\nWas jij dit niet, wijzig dan nu je wachtwoord en log andere apparaten uit: open {link} (Instellingen, Inloggen en beveiliging). Daar kun je deze e-mails ook uitzetten.\n"
 }

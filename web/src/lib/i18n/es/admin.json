@@ -273,5 +273,10 @@
   "secEvents.token_rate_limited": "El token {token} de {username} fue limitado por exceso de solicitudes al menos {count} veces en una hora",
   "secEvents.token_burst": "{username} ha creado o aprobado {count} tokens de API o conexiones de aplicaciones en una hora",
   "secEvents.deletedUser": "Una cuenta eliminada",
-  "secEvents.hint": "Cada uno de estos puede ser señal de abuso o de un ataque. Revisa la cuenta en Usuarios; el registro de auditoría tiene los detalles. Los correos sobre ellos se pueden desactivar en Registro e inicio de sesión, Alertas de seguridad."
+  "secEvents.hint": "Cada uno de estos puede ser señal de abuso o de un ataque. Revisa la cuenta en Usuarios; el registro de auditoría tiene los detalles. Los correos sobre ellos se pueden desactivar en Registro e inicio de sesión, Alertas de seguridad.",
+  "admin.signinLocation": "Ubicación para los avisos de inicio de sesión",
+  "admin.signinLocation.none": "No disponible: no hay ninguna fuente de ubicación configurada (consulta los ajustes GeoIP en el README). Los usuarios no reciben correos sobre inicios de sesión inusuales.",
+  "admin.signinLocation.header": "Disponible mediante una cabecera de tu proxy de confianza.",
+  "admin.signinLocation.database": "Disponible mediante un archivo de base de datos GeoIP.",
+  "admin.signinLocation.both": "Disponible mediante una cabecera del proxy y un archivo de base de datos GeoIP."
 }

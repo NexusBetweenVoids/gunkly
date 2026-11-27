@@ -335,5 +335,10 @@
   "ha.nextStep": "Füge jetzt die Gunkly-Integration in Home Assistant hinzu und füge dort die Adresse und den Schlüssel ein.",
   "setupAgain.title": "Einrichtungsassistent",
   "setupAgain.hint": "Gehe die Ersteinrichtung noch einmal durch: Wähle oder erstelle einen Haushalt, füge Start-Aufgaben hinzu, lade jemanden ein und sichere dein Konto. Es ändert sich nichts, bis du einen Schritt bestätigst.",
-  "setupAgain.start": "Einrichtung noch einmal durchgehen"
+  "setupAgain.start": "Einrichtung noch einmal durchgehen",
+  "audit.signin_unusual": "Anmeldung von einem ungewöhnlichen Ort (neues Land oder Hosting-Netz)",
+  "signinAlerts.title": "Ungewöhnliche Anmeldungen",
+  "signinAlerts.label": "Mich bei Anmeldungen von ungewöhnlichen Orten per E-Mail informieren",
+  "signinAlerts.hint": "Du bekommst eine E-Mail, wenn sich jemand aus einem Land anmeldet, aus dem du dich in letzter Zeit nicht angemeldet hast, oder aus einem Hosting- oder Cloud-Netz. Sie geht an deine bestätigte E-Mail-Adresse, höchstens einmal pro Stunde. Gespeichert werden nur das Land und ob es ein Hosting-Netz war, zur Anmeldung in deinem Aktivitätsprotokoll.",
+  "signinAlerts.needEmail": "Um diese E-Mails zu bekommen, füge zuerst deine E-Mail-Adresse hinzu und bestätige sie."
 }

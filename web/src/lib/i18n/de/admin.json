@@ -273,5 +273,10 @@
   "secEvents.token_rate_limited": "Das Token {token} von {username} wurde innerhalb einer Stunde mindestens {count}-mal ausgebremst",
   "secEvents.token_burst": "{username} hat innerhalb einer Stunde {count} API-Token oder App-Verbindungen erstellt oder genehmigt",
   "secEvents.deletedUser": "Ein gelöschtes Konto",
-  "secEvents.hint": "Jedes davon kann ein Zeichen für Missbrauch oder einen Angriff sein. Prüfe das Konto unter Benutzer. Das Audit-Protokoll enthält die Details. E-Mails dazu lassen sich unter Registrierung & Anmeldung, Sicherheitswarnungen ausschalten."
+  "secEvents.hint": "Jedes davon kann ein Zeichen für Missbrauch oder einen Angriff sein. Prüfe das Konto unter Benutzer. Das Audit-Protokoll enthält die Details. E-Mails dazu lassen sich unter Registrierung & Anmeldung, Sicherheitswarnungen ausschalten.",
+  "admin.signinLocation": "Standort für Anmeldehinweise",
+  "admin.signinLocation.none": "Nicht verfügbar: Keine Standortquelle eingerichtet (siehe die GeoIP-Einstellungen in der README). Nutzer bekommen keine E-Mails zu ungewöhnlichen Anmeldungen.",
+  "admin.signinLocation.header": "Verfügbar über einen Header deines vertrauenswürdigen Proxys.",
+  "admin.signinLocation.database": "Verfügbar über eine GeoIP-Datenbankdatei.",
+  "admin.signinLocation.both": "Verfügbar über einen Proxy-Header und eine GeoIP-Datenbankdatei."
 }

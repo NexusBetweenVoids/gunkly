@@ -335,5 +335,10 @@
   "ha.nextStep": "Voeg nu de Gunkly-integratie toe in Home Assistant en plak daar het adres en de sleutel.",
   "setupAgain.title": "Installatiehulp",
   "setupAgain.hint": "Doorloop de eerste installatie opnieuw: kies of maak een huishouden, voeg een paar taken toe, nodig iemand uit en beveilig je account. Er verandert niets totdat je een stap bevestigt.",
-  "setupAgain.start": "De installatie opnieuw doorlopen"
+  "setupAgain.start": "De installatie opnieuw doorlopen",
+  "audit.signin_unusual": "Ingelogd vanaf een ongebruikelijke plek (nieuw land of hostingnetwerk)",
+  "signinAlerts.title": "Ongebruikelijke inlogpogingen",
+  "signinAlerts.label": "Mail me bij inloggen vanaf een ongebruikelijke plek",
+  "signinAlerts.hint": "Je krijgt een e-mail als iemand inlogt vanuit een land waar je de laatste tijd niet vandaan hebt ingelogd, of vanaf een hosting- of cloudnetwerk. De mail gaat naar je bevestigde e-mailadres, hooguit één keer per uur. Alleen het land en of het een hostingnetwerk was worden bewaard, bij de inlog in je activiteitenlog.",
+  "signinAlerts.needEmail": "Voeg eerst je e-mailadres toe en bevestig het om deze e-mails te krijgen."
 }

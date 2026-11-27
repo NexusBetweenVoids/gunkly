@@ -339,5 +339,10 @@
   "ha.nextStep": "Ajoute maintenant l’intégration Gunkly dans Home Assistant et colle-y l’adresse et le jeton.",
   "setupAgain.title": "Guide de démarrage",
   "setupAgain.hint": "Repasse par la configuration initiale : choisis ou crée un foyer, ajoute des tâches de départ, invite quelqu’un et sécurise ton compte. Rien n’est modifié tant que tu n’as pas confirmé une étape.",
-  "setupAgain.start": "Refaire la configuration"
+  "setupAgain.start": "Refaire la configuration",
+  "audit.signin_unusual": "Connexion depuis un lieu inhabituel (nouveau pays ou réseau d’hébergement)",
+  "signinAlerts.title": "Connexions inhabituelles",
+  "signinAlerts.label": "M’avertir par e-mail des connexions depuis un lieu inhabituel",
+  "signinAlerts.hint": "Tu reçois un e-mail quand quelqu’un se connecte depuis un pays d’où tu ne t’es pas connecté récemment, ou depuis un réseau d’hébergement ou cloud. Il est envoyé à ton adresse e-mail confirmée, au plus une fois par heure. Seuls le pays et le fait qu’il s’agisse d’un réseau d’hébergement sont conservés, avec la connexion dans ton journal d’activité.",
+  "signinAlerts.needEmail": "Pour recevoir ces e-mails, ajoute d’abord ton adresse e-mail et confirme-la."
 }

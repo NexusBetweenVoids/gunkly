@@ -113,5 +113,9 @@
   "oauth.session_heading": "Deine Sitzung ist beendet.",
   "oauth.session_note": "Öffne Gunkly, melde dich an und starte die Verbindung der App erneut.",
   "oauth.limit_heading": "Zu viele verbundene Apps.",
-  "oauth.limit_note": "Trenne unter Einstellungen, KI eine App, die du nicht mehr nutzt, und versuche es dann erneut."
+  "oauth.limit_note": "Trenne unter Einstellungen, KI eine App, die du nicht mehr nutzt, und versuche es dann erneut.",
+  "mail.signinunusual.subject": "Gunkly: ungewöhnliche Anmeldung bei deinem Konto",
+  "mail.signinunusual.country": "aus einem Land, aus dem du dich bisher nicht angemeldet hast ({country})",
+  "mail.signinunusual.network": "aus einem Hosting-, Cloud- oder Anonymisierungsnetz (ein Rechenzentrum oder ein Dienst wie Tor, keine übliche Heim- oder Mobilverbindung)",
+  "mail.signinunusual.body": "Hallo,\n\nbei deinem Gunkly-Konto hat sich gerade jemand angemeldet, am {time}, von der IP-Adresse {ip}:\n\n{reasons}\n\nWarst du das (zum Beispiel auf Reisen oder mit einem VPN), kannst du diese Nachricht ignorieren.\n\nWarst du das nicht, ändere jetzt dein Passwort und melde andere Geräte ab: Öffne {link} (Einstellungen, Anmeldung & Sicherheit). Dort kannst du diese E-Mails auch abschalten.\n"
 }

@@ -113,5 +113,9 @@
   "oauth.session_heading": "Tu sesión ha terminado.",
   "oauth.session_note": "Abre Gunkly, inicia sesión y vuelve a empezar a conectar la aplicación.",
   "oauth.limit_heading": "Demasiadas aplicaciones conectadas.",
-  "oauth.limit_note": "Desconecta una que ya no uses en Ajustes, IA, y vuelve a intentarlo."
+  "oauth.limit_note": "Desconecta una que ya no uses en Ajustes, IA, y vuelve a intentarlo.",
+  "mail.signinunusual.subject": "Gunkly: inicio de sesión inusual en tu cuenta",
+  "mail.signinunusual.country": "desde un país desde el que no habías iniciado sesión antes ({country})",
+  "mail.signinunusual.network": "desde una red de alojamiento, en la nube o de anonimización (un centro de datos o un servicio como Tor, no una conexión doméstica o móvil habitual)",
+  "mail.signinunusual.body": "Hola:\n\nAcaban de iniciar sesión en tu cuenta de Gunkly el {time}, desde la dirección IP {ip}:\n\n{reasons}\n\nSi fuiste tú (por ejemplo, estás de viaje o usas una VPN), puedes ignorar este mensaje.\n\nSi no fuiste tú, cambia ya tu contraseña y cierra la sesión en otros dispositivos: abre {link} (Ajustes, Inicio de sesión y seguridad). Ahí también puedes desactivar estos correos.\n"
 }

@@ -273,5 +273,10 @@
   "secEvents.token_rate_limited": "Het token {token} van {username} werd binnen een uur minstens {count} keer beperkt",
   "secEvents.token_burst": "{username} maakte of keurde binnen een uur {count} API-tokens of app-koppelingen goed",
   "secEvents.deletedUser": "Een verwijderd account",
-  "secEvents.hint": "Elk van deze kan een teken zijn van misbruik of een aanval. Controleer het account onder Gebruikers; het auditlogboek bevat de details. E-mails hierover kun je uitzetten onder Aanmelden en inloggen, Beveiligingsmeldingen."
+  "secEvents.hint": "Elk van deze kan een teken zijn van misbruik of een aanval. Controleer het account onder Gebruikers; het auditlogboek bevat de details. E-mails hierover kun je uitzetten onder Aanmelden en inloggen, Beveiligingsmeldingen.",
+  "admin.signinLocation": "Locatie voor inlogmeldingen",
+  "admin.signinLocation.none": "Niet beschikbaar: er is geen locatiebron ingesteld (zie de GeoIP-instellingen in de README). Gebruikers krijgen geen mail over ongebruikelijke inlogs.",
+  "admin.signinLocation.header": "Beschikbaar via een header van je vertrouwde proxy.",
+  "admin.signinLocation.database": "Beschikbaar via een GeoIP-databasebestand.",
+  "admin.signinLocation.both": "Beschikbaar via een proxyheader en een GeoIP-databasebestand."
 }

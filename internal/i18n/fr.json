@@ -113,5 +113,9 @@
   "oauth.session_heading": "Ta session a pris fin.",
   "oauth.session_note": "Ouvre Gunkly, connecte-toi et relance la connexion de l’application.",
   "oauth.limit_heading": "Trop d’applications connectées.",
-  "oauth.limit_note": "Déconnecte une application que tu n’utilises plus dans Paramètres, IA, puis réessaie."
+  "oauth.limit_note": "Déconnecte une application que tu n’utilises plus dans Paramètres, IA, puis réessaie.",
+  "mail.signinunusual.subject": "Gunkly : connexion inhabituelle à ton compte",
+  "mail.signinunusual.country": "depuis un pays d’où tu ne t’étais jamais connecté ({country})",
+  "mail.signinunusual.network": "depuis un réseau d’hébergement, cloud ou d’anonymisation (un centre de données ou un service comme Tor, pas une connexion domestique ou mobile habituelle)",
+  "mail.signinunusual.body": "Bonjour,\n\nQuelqu’un vient de se connecter à ton compte Gunkly le {time}, depuis l’adresse IP {ip} :\n\n{reasons}\n\nSi c’était toi (par exemple en voyage ou avec un VPN), tu peux ignorer ce message.\n\nSi ce n’était pas toi, change ton mot de passe maintenant et déconnecte les autres appareils : ouvre {link} (Paramètres, Connexion et sécurité). Tu peux aussi y désactiver ces e-mails.\n"
 }

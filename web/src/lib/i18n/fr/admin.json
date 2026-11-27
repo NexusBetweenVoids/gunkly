@@ -273,5 +273,10 @@
   "secEvents.token_rate_limited": "Le jeton {token} de {username} a été limité au moins {count} fois en moins d’une heure",
   "secEvents.token_burst": "{username} a créé ou approuvé {count} jetons d’API ou connexions d’applications en moins d’une heure",
   "secEvents.deletedUser": "Un compte supprimé",
-  "secEvents.hint": "Chacun de ces événements peut être le signe d’un abus ou d’une attaque. Vérifie le compte dans Utilisateurs ; le journal d’audit contient les détails. Les e-mails qui s’y rapportent peuvent être désactivés dans Inscription et connexion, Alertes de sécurité."
+  "secEvents.hint": "Chacun de ces événements peut être le signe d’un abus ou d’une attaque. Vérifie le compte dans Utilisateurs ; le journal d’audit contient les détails. Les e-mails qui s’y rapportent peuvent être désactivés dans Inscription et connexion, Alertes de sécurité.",
+  "admin.signinLocation": "Localisation pour les alertes de connexion",
+  "admin.signinLocation.none": "Indisponible : aucune source de localisation n’est configurée (voir les réglages GeoIP dans le README). Les utilisateurs ne reçoivent pas d’e-mail sur les connexions inhabituelles.",
+  "admin.signinLocation.header": "Disponible via un en-tête de ton proxy de confiance.",
+  "admin.signinLocation.database": "Disponible via un fichier de base GeoIP.",
+  "admin.signinLocation.both": "Disponible via un en-tête de proxy et un fichier de base GeoIP."
 }
