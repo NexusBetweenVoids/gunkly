@@ -12,6 +12,7 @@
   import { app, refreshMe } from '../../lib/session.svelte';
   import { withStepUp } from '../../lib/stepup.svelte';
   import { toast } from '../../lib/toast.svelte';
+  import MethodRow from './MethodRow.svelte';
 
   let setup = $state<{ secret: string; uri: string } | null>(null);
   let code = $state('');
@@ -63,8 +64,28 @@
   }
 </script>
 
-<section class="card" aria-labelledby="a-totp">
-  <h2 id="a-totp">{t('totp.title')}</h2>
+<MethodRow
+  id="a-totp"
+  name={t('totp.title')}
+  hint={t('totp.intro')}
+  state={app.user?.totpEnabled ? t('ways.on') : t('ways.off')}
+  tone={app.user?.totpEnabled ? 'ok' : ''}
+  open={!!setup || codes.length > 0}
+>
+  {#snippet notes()}
+    {#if app.user?.emailOtpEnabled && !app.user?.totpEnabled}<p class="hint">{t('totp.replacesEmail')}</p>{/if}
+    {#if app.user?.totpEnabled && app.instance.hostedMode}<p class="hint">{t('totp.mandatory')}</p>{/if}
+    {#if !setup}<div aria-live="polite"><Alert message={err.message} /></div>{/if}
+  {/snippet}
+  {#snippet action()}
+    {#if app.user?.totpEnabled}
+      {#if !app.instance.hostedMode && !codes.length}
+        <Button variant="quiet" onclick={() => (confirmOff = true)}>{t('totp.disable')}</Button>
+      {/if}
+    {:else if !setup}
+      <Button variant="quiet" {busy} onclick={start}>{t('totp.setup')}</Button>
+    {/if}
+  {/snippet}
   {#if codes.length}
     <RecoveryCodes {codes} intro={t('totp.codesIntro')} onsaved={() => (codes = [])} />
   {:else if setup}
@@ -72,7 +93,7 @@
       <p>{t('totp.setupIntro')}</p>
       <div class="stack-sm">
         <QrCode text={setup.uri} label={t('totp.qrLabel')} />
-        <p class="muted">{t('totp.scan')}</p>
+        <p class="hint">{t('totp.scan')}</p>
       </div>
       <div class="stack-sm">
         <p class="label" id="totp-secret">{t('totp.secret')}</p>
@@ -93,32 +114,13 @@
         error={err.code === 'invalid_code' ? err.message : ''}
       />
       {#if err.code !== 'invalid_code'}<Alert message={err.message} />{/if}
-      <div class="row">
+      <div class="actions">
         <Button type="submit" {busy}>{t('totp.enable')}</Button>
         <Button variant="quiet" onclick={() => (setup = null)}>{t('common.cancel')}</Button>
       </div>
     </form>
-  {:else}
-    <div class="stack">
-      <p>
-        <span class="badge">{app.user?.totpEnabled ? t('totp.on') : t('totp.off')}</span>
-      </p>
-      <p class="muted">{t('totp.intro')}</p>
-      {#if app.user?.emailOtpEnabled}<p class="muted">{t('totp.replacesEmail')}</p>{/if}
-      {#if app.user?.totpEnabled && app.instance.hostedMode}<p class="muted">{t('totp.mandatory')}</p>{/if}
-      <Alert message={err.message} />
-      <div>
-        {#if app.user?.totpEnabled}
-          {#if !app.instance.hostedMode}
-            <Button variant="danger" onclick={() => (confirmOff = true)}>{t('totp.disable')}</Button>
-          {/if}
-        {:else}
-          <Button {busy} onclick={start}>{t('totp.setup')}</Button>
-        {/if}
-      </div>
-    </div>
   {/if}
-</section>
+</MethodRow>
 
 <Confirm
   open={confirmOff}

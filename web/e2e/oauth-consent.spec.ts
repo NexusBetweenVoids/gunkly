@@ -54,7 +54,7 @@ test('oauth consent: a passkey confirms the app, no password typed', async ({ wo
   // Register a passkey (this step-up is the password's), then sign in with it: a session that has not stepped up.
   await page.goto('/settings/security');
   const section = page.getByRole('region', { name: 'Passkeys' });
-  await section.getByRole('button', { name: 'Add a passkey' }).click();
+  await section.getByRole('button', { name: 'Add', exact: true }).click();
   await section.getByLabel('Name').fill('Consent key');
   await section.getByRole('button', { name: 'Create passkey' }).click();
   const confirm = page.getByRole('dialog', { name: "Confirm it's you" });

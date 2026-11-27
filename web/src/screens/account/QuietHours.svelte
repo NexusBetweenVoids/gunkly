@@ -34,8 +34,9 @@
   }
 </script>
 
+<!-- Only the switch until quiet hours are on (or were saved and are being switched off). -->
 <section class="card stack-sm" aria-labelledby="a-quiet">
-  <h2 id="a-quiet">{t('quietHours.title')}</h2>
+  <h2 id="a-quiet" class="card-title">{t('quietHours.title')}</h2>
   <form class="stack-sm" onsubmit={save}>
     <label class="check"><input type="checkbox" bind:checked={on} />{t('quietHours.label')}</label>
     {#if on}
@@ -43,12 +44,16 @@
         <Field label={t('quietHours.start')} type="time" bind:value={start} required />
         <Field label={t('quietHours.end')} type="time" bind:value={end} required />
       </div>
+      <p class="hint">{t('quietHours.hint')}</p>
+      <p class="hint">
+        {app.user?.timeZone ? t('quietHours.zoneOwn', { zone: app.user.timeZone }) : t('quietHours.zoneHousehold')}
+      </p>
+    {:else}
+      <p class="hint">{t('quietHours.off')}</p>
     {/if}
-    <p class="hint">{t('quietHours.hint')}</p>
-    <p class="hint">
-      {app.user?.timeZone ? t('quietHours.zoneOwn', { zone: app.user.timeZone }) : t('quietHours.zoneHousehold')}
-    </p>
     <div aria-live="polite"><Alert message={err} /></div>
-    <div><Button type="submit" {busy}>{t('common.save')}</Button></div>
+    {#if on || app.user?.quietHours}
+      <div><Button type="submit" {busy}>{t('common.save')}</Button></div>
+    {/if}
   </form>
 </section>

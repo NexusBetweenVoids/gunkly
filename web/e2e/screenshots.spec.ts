@@ -129,7 +129,7 @@ test("README and website screenshots", async ({ world, browser }) => {
     });
     await page.goto("/settings/security");
     const section = page.getByRole("region", { name: "Passkeys" });
-    await section.getByRole("button", { name: "Add a passkey" }).click();
+    await section.getByRole("button", { name: "Add", exact: true }).click();
     await section.getByLabel("Name").fill("Alex’s laptop");
     await section.getByRole("button", { name: "Create passkey" }).click();
     const confirm = page.getByRole("dialog", { name: "Confirm it's you" });
@@ -140,13 +140,13 @@ test("README and website screenshots", async ({ world, browser }) => {
     await setTheme(page, "dark");
     await expect(page.getByText("Passkey added.")).toHaveCount(0); // the toast is gone
     await page.waitForTimeout(400);
-    // Just the Passkeys card, cropped from a window tall enough that the page never scrolls, so the
+    // Just the "Ways to sign in" card (passkey list open), cropped from a window tall enough that the page never scrolls, so the
     // sticky header can't overlap it.
     await page.setViewportSize({ width: 1000, height: 2400 });
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.waitForTimeout(300);
-    const box = await section.boundingBox();
-    if (!box) throw new Error("Passkeys card not visible");
+    const box = await page.getByRole("region", { name: "Ways to sign in" }).boundingBox();
+    if (!box) throw new Error("Ways to sign in card not visible");
     await page.screenshot({
       path: OUT + "account-security-passkey-desktop-dark.png",
       clip: {

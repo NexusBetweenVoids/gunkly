@@ -10,6 +10,7 @@
   import { app, refreshMe } from '../../lib/session.svelte';
   import { withStepUp } from '../../lib/stepup.svelte';
   import { toast } from '../../lib/toast.svelte';
+  import MethodRow from './MethodRow.svelte';
 
   type Passkey = { id: string; name: string; createdAt: string; lastUsedAt: string | null };
   let list = $state<Passkey[]>([]);
@@ -20,11 +21,16 @@
   let err = $state({ code: '', message: '' });
   let removing = $state<Passkey | null>(null);
   let supported = $state(true);
+  let open = $state(false);
+  let loaded = $state(false);
+  const available = $derived(!!app.instance.passkeysAvailable && supported);
+  const count = $derived(loaded ? list.length : (app.user?.passkeys ?? 0));
   const when = (s: string) => formatDate(new Date(s), { dateStyle: 'medium' });
 
   async function load(): Promise<void> {
     try {
       list = await api<Passkey[]>('GET', '/account/passkeys');
+      loaded = true;
     } catch (x) {
       err = failure(x);
     }
@@ -45,6 +51,7 @@
       );
       codes = r.recoveryCodes ?? [];
       adding = false;
+      open = true;
       name = '';
       toast(codes.length ? t('passkeys.added') : t('passkeys.addedKeepCodes'));
       await Promise.all([load(), refreshMe()]);
@@ -73,18 +80,46 @@
   }
 </script>
 
-<section class="card" aria-labelledby="a-passkeys">
-  <h2 id="a-passkeys">{t('passkeys.title')}</h2>
+<MethodRow
+  id="a-passkeys"
+  name={t('passkeys.title')}
+  hint={t('ways.passkeysHint')}
+  state={count ? t('ways.passkeyCount', { count }) : available ? t('ways.noneYet') : t('ways.unavailable')}
+  tone={count ? 'ok' : ''}
+  open={open || codes.length > 0}
+>
+  {#snippet notes()}
+    {#if !app.instance.passkeysAvailable}
+      <p class="hint" role="note">{t('passkeys.needsHttps')}</p>
+    {:else if !supported}
+      <p class="hint" role="note">{t('passkeys.unsupported')}</p>
+    {/if}
+  {/snippet}
+  {#snippet action()}
+    {#if count}
+      <Button variant="quiet" aria-expanded={open} onclick={() => (open = !open)}>{t('ways.manage')}</Button>
+    {:else if available}
+      <Button
+        variant="quiet"
+        aria-expanded={open}
+        onclick={() => {
+          open = !open;
+          adding = open;
+        }}>{t('ways.add')}</Button
+      >
+    {/if}
+  {/snippet}
   {#if codes.length}
-    <RecoveryCodes {codes} intro={t('passkeys.codesIntro')} onsaved={() => (codes = [])} />
+    <RecoveryCodes
+      {codes}
+      intro={t('passkeys.codesIntro')}
+      onsaved={() => {
+        codes = [];
+        open = list.length > 0;
+      }}
+    />
   {:else}
     <div class="stack">
-      <p class="muted">{t('passkeys.intro')}</p>
-      {#if !app.instance.passkeysAvailable}
-        <p class="muted" role="note">{t('passkeys.needsHttps')}</p>
-      {:else if !supported}
-        <p class="muted" role="note">{t('passkeys.unsupported')}</p>
-      {/if}
       {#if list.length}
         <ul class="list">
           {#each list as p (p.id)}
@@ -101,28 +136,32 @@
             </li>
           {/each}
         </ul>
-        <p class="muted">{t('passkeys.secondFactorNote')}</p>
+        <p class="hint">{t('passkeys.secondFactorNote')}</p>
       {/if}
       {#if app.instance.hostedMode && list.length === 1 && !app.user?.totpEnabled && !app.user?.emailOtpEnabled}
-        <p class="muted">{t('totp.mandatory')}</p>
+        <p class="hint">{t('totp.mandatory')}</p>
       {/if}
       <Alert message={err.message} />
       {#if adding}
         <form class="stack" onsubmit={add}>
           <Field label={t('passkeys.name')} hint={t('passkeys.nameHint')} bind:value={name} maxlength={100} required autocomplete="off" />
-          <div class="row">
+          <div class="actions">
             <Button type="submit" {busy}>{t('passkeys.create')}</Button>
-            <Button variant="quiet" onclick={() => (adding = false)}>{t('common.cancel')}</Button>
+            <Button
+              variant="quiet"
+              onclick={() => {
+                adding = false;
+                open = list.length > 0;
+              }}>{t('common.cancel')}</Button
+            >
           </div>
         </form>
-      {:else}
-        <div>
-          <Button disabled={!app.instance.passkeysAvailable || !supported} onclick={() => (adding = true)}>{t('passkeys.add')}</Button>
-        </div>
+      {:else if available}
+        <div><Button variant="quiet" onclick={() => (adding = true)}>{t('passkeys.add')}</Button></div>
       {/if}
     </div>
   {/if}
-</section>
+</MethodRow>
 
 <Confirm
   open={removing !== null}

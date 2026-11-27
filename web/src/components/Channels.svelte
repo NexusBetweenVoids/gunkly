@@ -13,8 +13,14 @@
   import Select from './Select.svelte';
 
   // `base` is /account/channels or /households/{id}/channels.
-  let { base, title, id: sid, intro = '', bare = false }: { base: `/${string}`; title: string; id: string; intro?: string; bare?: boolean } = $props();
-  let items = $state<Channel[]>([]);
+  let {
+    base,
+    title,
+    id: sid,
+    intro = '',
+    bare = false,
+    items = $bindable([]),
+  }: { base: `/${string}`; title: string; id: string; intro?: string; bare?: boolean; items?: Channel[] } = $props();
   let err = $state('');
   let result = $state('');
   let busy = $state(false);

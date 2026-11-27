@@ -33,7 +33,7 @@ test('passkey first: no email until asked; recovery codes can be renewed', async
   // Email codes on (the first second factor: recovery codes come with it).
   await page.goto('/settings/security');
   const emailCodes = page.getByRole('region', { name: 'Email codes' });
-  await emailCodes.getByRole('button', { name: 'Use email codes' }).click();
+  await emailCodes.getByRole('button', { name: 'Turn on' }).click();
   const dialog = page.getByRole('dialog', { name: "Confirm it's you" });
   await dialog.getByLabel('Password').fill(PASSWORD);
   await dialog.getByRole('button', { name: 'Confirm' }).click();
@@ -45,7 +45,7 @@ test('passkey first: no email until asked; recovery codes can be renewed', async
 
   // Add a passkey (the confirmation from turning on email codes is still fresh).
   const passkeys = page.getByRole('region', { name: 'Passkeys' });
-  await passkeys.getByRole('button', { name: 'Add a passkey' }).click();
+  await passkeys.getByRole('button', { name: 'Add', exact: true }).click();
   await passkeys.getByLabel('Name').fill('Virtual key');
   await passkeys.getByRole('button', { name: 'Create passkey' }).click();
   // Codes existed already: no new list, a hint that they still work.

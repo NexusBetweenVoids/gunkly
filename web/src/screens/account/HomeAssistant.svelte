@@ -29,7 +29,7 @@
 
 <section class="card" aria-labelledby="a-ha">
   <h2 id="a-ha" class="with-logo">{@render logo()}{t('ha.title')}</h2>
-  <p>{t('ha.intro')}</p>
+  <p class="card-desc">{t('ha.intro')}</p>
   <ol class="steps stack">
     <li>
       <p>{t('ha.step1')}</p>

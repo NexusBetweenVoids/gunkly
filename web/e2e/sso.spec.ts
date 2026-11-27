@@ -23,9 +23,9 @@ test('single sign-on: link an account, sign in with it, unlink', async ({ world 
   await asProviderUser({ sub, preferred_username: u.username });
   await page.goto('/settings/security');
   const section = page.getByRole('region', { name: 'Single sign-on' });
-  await expect(section.getByText('Not linked.')).toBeVisible();
+  await expect(section.getByText('Not linked', { exact: true })).toBeVisible();
   await axe(page, 'single sign-on section');
-  await section.getByRole('button', { name: 'Link single sign-on' }).click();
+  await section.getByRole('button', { name: 'Link', exact: true }).click();
   const confirm = page.getByRole('dialog', { name: "Confirm it's you" });
   await confirm.getByLabel('Password').fill(u.password);
   await confirm.getByRole('button', { name: 'Confirm' }).click();
@@ -52,7 +52,7 @@ test('single sign-on: link an account, sign in with it, unlink', async ({ world 
   await expect(page.getByText('Confirmed. You can continue now.')).toBeVisible();
   await section.getByRole('button', { name: 'Unlink' }).click();
   await page.getByRole('dialog', { name: 'Unlink single sign-on?' }).getByRole('button', { name: 'Unlink' }).click();
-  await expect(section.getByText('Not linked.')).toBeVisible();
+  await expect(section.getByText('Not linked', { exact: true })).toBeVisible();
 });
 
 test('single sign-on: an unknown user gets a friendly message, or an account when the admin allows it', async ({ world }) => {

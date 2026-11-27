@@ -9,12 +9,15 @@
   import { app, refreshMe } from '../../lib/session.svelte';
   import { withStepUp } from '../../lib/stepup.svelte';
   import { toast } from '../../lib/toast.svelte';
+  import { href } from '../../lib/base';
+  import MethodRow from './MethodRow.svelte';
 
   let codes = $state<string[]>([]);
   let busy = $state(false);
   let err = $state({ code: '', message: '' });
   let confirmOff = $state(false);
   const on = $derived(app.user?.emailOtpEnabled ?? false);
+  const verified = $derived(!!app.user?.email && !!app.user.emailVerified);
 
   async function enable(): Promise<void> {
     busy = true;
@@ -45,30 +48,37 @@
 </script>
 
 {#if app.instance.emailEnabled}
-  <section class="card" aria-labelledby="a-emailcodes">
-    <h2 id="a-emailcodes">{t('emailcodes.title')}</h2>
-    {#if codes.length}
-      <RecoveryCodes {codes} intro={t('totp.codesIntro')} onsaved={() => (codes = [])} />
-    {:else}
-      <div class="stack">
-        <p><span class="badge">{on ? t('totp.on') : t('totp.off')}</span></p>
-        <p class="muted">{t('emailcodes.intro')} {t('emailcodes.mailbox')}</p>
-        {#if !on && app.user?.totpEnabled}<p class="muted">{t('emailcodes.enableReplaces')}</p>{/if}
-        {#if !app.user?.emailVerified && !on}<p class="muted">{t('emailcodes.needVerified')}</p>{/if}
-        {#if on && app.instance.hostedMode}<p class="muted">{t('emailcodes.mandatory')}</p>{/if}
-        <Alert message={err.message} />
-        <div>
-          {#if on}
-            {#if !app.instance.hostedMode}
-              <Button variant="danger" onclick={() => (confirmOff = true)}>{t('totp.disable')}</Button>
-            {/if}
-          {:else}
-            <Button {busy} disabled={!app.user?.emailVerified} onclick={enable}>{t('emailcodes.enable')}</Button>
-          {/if}
-        </div>
-      </div>
-    {/if}
-  </section>
+  <MethodRow
+    id="a-emailcodes"
+    name={t('emailcodes.title')}
+    hint={t('emailcodes.intro')}
+    state={on ? t('ways.on') : verified ? t('ways.off') : t('ways.unavailable')}
+    tone={on ? 'ok' : ''}
+    open={codes.length > 0}
+  >
+    {#snippet notes()}
+      {#if !on && !verified}
+        <p class="hint" data-testid="emailcodes-reason">{t('emailcodes.needVerified')}</p>
+      {:else if !on}
+        <p class="hint">{t('emailcodes.mailbox')}</p>
+        {#if app.user?.totpEnabled}<p class="hint">{t('emailcodes.enableReplaces')}</p>{/if}
+      {/if}
+      {#if on && app.instance.hostedMode}<p class="hint">{t('emailcodes.mandatory')}</p>{/if}
+      <div aria-live="polite"><Alert message={err.message} /></div>
+    {/snippet}
+    {#snippet action()}
+      {#if on}
+        {#if !app.instance.hostedMode && !codes.length}
+          <Button variant="quiet" onclick={() => (confirmOff = true)}>{t('ways.turnOff')}</Button>
+        {/if}
+      {:else if verified}
+        <Button variant="quiet" {busy} onclick={enable}>{t('ways.turnOn')}</Button>
+      {:else}
+        <a class="btn btn-quiet" href={href('/settings/profile')}>{app.user?.email ? t('ways.confirmEmail') : t('ways.addEmail')}</a>
+      {/if}
+    {/snippet}
+    <RecoveryCodes {codes} intro={t('totp.codesIntro')} onsaved={() => (codes = [])} />
+  </MethodRow>
 
   <Confirm
     open={confirmOff}

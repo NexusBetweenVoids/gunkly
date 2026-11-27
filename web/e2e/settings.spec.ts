@@ -90,6 +90,7 @@ test('account: change password (with step-up) and sign in with the new one', asy
   await page.goto('/settings/security');
   const next = `${PASSWORD} again`;
   const section = page.getByRole('region', { name: 'Password' });
+  await section.getByRole('button', { name: 'Change', exact: true }).click();
   await section.getByLabel('New password', { exact: true }).fill(next);
   await section.getByLabel('Confirm new password').fill(next);
   await section.getByRole('button', { name: 'Change password' }).click();

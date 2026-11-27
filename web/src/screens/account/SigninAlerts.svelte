@@ -26,15 +26,29 @@
 
 {#if app.instance.emailEnabled && app.instance.signinAlerts}
   <section class="card stack-sm" aria-labelledby="a-signin-alerts">
-    <h2 id="a-signin-alerts">{t('signinAlerts.title')}</h2>
-    <label class="check">
-      <input type="checkbox" checked={!!app.user?.signinAlerts} disabled={busy} onchange={(e) => set(e.currentTarget.checked)} />
-      {t('signinAlerts.label')}
-    </label>
-    <p class="hint">{t('signinAlerts.hint')}</p>
-    {#if !verified}
-      <p class="muted"><a href={href('/settings/profile')}>{t('signinAlerts.needEmail')}</a></p>
+    <h2 id="a-signin-alerts" class="card-title">{t('signinAlerts.title')}</h2>
+    {#if verified}
+      <label class="check">
+        <input type="checkbox" checked={!!app.user?.signinAlerts} disabled={busy} onchange={(e) => set(e.currentTarget.checked)} />
+        {t('signinAlerts.label')}
+      </label>
+      <p class="hint">{t('signinAlerts.hint')}</p>
+    {:else}
+      <!-- Nothing can be sent without a confirmed address, so the setting shows as off and inactive. -->
+      <label class="check inactive">
+        <input type="checkbox" checked={false} disabled aria-describedby="a-signin-alerts-why" />
+        {t('signinAlerts.label')}
+      </label>
+      <p class="hint" id="a-signin-alerts-why" data-testid="signin-alerts-inactive">
+        {t('signinAlerts.needEmail')} <a href={href('/settings/profile')}>{app.user?.email ? t('ways.confirmEmail') : t('ways.addEmail')}</a>
+      </p>
     {/if}
     <div aria-live="polite"><Alert message={err} /></div>
   </section>
 {/if}
+
+<style>
+  .inactive {
+    color: var(--text-2);
+  }
+</style>

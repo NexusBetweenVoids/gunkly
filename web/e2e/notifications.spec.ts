@@ -59,20 +59,31 @@ test('account: notifications are ordered this device, email, then messaging apps
   const h = await world.household(u);
   const { page } = await u.open();
   await page.goto('/settings/notifications');
+  // Nothing is on yet: the page says so first.
+  await expect(page.getByTestId('reminder-status')).toHaveText(/You won’t get any reminders right now/);
   const device = page.getByRole('region', { name: 'This device' });
-  const email = page.getByRole('region', { name: 'Email me reminders' });
+  const email = page.getByRole('region', { name: 'Email', exact: true });
   await expect(device.getByRole('button', { name: 'Turn on reminders on this device' })).toBeVisible();
   await expect(device.getByText(/browser vendor's push service/)).toBeVisible();
   await expect(email).toBeVisible();
-  const advanced = page.locator('details.advanced');
-  await expect(advanced.locator('summary')).toHaveText('Messaging apps (advanced)');
-  await expect(advanced).not.toHaveAttribute('open', '');
+  const apps = page.getByRole('region', { name: 'Messaging apps' });
+  const more = apps.getByRole('button', { name: 'Set up' });
+  await expect(more).toHaveAttribute('aria-expanded', 'false');
   await expect(page.getByRole('button', { name: 'Add channel' })).toBeHidden();
   const y = async (l: ReturnType<Page['locator']>) => (await l.boundingBox())!.y;
   expect(await y(device)).toBeLessThan(await y(email));
-  expect(await y(email)).toBeLessThan(await y(advanced));
-  await advanced.locator('summary').click();
+  expect(await y(email)).toBeLessThan(await y(apps));
+  await more.click();
+  await expect(more).toHaveAttribute('aria-expanded', 'true');
   await expect(page.getByRole('button', { name: 'Add channel' })).toBeVisible();
+
+  // Quiet hours: only the switch until it is on.
+  const quiet = page.getByRole('region', { name: 'Quiet hours' });
+  await expect(quiet.getByLabel('From')).toHaveCount(0);
+  await expect(quiet.getByRole('button', { name: 'Save' })).toHaveCount(0);
+  await quiet.getByLabel('Quiet hours for my reminders').check();
+  await expect(quiet.getByLabel('From')).toBeVisible();
+  await expect(quiet.getByRole('button', { name: 'Save' })).toBeVisible();
 
   // A browser without the Push API gets a one-line explanation instead of a button.
   const plain = await u.open();
@@ -118,7 +129,8 @@ test('account: turning on reminders saves a real-shaped subscription (Apple and 
     const card = page.getByRole('region', { name: 'This device' });
     await card.getByRole('button', { name: 'Turn on reminders on this device' }).click();
     expect((await saved).status()).toBe(201);
-    await expect(card.getByTestId('push-status')).toContainText('On:');
+    await expect(card.getByTestId('push-status')).toHaveText('On');
+    await expect(page.getByTestId('reminder-status')).toContainText('You get reminders on this device');
     await expect(card.getByRole('button', { name: 'Turn off reminders on this device' })).toBeVisible();
     await expect(card.getByRole('alert')).toHaveCount(0);
   }
@@ -134,20 +146,20 @@ test('account: the email reminders switch needs a confirmed address and then wor
   const ctx = await world.newContext({ storageState: await api.storageState() });
   const page = await ctx.newPage();
   await page.goto('/settings/notifications');
-  const card = page.getByRole('region', { name: 'Email me reminders' });
+  const card = page.getByRole('region', { name: 'Email', exact: true });
   await expect(card.getByTestId('email-reminders-hint')).toContainText('add your email address and confirm it first');
-  await expect(card.getByRole('checkbox')).toHaveCount(0);
+  await expect(card.getByText('Unavailable', { exact: true })).toBeVisible();
+  await expect(card.getByRole('button')).toHaveCount(0);
 
   await api.post('/account/email/verify', { token: new URL(sent.link, 'http://x').searchParams.get('token') });
   await page.reload();
-  const box = page.getByRole('region', { name: 'Email me reminders' }).getByRole('checkbox', { name: 'Email me reminders' });
-  await expect(box).not.toBeChecked();
-  await box.check();
-  await expect(box).toBeChecked();
+  await expect(card.getByText('Off', { exact: true })).toBeVisible();
+  await card.getByRole('button', { name: 'Turn on' }).click();
+  await expect(card.getByText('On', { exact: true })).toBeVisible();
   await expect.poll(async () => (await api.get<{ emailReminders: boolean }>('/me')).emailReminders).toBe(true);
   await page.reload();
-  await expect(page.getByRole('checkbox', { name: 'Email me reminders' })).toBeChecked();
-  await page.getByRole('checkbox', { name: 'Email me reminders' }).uncheck();
+  await expect(page.getByTestId('reminder-status')).toHaveText(/You get reminders by email/);
+  await card.getByRole('button', { name: 'Turn off' }).click();
   await expect.poll(async () => (await api.get<{ emailReminders: boolean }>('/me')).emailReminders).toBe(false);
 });
 

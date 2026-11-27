@@ -8,6 +8,7 @@
   import { app, refreshMe } from '../../lib/session.svelte';
   import { withStepUp } from '../../lib/stepup.svelte';
   import { toast } from '../../lib/toast.svelte';
+  import MethodRow from './MethodRow.svelte';
 
   type Status = { name: string; linked: boolean; linkedAt: string | null; canUnlink: boolean };
   let st = $state<Status | null>(null);
@@ -53,28 +54,30 @@
   }
 </script>
 
-<section class="card" aria-labelledby="a-sso">
-  <h2 id="a-sso">{t('sso.title')}</h2>
-  <div class="stack">
-    <p class="muted">{app.instance.sso?.name ? t('sso.intro', { name: app.instance.sso.name }) : t('sso.introGeneric')}</p>
-    {#if st}
-      <p>
-        <span class="badge">{st.linked ? t('sso.linkedOn', { date: formatDate(new Date(st.linkedAt ?? ''), { dateStyle: 'medium' }) }) : t('sso.notLinked')}</span>
-      </p>
-      {#if st.linked && !st.canUnlink}<p class="muted">{t('sso.needPassword')}</p>{/if}
+<MethodRow
+  id="a-sso"
+  name={t('sso.title')}
+  hint={app.instance.sso?.name ? t('sso.intro', { name: app.instance.sso.name }) : t('sso.introGeneric')}
+  state={st ? (st.linked ? t('ways.linked') : t('sso.notLinked')) : ''}
+  tone={st?.linked ? 'ok' : ''}
+>
+  {#snippet notes()}
+    {#if st?.linked}
+      <p class="hint">{t('sso.linkedOn', { date: formatDate(new Date(st.linkedAt ?? ''), { dateStyle: 'medium' }) })}</p>
+      {#if !st.canUnlink}<p class="hint">{t('sso.needPassword')}</p>{/if}
     {/if}
-    <Alert message={err} />
+    <div aria-live="polite"><Alert message={err} /></div>
+  {/snippet}
+  {#snippet action()}
     {#if st}
-      <div>
-        {#if st.linked}
-          <Button variant="danger" disabled={!st.canUnlink} onclick={() => (confirmOff = true)}>{t('sso.unlink')}</Button>
-        {:else}
-          <Button {busy} onclick={link}>{t('sso.link')}</Button>
-        {/if}
-      </div>
+      {#if st.linked}
+        <Button variant="quiet" disabled={!st.canUnlink} onclick={() => (confirmOff = true)}>{t('sso.unlink')}</Button>
+      {:else}
+        <Button variant="quiet" {busy} onclick={link}>{t('sso.link')}</Button>
+      {/if}
     {/if}
-  </div>
-</section>
+  {/snippet}
+</MethodRow>
 
 <Confirm
   open={confirmOff}
