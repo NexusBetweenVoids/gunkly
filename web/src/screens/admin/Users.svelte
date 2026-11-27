@@ -84,7 +84,7 @@
         <span>
           <strong>{u.displayName}</strong>
           {#if u.isAdmin}<span class="badge">{t('nav.admin')}</span>{/if}
-          <br /><span class="muted">{u.username}{u.email ? ` · ${u.email}` : ''} · {t('admin.lastActive', { date: formatDate(new Date(u.lastActiveAt), { dateStyle: 'medium' }) })}</span>
+          <br /><span class="muted meta">{u.username}{u.email ? ` · ${u.email}` : ''} · {t('admin.lastActive', { date: formatDate(new Date(u.lastActiveAt), { dateStyle: 'medium' }) })}</span>
         </span>
         {#if !u.isAdmin}<Button variant="quiet" onclick={() => (resetFor = u)}>{t('admin.reset')}</Button>{/if}
       </li>
@@ -141,3 +141,10 @@
     </div>
   </div>
 </Dialog>
+
+<style>
+  /* Same size as the other settings lists (name, then a smaller muted line). */
+  .meta {
+    font-size: 0.875rem;
+  }
+</style>
