@@ -198,6 +198,7 @@ type SecurityEvent struct {
 	Event       string
 	HouseholdID string
 	Username    string // the account that caused it; empty if none or deleted
+	ActorID     string // that account's ID; empty if none or deleted
 	Meta        map[string]string
 	At          time.Time
 }
@@ -209,7 +210,7 @@ func (s *Store) RecentSecurityEvents(ctx context.Context, since time.Time) ([]Se
 	for _, e := range AlertEvents {
 		args = append(args, e)
 	}
-	rows, err := s.db.QueryContext(ctx, s.d.Rebind(`SELECT a.event, COALESCE(a.household_id, ''), COALESCE(u.username, ''), a.meta, a.created_at
+	rows, err := s.db.QueryContext(ctx, s.d.Rebind(`SELECT a.event, COALESCE(a.household_id, ''), COALESCE(u.username, ''), COALESCE(u.id, ''), a.meta, a.created_at
 		FROM audit_log a LEFT JOIN users u ON u.id = a.actor_user_id
 		WHERE a.created_at > ? AND a.event IN (`+marks+`) ORDER BY a.created_at DESC LIMIT 50`), args...)
 	if err != nil {
@@ -221,7 +222,7 @@ func (s *Store) RecentSecurityEvents(ctx context.Context, since time.Time) ([]Se
 		var e SecurityEvent
 		var meta string
 		var at int64
-		if err := rows.Scan(&e.Event, &e.HouseholdID, &e.Username, &meta, &at); err != nil {
+		if err := rows.Scan(&e.Event, &e.HouseholdID, &e.Username, &e.ActorID, &meta, &at); err != nil {
 			return nil, err
 		}
 		_ = json.Unmarshal([]byte(meta), &e.Meta)

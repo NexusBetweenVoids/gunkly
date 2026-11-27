@@ -2137,6 +2137,7 @@ components:
               event: {type: string, enum: [invite_limit_reached, admin_granted, security_alerts_off, signup_changed, pow_off, egress_guard_off, signin_attack_account, signin_attack_ip, signup_wave, email_failing, notification_limit_reached, channels_burst, token_rate_limited, token_burst]}
               householdId: {type: string}
               username: {type: string, description: "The account that caused it; empty if deleted"}
+              byYou: {type: boolean, description: "The account that caused it is the admin asking"}
               at: {type: string, format: date-time}
     AdminConfig:
       type: object
