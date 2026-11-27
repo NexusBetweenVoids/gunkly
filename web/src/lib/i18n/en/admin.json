@@ -268,6 +268,10 @@
   "emailFailing.reason.refused": "Latest error: the mail server refused to accept the message.",
   "emailFailing.reason.other": "Latest error: the message could not be sent.",
   "emailFailing.fix": "Check the SMTP settings under Administration, Email, and the status of your mail provider. This warning goes away as soon as an email is sent.",
+  "secEvents.notification_limit_reached": "Household {household} hit its notification limit ({limit} in {hours} h)",
+  "secEvents.channels_burst": "{username} added {count} notification channels to household {household} within an hour",
+  "secEvents.token_rate_limited": "{username}'s token {token} was rate limited at least {count} times within an hour",
+  "secEvents.token_burst": "{username} created or approved {count} API tokens or app connections within an hour",
   "secEvents.deletedUser": "A deleted account",
   "secEvents.hint": "Each of these can be a sign of abuse or an attack. Check the account under Users; the audit log has the details. Emails about them can be turned off under Sign-up & sign-in, Security alerts."
 }

@@ -149,6 +149,8 @@ type Server struct {
 	// updateHTTP calls the admin's update webhook (may be on the local network).
 	updateHTTP *http.Client
 	aiCounts   *windowCounter
+	tokenHits  *windowCounter // 429s per token (abuse alert)
+	quotaHits  *windowCounter // notification-limit hits per household (abuse alert)
 	aiSem      chan struct{}
 
 	mux    *http.ServeMux
@@ -199,6 +201,9 @@ func New(o Options) *Server {
 	s.counts = newWindowCounter(s.now, 20000)
 	s.aiCounts = newWindowCounter(s.now, 20000)
 	s.aiCounts.window = 24 * time.Hour
+	s.tokenHits = newWindowCounter(s.now, abuseCounterKeys)
+	s.quotaHits = newWindowCounter(s.now, abuseCounterKeys)
+	s.quotaHits.window = quotaAlertEvery
 	s.aiSem = make(chan struct{}, aiConcurrent)
 	if s.aiHTTP = o.AIClient; s.aiHTTP == nil {
 		s.aiHTTP = newAIHTTP()

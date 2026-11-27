@@ -2127,11 +2127,11 @@ components:
             lastError: {type: string, enum: [connect, tls, auth, timeout, refused, other], description: "Generic category of the latest failure, never server output"}
         securityEvents:
           type: array
-          description: "Security events of the last 7 days, newest first (at most 50): a household hitting the daily invite limit, or a change of admin power (a new admin account, security alert emails, open sign-up, proof of work or the egress guard switched), repeated failed sign-ins, a wave of new accounts, or email delivery failing"
+          description: "Security events of the last 7 days, newest first (at most 50): a household hitting the daily invite limit, or a change of admin power (a new admin account, security alert emails, open sign-up, proof of work or the egress guard switched), repeated failed sign-ins, a wave of new accounts, email delivery failing, a household hitting its notification limit or adding many channels, or an API token being rate limited or many tokens created"
           items:
             type: object
             properties:
-              event: {type: string, enum: [invite_limit_reached, admin_granted, security_alerts_off, signup_changed, pow_off, egress_guard_off, signin_attack_account, signin_attack_ip, signup_wave, email_failing]}
+              event: {type: string, enum: [invite_limit_reached, admin_granted, security_alerts_off, signup_changed, pow_off, egress_guard_off, signin_attack_account, signin_attack_ip, signup_wave, email_failing, notification_limit_reached, channels_burst, token_rate_limited, token_burst]}
               householdId: {type: string}
               username: {type: string, description: "The account that caused it; empty if deleted"}
               at: {type: string, format: date-time}

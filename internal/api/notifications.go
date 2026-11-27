@@ -220,6 +220,7 @@ func (s *Server) createHouseholdChannel(w http.ResponseWriter, r *http.Request, 
 	if err != nil {
 		return err
 	}
+	s.channelCreated(r.Context(), c, ch.ID)
 	writeJSON(w, http.StatusCreated, viewChannel(ch))
 	return nil
 }

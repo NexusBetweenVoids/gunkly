@@ -444,12 +444,14 @@ func TestEarlyCompletionCancelsPending(t *testing.T) {
 
 func TestQuotaEnforced(t *testing.T) {
 	f := newFixture(t)
+	var hits []store.QuotaHit
 	f.channel(f.owner, "owner")
 	for i := range 3 {
 		f.chore("Chore"+string(rune('A'+i)), "2026-11-21", "gentle")
 	}
 	w := New(Config{Store: f.st, DB: f.db, Sender: f.sender, Keyring: f.ring, Now: f.clock,
-		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), Limits: nil})
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), Limits: nil,
+		OnQuotaHit: func(_ context.Context, h store.QuotaHit) { hits = append(hits, h) }})
 	// Pre-fill the household's hourly quota.
 	var ds []store.NewDelivery
 	now, _ := time.ParseInLocation("2006-01-02 15:04:05", "2026-11-21 08:30:00", ams)
@@ -464,6 +466,10 @@ func TestQuotaEnforced(t *testing.T) {
 	f.tickAt(w, "2026-11-21 09:01:00")
 	if got := f.sender.take(); len(got) != 0 {
 		t.Fatalf("sent over quota: %d", len(got))
+	}
+	// The hook is told about the household's hourly limit.
+	if len(hits) == 0 || hits[0] != (store.QuotaHit{HouseholdID: f.hid, Hours: 1, Max: 100}) {
+		t.Fatalf("quota hits: %+v", hits)
 	}
 }
 

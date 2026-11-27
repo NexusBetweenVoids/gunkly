@@ -53,23 +53,28 @@ const (
 	AuditPasskeyRemove       = "passkey_remove"    // meta passkey
 	AuditSSOLink             = "sso_link"          // single sign-on identity linked to the account
 	AuditSSOUnlink           = "sso_unlink"
-	AuditSSOSignup           = "sso_signup"            // account created by a first single sign-on
-	AuditAccountDelete       = "account_delete"        // actor-less: the account is gone
-	AuditOwnerTransfer       = "owner_transfer"        // household_id, meta owner = new owner
-	AuditWebhookCreate       = "webhook_create"        // household_id, meta webhook
-	AuditWebhookUpdate       = "webhook_update"        // household_id, meta webhook
-	AuditWebhookDelete       = "webhook_delete"        // household_id, meta webhook
-	AuditWebhookRotate       = "webhook_rotate"        // the signing secret was replaced; household_id, meta webhook
-	AuditWebhookAutoOff      = "webhook_auto_disable"  // system: too many consecutive failures; household_id, meta webhook
-	AuditAdminGranted        = "admin_granted"         // a new admin account was created (security alert); meta user = its username
-	AuditSecurityAlertsOff   = "security_alerts_off"   // an admin turned security alert emails off (security alert)
-	AuditSignupChanged       = "signup_changed"        // open sign-up switched; meta state on/off (security alert)
-	AuditPoWOff              = "pow_off"               // proof of work for sign-up switched off (security alert)
-	AuditEgressGuardOff      = "egress_guard_off"      // the outbound-connection guard switched off (security alert)
-	AuditInactiveWarn        = "inactive_warn"         // system, meta user = account
-	AuditSigninAttackAccount = "signin_attack_account" // many failed sign-ins against one account (security alert)
-	AuditSigninAttackIP      = "signin_attack_ip"      // one address failed against many accounts (security alert)
-	AuditSignupWave          = "signup_wave"           // many new accounts within an hour (security alert)
+	AuditSSOSignup           = "sso_signup"                 // account created by a first single sign-on
+	AuditAccountDelete       = "account_delete"             // actor-less: the account is gone
+	AuditOwnerTransfer       = "owner_transfer"             // household_id, meta owner = new owner
+	AuditWebhookCreate       = "webhook_create"             // household_id, meta webhook
+	AuditWebhookUpdate       = "webhook_update"             // household_id, meta webhook
+	AuditWebhookDelete       = "webhook_delete"             // household_id, meta webhook
+	AuditWebhookRotate       = "webhook_rotate"             // the signing secret was replaced; household_id, meta webhook
+	AuditWebhookAutoOff      = "webhook_auto_disable"       // system: too many consecutive failures; household_id, meta webhook
+	AuditAdminGranted        = "admin_granted"              // a new admin account was created (security alert); meta user = its username
+	AuditSecurityAlertsOff   = "security_alerts_off"        // an admin turned security alert emails off (security alert)
+	AuditSignupChanged       = "signup_changed"             // open sign-up switched; meta state on/off (security alert)
+	AuditPoWOff              = "pow_off"                    // proof of work for sign-up switched off (security alert)
+	AuditEgressGuardOff      = "egress_guard_off"           // the outbound-connection guard switched off (security alert)
+	AuditInactiveWarn        = "inactive_warn"              // system, meta user = account
+	AuditSigninAttackAccount = "signin_attack_account"      // many failed sign-ins against one account (security alert)
+	AuditSigninAttackIP      = "signin_attack_ip"           // one address failed against many accounts (security alert)
+	AuditSignupWave          = "signup_wave"                // many new accounts within an hour (security alert)
+	AuditNotifyLimit         = "notification_limit_reached" // a household hit its hourly or daily notification limit (security alert)
+	AuditChannelsBurst       = "channels_burst"             // many notification channels added to a household quickly (security alert)
+	AuditTokenRateLimited    = "token_rate_limited"         //nolint:gosec // G101: an event name; an API token was rate limited again and again (security alert)
+	AuditTokenBurst          = "token_burst"                //nolint:gosec // G101: an event name; many API tokens or OAuth grants created quickly (security alert)
+	AuditChannelCreate       = "channel_create"             // household_id, meta channel
 )
 
 // AuditEvent is one audit-log entry. Meta must never contain secrets.
@@ -138,7 +143,8 @@ func (s *Store) ListAuditForUser(ctx context.Context, userID string, limit int) 
 // Administration page and, with security alerts on, emailed to the admins.
 // Add a new alert's event here.
 var AlertEvents = []string{AuditInviteLimit, AuditAdminGranted, AuditSecurityAlertsOff, AuditSignupChanged, AuditPoWOff, AuditEgressGuardOff,
-	AuditSigninAttackAccount, AuditSigninAttackIP, AuditSignupWave, AuditEmailFailing}
+	AuditSigninAttackAccount, AuditSigninAttackIP, AuditSignupWave, AuditEmailFailing,
+	AuditNotifyLimit, AuditChannelsBurst, AuditTokenRateLimited, AuditTokenBurst}
 
 // CountAuditSince counts audit entries of the given events since a moment, of one actor
 // (of all actors when actorID is empty).
@@ -152,6 +158,23 @@ func (s *Store) CountAuditSince(ctx context.Context, events []string, actorID st
 	if actorID != "" {
 		q += " AND actor_user_id = ?"
 		args = append(args, actorID)
+	}
+	var n int
+	err := s.db.QueryRowContext(ctx, s.d.Rebind(q), args...).Scan(&n)
+	return n, err
+}
+
+// AuditCountSince counts audit entries of one event since a moment, by actor
+// (userID) or household (householdID); an empty filter is not applied.
+func (s *Store) AuditCountSince(ctx context.Context, event, userID, householdID string, since time.Time) (int, error) {
+	q, args := "SELECT count(*) FROM audit_log WHERE event = ? AND created_at > ?", []any{event, since.UnixMilli()}
+	if userID != "" {
+		q += " AND actor_user_id = ?"
+		args = append(args, userID)
+	}
+	if householdID != "" {
+		q += " AND household_id = ?"
+		args = append(args, householdID)
 	}
 	var n int
 	err := s.db.QueryRowContext(ctx, s.d.Rebind(q), args...).Scan(&n)

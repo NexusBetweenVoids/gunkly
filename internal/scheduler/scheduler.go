@@ -84,7 +84,10 @@ type Config struct {
 	Hosted bool
 	// OnDelivery, if set, is told each finished send attempt: the channel kind
 	// ("webpush" for push) and whether it succeeded (metrics).
-	OnDelivery  func(kind string, ok bool)
+	OnDelivery func(kind string, ok bool)
+	// OnQuotaHit, if set, is told when a household's notification limit turned
+	// reminders away (the security alert). It must not block or fail the worker.
+	OnQuotaHit  func(ctx context.Context, hit store.QuotaHit)
 	Logger      *slog.Logger     // nil = slog.Default()
 	Now         func() time.Time // nil = time.Now
 	Tick        time.Duration    // 0 = DefaultTick
@@ -415,7 +418,12 @@ func (w *Worker) enqueueChore(ctx context.Context, c store.ReminderChore, from, 
 			})
 		}
 	}
-	_, err = w.cfg.Store.EnqueueDeliveries(ctx, ds, q, to)
+	_, hits, err := w.cfg.Store.EnqueueDeliveriesReport(ctx, ds, q, to)
+	if w.cfg.OnQuotaHit != nil {
+		for _, h := range hits {
+			w.cfg.OnQuotaHit(ctx, h)
+		}
+	}
 	return err
 }
 

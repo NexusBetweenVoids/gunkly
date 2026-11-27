@@ -11,6 +11,13 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 - Welcome flow: "Group chores by area" is off until ticked.
 - Invite links: at most 5 open links per household (was 20), and at most 10 created per household per 24 hours, revoked ones included, so creating and revoking links over and over is capped (both in Administration, Limits; the error is `limit_reached` with `reason` `active_invites` or `invites_per_day`, and the app says which).
 - Security alerts (on by default, Administration, Sign-up & sign-in): when a household hits the daily invite limit, the admins with a confirmed email address get an email (at most one per household per day), and the Administration page lists such events of the last 7 days. The audit log records each hit (`invite_limit_reached`).
+- More security alerts, same mechanism and setting (audit log, Administration notice, email at most once per period):
+  - sign-in attacks: 20 failed sign-ins against one account in an hour, or one address failing against 10 different accounts in an hour (credential stuffing);
+  - a sign-up wave: 20 new accounts in an hour;
+  - changes to admin power: a new admin account, open sign-up switched, proof of work or the outbound-connection guard switched off, and security alerts switched off (that one is always emailed);
+  - a household hitting its notification limit, or adding 5 notification channels within an hour (new audit event `channel_create`);
+  - an API or app token rejected as too fast 20 times in an hour, or an account creating 5 tokens or app connections in an hour.
+- Email delivery failing (3 failed sends in an hour, none succeeding): a warning on the Administration page with the kind of error, an `email_failing` event, and a new public probe `GET /healthz/email` (503 while failing) for uptime monitors. `/readyz` is unaffected.
 - Invite links: the app offers 1, 3 or 7 days (default 3; was 1, 7 or 30 with 7). Without `expiresInHours` the API also defaults to 3 days; API clients may still ask for up to 30 days.
 - Welcome flow: a last, optional "Security" step to add a passkey or an authenticator app (the same sections as in Settings, Sign-in & security), recommended but skippable.
 

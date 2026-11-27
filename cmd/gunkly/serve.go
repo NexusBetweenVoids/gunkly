@@ -159,6 +159,7 @@ func (a *app) startScheduler(ctx context.Context, srv *api.Server, reg *metrics.
 		// guard, enabled notification kinds), read at send time.
 		Sender: srv.Sender(), EnabledKinds: srv.EnabledKinds, Pusher: srv.Pusher(), Mailer: srv.Mailer(), Hosted: a.cfg.HostedMode, Webhooks: srv.WebhookSender(),
 	}
+	cfg.OnQuotaHit = srv.NotificationLimitReached
 	if reg != nil {
 		cfg.OnDelivery = reg.Delivery
 	}
