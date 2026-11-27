@@ -30,7 +30,13 @@
   const active = $derived(picked ?? all[0]);
 </script>
 
-<h1>{title}</h1>
+<!-- Phones on a group page: a small back link, then the group's name as the title.
+     Otherwise (the list on phones, every wide screen) the screen's title. -->
+{#if picked}
+  <a class="back" href={href(base)}><span aria-hidden="true">&lsaquo;</span> {title}</a>
+  <h1 class="group-title">{picked.label}</h1>
+{/if}
+<h1 class="screen-title" class:has-group={!!picked}>{title}</h1>
 {@render intro?.()}
 <div class="settings" class:bare={!picked}>
   <nav aria-label={title}>
@@ -53,14 +59,16 @@
   </nav>
   {#if active}
     <div class="content">
-      <a class="back" href={href(base)}><span aria-hidden="true">&lsaquo;</span> {title}</a>
-      <h2 class="visually-hidden">{active.label}</h2>
+      <h2 class="group-name visually-hidden" class:has-group={!!picked}>{active.label}</h2>
       {#key active.id}<div class="sections">{@render children(active.id)}</div>{/key}
     </div>
   {/if}
 </div>
 
 <style>
+  .group-title {
+    font-size: 1.75rem;
+  }
   .set {
     margin-block: var(--space) 8px;
     padding-inline: 4px;
@@ -127,15 +135,18 @@
     align-items: center;
     gap: 6px;
     min-block-size: var(--tap);
-    margin-block-end: 4px;
+    margin-block: -10px 0;
     text-decoration: none;
+    font-size: 0.9375rem;
     font-weight: 600;
   }
 
   /* Phones: either the list or one group. */
   @media (max-width: 47.99rem) {
     .bare .content,
-    .settings:not(.bare) nav {
+    .settings:not(.bare) nav,
+    .screen-title.has-group,
+    .group-name.has-group {
       display: none;
     }
   }
@@ -165,7 +176,8 @@
     nav a[aria-current='page'] :global(svg) {
       color: var(--accent);
     }
-    .back {
+    .back,
+    .group-title {
       display: none;
     }
   }

@@ -26,13 +26,18 @@
     note: 'M14 3H6v18h12V7zM14 3v4h4M8 12h8M8 16h5',
     tag: 'M3 12V4h8l10 10-8 8zM7.5 8.5h.01',
     chevron: 'M9 6l6 6-6 6',
+    home: 'M3 11l9-7 9 7M5 10v10h14V10',
+    calendar: 'M4 6h16v14H4zM4 10h16M8 3v4M16 3v4',
+    plus: 'M12 5v14M5 12h14',
+    settings: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1',
+    chevronDown: 'M6 9l6 6 6-6',
     sparkle: 'M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9zM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z',
   } as const;
   export type IconName = keyof typeof PATHS;
 </script>
 
 <script lang="ts">
-  let { name }: { name: IconName } = $props();
+  let { name, size = 20 }: { name: IconName; size?: number } = $props();
 </script>
 
-<svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20"><path d={PATHS[name]} fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+<svg aria-hidden="true" viewBox="0 0 24 24" width={size} height={size}><path d={PATHS[name]} fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>

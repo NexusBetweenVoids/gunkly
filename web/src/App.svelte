@@ -1,6 +1,7 @@
 <script lang="ts">
   import { href } from './lib/base';
   import HeaderMenu from './components/HeaderMenu.svelte';
+  import Icon from './components/Icon.svelte';
   import Logo from './components/Logo.svelte';
   import Toast from './components/Toast.svelte';
   import Lazy from './components/Lazy.svelte';
@@ -98,12 +99,14 @@
       {#if app.households.length === 1}
         <p class="switcher hh-name" data-testid="hh-name"><span class="visually-hidden">{t('nav.household')}: </span>{app.households[0]?.name}</p>
       {:else if app.households.length > 1}
-        <div class="switcher">
+        <!-- The native select stays (label, keyboard, phone pickers) but sits invisibly over a name + chevron. -->
+        <div class="switcher"><div class="hh-pick">
+          <span class="hh-shown" aria-hidden="true"><span class="hh-label">{currentHousehold()?.name}</span><Icon name="chevronDown" size={16} /></span>
           <label class="visually-hidden" for="hh-switch">{t('nav.household')}</label>
           <select id="hh-switch" value={app.hhId} onchange={(e) => selectHousehold(e.currentTarget.value)}>
             {#each app.households as h (h.id)}<option value={h.id}>{h.name}</option>{/each}
           </select>
-        </div>
+        </div></div>
       {/if}
       <ul class="links">
         <!-- With a household, Settings is in the tab bar. -->
@@ -128,12 +131,12 @@
 {#if app.user && app.hhId && !isPublic}
   <nav class="tabs" aria-label={t('nav.primary')}>
     <ul>
-      <li><a href={href('/')} aria-current={here('/')}><span aria-hidden="true">&#x2713;</span>{t('nav.home')}</a></li>
-      <li><a href={href('/calendar')} aria-current={here('/calendar')}><span aria-hidden="true">&#x25A6;</span>{t('nav.calendar')}</a></li>
+      <li><a href={href('/')} aria-current={here('/')}><Icon name="home" size={22} />{t('nav.home')}</a></li>
+      <li><a href={href('/calendar')} aria-current={here('/calendar')}><Icon name="calendar" size={22} />{t('nav.calendar')}</a></li>
       {#if currentHousehold()?.role !== 'guest'}
-        <li><a href={href('/chores/new')} aria-current={here('/chores/new')}><span aria-hidden="true">+</span>{t('nav.add')}</a></li>
+        <li><a href={href('/chores/new')} aria-current={here('/chores/new')}><Icon name="plus" size={22} />{t('nav.add')}</a></li>
       {/if}
-      <li><a href={href('/settings')} aria-current={here('/settings')}><span aria-hidden="true">&#x2699;</span>{t('nav.settings')}</a></li>
+      <li><a href={href('/settings')} aria-current={here('/settings')}><Icon name="settings" size={22} />{t('nav.settings')}</a></li>
     </ul>
   </nav>
 {/if}
@@ -246,9 +249,53 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .switcher select {
+  /* Several households: the name with a chevron, the real select laid over it. */
+  .switcher:has(.hh-pick) {
+    display: flex;
+    align-items: center;
+    min-block-size: var(--tap);
+  }
+  .hh-pick {
+    position: relative;
+    display: flex;
+    align-items: center;
     min-inline-size: 0;
+    max-inline-size: 100%;
+    min-block-size: var(--tap);
+  }
+  .hh-shown {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-inline-size: 0;
+    padding-block: 6px;
+    padding-inline: 12px 10px;
+    border-radius: var(--radius);
+    background: var(--surface-2);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .hh-label {
+    overflow: hidden;
     text-overflow: ellipsis;
+  }
+  .hh-shown :global(svg) {
+    flex: none;
+    color: var(--text-2);
+  }
+  .hh-pick select {
+    position: absolute;
+    inset: 0;
+    min-inline-size: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+  .hh-pick:hover .hh-shown {
+    background: color-mix(in srgb, var(--surface-2) 80%, var(--text) 8%);
+  }
+  .hh-pick:has(select:focus-visible) .hh-shown {
+    outline: 3px solid var(--focus);
+    outline-offset: 2px;
   }
   /* Phones: logo, switcher and one menu button; the links live in the menu. */
   .links {
@@ -310,6 +357,7 @@
   .tabs a {
     flex-direction: column;
     justify-content: center;
+    gap: 2px;
     inline-size: 100%;
     padding-inline: 4px;
     font-size: 0.8125rem;
@@ -322,7 +370,14 @@
   :global(body:has(dialog[open])) .tabs {
     visibility: hidden;
   }
+  .tabs a :global(svg) {
+    flex: none;
+  }
   @media (min-width: 768px) {
+    /* The sidebar runs the full page height; its links stay in view while the page scrolls. */
+    :global(body) {
+      position: relative;
+    }
     .nav {
       flex-wrap: wrap;
     }
@@ -340,6 +395,7 @@
       flex: 0 1 260px;
     }
     .tabs {
+      position: absolute;
       inset-block: 56px 0;
       inset-inline: 0 auto;
       inline-size: 200px;
@@ -348,6 +404,8 @@
       border-inline-end: 1px solid var(--border);
     }
     .tabs ul {
+      position: sticky;
+      inset-block-start: calc(56px + 8px);
       flex-direction: column;
       padding-inline: 8px;
       gap: 4px;

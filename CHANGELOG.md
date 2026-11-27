@@ -4,6 +4,13 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ## [Unreleased]
 
+### Changed
+
+- Design pass, groundwork: spacing inside cards is even (headings and paragraphs no longer add their own margins on top of the gap); card titles stand out more from field labels and card descriptions use one quiet size; a form's main button is full width on phones and sits at the start on wider screens.
+- Navigation uses line icons (house, calendar, plus, gear) instead of text characters, in both the sidebar and the phone tab bar; the desktop sidebar now runs the full height of long pages.
+- With more than one household, the household name in the header shows a chevron so it reads as a switcher (still a native select for keyboard and screen readers).
+- On phones, a Settings or Administration page shows a small back link and the page's own name as its title, instead of "Settings" twice.
+
 ## [0.12.2] - 2026-11-27
 
 ### Fixed

@@ -21,7 +21,7 @@ test('profile language setting changes the app language', async ({ world }) => {
   await expect(page.getByRole('heading', { name: 'Profiel', exact: true }).first()).toBeVisible();
   await expect(page.locator('html')).toHaveAttribute('lang', 'nl');
   await page.reload();
-  await expect(page.getByRole('heading', { name: 'Instellingen', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: /^(Instellingen|Profiel en e-mail)$/ })).toBeVisible(); // phones title the open group
   await page.getByLabel('Taal').selectOption('');
   await page.getByRole('button', { name: 'Opslaan' }).click();
   await expect(page.getByRole('heading', { name: 'Profile', exact: true }).first()).toBeVisible();

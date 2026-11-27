@@ -184,6 +184,13 @@ a.btn {
   grid-template-columns: minmax(0, 1fr);
   gap: 8px;
 }
+/* The gap alone spaces a stack: children add no block margins of their own
+   (headings and paragraphs would otherwise double it unevenly). Component
+   classes and the mt-* utilities below still win where a screen needs extra room. */
+.stack > *,
+.stack-sm > * {
+  margin-block: 0;
+}
 .row {
   display: flex;
   flex-wrap: wrap;
@@ -319,8 +326,38 @@ input[aria-invalid="true"] {
   gap: var(--space);
   max-inline-size: 720px;
 }
-.sections h2 {
-  font-size: 1.125rem;
+/* Card text hierarchy: the title clearly above field labels (0.9375rem, 600),
+   descriptions in one quiet size. Use .card-title / .card-desc for new cards;
+   card headings and muted paragraphs in cards follow automatically. */
+.sections h2,
+.card-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+.card-desc,
+.card p.muted {
+  font-size: 0.9375rem;
+  color: var(--text-2);
+}
+/* A row of form actions (primary first). */
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+/* Primary actions: full width on phone forms, inline (start-aligned) on wider screens.
+   Applies to a form's submit button placed directly in the stack or alone in a wrapper. */
+@media (max-width: 47.99rem) {
+  form.stack > .btn[type="submit"],
+  form.stack > div > .btn[type="submit"]:only-child,
+  .actions > .btn {
+    inline-size: 100%;
+  }
+}
+@media (min-width: 48rem) {
+  form.stack > .btn[type="submit"] {
+    justify-self: start;
+  }
 }
 dialog {
   max-inline-size: min(480px, calc(100vw - 32px));

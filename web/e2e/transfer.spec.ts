@@ -31,7 +31,7 @@ test('export a household, import it as a new household: the same chores appear',
   await section.getByRole('button', { name: 'Import' }).click();
   await expect(section.getByRole('alert')).toContainText("A value isn't valid.");
   await expect(section.getByRole('alert')).toContainText('chores[0].link');
-  await expect(page.getByRole('heading', { level: 1, name: 'Settings' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: /^(Settings|Data)$/ })).toBeVisible(); // phones title the open group
 
   // Import as a new household.
   await section.getByLabel('Household file').setInputFiles(file);
@@ -67,7 +67,7 @@ test('guests cannot export or import a household', async ({ world }) => {
   await guest.api.post(`/invites/${inv.token}/accept`);
   const { page } = await guest.open();
   await page.goto(`/households/${h.id}/data`);
-  await expect(page.getByRole('heading', { level: 1, name: 'Settings' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: /^(Settings|Data)$/ })).toBeVisible(); // phones title the open group
   await expect(page.getByRole('region', { name: 'Export and import' })).toHaveCount(0);
   await guest.api.call('GET', `/households/${h.id}/export`, undefined, 403);
 });
