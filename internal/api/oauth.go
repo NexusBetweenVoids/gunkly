@@ -230,7 +230,7 @@ type tokenResponse struct {
 
 // oauthToken is the token endpoint: authorization_code (PKCE) and
 // refresh_token (rotating, reuse revokes the grant).
-func (s *Server) oauthToken(w http.ResponseWriter, r *http.Request, _ *call) error {
+func (s *Server) oauthToken(w http.ResponseWriter, r *http.Request, c *call) error {
 	r.Body = http.MaxBytesReader(w, r.Body, 64<<10)
 	if err := r.ParseForm(); err != nil {
 		return oauthError(w, http.StatusBadRequest, "invalid_request")
@@ -269,6 +269,9 @@ func (s *Server) oauthToken(w http.ResponseWriter, r *http.Request, _ *call) err
 			return oauthError(w, http.StatusBadRequest, "invalid_grant")
 		} else if err != nil {
 			return err
+		}
+		if u, err := s.st.UserByID(ctx, issued.UserID); err == nil {
+			s.tokenBurstCheck(ctx, c, u)
 		}
 	case "refresh_token":
 		var reused bool

@@ -27,7 +27,12 @@ const (
 	AuditInviteCreate      = "invite_create"
 	AuditInviteAccept      = "invite_accept"
 	AuditInviteRevoke      = "invite_revoke"
-	AuditInviteLimit       = "invite_limit_reached" // a household hit the daily invite limit (security alert)
+	AuditInviteLimit       = "invite_limit_reached"       // a household hit the daily invite limit (security alert)
+	AuditNotifyLimit       = "notification_limit_reached" // a household hit its hourly or daily notification limit (security alert)
+	AuditChannelsBurst     = "channels_burst"             // many notification channels added to a household quickly (security alert)
+	AuditTokenRateLimited  = "token_rate_limited"         //nolint:gosec // G101: an event name; an API token was rate limited again and again (security alert)
+	AuditTokenBurst        = "token_burst"                //nolint:gosec // G101: an event name; many API tokens or OAuth grants created quickly (security alert)
+	AuditChannelCreate     = "channel_create"             // household_id, meta channel
 	AuditHouseholdCreate   = "household_create"
 	AuditAdminUserCreate   = "admin_user_create"
 	AuditAdminSettings     = "admin_settings"
@@ -129,7 +134,24 @@ func (s *Store) ListAuditForUser(ctx context.Context, userID string, limit int) 
 // AlertEvents are the audit events that are security alerts: listed on the
 // Administration page and, with security alerts on, emailed to the admins.
 // Add a new alert's event here.
-var AlertEvents = []string{AuditInviteLimit}
+var AlertEvents = []string{AuditInviteLimit, AuditNotifyLimit, AuditChannelsBurst, AuditTokenRateLimited, AuditTokenBurst}
+
+// AuditCountSince counts audit entries of one event since a moment, by actor
+// (userID) or household (householdID); an empty filter is not applied.
+func (s *Store) AuditCountSince(ctx context.Context, event, userID, householdID string, since time.Time) (int, error) {
+	q, args := "SELECT count(*) FROM audit_log WHERE event = ? AND created_at > ?", []any{event, since.UnixMilli()}
+	if userID != "" {
+		q += " AND actor_user_id = ?"
+		args = append(args, userID)
+	}
+	if householdID != "" {
+		q += " AND household_id = ?"
+		args = append(args, householdID)
+	}
+	var n int
+	err := s.db.QueryRowContext(ctx, s.d.Rebind(q), args...).Scan(&n)
+	return n, err
+}
 
 // AlertCountSince counts alert events of one kind and scope since a moment.
 // The scope (stored as meta "scope") is what an alert is deduplicated by: a

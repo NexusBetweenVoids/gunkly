@@ -83,6 +83,7 @@ func (s *Server) authenticateBearer(w http.ResponseWriter, r *http.Request, c *c
 		return false
 	}
 	if !s.allow(w, rateToken+":tok:"+tok.ID) {
+		s.tokenRateLimited(r.Context(), c, tok, u)
 		return false
 	}
 	switch {
@@ -215,6 +216,7 @@ func (s *Server) createToken(w http.ResponseWriter, r *http.Request, c *call) er
 		return err
 	}
 	s.audit(ctx, c, c.user.ID, store.AuditTokenCreate, "", map[string]string{"token": t.ID})
+	s.tokenBurstCheck(ctx, c, c.user)
 	v := viewToken(t)
 	v.Token = secret
 	writeJSON(w, http.StatusCreated, v)

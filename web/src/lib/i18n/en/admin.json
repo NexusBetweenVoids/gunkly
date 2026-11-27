@@ -248,6 +248,10 @@
   "secEvents.title": "Recent security events",
   "secEvents.intro": "Worth a look: these happened in the last 7 days.",
   "secEvents.invite_limit_reached": "{username} hit the daily invite limit in household {household}",
+  "secEvents.notification_limit_reached": "Household {household} hit its notification limit ({limit} in {hours} h)",
+  "secEvents.channels_burst": "{username} added {count} notification channels to household {household} within an hour",
+  "secEvents.token_rate_limited": "{username}'s token {token} was rate limited at least {count} times within an hour",
+  "secEvents.token_burst": "{username} created or approved {count} API tokens or app connections within an hour",
   "secEvents.deletedUser": "A deleted account",
   "secEvents.hint": "Each of these can be a sign of abuse or an attack. Check the account under Users; the audit log has the details. Emails about them can be turned off under Sign-up & sign-in, Security alerts."
 }

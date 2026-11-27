@@ -387,5 +387,5 @@ func (s *Server) registerWithInvite(w http.ResponseWriter, r *http.Request, c *c
 // over and over).
 func (s *Server) inviteLimitAlert(ctx context.Context, c *call, limit int) {
 	s.securityAlert(ctx, c, securityAlert{event: store.AuditInviteLimit, scope: c.hh, household: c.hh, actor: c.user.ID,
-		mail: "securityinvites", params: map[string]string{"username": c.user.Username, "household": c.hh, "limit": strconv.Itoa(limit)}})
+		mail: "securityinvites", params: map[string]string{"username": c.user.Username, "householdId": c.hh, "limit": strconv.Itoa(limit)}})
 }

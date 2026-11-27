@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"slices"
 	"strconv"
 	"time"
 
@@ -210,13 +211,28 @@ type Quota struct {
 	UserDay       int
 }
 
+// QuotaHit says a household's notification limit turned deliveries away.
+type QuotaHit struct {
+	HouseholdID string
+	Hours       int // the window of the limit: 1 or 24
+	Max         int // the limit
+}
+
 // EnqueueDeliveries inserts deliveries, skipping keys that exist. A delivery
 // over quota is recorded as failed with QuotaExceeded (visible in the log,
 // never retried). Returns how many new pending deliveries were queued.
 func (s *Store) EnqueueDeliveries(ctx context.Context, ds []NewDelivery, q Quota, now time.Time) (int, error) {
+	n, _, err := s.EnqueueDeliveriesReport(ctx, ds, q, now)
+	return n, err
+}
+
+// EnqueueDeliveriesReport is EnqueueDeliveries that also reports the household
+// limits that turned deliveries away (one hit per household and window).
+func (s *Store) EnqueueDeliveriesReport(ctx context.Context, ds []NewDelivery, q Quota, now time.Time) (int, []QuotaHit, error) {
 	n := 0
+	var hits []QuotaHit
 	err := s.inTx(ctx, true, func(t *tx) error {
-		n = 0
+		n, hits = 0, nil
 		for _, d := range ds {
 			var status string
 			var kind int
@@ -232,13 +248,16 @@ func (s *Store) EnqueueDeliveries(ctx context.Context, ds []NewDelivery, q Quota
 			if !errors.Is(err, sql.ErrNoRows) {
 				return err
 			}
-			over, err := t.overQuota(ctx, d, q, now)
+			over, hit, err := t.overQuota(ctx, d, q, now)
 			if err != nil {
 				return err
 			}
 			status, lastErr, next := DeliveryPending, "", ms(d.NextAttemptAt)
 			if over {
 				status, lastErr, next = DeliveryFailed, QuotaExceeded, sql.NullInt64{}
+				if hit.Max > 0 && !slices.Contains(hits, hit) {
+					hits = append(hits, hit)
+				}
 			} else {
 				n++
 			}
@@ -252,10 +271,11 @@ func (s *Store) EnqueueDeliveries(ctx context.Context, ds []NewDelivery, q Quota
 		}
 		return nil
 	})
-	return n, err
+	return n, hits, err
 }
 
-func (t *tx) overQuota(ctx context.Context, d NewDelivery, q Quota, now time.Time) (bool, error) {
+// overQuota reports whether d is over a limit; for a household limit it also says which.
+func (t *tx) overQuota(ctx context.Context, d NewDelivery, q Quota, now time.Time) (bool, QuotaHit, error) {
 	count := func(col, id string, since time.Duration) (int, error) {
 		var n int
 		err := t.queryRow(ctx, "SELECT count(*) FROM deliveries WHERE "+col+" = ? AND created_at >= ? AND status <> 'failed'",
@@ -266,10 +286,11 @@ func (t *tx) overQuota(ctx context.Context, d NewDelivery, q Quota, now time.Tim
 		col, id string
 		since   time.Duration
 		max     int
+		hit     QuotaHit // zero for the per-user limit
 	}{
-		{"household_id", d.HouseholdID, time.Hour, q.HouseholdHour},
-		{"household_id", d.HouseholdID, 24 * time.Hour, q.HouseholdDay},
-		{"user_id", d.UserID, 24 * time.Hour, q.UserDay},
+		{"household_id", d.HouseholdID, time.Hour, q.HouseholdHour, QuotaHit{d.HouseholdID, 1, q.HouseholdHour}},
+		{"household_id", d.HouseholdID, 24 * time.Hour, q.HouseholdDay, QuotaHit{d.HouseholdID, 24, q.HouseholdDay}},
+		{"user_id", d.UserID, 24 * time.Hour, q.UserDay, QuotaHit{}},
 	}
 	for _, c := range checks {
 		if c.max <= 0 || c.id == "" {
@@ -277,13 +298,13 @@ func (t *tx) overQuota(ctx context.Context, d NewDelivery, q Quota, now time.Tim
 		}
 		n, err := count(c.col, c.id, c.since)
 		if err != nil {
-			return false, err
+			return false, QuotaHit{}, err
 		}
 		if n >= c.max {
-			return true, nil
+			return true, c.hit, nil
 		}
 	}
-	return false, nil
+	return false, QuotaHit{}, nil
 }
 
 // ClaimedDelivery is a due delivery with everything needed to re-check and
