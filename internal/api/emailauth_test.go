@@ -144,7 +144,9 @@ func TestEmailVerificationFlow(t *testing.T) {
 	st, v = c.do("POST", "/api/v1/account/email/resend", nil)
 	expect(t, st, v, 202, "")
 	msg := e.oneMail("ann@example.com")
-	if !strings.Contains(msg.Subject, "Confirm your email") || strings.Contains(msg.Body, "ann") && !strings.Contains(msg.Body, "ann@") {
+	// The username must not appear outside the address; the link's random token could contain "ann" by chance.
+	text := regexp.MustCompile(`https?://\S+`).ReplaceAllString(msg.Body, "")
+	if !strings.Contains(msg.Subject, "Confirm your email") || strings.Contains(text, "ann") && !strings.Contains(text, "ann@") {
 		t.Fatalf("mail: %+v", msg)
 	}
 	token := tokenIn(t, msg)
