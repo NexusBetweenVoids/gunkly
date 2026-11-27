@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { href } from '../lib/base';
   import Alert from '../components/Alert.svelte';
   import Button from '../components/Button.svelte';
   import Field from '../components/Field.svelte';
@@ -51,11 +52,11 @@
   <h1>{t('signIn.createAccount')}</h1>
   {#if !app.instance.openSignup}
     <p class="muted">{t('signup.closed')}</p>
-    <p><a href="/signin">{t('signIn.title')}</a></p>
+    <p><a href={href('/signin')}>{t('signIn.title')}</a></p>
   {:else if sent}
     <p role="status">{t('signup.checkEmail')}</p>
     <p class="muted">{t('signup.checkEmailHint')}</p>
-    <p><a href="/signin">{t('signIn.title')}</a></p>
+    <p><a href={href('/signin')}>{t('signIn.title')}</a></p>
   {:else}
     <p class="muted">{t('signup.intro')}</p>
     <form class="stack" onsubmit={submit}>
@@ -92,6 +93,6 @@
       <LegalLinks agree />
       <Button type="submit" {busy}>{t('signup.submit')}</Button>
     </form>
-    <p class="muted">{t('invite.haveAccount')} <a href="/signin">{t('signIn.title')}</a></p>
+    <p class="muted">{t('invite.haveAccount')} <a href={href('/signin')}>{t('signIn.title')}</a></p>
   {/if}
 </section>

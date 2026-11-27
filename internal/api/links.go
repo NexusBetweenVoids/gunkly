@@ -29,6 +29,7 @@ var doneTmpl = template.Must(template.New("done").Parse(doneHTML))
 
 type donePage struct {
 	Lang, Title, Heading, Note, Action, Button string
+	Base                                       string // path prefix
 }
 
 // acceptLocale is the first language the browser asks for; i18n falls back
@@ -45,7 +46,8 @@ func acceptLocale(r *http.Request) string {
 }
 
 // writeDone renders a page. Never cached, never indexed, no cookies.
-func writeDone(w http.ResponseWriter, status int, p donePage) error {
+func (s *Server) writeDone(w http.ResponseWriter, status int, p donePage) error {
+	p.Base = s.prefix
 	h := w.Header()
 	h.Set("Content-Type", "text/html; charset=utf-8")
 	h.Set("Cache-Control", "no-store")
@@ -55,7 +57,7 @@ func writeDone(w http.ResponseWriter, status int, p donePage) error {
 
 func (s *Server) doneInvalid(w http.ResponseWriter, r *http.Request, status int) error {
 	loc := acceptLocale(r)
-	return writeDone(w, status, donePage{Lang: langOf(loc), Title: i18n.T(loc, "done.page_title", nil),
+	return s.writeDone(w, status, donePage{Lang: langOf(loc), Title: i18n.T(loc, "done.page_title", nil),
 		Heading: i18n.T(loc, "done.invalid_heading", nil), Note: i18n.T(loc, "done.invalid_note", nil)})
 }
 
@@ -91,7 +93,7 @@ func (s *Server) doneConfirm(w http.ResponseWriter, r *http.Request, _ *call) er
 		return s.doneFailed(w, r, err)
 	}
 	loc := acceptLocale(r)
-	return writeDone(w, http.StatusOK, donePage{Lang: langOf(loc), Title: i18n.T(loc, "done.page_title", nil),
+	return s.writeDone(w, http.StatusOK, donePage{Lang: langOf(loc), Title: i18n.T(loc, "done.page_title", nil),
 		Heading: i18n.T(loc, "done.confirm_heading", map[string]string{"chore": name}),
 		Action:  "/done/" + url.PathEscape(token), Button: i18n.T(loc, "done.confirm_button", nil)})
 }
@@ -110,7 +112,7 @@ func (s *Server) doneSubmit(w http.ResponseWriter, r *http.Request, c *call) err
 	}
 	s.audit(ctx, c, res.UserID, store.AuditMarkDoneUse, res.HouseholdID, meta)
 	loc := acceptLocale(r)
-	return writeDone(w, http.StatusOK, donePage{Lang: langOf(loc), Title: i18n.T(loc, "done.page_title", nil),
+	return s.writeDone(w, http.StatusOK, donePage{Lang: langOf(loc), Title: i18n.T(loc, "done.page_title", nil),
 		Heading: i18n.T(loc, "done.success_heading", map[string]string{"chore": res.ChoreName}),
 		Note:    i18n.T(loc, "done.undo_note", nil),
 		Action:  "/done/undo/" + url.PathEscape(res.UndoToken), Button: i18n.T(loc, "done.undo_button", nil)})
@@ -125,7 +127,7 @@ func (s *Server) doneUndo(w http.ResponseWriter, r *http.Request, c *call) error
 	}
 	s.audit(ctx, c, "", store.AuditMarkDoneUndo, res.HouseholdID, map[string]string{"completion": res.CompletionID})
 	loc := acceptLocale(r)
-	return writeDone(w, http.StatusOK, donePage{Lang: langOf(loc), Title: i18n.T(loc, "done.page_title", nil),
+	return s.writeDone(w, http.StatusOK, donePage{Lang: langOf(loc), Title: i18n.T(loc, "done.page_title", nil),
 		Heading: i18n.T(loc, "done.undone_heading", nil)})
 }
 

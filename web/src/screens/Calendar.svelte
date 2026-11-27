@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { href } from '../lib/base';
   import Alert from '../components/Alert.svelte';
   import Button from '../components/Button.svelte';
   import { api } from '../lib/api';
@@ -138,11 +139,11 @@
 <section class="card mt-md" aria-labelledby="cal-day" aria-live="polite">
   <h2 id="cal-day">{fmt(sel, { dateStyle: 'full' })}</h2>
   {#if list.length}
-    <ul class="list">{#each list as e (e.choreId)}<li><a href="/chores/{e.choreId}">{e.name}</a></li>{/each}</ul>
+    <ul class="list">{#each list as e (e.choreId)}<li><a href={href(`/chores/${e.choreId}`)}>{e.name}</a></li>{/each}</ul>
   {:else}
     <p class="muted">{t('calendar.none')}</p>
   {/if}
-  <p class="hint mt-md"><a href="/settings/household-connections">{t('calendar.feeds')}</a></p>
+  <p class="hint mt-md"><a href={href('/settings/household-connections')}>{t('calendar.feeds')}</a></p>
 </section>
 
 <style>

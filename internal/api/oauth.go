@@ -56,7 +56,7 @@ var (
 // a loopback host (development).
 func oauthBaseURLOK(base string) bool {
 	u, err := url.Parse(base)
-	if err != nil || u.Host == "" || u.Path != "" || u.User != nil {
+	if err != nil || u.Host == "" || u.User != nil || u.RawQuery != "" {
 		return false
 	}
 	return u.Scheme == "https" || u.Scheme == "http" && loopbackHost(u.Hostname())
@@ -385,7 +385,7 @@ func (s *Server) authzRedirect(w http.ResponseWriter, r *http.Request, req authz
 
 // oauthNotice shows a plain message page (the done page layout).
 func (s *Server) oauthNotice(w http.ResponseWriter, loc string, status int, headKey, noteKey string) error {
-	return writeDone(w, status, donePage{Lang: langOf(loc), Title: i18n.T(loc, "oauth.page_title", nil),
+	return s.writeDone(w, status, donePage{Lang: langOf(loc), Title: i18n.T(loc, "oauth.page_title", nil),
 		Heading: i18n.T(loc, headKey, nil), Note: i18n.T(loc, noteKey, nil)})
 }
 
@@ -397,14 +397,14 @@ type consentHousehold struct {
 type consentField struct{ Name, Value string }
 
 type consentPage struct {
-	Lang, Title, Heading, UnverifiedLabel, UnverifiedNote, ReturnLabel, ReturnHost, NewHostWarning, SignedIn, Error, Info string
-	NoHouseholds                                                                                                          bool
-	NoHouseholdsNote                                                                                                      string
-	Hidden                                                                                                                []consentField
-	HouseholdsLegend, ActionsLegend, ActionRead, ActionComplete, ActionWrite                                              string
-	GuestNote, NeverNote, Allow, Deny                                                                                     string
-	Households                                                                                                            []consentHousehold
-	OfferComplete, OfferWrite, CompleteChecked, WriteChecked                                                              bool
+	Base, Lang, Title, Heading, UnverifiedLabel, UnverifiedNote, ReturnLabel, ReturnHost, NewHostWarning, SignedIn, Error, Info string
+	NoHouseholds                                                                                                                bool
+	NoHouseholdsNote                                                                                                            string
+	Hidden                                                                                                                      []consentField
+	HouseholdsLegend, ActionsLegend, ActionRead, ActionComplete, ActionWrite                                                    string
+	GuestNote, NeverNote, Allow, Deny                                                                                           string
+	Households                                                                                                                  []consentHousehold
+	OfferComplete, OfferWrite, CompleteChecked, WriteChecked                                                                    bool
 	// Step-up: the password (and second factor) fields, shown when this
 	// session has not re-verified within stepUpWindow.
 	StepUp, ShowPassword, ShowCode, OfferEmail                         bool
@@ -452,7 +452,7 @@ func (s *Server) authorizeGet(w http.ResponseWriter, r *http.Request, c *call) e
 	ss, u, signedIn := s.sessionUser(w, r)
 	if !signedIn {
 		w.Header().Set("Cache-Control", "no-store")
-		http.Redirect(w, r, "/signin?next="+url.QueryEscape(r.URL.RequestURI()), http.StatusSeeOther)
+		http.Redirect(w, r, s.path("/signin?next=")+url.QueryEscape(r.URL.RequestURI()), http.StatusSeeOther)
 		return nil
 	}
 	if err := s.requireAccess(ctx, u); err != nil {
@@ -578,6 +578,7 @@ func (s *Server) renderConsent(w http.ResponseWriter, r *http.Request, cc consen
 	}
 	h.Set("Content-Security-Policy", strings.Replace(csp, "form-action 'self'", formAction, 1))
 	w.WriteHeader(http.StatusOK)
+	p.Base = s.prefix
 	return oauthTmpl.Execute(w, p)
 }
 
@@ -874,7 +875,7 @@ func (s *Server) consentSSO(w http.ResponseWriter, r *http.Request, c *call, cc 
 		s.log.Warn("sso consent", "err", err)
 		return s.renderConsent(w, r, cc)
 	}
-	redirect(w, r, to)
+	s.redirect(w, r, to)
 	return nil
 }
 
@@ -898,7 +899,7 @@ func (s *Server) consentSecondFactor(ctx context.Context, c *call, u store.User,
 // slowDown answers a throttled consent step-up with a 429 page.
 func (s *Server) slowDown(w http.ResponseWriter, loc string, wait time.Duration) error {
 	w.Header().Set("Retry-After", strconv.Itoa(max(int((wait+time.Second-1)/time.Second), 1)))
-	return writeDone(w, http.StatusTooManyRequests, donePage{Lang: langOf(loc), Title: i18n.T(loc, "oauth.page_title", nil),
+	return s.writeDone(w, http.StatusTooManyRequests, donePage{Lang: langOf(loc), Title: i18n.T(loc, "oauth.page_title", nil),
 		Heading: i18n.T(loc, "oauth.slow_heading", nil), Note: i18n.T(loc, "oauth.slow_note", nil)})
 }
 

@@ -4,13 +4,19 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ## [Unreleased]
 
-### Changed
-
-- The first-load JavaScript budget is now 50 KB gzipped (was 45).
+## [0.12.0] - 2026-11-27
 
 ### Added
 
+- Languages: Dutch, French, German and Spanish, picked from the browser language or set under Settings, Profile. Made with AI assistance; corrections are welcome via pull request (README, Translations).
+- Sub-path hosting: serve Gunkly under a path such as `https://example.com/gunkly` by putting the path in `GUNKLY_BASE_URL`. Everything (app, API, MCP, OAuth metadata, feeds, email and invite links, PWA, service worker, cookies) follows the prefix; the reverse proxy must not strip it (README has Caddy, nginx and Traefik examples). One image serves any prefix.
+- Unusual sign-in emails: a user is emailed when a sign-in comes from a country they have not signed in from in the last 90 days, or from a hosting, cloud or Tor network when their earlier sign-ins were not (at most once an hour, never on a first sign-in; can be turned off under Settings, Sign-in & security). Location comes from a trusted proxy header (`CF-IPCountry` by default, `GUNKLY_GEOIP_COUNTRY_HEADER`, `GUNKLY_GEOIP_ASN_HEADER`) or optional GeoIP database files (`GUNKLY_GEOIP_COUNTRY_DB`, `GUNKLY_GEOIP_ASN_DB`, e.g. DB-IP Lite); without a source the feature is off. Only the country code and a hosting flag are stored with the sign-in (migration 0022 adds the user setting).
 - Settings, Profile: "Go through the setup again" reruns the welcome flow. With a household already, it offers that household (or a new one), leaves out starter chores the household already has, and shows the invite step only to owners.
+
+### Changed
+
+- The first-load JavaScript budget is now 50 KB gzipped (was 45); translations load on demand per language and are budgeted per language.
+- Release workflow: anchore/sbom-action 0.24.4.
 
 ## [0.11.0] - 2026-11-27
 

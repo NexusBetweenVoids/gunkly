@@ -93,7 +93,9 @@ type Server struct {
 	baseURLWarned atomic.Int64 // unix time of the last base-URL mismatch warning
 	limits        *limits.Service
 	keyring       *auth.Keyring
-	baseURL       string
+	baseURL       string // scheme://host[:port][/prefix]
+	origin        string // scheme://host[:port]: what a browser sends as Origin
+	prefix        string // "" or the path prefix ("/gunkly") everything is served under
 	metrics       *metrics.Registry
 	version       string
 	updates       *updates.Checker
@@ -166,7 +168,7 @@ type Server struct {
 func New(o Options) *Server {
 	s := &Server{
 		st: o.Store, limits: o.Limits, keyring: o.Keyring,
-		baseURL: o.BaseURL, version: o.Version, updates: o.Updates, secure: strings.HasPrefix(o.BaseURL, "https://"),
+		baseURL: o.BaseURL, origin: strings.TrimSuffix(o.BaseURL, basePath(o.BaseURL)), prefix: basePath(o.BaseURL), version: o.Version, updates: o.Updates, secure: strings.HasPrefix(o.BaseURL, "https://"),
 		proxies: o.TrustedProxies, geo: o.GeoIP, log: o.Logger, ready: o.Ready, static: o.Static, now: o.Now,
 		hashPassword: auth.HashPassword, verifyPassword: auth.VerifyPassword,
 		mux: http.NewServeMux(), bodyLimits: map[string]int64{}, env: o.Env,
@@ -236,9 +238,6 @@ func New(o Options) *Server {
 	s.registerRoutes()
 	return s
 }
-
-// Handler returns the root handler with all middleware applied.
-func (s *Server) Handler() http.Handler { return s.middleware(s.mux) }
 
 // InitSetup prepares first-run setup when no account exists: it generates a
 // one-time setup code, logs it once and keeps only its hash. This is the one

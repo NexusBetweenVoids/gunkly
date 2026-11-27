@@ -10,6 +10,13 @@ if (!process.env.E2E_PORT) {
     { encoding: 'utf8' },
   ).trim();
 }
+if (!process.env.E2E_PREFIX_PORT) {
+  process.env.E2E_PREFIX_PORT = execFileSync(
+    process.execPath,
+    ['-e', "const s=require('net').createServer().listen(0,'127.0.0.1',()=>{console.log(s.address().port);s.close()})"],
+    { encoding: 'utf8' },
+  ).trim();
+}
 // localhost, not 127.0.0.1: passkeys (WebAuthn) bind to a domain name; an IP address cannot be an RP ID.
 const baseURL = `http://localhost:${process.env.E2E_PORT}`;
 
@@ -28,15 +35,17 @@ export default defineConfig({
   projects: [
     // First-run setup must happen exactly once, before anything else.
     { name: 'setup', testMatch: 'setup.spec.ts', use: { ...devices['Desktop Chrome'] } },
+    // Sub-path hosting: its own server under /sub, its own database; independent of the others.
+    { name: 'prefix', testMatch: 'prefix.spec.ts', use: { ...devices['Desktop Chrome'] } },
     {
       name: 'mobile',
-      testIgnore: ['setup.spec.ts', 'rtl.spec.ts'],
+      testIgnore: ['setup.spec.ts', 'rtl.spec.ts', 'prefix.spec.ts'],
       dependencies: ['setup'],
       use: { ...devices['Pixel 7'] },
     },
     {
       name: 'desktop',
-      testIgnore: ['setup.spec.ts'],
+      testIgnore: ['setup.spec.ts', 'prefix.spec.ts'],
       dependencies: ['setup'],
       use: { ...devices['Desktop Chrome'] },
     },

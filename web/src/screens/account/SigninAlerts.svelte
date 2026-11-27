@@ -1,5 +1,6 @@
 <script lang="ts">
   import Alert from '../../components/Alert.svelte';
+  import { href } from '../../lib/base';
   import { api } from '../../lib/api';
   import { failure } from '../../lib/errors';
   import { t } from '../../lib/i18n';
@@ -32,7 +33,7 @@
     </label>
     <p class="hint">{t('signinAlerts.hint')}</p>
     {#if !verified}
-      <p class="muted"><a href="/settings/profile">{t('signinAlerts.needEmail')}</a></p>
+      <p class="muted"><a href={href('/settings/profile')}>{t('signinAlerts.needEmail')}</a></p>
     {/if}
     <div aria-live="polite"><Alert message={err} /></div>
   </section>

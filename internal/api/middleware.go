@@ -142,7 +142,7 @@ func (s *Server) csrfError(r *http.Request) error {
 	used := r.Header.Get("Origin")
 	_, noCookie := r.Cookie(csrfCookie)
 	switch {
-	case used != "" && used != "null" && !strings.EqualFold(used, s.baseURL):
+	case used != "" && used != "null" && !strings.EqualFold(used, s.origin):
 	case noCookie != nil && strings.HasPrefix(s.baseURL, "https://") && r.TLS == nil && r.Header.Get("X-Forwarded-Proto") != "https":
 		used = "http://" + r.Host
 	default:
@@ -210,7 +210,7 @@ func (s *Server) tokenRequestOK(r *http.Request) bool {
 
 func (s *Server) sameOrigin(origin string, r *http.Request) bool {
 	if s.baseURL != "" {
-		return strings.EqualFold(origin, s.baseURL)
+		return strings.EqualFold(origin, s.origin)
 	}
 	u, err := url.Parse(origin)
 	return err == nil && (u.Scheme == "http" || u.Scheme == "https") && strings.EqualFold(u.Host, r.Host)

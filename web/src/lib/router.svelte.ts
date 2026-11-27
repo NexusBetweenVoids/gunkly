@@ -1,13 +1,16 @@
-// Tiny history router: reactive `route.path` plus link interception.
-export const route = $state({ path: location.pathname });
+import { BASE, href, unbase } from './base';
+
+// Tiny history router: reactive `route.path` (prefix-free) plus link interception.
+export const route = $state({ path: unbase(location.pathname) });
 
 const emit = (): void => {
-  route.path = location.pathname;
+  route.path = unbase(location.pathname);
 };
 
+/** `to` is a prefix-free app path with optional query. */
 export function navigate(to: string, replace = false): void {
-  if (to === location.pathname + location.search) return;
-  history[replace ? 'replaceState' : 'pushState'](null, '', to);
+  if (to === unbase(location.pathname) + location.search) return;
+  history[replace ? 'replaceState' : 'pushState'](null, '', href(to));
   emit();
   window.scrollTo(0, 0);
 }
@@ -19,7 +22,9 @@ document.addEventListener('click', (e) => {
   if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
   const a = (e.target as Element | null)?.closest('a');
   if (!a || a.target || a.hasAttribute('download') || a.origin !== location.origin) return;
-  if (a.pathname.startsWith('/api/')) return;
+  if (BASE && a.pathname !== BASE && !a.pathname.startsWith(`${BASE}/`)) return; // another app on this host
+  const p = unbase(a.pathname);
+  if (p.startsWith('/api/') || p.startsWith('/oauth/')) return;
   e.preventDefault();
-  navigate(a.pathname + a.search);
+  navigate(p + a.search);
 });

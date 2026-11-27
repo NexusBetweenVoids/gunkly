@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { appOrigin } from '../../lib/base';
   import Alert from '../../components/Alert.svelte';
   import Button from '../../components/Button.svelte';
   import Field from '../../components/Field.svelte';
@@ -44,7 +45,7 @@
     err = '';
     try {
       const inv = await api<Invite>('POST', `/households/${id}/invites`, { role, expiresInHours: hours, maxUses: several ? Math.min(100, Math.max(1, Math.floor(maxUses) || 1)) : 1 });
-      link = `${location.origin}/invite/${inv.token}`;
+      link = `${appOrigin()}/invite/${inv.token}`;
       await load();
     } catch (x) {
       err = failure(x).message;

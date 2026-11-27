@@ -58,7 +58,7 @@ type ssoState struct {
 
 func (s *Server) ssoCookie(value string, maxAge int) *http.Cookie {
 	//nolint:gosec // G124: Secure follows BASE_URL; HttpOnly and SameSite=Lax are set
-	return &http.Cookie{Name: ssoCookie, Value: value, Path: ssoPath, HttpOnly: true, Secure: s.secure, SameSite: http.SameSiteLaxMode, MaxAge: maxAge}
+	return &http.Cookie{Name: ssoCookie, Value: value, Path: s.path(ssoPath), HttpOnly: true, Secure: s.secure, SameSite: http.SameSiteLaxMode, MaxAge: maxAge}
 }
 
 // ssoBegin starts a flow: it sets the state cookie and returns the provider's
@@ -150,9 +150,12 @@ func landing(st ssoState, ok bool, code string) string {
 	return "/settings/security?sso=" + code
 }
 
-func redirect(w http.ResponseWriter, r *http.Request, to string) {
+func (s *Server) redirect(w http.ResponseWriter, r *http.Request, to string) {
 	w.Header().Set("Cache-Control", "no-store")
 	// to is the provider's URL built from the configured issuer, or a path that safeNext vetted.
+	if strings.HasPrefix(to, "/") {
+		to = s.path(to) // an app path: under the prefix
+	}
 	http.Redirect(w, r, to, http.StatusSeeOther) //nolint:gosec // G710: see above
 }
 
@@ -162,10 +165,10 @@ func (s *Server) ssoStart(w http.ResponseWriter, r *http.Request, _ *call) error
 	u, err := s.ssoBegin(r.Context(), w, ssoModeLogin, "", "", r.URL.Query().Get("next"))
 	if err != nil {
 		s.log.Warn("sso start", "err", err)
-		redirect(w, r, "/signin?sso=unavailable")
+		s.redirect(w, r, "/signin?sso=unavailable")
 		return nil
 	}
-	redirect(w, r, u)
+	s.redirect(w, r, u)
 	return nil
 }
 
@@ -178,10 +181,10 @@ func (s *Server) ssoCallback(w http.ResponseWriter, r *http.Request, c *call) er
 	}
 	st, ok := s.readSSOState(w, r)
 	if !ok {
-		redirect(w, r, "/signin?sso=failed")
+		s.redirect(w, r, "/signin?sso=failed")
 		return nil
 	}
-	fail := func(code string) error { redirect(w, r, landing(st, false, code)); return nil }
+	fail := func(code string) error { s.redirect(w, r, landing(st, false, code)); return nil }
 	q := r.URL.Query()
 	switch {
 	case q.Get("error") != "":
@@ -226,14 +229,14 @@ func (s *Server) ssoLogin(w http.ResponseWriter, r *http.Request, c *call, st ss
 			return serr
 		}
 		if !set.SSOCreateAccounts {
-			redirect(w, r, landing(st, false, "no_account"))
+			s.redirect(w, r, landing(st, false, "no_account"))
 			return nil
 		}
 		u, ident, err = s.ssoCreateAccount(ctx, c, id)
 	}
 	if err != nil {
 		s.log.Error("sso sign-in", "err", err)
-		redirect(w, r, landing(st, false, "failed"))
+		s.redirect(w, r, landing(st, false, "failed"))
 		return nil
 	}
 	if err := s.st.TouchSSO(ctx, ident.ID); err != nil {
@@ -245,7 +248,7 @@ func (s *Server) ssoLogin(w http.ResponseWriter, r *http.Request, c *call, st ss
 		return err
 	}
 	s.recordSignin(ctx, r, c, u, map[string]string{"via": "sso"})
-	redirect(w, r, landing(st, true, ""))
+	s.redirect(w, r, landing(st, true, ""))
 	return nil
 }
 
@@ -253,7 +256,7 @@ func (s *Server) ssoLogin(w http.ResponseWriter, r *http.Request, c *call, st ss
 // started it.
 func (s *Server) ssoSessionFlow(w http.ResponseWriter, r *http.Request, c *call, st ssoState, id sso.Identity) error {
 	ctx := r.Context()
-	fail := func(code string) error { redirect(w, r, landing(st, false, code)); return nil }
+	fail := func(code string) error { s.redirect(w, r, landing(st, false, code)); return nil }
 	ss, u, signedIn := s.authenticate(w, r)
 	if !signedIn || ss.ID != st.SessionID || u.ID != st.UserID {
 		return fail("failed")
@@ -284,7 +287,7 @@ func (s *Server) ssoSessionFlow(w http.ResponseWriter, r *http.Request, c *call,
 		if err := s.st.StepUpSession(ctx, u.ID, ss.ID); err != nil {
 			return err
 		}
-		redirect(w, r, landing(st, true, "stepup"))
+		s.redirect(w, r, landing(st, true, "stepup"))
 		return nil
 	}
 	// Linking needs the step-up it was started with to still count.
@@ -298,7 +301,7 @@ func (s *Server) ssoSessionFlow(w http.ResponseWriter, r *http.Request, c *call,
 		return err
 	}
 	s.audit(ctx, c, u.ID, store.AuditSSOLink, "", nil)
-	redirect(w, r, landing(st, true, "linked"))
+	s.redirect(w, r, landing(st, true, "linked"))
 	return nil
 }
 

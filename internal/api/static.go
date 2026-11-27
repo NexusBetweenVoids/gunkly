@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"io"
 	"io/fs"
 	"mime"
@@ -47,6 +48,13 @@ func (s *Server) serveStatic(w http.ResponseWriter, r *http.Request, _ *call) er
 	rs, isSeeker := f.(io.ReadSeeker)
 	if !isSeeker {
 		return errNotFound
+	}
+	if name == "index.html" || name == "manifest.webmanifest" {
+		raw, err := io.ReadAll(rs)
+		if err != nil {
+			return errNotFound
+		}
+		rs = bytes.NewReader(s.rewriteShell(name, raw))
 	}
 	h := w.Header()
 	switch {

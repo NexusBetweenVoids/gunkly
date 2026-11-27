@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { href } from '../lib/base';
   import Logo from '../components/Logo.svelte';
   import Alert from '../components/Alert.svelte';
   import Button from '../components/Button.svelte';
@@ -92,7 +93,7 @@
     </form>
     <p class="muted">
       {t('invite.haveAccount')}
-      <a href="/signin?next={encodeURIComponent('/invite/' + token)}">{t('signIn.title')}</a>
+      <a href={href(`/signin?next=${encodeURIComponent('/invite/' + token)}`)}>{t('signIn.title')}</a>
     </p>
   {/if}
 </section>

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { href } from './lib/base';
   import HeaderMenu from './components/HeaderMenu.svelte';
   import Logo from './components/Logo.svelte';
   import Toast from './components/Toast.svelte';
@@ -92,7 +93,7 @@
 
 <header class="bar">
   <nav class="nav" aria-label={t('nav.label')}>
-    <a class="brand" href="/"><Logo /><span class="brand-name">{t('app.name')}</span></a>
+    <a class="brand" href={href('/')}><Logo /><span class="brand-name">{t('app.name')}</span></a>
     {#if app.user}
       {#if app.households.length === 1}
         <p class="switcher hh-name" data-testid="hh-name"><span class="visually-hidden">{t('nav.household')}: </span>{app.households[0]?.name}</p>
@@ -106,9 +107,9 @@
       {/if}
       <ul class="links">
         <!-- With a household, Settings is in the tab bar. -->
-        {#if !app.hhId}<li><a href="/settings" aria-current={here('/settings')}>{t('nav.settings')}</a></li>{/if}
+        {#if !app.hhId}<li><a href={href('/settings')} aria-current={here('/settings')}>{t('nav.settings')}</a></li>{/if}
         {#if app.user.isAdmin}
-          <li><a href="/admin" aria-current={here('/admin')}>{t('nav.admin')}</a></li>
+          <li><a href={href('/admin')} aria-current={here('/admin')}>{t('nav.admin')}</a></li>
         {/if}
         <li><button type="button" class="btn btn-quiet" onclick={out}>{t('nav.signOut')}</button></li>
       </ul>
@@ -127,12 +128,12 @@
 {#if app.user && app.hhId && !isPublic}
   <nav class="tabs" aria-label={t('nav.primary')}>
     <ul>
-      <li><a href="/" aria-current={here('/')}><span aria-hidden="true">&#x2713;</span>{t('nav.home')}</a></li>
-      <li><a href="/calendar" aria-current={here('/calendar')}><span aria-hidden="true">&#x25A6;</span>{t('nav.calendar')}</a></li>
+      <li><a href={href('/')} aria-current={here('/')}><span aria-hidden="true">&#x2713;</span>{t('nav.home')}</a></li>
+      <li><a href={href('/calendar')} aria-current={here('/calendar')}><span aria-hidden="true">&#x25A6;</span>{t('nav.calendar')}</a></li>
       {#if currentHousehold()?.role !== 'guest'}
-        <li><a href="/chores/new" aria-current={here('/chores/new')}><span aria-hidden="true">+</span>{t('nav.add')}</a></li>
+        <li><a href={href('/chores/new')} aria-current={here('/chores/new')}><span aria-hidden="true">+</span>{t('nav.add')}</a></li>
       {/if}
-      <li><a href="/settings" aria-current={here('/settings')}><span aria-hidden="true">&#x2699;</span>{t('nav.settings')}</a></li>
+      <li><a href={href('/settings')} aria-current={here('/settings')}><span aria-hidden="true">&#x2699;</span>{t('nav.settings')}</a></li>
     </ul>
   </nav>
 {/if}

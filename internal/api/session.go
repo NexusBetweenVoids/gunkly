@@ -20,7 +20,7 @@ const (
 
 func (s *Server) cookie(name, value string, httpOnly bool, expires time.Time) *http.Cookie {
 	//nolint:gosec // G124: Secure follows BASE_URL scheme; the CSRF cookie must be readable by the SPA
-	return &http.Cookie{Name: name, Value: value, Path: "/", HttpOnly: httpOnly, Secure: s.secure,
+	return &http.Cookie{Name: name, Value: value, Path: s.cookiePath(), HttpOnly: httpOnly, Secure: s.secure,
 		SameSite: http.SameSiteLaxMode, Expires: expires}
 }
 

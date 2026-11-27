@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { appPath } from '../lib/base';
   import { api } from '../lib/api';
   import { failure } from '../lib/errors';
   import { t } from '../lib/i18n';
@@ -54,7 +55,7 @@
     busy = true;
     err = { code: '', message: '' };
     try {
-      const r = await api<{ url: string }>('POST', '/session/step-up/sso', { next: location.pathname + location.search });
+      const r = await api<{ url: string }>('POST', '/session/step-up/sso', { next: appPath() });
       location.assign(r.url);
     } catch (x) {
       err = failure(x);

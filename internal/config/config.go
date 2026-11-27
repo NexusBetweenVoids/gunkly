@@ -30,7 +30,7 @@ type Config struct {
 	SecretKeys     map[int][]byte
 	CurrentKey     int
 	ListenAddr     string
-	BaseURL        string // scheme://host[:port], no trailing slash; may be empty when self-hosting
+	BaseURL        string // scheme://host[:port][/prefix], no trailing slash; may be empty when self-hosting
 	TrustedProxies []netip.Prefix
 	// GeoIP: where the optional location of a sign-in comes from, for the
 	// "unusual sign-in" email. Headers are read only from trusted proxies;
@@ -153,10 +153,12 @@ func Load(lookup func(string) string) (*Config, error) {
 		switch {
 		case err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https"):
 			fail("GUNKLY_BASE_URL: must be an absolute http(s) URL")
-		case strings.TrimSuffix(u.Path, "/") != "" || u.RawQuery != "" || u.Fragment != "" || u.User != nil:
-			fail("GUNKLY_BASE_URL: must be scheme://host[:port] only (sub-path hosting is not supported)")
+		case u.RawQuery != "" || u.Fragment != "" || u.User != nil || strings.ContainsAny(v, "?#"):
+			fail("GUNKLY_BASE_URL: must be scheme://host[:port][/path] without query or fragment")
+		case !validBasePath(strings.TrimSuffix(u.EscapedPath(), "/")):
+			fail("GUNKLY_BASE_URL: the path may only hold letters, digits and . _ ~ - in segments such as /gunkly (no //, ., .. or escapes)")
 		default:
-			c.BaseURL = u.Scheme + "://" + u.Host
+			c.BaseURL = u.Scheme + "://" + u.Host + strings.TrimSuffix(u.EscapedPath(), "/")
 		}
 	}
 
@@ -424,4 +426,39 @@ func validHeaderName(s string) bool {
 		}
 	}
 	return s != ""
+}
+
+// validBasePath accepts "" (root) or a path prefix such as /gunkly or /a/b:
+// plain unreserved characters only, no empty, "." or ".." segments.
+func validBasePath(p string) bool {
+	if p == "" {
+		return true
+	}
+	if p[0] != '/' {
+		return false
+	}
+	for seg := range strings.SplitSeq(p[1:], "/") {
+		if seg == "" || seg == "." || seg == ".." {
+			return false
+		}
+		for _, r := range seg {
+			if (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') && (r < '0' || r > '9') && !strings.ContainsRune("._~-", r) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// BasePath is the path prefix Gunkly is served under ("/gunkly"), taken from
+// GUNKLY_BASE_URL; "" when it is served at the root.
+func (c *Config) BasePath() string { return BasePathOf(c.BaseURL) }
+
+// BasePathOf returns the path prefix of a base URL ("" for none).
+func BasePathOf(base string) string {
+	u, err := url.Parse(base)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSuffix(u.EscapedPath(), "/")
 }

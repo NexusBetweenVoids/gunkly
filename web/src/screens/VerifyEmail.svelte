@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { href } from '../lib/base';
   import Alert from '../components/Alert.svelte';
   import Button from '../components/Button.svelte';
   import RecoveryCodes from '../components/RecoveryCodes.svelte';
@@ -80,7 +81,7 @@
     {:else if app.user}
       <div><Button onclick={next}>{t('verifyEmail.continue')}</Button></div>
     {:else}
-      <p><a href="/signin">{t('signIn.title')}</a></p>
+      <p><a href={href('/signin')}>{t('signIn.title')}</a></p>
     {/if}
   {/if}
 </section>

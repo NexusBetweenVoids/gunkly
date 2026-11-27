@@ -13,6 +13,8 @@ const root = resolve(web, '..');
 export const stateFile = join(here, '.out', 'state.json');
 /** Every email the app sent, one JSON object per line (written by the fake SMTP server below). */
 export const mailFile = join(here, '.out', 'mail.jsonl');
+/** The second server, served under the path prefix /sub (sub-path hosting): its address and setup code. */
+export const prefixFile = join(here, '.out', 'prefix.json');
 /** The fake OpenID Connect provider's address (see idp.ts), for the single sign-on specs. */
 export const idpFile = join(here, '.out', 'idp.txt');
 
@@ -81,7 +83,33 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
   mkdirSync(dirname(stateFile), { recursive: true });
   writeFileSync(stateFile, JSON.stringify({ setupCode: code }));
 
+  // A second server on its own database, mounted under /sub (e2e/prefix.spec.ts).
+  const pport = process.env.E2E_PREFIX_PORT!;
+  const pserver: ChildProcess = spawn(bin, ['serve'], {
+    cwd: dir,
+    env: {
+      PATH: process.env.PATH,
+      GUNKLY_DATABASE_URL: `sqlite://${join(dir, 'prefix.db')}`,
+      GUNKLY_LISTEN_ADDR: `127.0.0.1:${pport}`,
+      GUNKLY_BASE_URL: `http://localhost:${pport}/sub`,
+      GUNKLY_SECRET_KEYS: `1:${key}`,
+      GUNKLY_LOG_LEVEL: 'info',
+    },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  let plog = '';
+  pserver.stdout!.on('data', (b: Buffer) => (plog += b.toString()));
+  pserver.stderr!.on('data', (b: Buffer) => (plog += b.toString()));
+  let pcode = '';
+  for (const until = Date.now() + 30_000; Date.now() < until && !pcode; ) {
+    pcode = /setup_code"?[=:]\s*"?([A-Za-z0-9-]+)/.exec(plog)?.[1] ?? '';
+    if (!pcode) await new Promise((r) => setTimeout(r, 100));
+  }
+  if (!pcode) throw new Error(`prefix server: setup code not found in log:\n${plog}`);
+  writeFileSync(prefixFile, JSON.stringify({ url: `http://localhost:${pport}/sub`, setupCode: pcode }));
+
   return async () => {
+    pserver.kill('SIGTERM');
     server.kill('SIGTERM');
     await smtp.close();
     await idp.close();

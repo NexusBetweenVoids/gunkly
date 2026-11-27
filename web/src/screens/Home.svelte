@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { href } from '../lib/base';
   import type { Component } from 'svelte';
   import Alert from '../components/Alert.svelte';
   import Button from '../components/Button.svelte';
@@ -121,7 +122,7 @@
   <section class="card stack" aria-labelledby="h-welcome">
     <h2 id="h-welcome">{t('home.welcome')}</h2>
     <p class="muted">{t('home.noHousehold')}</p>
-    <p><a class="btn" href="/welcome">{t('household.createFirst')}</a></p>
+    <p><a class="btn" href={href('/welcome')}>{t('household.createFirst')}</a></p>
   </section>
 {:else}
   {#if Prompt}<Prompt />{/if}
@@ -154,7 +155,7 @@
 
   {#snippet item(c: Chore)}
     <li class="chore">
-      <a class="chore-main" href="/chores/{c.id}">
+      <a class="chore-main" href={href(`/chores/${c.id}`)}>
         <strong>{c.name}</strong>
         <span class="muted" class:late={c.status === 'overdue'}>
           {#if areaName(c.areaId)}{areaName(c.areaId)} &middot; {/if}
@@ -179,7 +180,7 @@
   {:else if !scoped.length}
     <section class="card mt-md">
       <p>{showMine ? t('home.empty.mine') : t('home.empty.all')}</p>
-      {#if canEdit}<a class="btn" href="/chores/new">{t('chore.add')}</a>{/if}
+      {#if canEdit}<a class="btn" href={href('/chores/new')}>{t('chore.add')}</a>{/if}
     </section>
   {:else if needle && !visible.length}
     <p class="muted mt-md" role="status">{t('home.searchNone')}</p>

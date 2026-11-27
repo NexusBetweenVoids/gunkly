@@ -6,14 +6,14 @@
 <meta name="robots" content="noindex,nofollow">
 <meta name="referrer" content="no-referrer">
 <title>{{.Title}}</title>
-<link rel="stylesheet" href="/done.css">
+<link rel="stylesheet" href="{{.Base}}/done.css">
 </head>
 <body>
 <main>
-<picture><source srcset="/icons/mark-dark.png" media="(prefers-color-scheme: dark)"><img class="mark" src="/icons/mark-light.png" alt="" width="72" height="72"></picture>
+<picture><source srcset="{{.Base}}/icons/mark-dark.png" media="(prefers-color-scheme: dark)"><img class="mark" src="{{.Base}}/icons/mark-light.png" alt="" width="72" height="72"></picture>
 <h1>{{.Heading}}</h1>
 {{if .Note}}<p>{{.Note}}</p>{{end}}
-{{if .Action}}<form method="post" action="{{.Action}}"><button type="submit">{{.Button}}</button></form>{{end}}
+{{if .Action}}<form method="post" action="{{.Base}}{{.Action}}"><button type="submit">{{.Button}}</button></form>{{end}}
 </main>
 </body>
 </html>

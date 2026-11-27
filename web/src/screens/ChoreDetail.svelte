@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { href } from '../lib/base';
   import Alert from '../components/Alert.svelte';
   import Button from '../components/Button.svelte';
   import Confirm from '../components/Confirm.svelte';
@@ -160,7 +161,7 @@
               <Button variant="quiet" class="btn-icon" aria-label={t('chore.pause')} title={t('chore.pause')} onclick={() => (dlg = 'pause')}><Icon name="pause" /><span class="cap" aria-hidden="true">{t('chore.pause')}</span></Button>
             {/if}
             <Button variant="quiet" class="btn-icon" aria-label={c.muted ? t('chore.unmute') : t('chore.mute')} title={c.muted ? t('chore.unmute') : t('chore.mute')} {busy} onclick={mute}><Icon name={c.muted ? 'bell' : 'bellOff'} /><span class="cap" aria-hidden="true">{c.muted ? t('chore.short.unmute') : t('chore.short.mute')}</span></Button>
-            <a class="btn btn-quiet btn-icon" href="/chores/{id}/edit" aria-label={t('chore.edit')} title={t('chore.edit')}><Icon name="edit" /><span class="cap" aria-hidden="true">{t('chore.short.edit')}</span></a>
+            <a class="btn btn-quiet btn-icon" href={href(`/chores/${id}/edit`)} aria-label={t('chore.edit')} title={t('chore.edit')}><Icon name="edit" /><span class="cap" aria-hidden="true">{t('chore.short.edit')}</span></a>
             <Button variant="quiet" class="btn-icon" aria-label={t('chore.archive')} title={t('chore.archive')} {busy} onclick={() => act(() => api<void>('POST', `${base}/chores/${id}/archive`).then(load), 'chore.archivedMsg')}><Icon name="archive" /><span class="cap" aria-hidden="true">{t('chore.archive')}</span></Button>
             {@render remove()}
           </div>

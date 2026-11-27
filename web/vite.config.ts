@@ -2,6 +2,8 @@ import { defineConfig } from 'vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 
 export default defineConfig({
+  // Relative: one bundle serves any GUNKLY_BASE_URL path prefix (the server rewrites index.html).
+  base: './',
   plugins: [svelte({ compilerOptions: { runes: true } })],
   server: {
     proxy: { '/api': 'http://localhost:4865' },

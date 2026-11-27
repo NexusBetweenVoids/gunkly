@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { href } from '../lib/base';
   import Alert from '../components/Alert.svelte';
   import Button from '../components/Button.svelte';
   import Field from '../components/Field.svelte';
@@ -45,5 +46,5 @@
       <Button type="submit" {busy}>{t('forgot.submit')}</Button>
     </form>
   {/if}
-  <p><a href="/signin">{t('forgot.back')}</a></p>
+  <p><a href={href('/signin')}>{t('forgot.back')}</a></p>
 </section>

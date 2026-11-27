@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { href } from '../../lib/base';
   import { t, type Key } from '../../lib/i18n';
   import { app } from '../../lib/session.svelte';
   import AssistantConnect from './AssistantConnect.svelte';
@@ -19,7 +20,7 @@
   <p class="muted">{t('ai.how')}</p>
   {#if off}
     <p class="muted" data-testid="ai-off">{t('mcp.disabled')}</p>
-    {#if app.user?.isAdmin}<p><a href="/admin/connections">{t('ai.adminTurnOn')}</a></p>{/if}
+    {#if app.user?.isAdmin}<p><a href={href('/admin/connections')}>{t('ai.adminTurnOn')}</a></p>{/if}
   {:else}
     <h3>{t('ai.setupTitle')}</h3>
     <ol class="steps stack-sm">
@@ -31,7 +32,7 @@
 {#if !off}
   <AssistantConnect households={app.households} oncreated={() => {}} />
   <ConnectedApps />
-  <p class="hint">{t('ai.keysHint')} <a href="/settings/integrations">{t('account.group.integrations')}</a></p>
+  <p class="hint">{t('ai.keysHint')} <a href={href('/settings/integrations')}>{t('account.group.integrations')}</a></p>
 {/if}
 
 <style>

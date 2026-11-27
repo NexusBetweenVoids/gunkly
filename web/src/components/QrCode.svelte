@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { href } from '../lib/base';
   import { qrEncode, qrLogoSide, qrPath } from '../lib/qr';
 
   let { text, label }: { text: string; label: string } = $props();
@@ -23,7 +24,7 @@
     <path d={qr.d} fill="#000" />
     {#if qr.logo.side}
       <rect x={qr.logo.at} y={qr.logo.at} width={qr.logo.side} height={qr.logo.side} rx="1.5" fill="#fff" />
-      <image href="/icons/mark-light.png" x={qr.logo.at + 1} y={qr.logo.at + 1} width={qr.logo.side - 2} height={qr.logo.side - 2} />
+      <image href={href('/icons/mark-light.png')} x={qr.logo.at + 1} y={qr.logo.at + 1} width={qr.logo.side - 2} height={qr.logo.side - 2} />
     {/if}
   </svg>
 {/if}
