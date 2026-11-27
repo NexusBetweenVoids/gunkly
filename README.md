@@ -80,7 +80,7 @@ All screenshots show synthetic demo data.
 **Admin and operations**
 - First-run setup code, users and instance settings (limits, sessions, retention, allowed services, sign-up), update notice, CLI recovery (`admin reset-password`, `admin reset-2fa`).
 - `/healthz`, `/readyz`, optional Prometheus `/metrics`, consistent backups, `migrate-db` to Postgres, graceful shutdown.
-- English only for now; translations and right-to-left layout are wired in. Installable PWA (no offline mode). WCAG 2.2 AA tested.
+- Available in English and Spanish (corrections and new translations are welcome via pull request); right-to-left layout is wired in. Installable PWA (no offline mode). WCAG 2.2 AA tested.
 
 ## Quick start
 
