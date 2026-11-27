@@ -75,6 +75,7 @@ const (
 	AuditTokenRateLimited    = "token_rate_limited"         //nolint:gosec // G101: an event name; an API token was rate limited again and again (security alert)
 	AuditTokenBurst          = "token_burst"                //nolint:gosec // G101: an event name; many API tokens or OAuth grants created quickly (security alert)
 	AuditChannelCreate       = "channel_create"             // household_id, meta channel
+	AuditSigninUnusual       = "signin_unusual"             // a successful sign-in from an unexpected country or a hosting network; meta country, hosting, emailed
 )
 
 // AuditEvent is one audit-log entry. Meta must never contain secrets.

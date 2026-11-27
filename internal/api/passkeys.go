@@ -266,7 +266,7 @@ func (s *Server) passkeyLogin(w http.ResponseWriter, r *http.Request, c *call) e
 	if err := s.startSession(w, r, c, u, http.StatusOK); err != nil {
 		return err
 	}
-	s.audit(ctx, c, u.ID, store.AuditLoginSuccess, "", map[string]string{"via": "passkey"})
+	s.recordSignin(ctx, r, c, u, map[string]string{"via": "passkey"})
 	return nil
 }
 

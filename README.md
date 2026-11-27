@@ -139,6 +139,15 @@ docker compose -f compose.postgres.yml up -d
 
 A reverse proxy (Caddy, nginx, Traefik, Nginx Proxy Manager, ...) gives Gunkly HTTPS. Gunkly only believes the client address the proxy forwards (`X-Forwarded-For` or the standard `Forwarded` header) when the proxy is listed in `GUNKLY_TRUSTED_PROXIES`. Without it, every request seems to come from the proxy: the activity log and session list show the proxy's address, and the per-address rate limits (sign-in, sign-up, invites) treat all visitors as one, so everyone shares one login limit. Gunkly never trusts a proxy by itself; the Administration page shows a warning with the exact setting to copy when it sees forwarded requests from an address that is not trusted.
 
+<a id="unusual-sign-in-emails"></a>
+
+**Unusual sign-in emails (optional).** With email on, Gunkly can email a user when a sign-in looks unexpected: from a country the account has not signed in from in the last 90 days, or from a hosting/cloud network (a data center or Tor) when earlier sign-ins were not. It never mails the first sign-in of an account, and at most once an hour per account; users can turn it off under Settings, Sign-in & security. It only works when Gunkly can tell where a sign-in came from, with no outside lookups:
+
+- A **country header from a trusted proxy**: `GUNKLY_GEOIP_COUNTRY_HEADER` (default `CF-IPCountry`, which Cloudflare sets; `off` disables it). It is only believed when the request comes through a proxy in `GUNKLY_TRUSTED_PROXIES`. `XX` is ignored and `T1` (Tor) counts as an unusual network. `GUNKLY_GEOIP_ASN_HEADER` can name a header carrying the AS number if your proxy adds one.
+- **Database files** (read at start, MaxMind `.mmdb` format): `GUNKLY_GEOIP_COUNTRY_DB` and `GUNKLY_GEOIP_ASN_DB`, for example the free [DB-IP Lite](https://db-ip.com/db/lite.php) country and ASN databases ("IP Geolocation by DB-IP", CC BY 4.0, attribution required) or GeoLite2.
+
+Hosting networks are recognised from a built-in list of well-known cloud and VPS AS numbers, so they need the AS number from a header or database; it is a heuristic. Only the country code and a hosting yes/no are stored with the sign-in in the audit log (kept as long as the audit log is). Administration, Sign-up & sign-in shows whether a source is available.
+
 **Find the proxy's address as Gunkly sees it:**
 
 - Proxy on the host (or another machine): its LAN address, for example `192.168.1.1`.
@@ -185,6 +194,7 @@ The server itself is configured through environment variables, all documented wi
 | `GUNKLY_BASE_URL` | Public origin used in links (no path) |
 | `GUNKLY_DATABASE_URL` | `sqlite:///data/gunkly.db` or `postgres://...` (the compose files set it) |
 | `GUNKLY_TRUSTED_PROXIES` | Reverse-proxy CIDRs/IPs whose `X-Forwarded-For` / `Forwarded` is trusted; see [Behind a reverse proxy](#behind-a-reverse-proxy) |
+| `GUNKLY_GEOIP_COUNTRY_HEADER`, `GUNKLY_GEOIP_ASN_HEADER`, `GUNKLY_GEOIP_COUNTRY_DB`, `GUNKLY_GEOIP_ASN_DB` | Optional location source for unusual sign-in emails; see [Unusual sign-in emails](#unusual-sign-in-emails) |
 | `GUNKLY_EMAIL_ENABLED` and `GUNKLY_SMTP_*` | Email verification, password reset, email codes (optional; or Administration, Email) |
 | `GUNKLY_METRICS_TOKEN` | Enables `/metrics` (or Administration, Connections) |
 | `GUNKLY_SECURITY_CONTACT`, `GUNKLY_SECURITY_POLICY` | Serve `/.well-known/security.txt` (RFC 9116) with this contact (`mailto:` or `https:`) and an optional policy link |

@@ -38,6 +38,7 @@
     ssoClientId?: string;
     ssoScopes?: string[];
     ssoCallback: string;
+    signinLocation: 'none' | 'header' | 'database' | 'both';
     inactiveEnabled: boolean;
     inactiveWarnAfterDays: number;
     inactiveDeleteAfterDays: number;
@@ -142,6 +143,7 @@
         <label class="check"><input type="checkbox" bind:checked={s.inviteRegistration} />{t('admin.inviteRegistration')}</label>
         <label class="check"><input type="checkbox" bind:checked={s.securityAlerts} aria-describedby="sec-alerts-hint" />{t('admin.securityAlerts')}</label>
         <p class="hint" id="sec-alerts-hint">{t('admin.securityAlertsHint')}</p>
+        <p class="hint" data-testid="signin-location">{t('admin.signinLocation')}: {#if s.signinLocation === 'header'}{t('admin.signinLocation.header')}{:else if s.signinLocation === 'database'}{t('admin.signinLocation.database')}{:else if s.signinLocation === 'both'}{t('admin.signinLocation.both')}{:else}{t('admin.signinLocation.none')}{/if}</p>
         {#if s.ssoConfigured}
           <h3>{t('admin.ssoAccounts')}</h3>
           <label class="check"><input type="checkbox" bind:checked={s.ssoCreateAccounts} aria-describedby="sso-hint" />{t('admin.ssoCreateAccounts')}</label>

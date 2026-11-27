@@ -58,6 +58,8 @@ type Options struct {
 	// for the scheduler so both behave alike.
 	Sender         notify.Sender
 	TrustedProxies []netip.Prefix
+	// GeoIP is the optional location source for unusual sign-in emails.
+	GeoIP GeoIP
 	// SMTP enables email (verification, password reset, email codes) when set;
 	// mail is sent through the egress guard like every outbound connection.
 	// Mailer replaces the SMTP sender (tests). Both nil: email is disabled.
@@ -105,6 +107,7 @@ type Server struct {
 	webhooks      *webhook.Sender
 	secure        bool // cookies get Secure; HSTS is sent
 	proxies       []netip.Prefix
+	geo           GeoIP
 	untrusted     untrustedProxies
 	spread        signinSpread
 	log           *slog.Logger
@@ -164,7 +167,7 @@ func New(o Options) *Server {
 	s := &Server{
 		st: o.Store, limits: o.Limits, keyring: o.Keyring,
 		baseURL: o.BaseURL, version: o.Version, updates: o.Updates, secure: strings.HasPrefix(o.BaseURL, "https://"),
-		proxies: o.TrustedProxies, log: o.Logger, ready: o.Ready, static: o.Static, now: o.Now,
+		proxies: o.TrustedProxies, geo: o.GeoIP, log: o.Logger, ready: o.Ready, static: o.Static, now: o.Now,
 		hashPassword: auth.HashPassword, verifyPassword: auth.VerifyPassword,
 		mux: http.NewServeMux(), bodyLimits: map[string]int64{}, env: o.Env,
 	}
