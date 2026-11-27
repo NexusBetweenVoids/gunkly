@@ -88,8 +88,8 @@ test('a password account links single sign-on and then signs in with it', async 
 
   await page.goto('/account/security');
   const section = page.getByRole('region', { name: 'Single sign-on' });
-  await expect(section.getByText('Not linked.')).toBeVisible();
-  await section.getByRole('button', { name: 'Link single sign-on' }).click();
+  await expect(section.getByText('Not linked', { exact: true })).toBeVisible();
+  await section.getByRole('button', { name: 'Link', exact: true }).click();
   const confirm = page.getByRole('dialog', { name: "Confirm it's you" });
   await confirm.getByLabel('Password').fill(PASSWORD);
   await throughProvider(page, GUNKLY, () => confirm.getByRole('button', { name: 'Confirm' }).click(), USERS.link);
@@ -111,6 +111,7 @@ test('an account with only single sign-on confirms a sensitive action through th
 
   // Setting a password is a sensitive action; this account has none, so it must confirm through the provider.
   await page.goto('/account/security');
+  await page.getByRole('region', { name: 'Password', exact: true }).getByRole('button', { name: 'Set one' }).click();
   await page.getByLabel('New password', { exact: true }).fill('another-ci-only-password');
   await page.getByLabel('Confirm new password').fill('another-ci-only-password');
   await page.getByRole('button', { name: 'Change password' }).click();
