@@ -17,6 +17,7 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 - The first-load JavaScript budget is now 50 KB gzipped (was 45); translations load on demand per language and are budgeted per language.
 - Release workflow: anchore/sbom-action 0.24.4.
+- The single sign-on redirect refuses protocol-relative paths (`//host`) by itself, not only through the `next` check (CodeQL go/bad-redirect-check).
 
 ## [0.11.0] - 2026-11-27
 

@@ -154,7 +154,12 @@ func (s *Server) redirect(w http.ResponseWriter, r *http.Request, to string) {
 	w.Header().Set("Cache-Control", "no-store")
 	// to is the provider's URL built from the configured issuer, or a path that safeNext vetted.
 	if strings.HasPrefix(to, "/") {
-		to = s.path(to) // an app path: under the prefix
+		// An app path: under the prefix. Never "//host" or "/\host" (another site), even if a
+		// caller forgot safeNext.
+		if len(to) > 1 && (to[1] == '/' || to[1] == '\\') {
+			to = "/"
+		}
+		to = s.path(to)
 	}
 	http.Redirect(w, r, to, http.StatusSeeOther) //nolint:gosec // G710: see above
 }
