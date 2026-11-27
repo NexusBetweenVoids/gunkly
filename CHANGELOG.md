@@ -4,6 +4,8 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-11-27
+
 ### Changed
 
 - Confirming the email address of a brand-new account (created in the last 24 hours) on a device that is signed out, typically the phone's mail app, offers "Confirm and continue as <name>": confirming then also signs in there, once, so setting up carries on without signing in and entering an emailed code again. Not for email changes, older accounts or used links; the activity log records it as a sign-in via email confirmation. In the browser that is already signed in, the page continues to the welcome flow.
