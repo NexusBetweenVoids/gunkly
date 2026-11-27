@@ -121,7 +121,7 @@
   <section class="card stack" aria-labelledby="h-welcome">
     <h2 id="h-welcome">{t('home.welcome')}</h2>
     <p class="muted">{t('home.noHousehold')}</p>
-    <p><a class="btn" href="/households/new">{t('household.createFirst')}</a></p>
+    <p><a class="btn" href="/welcome">{t('household.createFirst')}</a></p>
   </section>
 {:else}
   {#if Prompt}<Prompt />{/if}

@@ -4,6 +4,14 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ## [Unreleased]
 
+### Added
+
+- A welcome flow for people without a household (`/welcome`, where sign-up now leads): confirm the email address (hosted service), name the household (a name is suggested; time zone detected; areas on), pick starter chores (common ones ticked; first dates spread over the coming week) and create an invite link to copy or share. Every step after the household can be skipped.
+
+### Changed
+
+- Sign-in page: when sign-up is open, a clear "New to Gunkly?" section with a "Create an account" button instead of a small link.
+
 ## [0.9.0] - 2026-11-26
 
 ### Added

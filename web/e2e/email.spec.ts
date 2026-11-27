@@ -22,8 +22,9 @@ test('open sign-up solves the proof of work in a worker, signs in at once, and t
     await page.getByLabel('Password', { exact: true }).fill(PASSWORD);
     await page.getByRole('button', { name: 'Create account' }).click();
 
-    // Self-hosted: signed in right away, no banner, and households work without confirming.
-    await expect(page.getByRole('heading', { name: 'Chores' })).toBeVisible();
+    // Self-hosted: signed in right away (into the welcome flow), no banner, households work without confirming.
+    await expect(page).toHaveURL(/\/welcome$/);
+    await expect(page.getByRole('heading', { name: 'Name your household' })).toBeVisible();
     await expect(page.getByText(/Confirm your email address: we sent a link/)).toHaveCount(0);
     await page.goto('/settings/profile');
     await expect(page.getByText('Not confirmed')).toBeVisible();

@@ -169,15 +169,38 @@
     </div>
   {/if}
   {#if !needSecond}
-    <div class="row">
-      {#if app.instance.emailEnabled}<a href="/forgot-password">{t('signIn.forgot')}</a>{/if}
-      {#if app.instance.openSignup}<a href="/signup">{t('signIn.createAccount')}</a>{/if}
-    </div>
+    {#if app.instance.emailEnabled}<p class="forgot"><a href="/forgot-password">{t('signIn.forgot')}</a></p>{/if}
+    {#if app.instance.openSignup}
+      <div class="new-here">
+        <p>{t('signIn.newHere')}</p>
+        <a class="btn btn-outline" href="/signup">{t('signIn.createAccount')}</a>
+      </div>
+    {/if}
   {/if}
   <LegalLinks />
 </section>
 
 <style>
+  .forgot {
+    margin: 0;
+  }
+  .new-here {
+    display: grid;
+    gap: 10px;
+    margin-block-start: calc(var(--space) * 1.5);
+    padding-block-start: calc(var(--space) * 1.25);
+    border-block-start: 1px solid var(--border);
+    text-align: center;
+  }
+  .new-here p {
+    margin: 0;
+    color: var(--text-2);
+  }
+  .btn-outline {
+    background: transparent;
+    color: var(--accent);
+    box-shadow: inset 0 0 0 2px var(--accent);
+  }
   .alternatives {
     margin-block: var(--space);
   }

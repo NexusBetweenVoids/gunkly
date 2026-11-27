@@ -36,7 +36,7 @@
         sent = true;
       } else {
         await adopt(s);
-        navigate('/', true);
+        navigate('/welcome', true);
       }
     } catch (x) {
       err = failure(x);

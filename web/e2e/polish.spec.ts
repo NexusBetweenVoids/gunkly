@@ -103,8 +103,8 @@ test('household switcher: name only with one household, select with two, onboard
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Welcome to Gunkly' })).toBeVisible();
   await expect(nav.getByRole('combobox')).toHaveCount(0);
-  await page.getByRole('link', { name: 'Create your first household' }).click();
-  await expect(page).toHaveURL(/\/households\/new$/);
+  await page.getByRole('link', { name: 'Set up your home' }).click();
+  await expect(page).toHaveURL(/\/welcome$/);
 
   // One household: plain name, no select; creating another lives in Settings.
   const h1 = await world.household(u);
