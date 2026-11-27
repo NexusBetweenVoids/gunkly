@@ -32,8 +32,12 @@ type Config struct {
 	ListenAddr     string
 	BaseURL        string // scheme://host[:port], no trailing slash; may be empty when self-hosting
 	TrustedProxies []netip.Prefix
-	EmailEnabled   bool
-	SMTP           SMTP
+	// GeoIP: where the optional location of a sign-in comes from, for the
+	// "unusual sign-in" email. Headers are read only from trusted proxies;
+	// the database files are MaxMind-format .mmdb. All empty = no location.
+	GeoIP        GeoIP
+	EmailEnabled bool
+	SMTP         SMTP
 	// PoWMaxNumber is the sign-up proof-of-work difficulty: the largest number
 	// a client may have to try (about 75k takes a laptop around a second).
 	PoWMaxNumber     int
@@ -60,6 +64,17 @@ type Config struct {
 	// 0018); the zero value (no Issuer) means off. Self-hosted only.
 	OIDC OIDC
 }
+
+// GeoIP is the location source of sign-in alerts (GUNKLY_GEOIP_*).
+type GeoIP struct {
+	CountryHeader string // request header with the country code; "" = not used
+	ASNHeader     string // request header with the AS number; "" = not used
+	CountryDB     string // path of a country .mmdb; "" = none
+	ASNDB         string // path of an ASN .mmdb; "" = none
+}
+
+// DefaultGeoIPCountryHeader is Cloudflare's, used by the hosted service.
+const DefaultGeoIPCountryHeader = "CF-IPCountry"
 
 // OIDC is the single sign-on configuration (GUNKLY_OIDC_*).
 type OIDC struct {
@@ -156,6 +171,18 @@ func Load(lookup func(string) string) (*Config, error) {
 			p = netip.PrefixFrom(a, a.BitLen())
 		}
 		c.TrustedProxies = append(c.TrustedProxies, p.Masked())
+	}
+
+	c.GeoIP = GeoIP{CountryHeader: or(get("GEOIP_COUNTRY_HEADER"), DefaultGeoIPCountryHeader), ASNHeader: get("GEOIP_ASN_HEADER"),
+		CountryDB: get("GEOIP_COUNTRY_DB"), ASNDB: get("GEOIP_ASN_DB")}
+	// The environment cannot tell "unset" from "empty", so "off" switches the default header off.
+	if strings.EqualFold(c.GeoIP.CountryHeader, "off") {
+		c.GeoIP.CountryHeader = ""
+	}
+	for _, h := range []string{c.GeoIP.CountryHeader, c.GeoIP.ASNHeader} {
+		if h != "" && !validHeaderName(h) {
+			fail("GUNKLY_GEOIP_*_HEADER: %q is not a valid header name", h)
+		}
 	}
 
 	if v := get("SHUTDOWN_TIMEOUT"); v != "" {
@@ -389,3 +416,12 @@ func loadOIDC(get func(string) string, lookup func(string) string, c *Config, fa
 }
 
 func loopbackHost(h string) bool { return h == "localhost" || h == "127.0.0.1" || h == "::1" }
+
+func validHeaderName(s string) bool {
+	for _, r := range s {
+		if (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') && (r < '0' || r > '9') && r != '-' {
+			return false
+		}
+	}
+	return s != ""
+}

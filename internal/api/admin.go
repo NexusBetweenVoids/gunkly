@@ -146,6 +146,8 @@ type settingsView struct {
 	SSOClientID  string   `json:"ssoClientId,omitempty"`
 	SSOScopes    []string `json:"ssoScopes,omitempty"`
 	SSOCallback  string   `json:"ssoCallback"` // the redirect URI to register at the provider
+	// SigninLocation: where sign-in locations (for unusual sign-in emails) come from: none, header, database or both.
+	SigninLocation string `json:"signinLocation"`
 	// Inactive-account lifecycle (default off): warn, then delete.
 	InactiveEnabled         bool `json:"inactiveEnabled"`
 	InactiveWarnAfterDays   int  `json:"inactiveWarnAfterDays"`
@@ -172,6 +174,7 @@ func (s *Server) adminGetSettings(w http.ResponseWriter, r *http.Request, _ *cal
 		OAuthEnabled: st.OAuthEnabled, WebhooksEnabled: st.WebhooksEnabled, OAuthPossible: oauthBaseURLOK(s.baseURL), SSOConfigured: sp != nil, SSOCreateAccounts: st.SSOCreateAccounts, SSOName: st.SSOName, SSONameDefault: s.ssoNameDefault(),
 		InactiveEnabled: st.InactiveEnabled, InactiveWarnAfterDays: st.InactiveWarnAfterDays, InactiveDeleteAfterDays: st.InactiveDeleteAfterDays}
 	v.SSOAvailable, v.SSOCallback = !s.hosted, s.baseURL+"/api/v1/auth/oidc/callback"
+	v.SigninLocation = s.signinLocation()
 	if sp != nil {
 		v.SSOIssuer, v.SSOClientID, v.SSOScopes, v.SSOCallback = sp.Issuer(), sp.ClientID(), sp.Scopes(), sp.RedirectURL()
 	}

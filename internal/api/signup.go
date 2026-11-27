@@ -46,6 +46,9 @@ func (s *Server) getInstance(w http.ResponseWriter, r *http.Request, _ *call) er
 	if s.webhooksEnabled(r.Context()) {
 		out["webhooksEnabled"] = true // absent while off
 	}
+	if s.signinLocation() != "none" {
+		out["signinAlerts"] = true // absent while there is no location source
+	}
 	if s.aiEnabled(r.Context()) {
 		out["aiEnabled"] = true // absent while off: AI chore suggestions are configured
 	}

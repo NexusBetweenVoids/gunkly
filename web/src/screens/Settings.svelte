@@ -18,6 +18,7 @@
   import Profile from './account/Profile.svelte';
   import SetupAgain from './account/SetupAgain.svelte';
   import Sessions from './account/Sessions.svelte';
+  import SigninAlerts from './account/SigninAlerts.svelte';
   import Sso from './account/Sso.svelte';
   import Totp from './account/Totp.svelte';
   import HouseholdSettings, { householdGroups } from './household/HouseholdSettings.svelte';
@@ -61,6 +62,7 @@
       <EmailCodes />
       <RecoveryCodesSection />
       <Sessions />
+      <SigninAlerts />
       <Audit />
     {:else if g === 'notifications'}
       <PushNotifications />

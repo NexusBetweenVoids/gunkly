@@ -29,6 +29,8 @@ type meView struct {
 	TwoFactor       string `json:"twoFactor"`
 	// EmailReminders: reminders go to the verified address by email.
 	EmailReminders bool `json:"emailReminders"`
+	// SigninAlerts: email about a sign-in from an unusual place.
+	SigninAlerts bool `json:"signinAlerts"`
 	// QuietHours are the user's own; null = none. TimeZone is the zone they are
 	// read in; null = each household's.
 	QuietHours *quietView `json:"quietHours"`
@@ -45,7 +47,7 @@ func viewMe(u store.User) *meView {
 	v := &meView{ID: u.ID, Username: u.Username, Email: u.Email, DisplayName: u.DisplayName, Locale: u.Locale,
 		WeekStart: u.WeekStart, IsAdmin: u.IsAdmin, TOTPEnabled: u.TOTPEnabled,
 		EmailVerified: u.EmailVerified, EmailOTPEnabled: u.EmailOTPEnabled,
-		EmailReminders: u.EmailReminders && u.EmailVerified, Passkeys: u.Passkeys, HasPassword: u.HasPassword(), SSOLinked: u.SSOLinked}
+		EmailReminders: u.EmailReminders && u.EmailVerified, SigninAlerts: u.SigninAlerts, Passkeys: u.Passkeys, HasPassword: u.HasPassword(), SSOLinked: u.SSOLinked}
 	if u.QuietStartMin != nil && u.QuietEndMin != nil {
 		v.QuietHours = &quietView{Start: *u.QuietStartMin, End: *u.QuietEndMin}
 	}
@@ -82,6 +84,8 @@ func (s *Server) patchMe(w http.ResponseWriter, r *http.Request, c *call) error 
 		WeekStart   optional[int] `json:"weekStart"`
 		// EmailReminders needs email on the instance and a verified address.
 		EmailReminders *bool `json:"emailReminders"`
+		// SigninAlerts: email about sign-ins from an unusual place.
+		SigninAlerts *bool `json:"signinAlerts"`
 		// QuietHours: null clears. Personal routes only; household quiet hours still apply.
 		QuietHours optional[quietView] `json:"quietHours"`
 		// TimeZone: IANA name; null or "" follows the household. Used for personal quiet hours and for
@@ -92,6 +96,7 @@ func (s *Server) patchMe(w http.ResponseWriter, r *http.Request, c *call) error 
 		return err
 	}
 	var p store.ProfileUpdate
+	p.SigninAlerts = in.SigninAlerts
 	if in.DisplayName != nil {
 		if !validName(*in.DisplayName) {
 			return errInvalid

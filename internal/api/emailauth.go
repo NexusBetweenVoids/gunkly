@@ -173,7 +173,7 @@ func (s *Server) verifyEmail(w http.ResponseWriter, r *http.Request, c *call) er
 		if err != nil {
 			return err
 		}
-		s.audit(ctx, c, u.ID, store.AuditLoginSuccess, "", map[string]string{"via": "email_verification"})
+		s.recordSignin(ctx, r, c, u, map[string]string{"via": "email_verification"})
 		out["session"] = sessionView{Authenticated: true, User: viewMe(u), CSRF: csrf}
 	}
 	return ok(w, out)

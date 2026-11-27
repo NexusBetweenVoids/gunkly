@@ -224,7 +224,7 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request, c *call) error {
 	if err := s.startSession(w, r, c, u, http.StatusOK); err != nil {
 		return err
 	}
-	s.audit(ctx, c, u.ID, store.AuditLoginSuccess, "", nil)
+	s.recordSignin(ctx, r, c, u, nil)
 	return nil
 }
 

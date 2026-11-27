@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"time"
 
@@ -53,6 +54,8 @@ type ProfileUpdate struct {
 	QuietHours **QuietHours
 	// TimeZone: IANA name for the personal quiet hours; set to a nil *string or "" to follow the household.
 	TimeZone **string
+	// SigninAlerts turns the unusual sign-in email on or off.
+	SigninAlerts *bool
 }
 
 // UpdateProfile applies p to the user's profile.
@@ -112,11 +115,50 @@ func (s *Store) UpdateProfile(ctx context.Context, userID string, p ProfileUpdat
 				return err
 			}
 		}
+		if p.SigninAlerts != nil {
+			if err := t.execOne(ctx, "UPDATE users SET signin_alerts = ? WHERE id = ?", *p.SigninAlerts, userID); err != nil {
+				return err
+			}
+		}
 		var err error
 		u, err = scanUser(t.queryRow(ctx, "SELECT "+userCols+" FROM users WHERE id = ?", userID))
 		return err
 	})
 	return u, err
+}
+
+// SigninPlace is where an earlier successful sign-in came from, as recorded in
+// its audit entry: Country is "" and Hosting is "" when it was not known.
+type SigninPlace struct {
+	Country string
+	Hosting string // "yes", "no" or ""
+}
+
+// SigninPlaces returns the places of the user's newest successful sign-ins
+// since the given time, newest first (at most 500).
+func (s *Store) SigninPlaces(ctx context.Context, userID string, since time.Time) ([]SigninPlace, error) {
+	var out []SigninPlace
+	err := s.inTx(ctx, false, func(t *tx) error {
+		rows, err := t.query(ctx, `SELECT meta FROM audit_log WHERE actor_user_id = ? AND event = ? AND created_at > ?
+			ORDER BY created_at DESC, id DESC LIMIT 500`, userID, AuditLoginSuccess, since.UnixMilli())
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var raw string
+			if err := rows.Scan(&raw); err != nil {
+				return err
+			}
+			var m map[string]string
+			if json.Unmarshal([]byte(raw), &m) != nil {
+				m = nil
+			}
+			out = append(out, SigninPlace{Country: m["country"], Hosting: m["hosting"]})
+		}
+		return rows.Err()
+	})
+	return out, err
 }
 
 // SetPendingTOTP stores a new, not yet confirmed TOTP secret (ciphertext).

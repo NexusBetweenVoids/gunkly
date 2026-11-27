@@ -244,7 +244,7 @@ func (s *Server) ssoLogin(w http.ResponseWriter, r *http.Request, c *call, st ss
 	if err := s.createSession(w, r, c, u); err != nil {
 		return err
 	}
-	s.audit(ctx, c, u.ID, store.AuditLoginSuccess, "", map[string]string{"via": "sso"})
+	s.recordSignin(ctx, r, c, u, map[string]string{"via": "sso"})
 	redirect(w, r, landing(st, true, ""))
 	return nil
 }

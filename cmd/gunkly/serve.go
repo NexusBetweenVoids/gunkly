@@ -15,6 +15,7 @@ import (
 
 	"github.com/NexusBetweenVoids/gunkly/internal/api"
 	"github.com/NexusBetweenVoids/gunkly/internal/egress"
+	"github.com/NexusBetweenVoids/gunkly/internal/geoip"
 	"github.com/NexusBetweenVoids/gunkly/internal/metrics"
 	"github.com/NexusBetweenVoids/gunkly/internal/scheduler"
 	"github.com/NexusBetweenVoids/gunkly/internal/sso"
@@ -29,6 +30,25 @@ func (a *app) ssoConfig() *sso.Config {
 		return nil
 	}
 	return &sso.Config{Issuer: o.Issuer, ClientID: o.ClientID, ClientSecret: o.ClientSecret, Name: o.Name, Scopes: o.Scopes}
+}
+
+// geoIP opens the optional location databases (GUNKLY_GEOIP_*_DB); a file that
+// cannot be read is a start-up error rather than a silently missing feature.
+func (a *app) geoIP() (api.GeoIP, error) {
+	g := a.cfg.GeoIP
+	out := api.GeoIP{CountryHeader: g.CountryHeader, ASNHeader: g.ASNHeader}
+	var err error
+	if g.CountryDB != "" {
+		if out.CountryDB, err = geoip.Open(g.CountryDB); err != nil {
+			return out, fmt.Errorf("GUNKLY_GEOIP_COUNTRY_DB: %w", err)
+		}
+	}
+	if g.ASNDB != "" {
+		if out.ASNDB, err = geoip.Open(g.ASNDB); err != nil {
+			return out, fmt.Errorf("GUNKLY_GEOIP_ASN_DB: %w", err)
+		}
+	}
+	return out, nil
 }
 
 func serve(ctx context.Context, logOut io.Writer) error {
@@ -56,7 +76,12 @@ func serve(ctx context.Context, logOut io.Writer) error {
 	// answers 404 while no token is configured.
 	reg := a.newMetrics()
 	a.updater = &updates.Checker{Store: a.store, Client: egress.NewClient(egress.Guard{Enabled: true}), Log: a.log}
+	geo, err := a.geoIP()
+	if err != nil {
+		return err
+	}
 	srv := api.New(api.Options{
+		GeoIP:   geo,
 		Env:     a.cfg.Overrides,
 		Updates: a.updater,
 		Store:   a.store, Limits: a.limits, Keyring: a.keyring, BaseURL: a.cfg.BaseURL,

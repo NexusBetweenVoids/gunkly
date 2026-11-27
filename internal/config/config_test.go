@@ -169,6 +169,25 @@ func TestEnvExampleListsEveryKey(t *testing.T) {
 	}
 }
 
+func TestGeoIP(t *testing.T) {
+	c, err := Load(env(base()))
+	if err != nil || c.GeoIP.CountryHeader != "CF-IPCountry" || c.GeoIP.ASNHeader != "" || c.GeoIP.CountryDB != "" {
+		t.Fatalf("defaults: %v %+v", err, c.GeoIP)
+	}
+	m := base()
+	m["GUNKLY_GEOIP_COUNTRY_HEADER"] = "off"
+	m["GUNKLY_GEOIP_ASN_HEADER"] = "X-ASN"
+	m["GUNKLY_GEOIP_COUNTRY_DB"] = "/data/c.mmdb"
+	c, err = Load(env(m))
+	if err != nil || c.GeoIP.CountryHeader != "" || c.GeoIP.ASNHeader != "X-ASN" || c.GeoIP.CountryDB != "/data/c.mmdb" {
+		t.Fatalf("set: %v %+v", err, c.GeoIP)
+	}
+	m["GUNKLY_GEOIP_ASN_HEADER"] = "bad header"
+	if _, err := Load(env(m)); err == nil {
+		t.Error("bad header name accepted")
+	}
+}
+
 func TestLegalAndSecurityTxt(t *testing.T) {
 	m := base()
 	for k, v := range map[string]string{
