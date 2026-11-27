@@ -10,13 +10,17 @@ Gunkly signs people in with a **username (or email) and password**. On top of th
 
 Hosted mode requires a second factor for every account. Self-hosted, all of them are optional. Self-hosted instances can also sign in through [single sign-on](sso.md).
 
+Settings, Sign-in & security starts with a one-line verdict on how the account is protected ("Only a password protects this account", "Protected by a password and a passkey"), then lists every way to sign in (password, passkeys, single sign-on, authenticator app, email codes, recovery codes) with its state and one action. "Email me about unusual sign-ins" shows as inactive, with the reason, until your email address is confirmed.
+
+<p align="center"><img alt="Settings, Sign-in &amp; security: the verdict Protected by a password and a passkey, then Ways to sign in with password, passkeys, single sign-on, authenticator app, email codes and recovery codes, each with its state and one button" src="assets/screens/account-security-desktop-light.png" width="560"></p>
+
 <p align="center"><img alt="Sign-in page on a phone: email or username and password, then, under "or", the Sign in with a passkey and Sign in with SSO buttons" src="assets/screens/signin-passkey-sso-phone-light.png" width="270"></p>
 
 ## Passkeys
 
 A passkey is a key pair kept by your phone, laptop, password manager or security key. Gunkly stores only the public half. You approve it with the device's PIN, fingerprint or face.
 
-**Add one:** Settings, Sign-in & security, **Passkeys**, **Add a passkey**. You are asked to confirm your password (and second factor) first, then your browser asks you to create the passkey. Give it a name so you can tell devices apart. Each passkey shows when it was added and last used; you can delete it at any time (this also needs the confirmation, and signs your other devices out). You can have up to 20.
+**Add one:** Settings, Sign-in & security, **Passkeys**, **Add** (with passkeys already registered: **Manage**, **Add a passkey**). You are asked to confirm your password (and second factor) first, then your browser asks you to create the passkey. Give it a name so you can tell devices apart. Each passkey shows when it was added and last used; you can delete it at any time (this also needs the confirmation, and signs your other devices out). You can have up to 20.
 
 **What it does:**
 
@@ -26,7 +30,7 @@ A passkey is a key pair kept by your phone, laptop, password manager or security
 
 **Requirements.** Passkeys are bound to the address you open Gunkly at, so the administrator must set `GUNKLY_BASE_URL` to an **https** address (or `http://localhost` for trying it out); an IP address does not work. Without that the account screen says so and the buttons are disabled. If the address ever changes, existing passkeys stop working (the other factors and recovery codes still do), so register new ones.
 
-<p align="center"><img alt="Settings, Sign-in &amp; security with a registered passkey listed: its name, when it was added and a Delete button" src="assets/screens/account-security-passkey-desktop-dark.png" width="480"></p>
+<p align="center"><img alt="The Ways to sign in list, dark theme, with Passkeys opened: a registered passkey with its name, when it was added and a Delete button" src="assets/screens/account-security-passkey-desktop-dark.png" width="480"></p>
 
 **Lost your device?** Sign in with the password and a recovery code, then remove the passkey. Self-hosted administrators can also run `gunkly admin reset-2fa <user>`, which removes the authenticator app, emailed codes, **passkeys** and recovery codes of that account.
 

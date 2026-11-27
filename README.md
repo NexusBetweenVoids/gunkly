@@ -42,9 +42,9 @@ A self-hostable, **AI-friendly** chore tracker for recurring household chores an
 |-|-|
 | <img alt="Month calendar on a phone with the selected day's chores listed below" src="docs/assets/screens/calendar-phone-light.png" width="270"> | <img alt="A chore's page on a phone: next date, area, repeat, people and reminders, a Done button with snooze, skip and pause, and its history with a note" src="docs/assets/screens/chore-detail-phone-light.png" width="270"> |
 
-| Sign-in & security, desktop (light) | Administration, desktop (light) |
+| Sign-in & security, desktop (light) | Household people, desktop (light) |
 |-|-|
-| <img alt="Settings, Sign-in and security: a verdict line saying the account is protected by a password and a passkey, then every way to sign in with its state and one action" src="docs/assets/screens/account-security-desktop-light.png" width="420"> | <img alt="Administration, Users: a one-line banner with recent security events and a Review link above the list of users" src="docs/assets/screens/admin-users-desktop-light.png" width="420"> |
+| <img alt="Settings, Sign-in and security: a verdict line saying the account is protected by a password and a passkey, then every way to sign in with its state and one action" src="docs/assets/screens/account-security-desktop-light.png" width="420"> | <img alt="Settings, the household's People: members with their role and Remove, then a form to create an invite link and the active invites" src="docs/assets/screens/household-desktop-light.png" width="420"> |
 
 | Notifications, phone (dark) | Invite link, phone (light) |
 |-|-|
@@ -230,7 +230,7 @@ For OAuth (ChatGPT and Claude connectors), RFC 8414 and RFC 9728 put the discove
 
 ## Configuration
 
-The server itself is configured through environment variables, all documented with their defaults in [`.env.example`](.env.example). Email, single sign-on, the AI endpoint, the metrics token and the sign-up difficulty can instead be set in the app (Administration), without touching Docker; a variable that is set always wins and shows as locked there (email counts as set by the environment only with `GUNKLY_EMAIL_ENABLED=true`). The ones you will touch first:
+The server itself is configured through environment variables, all documented with their defaults in [`.env.example`](.env.example). Email, single sign-on, the AI endpoint, the metrics token and the sign-up difficulty can instead be set in the app (Administration), without touching Docker; a variable that is set always wins, and the page shows those settings as a read-only list with one note on how to change them (email counts as set by the environment only with `GUNKLY_EMAIL_ENABLED=true`). The ones you will touch first:
 
 | Variable | Purpose |
 |-|-|
@@ -246,7 +246,9 @@ The server itself is configured through environment variables, all documented wi
 | `GUNKLY_AUTO_MIGRATE` | Apply migrations on start (default `true`) |
 | `GUNKLY_AI_ENABLED`, `GUNKLY_AI_URL`, `GUNKLY_AI_MODEL`, `GUNKLY_AI_KEY` | AI chore suggestions (optional); also settable in Administration, AI, where a variable set here wins ([docs/ai-chore-suggestions.md](docs/ai-chore-suggestions.md)) |
 
-Limits, sign-up, sessions, retention, allowed notification services and the egress guard are admin settings in the app (Administration: Sign-up & sign-in, Connections, Data & retention, Limits).
+Limits, sign-up, sessions, retention, allowed notification services and the egress guard are admin settings in the app (Administration: Sign-up & sign-in, Connections, Data & retention, Limits). Limits are grouped by topic and show the default and a Reset only where you changed a value. Recent security events (failed sign-in waves, new admins, switched-off guards and the like) show as a one-line banner with the full list under Users; events you caused yourself are marked "by you".
+
+<p align="center"><img alt="Administration, Users: a one-line banner reading 2 security events in the last 7 days with a Review link, the setup guide link, the Administration sections on the side and the list of users" src="docs/assets/screens/admin-users-desktop-light.png" width="560"></p>
 
 ## Backups
 
