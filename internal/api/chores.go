@@ -410,18 +410,37 @@ func (in choreInput) build(loc *time.Location, existing *store.Chore) (store.Cho
 		out.ReminderPreset = existing.ReminderPreset // possibly "custom"
 	}
 
-	if existing != nil && existing.FirstDue == out.FirstDue && existing.Kind == out.Kind && !existing.NextDue.IsZero() {
+	scheduleSame := existing != nil && existing.ScheduleType == out.ScheduleType && existing.IntervalN == out.IntervalN &&
+		existing.IntervalUnit == out.IntervalUnit && existing.RRule == out.RRule
+	var rule schedule.Rule
+	if out.Kind == store.KindRecurring {
+		var err error
+		rule, err = store.RuleOf(store.Chore{Kind: out.Kind, ScheduleType: out.ScheduleType, IntervalN: out.IntervalN,
+			IntervalUnit: out.IntervalUnit, RRule: out.RRule, FirstDue: out.FirstDue})
+		if err != nil {
+			return out, errInvalid
+		}
+		// A rule that never produces a date (FREQ=YEARLY;BYMONTH=2;BYMONTHDAY=30) is refused, also when the due date stays.
+		if _, ok := rule.Next(first, first.AddDays(-1)); !ok {
+			return out, invalidAt("schedule", "the schedule has no occurrence on or after the first due date")
+		}
+	}
+	switch {
+	case existing != nil && existing.FirstDue == out.FirstDue && existing.Kind == out.Kind && !existing.NextDue.IsZero() && scheduleSame:
 		out.DueDate, out.NextDue = existing.DueDate, existing.NextDue
-	} else {
+	default:
 		due := first
 		if out.Kind == store.KindRecurring {
-			rule, err := store.RuleOf(store.Chore{Kind: out.Kind, ScheduleType: out.ScheduleType, IntervalN: out.IntervalN,
-				IntervalUnit: out.IntervalUnit, RRule: out.RRule, FirstDue: out.FirstDue})
-			if err != nil {
-				return out, errInvalid
+			// A changed schedule with the same first due date moves the current due date to the first occurrence of
+			// the new schedule on or after it (an overdue chore stays overdue unless the new rule skips ahead).
+			from := first
+			if existing != nil && existing.FirstDue == out.FirstDue && existing.Kind == out.Kind && !existing.NextDue.IsZero() {
+				if cur, err := schedule.ParseDate(existing.DueDate); err == nil && cur.After(first) {
+					from = cur
+				}
 			}
 			var ok bool
-			if due, ok = rule.Next(first, first.AddDays(-1)); !ok {
+			if due, ok = rule.Next(first, from.AddDays(-1)); !ok {
 				return out, invalidAt("schedule", "the schedule has no occurrence on or after the first due date")
 			}
 		}

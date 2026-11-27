@@ -63,6 +63,7 @@ func TestParseRejects(t *testing.T) {
 		{"area missing", `"area": "KITCHEN"`, `"area": "Attic"`, "invalid@chores[0].area"},
 		{"interval", `"every": 1`, `"every": 0`, "invalid@chores[0].schedule.interval"},
 		{"rrule", `"type": "interval", "interval": {"every": 1, "unit": "week"}`, `"type": "rrule", "rrule": "FREQ=NOPE"`, "invalid@chores[0].schedule.rrule"},
+		{"impossible rrule", `"type": "interval", "interval": {"every": 1, "unit": "week"}`, `"type": "rrule", "rrule": "FREQ=YEARLY;BYMONTH=2;BYMONTHDAY=30"`, "invalid@chores[0].schedule.rrule"},
 		{"first due", "2026-11-14", "14-11-2026", "invalid@chores[0].schedule.firstDue"},
 		{"due date", `"dueDate": "2026-11-28"`, `"dueDate": "2026-13-45"`, "invalid@chores[0].dueDate"},
 		{"reminder kind", `"kind": "on"`, `"kind": "sometimes"`, "invalid@chores[0].reminders[0]"},

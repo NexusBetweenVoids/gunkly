@@ -323,6 +323,9 @@ func (s *Schedule) normalise(chore, kind string) error {
 		if err != nil || s.Interval != nil {
 			return bad(ReasonInvalid, p+".rrule")
 		}
+		if _, ok := rule.Next(first, first.AddDays(-1)); !ok {
+			return bad(ReasonInvalid, p+".rrule") // never produces a date
+		}
 		s.RRule = rule.String()
 		if s.Anchor == "" {
 			s.Anchor = "from_scheduled"

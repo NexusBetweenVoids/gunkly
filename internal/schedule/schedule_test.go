@@ -201,7 +201,7 @@ func TestParseRRuleRejects(t *testing.T) {
 		"FREQ=MONTHLY;BYDAY=SA;BYSETPOS=1,1", "FREQ=MONTHLY;BYDAY=SA;BYSETPOS=", "FREQ=MONTHLY;BYDAY=SA;BYSETPOS=+1",
 		"FREQ=DAILY;BYHOUR=9", "FREQ=DAILY;WKST=MO", "FREQ=DAILY;X-FOO=1",
 		"FREQ=DAILY;FREQ=DAILY", "FREQ=DAILY;INTERVAL=2;INTERVAL=2", "INTERVAL=2",
-		"FREQ=DAILY;", ";FREQ=DAILY", "FREQ=DAILY;;INTERVAL=2", "FREQ=", "FREQ", " FREQ=DAILY",
+		"FREQ=", "FREQ",
 		"FREQ=DAILY;INTERVAL=0", "FREQ=DAILY;INTERVAL=1001", "FREQ=DAILY;INTERVAL=01",
 		"FREQ=DAILY;INTERVAL=+2", "FREQ=DAILY;INTERVAL=-1", "FREQ=DAILY;INTERVAL=99999",
 		"FREQ=WEEKLY;BYDAY=1MO", "FREQ=DAILY;BYDAY=-1FR", "FREQ=YEARLY;BYDAY=1SA",
@@ -423,5 +423,19 @@ func TestRRuleBySetPosYearly(t *testing.T) {
 	}
 	if want := "2027-04-03 2027-10-09 2028-04-01 2028-10-14"; strings.Join(got, " ") != want {
 		t.Fatalf("got %v, want %s", got, want)
+	}
+}
+
+func TestParseRRuleIgnoresSpacesAndEmptyParts(t *testing.T) {
+	for _, in := range []string{"FREQ=WEEKLY; BYDAY=MO", "FREQ=WEEKLY;BYDAY=MO;", " FREQ=WEEKLY;;BYDAY=MO "} {
+		r, err := ParseRRule(in)
+		if err != nil || r.String() != "FREQ=WEEKLY;BYDAY=MO" {
+			t.Errorf("%q: %v %v", in, r, err)
+		}
+	}
+	for _, in := range []string{" ", ";", "; ;"} {
+		if _, err := ParseRRule(in); err == nil {
+			t.Errorf("%q accepted", in)
+		}
 	}
 }

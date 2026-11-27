@@ -2211,6 +2211,10 @@ components:
         anchor defaults to from_completion for intervals and from_scheduled for rules.
         firstDue is a local date; for rules the first occurrence on or after it is the first due date.
         One-off chores send only firstDue.
+        A rule that never produces a date (FREQ=YEARLY;BYMONTH=2;BYMONTHDAY=30) is refused with invalid at schedule
+        (or schedule.rrule when it does not parse). Spaces around rule parts and empty parts are ignored.
+        When an update changes the schedule but not firstDue, the current due date moves to the first occurrence of
+        the new schedule on or after it (it stays when the new schedule already produces it).
       properties:
         type: {type: string, enum: [interval, rrule]}
         interval: {$ref: "#/components/schemas/Interval"}

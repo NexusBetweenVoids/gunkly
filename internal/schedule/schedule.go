@@ -312,14 +312,23 @@ func rruleErr(format string, args ...any) error {
 }
 
 // ParseRRule parses a strict, upper-case RRULE value (no "RRULE:" prefix).
+// Spaces around parts are ignored, as are empty parts (a trailing ";").
 func ParseRRule(s string) (RRule, error) {
-	if s == "" || len(s) > maxRRuleLen {
+	if len(s) > maxRRuleLen {
+		return RRule{}, rruleErr("empty or longer than %d bytes", maxRRuleLen)
+	}
+	s = strings.TrimSpace(s)
+	if s == "" {
 		return RRule{}, rruleErr("empty or longer than %d bytes", maxRRuleLen)
 	}
 	var r RRule
 	seen := map[string]bool{}
 	for part := range strings.SplitSeq(s, ";") {
+		if part = strings.TrimSpace(part); part == "" {
+			continue
+		}
 		k, v, ok := strings.Cut(part, "=")
+		k, v = strings.TrimSpace(k), strings.TrimSpace(v)
 		if !ok || v == "" {
 			return RRule{}, rruleErr("malformed part %q", part)
 		}
