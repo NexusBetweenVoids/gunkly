@@ -80,7 +80,7 @@ All screenshots show synthetic demo data.
 **Admin and operations**
 - First-run setup code, users and instance settings (limits, sessions, retention, allowed services, sign-up), update notice, CLI recovery (`admin reset-password`, `admin reset-2fa`).
 - `/healthz`, `/readyz`, optional Prometheus `/metrics`, consistent backups, `migrate-db` to Postgres, graceful shutdown.
-- English only for now; translations and right-to-left layout are wired in. Installable PWA (no offline mode). WCAG 2.2 AA tested.
+- Available in English and Dutch (Nederlands); translations and right-to-left layout are wired in, see [Translations](#translations). Installable PWA (no offline mode). WCAG 2.2 AA tested.
 
 ## Quick start
 
@@ -347,6 +347,10 @@ Every instance can delete accounts (Settings, Your data, "Delete account") and c
 | [docs/adr/](docs/adr/) | Architecture decisions |
 | [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) | Threat model |
 | [api/openapi.yaml](api/openapi.yaml) | The `/api/v1` HTTP API |
+
+## Translations
+
+Gunkly is available in English and Dutch (Nederlands), picked from your browser language. Corrections and new languages are welcome via pull request: the front end lives in `web/src/lib/i18n/<locale>/*.json` and server-sent text (emails, mark-as-done pages) in `internal/i18n/<locale>.json`. Every locale needs the same keys as `en`; `npm run i18n-check` in `web/` verifies that.
 
 ## Contributing, security, license
 
