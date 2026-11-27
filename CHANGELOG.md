@@ -4,6 +4,8 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ## [Unreleased]
 
+## [0.12.1] - 2026-11-27
+
 ### Fixed
 
 - The language chosen under Settings, Profile now changes the app's language (it was saved, but the app only followed the browser language). It is remembered per browser after signing in; "Browser default" follows the browser again.
