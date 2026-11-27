@@ -4,6 +4,10 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ## [Unreleased]
 
+### Changed
+
+- The first-load JavaScript budget is now 50 KB gzipped (was 45).
+
 ### Added
 
 - Settings, Profile: "Go through the setup again" reruns the welcome flow. With a household already, it offers that household (or a new one), leaves out starter chores the household already has, and shows the invite step only to owners.
