@@ -18,6 +18,12 @@
     { hours: 168, label: 'invite.exp7' },
   ];
 
+  // "30 Nov, 14:55" in the viewer's language; the year only when it is not this year.
+  const when = (iso: string): string => {
+    const d = new Date(iso);
+    const year = d.getFullYear() === new Date().getFullYear() ? {} : { year: 'numeric' as const };
+    return formatDate(d, { day: 'numeric', month: 'short', ...year, hour: 'numeric', minute: '2-digit' });
+  };
   let invites = $state<Invite[]>([]);
   let role = $state<Role>('member');
   let hours = $state(72);
@@ -118,14 +124,34 @@
     <ul class="list">
       {#each invites as inv (inv.id)}
         <li>
-          <span>
-            <span class="badge">{t(roleLabel[inv.role])}</span>
-            <span class="muted">{t('invite.usesLeft', { remaining: inv.maxUses - inv.uses, max: inv.maxUses })}</span>
-            <span class="muted">{t('invite.expiresOn', { date: formatDate(new Date(inv.expiresAt), { dateStyle: 'medium', timeStyle: 'short' }) })}</span>
-          </span>
-          <Button variant="danger" onclick={() => revoke(inv)}>{t('invite.revoke')}</Button>
+          <span class="inv">{[t(roleLabel[inv.role]), t('invite.usesLeft', { count: inv.maxUses - inv.uses }), t('invite.expiresOn', { date: when(inv.expiresAt) })].join(' · ')}</span>
+          <button type="button" class="revoke" onclick={() => revoke(inv)}>{t('invite.revoke')}</button>
         </li>
       {/each}
     </ul>
   {/if}
 </section>
+
+<style>
+  .list > li:has(.inv) {
+    flex-wrap: nowrap;
+  }
+  .inv {
+    flex: 1;
+    min-inline-size: 0;
+  }
+  .revoke {
+    flex: none;
+    min-block-size: var(--tap);
+    padding-block: 0;
+    padding-inline: 8px 0;
+    border: 0;
+    background: transparent;
+    color: var(--danger);
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .revoke:hover {
+    text-decoration: underline;
+  }
+</style>

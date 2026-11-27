@@ -111,3 +111,37 @@ func TestAdminPowerChangesAlertAdmins(t *testing.T) {
 		t.Fatalf("events after alerts off: %v", evs)
 	}
 }
+
+// The admin health check marks the events the asking admin caused as byYou.
+func TestSecurityEventsByYou(t *testing.T) {
+	e := newMailEnv(t)
+	e.user("root", true)
+	e.user("boss", true)
+	root := e.signedInStepUp("root")
+	boss := e.signedIn("boss")
+	if st, v := root.do("POST", "/api/v1/admin/users", map[string]any{"username": "newadmin", "password": "password-newadmin", "displayName": "N", "isAdmin": true}); st != 201 {
+		t.Fatalf("create admin: %d %v", st, v)
+	}
+	byYou := func(c *client) []bool {
+		t.Helper()
+		_, v := c.do("GET", "/api/v1/admin/health", nil)
+		evs, _ := v.(map[string]any)["securityEvents"].([]any)
+		var out []bool
+		for _, ev := range evs {
+			if str(ev, "event") == "admin_granted" {
+				b, ok := ev.(map[string]any)["byYou"].(bool)
+				if !ok {
+					t.Fatalf("byYou missing: %v", ev)
+				}
+				out = append(out, b)
+			}
+		}
+		return out
+	}
+	if got := byYou(root); !slices.Equal(got, []bool{true}) {
+		t.Fatalf("root sees %v, want [true]", got)
+	}
+	if got := byYou(boss); !slices.Equal(got, []bool{false}) {
+		t.Fatalf("boss sees %v, want [false]", got)
+	}
+}

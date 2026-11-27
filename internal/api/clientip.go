@@ -248,13 +248,13 @@ type untrustedProxyView struct {
 // adminHealth lists the direct peers that forward client addresses but are not
 // trusted proxies, so the admin panel can say what to add to
 // GUNKLY_TRUSTED_PROXIES. It never trusts anything by itself.
-func (s *Server) adminHealth(w http.ResponseWriter, r *http.Request, _ *call) error {
+func (s *Server) adminHealth(w http.ResponseWriter, r *http.Request, c *call) error {
 	peers := s.untrusted.list(s.now())
 	view := make([]untrustedProxyView, 0, len(peers))
 	for _, p := range peers {
 		view = append(view, untrustedProxyView{IP: p.IP.String(), LastSeen: p.LastSeen})
 	}
-	// Security alert events of the last 7 days (store.AlertEvents).
+	// Security alert events of the last 7 days (store.AlertEvents); byYou marks the viewing admin's own.
 	evs, err := s.st.RecentSecurityEvents(r.Context(), s.now().Add(-7*24*time.Hour))
 	if err != nil {
 		return err
@@ -263,7 +263,7 @@ func (s *Server) adminHealth(w http.ResponseWriter, r *http.Request, _ *call) er
 	for _, e := range evs {
 		meta := e.Meta
 		delete(meta, "scope")
-		events = append(events, map[string]any{"event": e.Event, "householdId": e.HouseholdID, "username": e.Username, "meta": meta, "at": e.At})
+		events = append(events, map[string]any{"event": e.Event, "householdId": e.HouseholdID, "username": e.Username, "meta": meta, "at": e.At, "byYou": e.ActorID != "" && e.ActorID == c.user.ID})
 	}
 	out := map[string]any{"untrustedProxies": view, "securityEvents": events}
 	if s.emailEnabled() {

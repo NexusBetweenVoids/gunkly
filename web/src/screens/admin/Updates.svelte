@@ -92,15 +92,19 @@
   }
 </script>
 
-<section class="card" aria-labelledby="ad-updates">
+<section class="card stack" aria-labelledby="ad-updates">
   <h2 id="ad-updates">{t('updates.title')}</h2>
-  <div aria-live="polite"><Alert message={err} /></div>
+  <div class="live" aria-live="polite"><Alert message={err} /></div>
   {#if u}
+    <div class="stack-sm">
+      <label class="check"><input type="checkbox" checked={u.enabled} onchange={(e) => toggle(e.currentTarget.checked)} aria-describedby="upd-privacy" />{t('updates.enable')}</label>
+      <p class="hint" id="upd-privacy">{t('updates.privacy')}</p>
+    </div>
     <p>{t('updates.running', { v: u.running })}</p>
     {#if !u.enabled}
       <p class="muted">{t('updates.off')}</p>
     {:else}
-      <p role="status" aria-live="polite">{u.checking ? t('updates.checking') : ''}</p>
+      <p role="status" aria-live="polite" class:visually-hidden={!u.checking}>{u.checking ? t('updates.checking') : ''}</p>
     {/if}
     {#if u.enabled && !u.latest}
       {#if !u.checking}<p class="muted">{t('updates.never')}</p>{/if}
@@ -121,16 +125,17 @@
         <div class="changelog" data-testid="changelog"><Markdown source={u.changelog} /></div>
       {/if}
     {/if}
-    <p>
-      <button type="button" class="btn" disabled={!u.enabled || u.checking} onclick={checkNow}>{t('updates.checkNow')}</button>
-      {#if !u.enabled}<span class="hint">{t('updates.checkOffHint')}</span>{/if}
-    </p>
-    <label class="check"><input type="checkbox" checked={u.enabled} onchange={(e) => toggle(e.currentTarget.checked)} />{t('updates.enable')}</label>
-    <p class="hint">{t('updates.privacy')}</p>
+    <div class="actions">
+      <button type="button" class="btn" disabled={!u.enabled || u.checking} aria-describedby={u.enabled ? undefined : 'upd-off'} onclick={checkNow}>{t('updates.checkNow')}</button>
+    </div>
+    {#if !u.enabled}<p class="hint" id="upd-off">{t('updates.checkOffHint')}</p>{/if}
   {/if}
 </section>
 
 <style>
+  .live:empty {
+    display: none;
+  }
   .changelog {
     max-block-size: 24rem;
     overflow: auto;

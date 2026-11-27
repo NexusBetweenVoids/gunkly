@@ -200,13 +200,13 @@
             <p class="hint">{t('household.areasEnabledHint')}</p>
           </div>
           <div class="stack-sm">
-            <label class="check"><input type="checkbox" bind:checked={quiet} />{t('household.quiet')}</label>
+            <label class="check"><input type="checkbox" bind:checked={quiet} aria-describedby="quiet-hint" />{t('household.quiet')}</label>
+            <p class="hint" id="quiet-hint">{t('household.quietHint')}</p>
             {#if quiet}
               <div class="row">
                 <Field label={t('household.quietStart')} type="time" bind:value={qStart} required />
                 <Field label={t('household.quietEnd')} type="time" bind:value={qEnd} required />
               </div>
-              <p class="hint">{t('household.quietHint')}</p>
             {/if}
           </div>
           <Alert message={err.message} />
@@ -219,28 +219,27 @@
     <section class="card" aria-labelledby="h-members">
       <h2 id="h-members">{t('household.members')}</h2>
       <Alert message={memberErr} />
-      <ul class="list">
+      <ul class="members">
         {#each members as m (m.userId)}
           {@const self = m.userId === app.user?.id}
+          {@const manage = isOwner && !self}
           <li>
-            <span>
-              <strong>{m.displayName}</strong>
-              {#if self}<span class="badge">{t('household.you')}</span>{/if}
-              <br /><span class="muted">{t('household.joined', { date: formatDate(new Date(m.joinedAt), { dateStyle: 'medium' }) })}</span>
+            <span class="who">
+              <strong>{self ? t('household.nameYou', { name: m.displayName }) : m.displayName}</strong>
+              <span class="muted">{t('household.joined', { date: formatDate(new Date(m.joinedAt), { dateStyle: 'medium' }) })}</span>
             </span>
-            <span class="row">
-              {#if isOwner && !self}
-                <label class="visually-hidden" for="role-{m.userId}">{t('household.roleFor', { name: m.displayName })}</label>
-                <select id="role-{m.userId}" value={m.role} onchange={(e) => setRole(m, e.currentTarget.value)}>
-                  {#each ['owner', 'member', 'guest'] as const as r (r)}
-                    <option value={r}>{t(roleLabel[r])}</option>
-                  {/each}
-                </select>
-                <Button variant="danger" onclick={() => (removing = m)}>{t('household.remove')}</Button>
-              {:else}
-                <span class="badge">{t(roleLabel[m.role])}</span>
-              {/if}
-            </span>
+            {#if manage}
+              <label class="visually-hidden" for="role-{m.userId}">{t('household.roleFor', { name: m.displayName })}</label>
+              <select id="role-{m.userId}" class="role" value={m.role} onchange={(e) => setRole(m, e.currentTarget.value)}>
+                {#each ['owner', 'member', 'guest'] as const as r (r)}
+                  <option value={r}>{t(roleLabel[r])}</option>
+                {/each}
+              </select>
+              <button type="button" class="remove" aria-label={t('household.removeFor', { name: m.displayName })} onclick={() => (removing = m)}>{t('household.remove')}</button>
+            {:else}
+              <span class="role static">{t(roleLabel[m.role])}</span>
+              {#if isOwner}<span class="remove" aria-hidden="true"></span>{/if}
+            {/if}
           </li>
         {/each}
       </ul>
@@ -316,3 +315,66 @@
 {:else}
   <p role="status" class="muted">{t('common.loading')}</p>
 {/if}
+
+<style>
+  .members {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .members li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+    padding-block: 10px;
+    border-block-start: 1px solid var(--border);
+  }
+  .members li:first-child {
+    border-block-start: 0;
+  }
+  .who {
+    flex: 1 1 12rem;
+    display: grid;
+    min-inline-size: 0;
+  }
+  .who .muted {
+    font-size: 0.875rem;
+    font-weight: 400;
+  }
+  .role {
+    inline-size: 9rem;
+    flex: none;
+  }
+  .role.static {
+    display: inline-flex;
+    align-items: center;
+    min-block-size: var(--tap);
+    padding-inline: 13px;
+    color: var(--text-2);
+  }
+  .remove {
+    flex: none;
+    inline-size: 5.5rem;
+    min-block-size: var(--tap);
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--danger);
+    font-weight: 600;
+    text-align: end;
+    cursor: pointer;
+  }
+  /* Phones: name and date on one line, role and Remove below it (Remove at the end). */
+  @media (max-width: 47.99rem) {
+    .role.static {
+      padding-inline: 0;
+    }
+    .remove {
+      margin-inline-start: auto;
+    }
+  }
+  button.remove:hover {
+    text-decoration: underline;
+  }
+</style>

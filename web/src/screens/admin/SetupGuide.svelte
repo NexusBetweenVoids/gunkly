@@ -36,18 +36,23 @@
   const addr = $derived.by((): { kind: 'ok' | 'warn' | 'bad'; text: Key } => {
     if (!base) return { kind: 'bad', text: 'guide.addressMissing' };
     if (base.replace(/\/$/, '') !== here) return { kind: 'warn', text: 'guide.addressMismatch' };
-    if (!base.startsWith('https://') && !/^http:\/\/(localhost|127\.0\.0\.1|\[::1\])/.test(base)) return { kind: 'warn', text: 'guide.addressHttp' };
+    if (!base.startsWith('https://')) {
+      // http on this machine is fine for trying Gunkly out; others need https.
+      return /^http:\/\/(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/.test(base) ? { kind: 'ok', text: 'guide.addressLocal' } : { kind: 'warn', text: 'guide.addressHttp' };
+    }
     return { kind: 'ok', text: 'guide.addressOk' };
   });
 </script>
 
 <section class="card narrow guide" aria-labelledby="guide-title">
-  <p class="muted">{t('guide.progress', { n: i + 1, total: steps.length })}</p>
+  <div class="progress">
+    <p class="muted">{t('guide.progress', { n: i + 1, total: steps.length })}</p>
+    <ol class="dots" aria-hidden="true">
+      {#each steps as s, n (s.id)}<li class:on={n <= i}></li>{/each}
+    </ol>
+  </div>
   <h1 id="guide-title" tabindex="-1">{t(step.title)}</h1>
   <p>{t(step.intro)}</p>
-  <ol class="dots" aria-hidden="true">
-    {#each steps as s, n (s.id)}<li class:on={n <= i}></li>{/each}
-  </ol>
 </section>
 
 <div class="narrow stack body">
@@ -105,6 +110,14 @@
 <style>
   .guide h1:focus {
     outline: none;
+  }
+  .progress {
+    display: grid;
+    gap: 6px;
+    margin-block-end: var(--space);
+  }
+  .progress p {
+    margin: 0;
   }
   .dots {
     display: flex;

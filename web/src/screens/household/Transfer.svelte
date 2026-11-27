@@ -171,3 +171,32 @@
     <div><Button type="submit" {busy}>{t('transfer.import')}</Button></div>
   </form>
 </section>
+
+<style>
+  /* The native file picker as a quiet button followed by the chosen file's name (both themes). */
+  input[type='file'] {
+    min-block-size: var(--tap);
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: var(--text-2);
+    font-size: 0.9375rem;
+  }
+  input[type='file']::file-selector-button {
+    min-block-size: var(--tap);
+    margin-inline-end: 12px;
+    padding-block: 10px;
+    padding-inline: 20px;
+    border: 0;
+    border-radius: var(--radius);
+    background: var(--surface-2);
+    color: var(--text);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  input[type='file']::file-selector-button:hover {
+    opacity: 0.88;
+  }
+</style>

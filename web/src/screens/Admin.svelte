@@ -25,10 +25,11 @@
 </script>
 
 <SettingsLayout title={t('admin.title')} base="/admin" {groups} {section}>
-  {#snippet intro()}<EmailWarning /><ProxyWarning /><SecurityEvents /><p class="hint">{t('guide.againLead')} <a href={href('/setup/guide')}>{t('guide.again')}</a></p>{/snippet}
+  {#snippet intro()}<EmailWarning /><ProxyWarning /><SecurityEvents view="banner" {section} /><p class="hint guide-link">{t('guide.againLead')} <a href={href('/setup/guide')}>{t('guide.again')}</a></p>{/snippet}
   {#snippet children(g: string)}
     {#if g === 'users'}
       <Users />
+      <SecurityEvents view="list" />
     {:else if g === 'updates'}
       <Updates />
       <ServiceCards which="updatehook" />
@@ -47,3 +48,9 @@
     {/if}
   {/snippet}
 </SettingsLayout>
+
+<style>
+  .guide-link {
+    margin-block: 0 var(--space);
+  }
+</style>
