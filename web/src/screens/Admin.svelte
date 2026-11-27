@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { href } from '../lib/base';
   import SettingsLayout, { type Group } from '../components/SettingsLayout.svelte';
   import { t } from '../lib/i18n';
   import Ai from './admin/Ai.svelte';
@@ -24,7 +25,7 @@
 </script>
 
 <SettingsLayout title={t('admin.title')} base="/admin" {groups} {section}>
-  {#snippet intro()}<EmailWarning /><ProxyWarning /><SecurityEvents /><p class="hint">{t('guide.againLead')} <a href="/setup/guide">{t('guide.again')}</a></p>{/snippet}
+  {#snippet intro()}<EmailWarning /><ProxyWarning /><SecurityEvents /><p class="hint">{t('guide.againLead')} <a href={href('/setup/guide')}>{t('guide.again')}</a></p>{/snippet}
   {#snippet children(g: string)}
     {#if g === 'users'}
       <Users />

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { href } from '../lib/base';
   import Alert from '../components/Alert.svelte';
   import Button from '../components/Button.svelte';
   import Field from '../components/Field.svelte';
@@ -42,7 +43,7 @@
   <h1>{t('reset.title')}</h1>
   {#if invalid}
     <p role="alert">{t('reset.invalid')}</p>
-    <p><a href="/forgot-password">{t('reset.askAgain')}</a></p>
+    <p><a href={href('/forgot-password')}>{t('reset.askAgain')}</a></p>
   {:else}
     <form class="stack" onsubmit={submit}>
       <Field

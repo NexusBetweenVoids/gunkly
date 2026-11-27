@@ -6,7 +6,7 @@ Status: Accepted
 AI agents will write most changes, so verification, architectural constraints and release promotion must be automated.
 
 ## Decision
-- **Front end:** plain Svelte 5 + Vite SPA (no SvelteKit) with a tiny hash-free history router, built to `web/dist` and embedded in the Go binary via `embed.FS`. It talks only to `/api/v1`. Root-path hosting only (sub-path is Later).
+- **Front end:** plain Svelte 5 + Vite SPA (no SvelteKit) with a tiny hash-free history router, built to `web/dist` and embedded in the Go binary via `embed.FS`. It talks only to `/api/v1`. Served at the root or under a path prefix taken from `GUNKLY_BASE_URL` (the bundle uses a relative base; the server injects the prefix).
 - **CI:** GitHub Actions. Trunk-based on `main`, small single-task PRs.
 - **Pipeline:** immutable multi-arch cosign-signed images built once and promoted unchanged. (1) every PR: build the distroless image, boot on SQLite and Postgres, run migrations, check `/healthz` and `/readyz`, full tests and Playwright; (2) staging (deploy tooling lives outside the public repo) auto-deployed from `main` with synthetic data and capture sinks (Mailpit, mock webhook) after an upgrade test from the previous release DB; (3) production on a signed `vX.Y.Z` tag with maintainer approval, pre-deploy snapshot, graceful SIGTERM rollout, synthetic canary and auto-rollback.
 - **Migrations:** expand-and-contract across two releases for breaking changes.

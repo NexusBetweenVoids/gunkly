@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { href } from '../../lib/base';
   import Alert from '../../components/Alert.svelte';
   import { api } from '../../lib/api';
   import { failure } from '../../lib/errors';
@@ -35,7 +36,7 @@
       <p class="hint">{t('emailReminders.changed')}</p>
     {:else}
       <p class="muted" data-testid="email-reminders-hint">{t('emailReminders.needVerified')}</p>
-      <p><a href="/settings/profile">{t('emailReminders.addLink')}</a></p>
+      <p><a href={href('/settings/profile')}>{t('emailReminders.addLink')}</a></p>
     {/if}
     <div aria-live="polite"><Alert message={err} /></div>
   </section>

@@ -175,6 +175,40 @@ location / {
 
 **Nginx Proxy Manager:** the defaults work; add a proxy host for `gunkly` port `4865` with an SSL certificate.
 
+### Under a path prefix
+
+To serve Gunkly at `https://example.com/gunkly/` instead of a domain root, put the path in `GUNKLY_BASE_URL` (`https://example.com/gunkly`; a trailing slash is optional). The same image works at any prefix. Gunkly then answers **only under the prefix** (`/gunkly/api/v1/...`, `/gunkly/mcp`, `/gunkly/healthz`, ...), and `/` redirects to `/gunkly/`; everything else is `404`. **Your proxy must not strip the prefix**: pass the full path through. Session cookies get `Path=/gunkly`, so two apps on one host do not share them. Links, calendar feeds, emails, the web app manifest and the service worker all carry the prefix, and the single sign-on redirect URI becomes `https://example.com/gunkly/api/v1/auth/oidc/callback`.
+
+```
+# Caddy
+example.com {
+	reverse_proxy /gunkly/* gunkly:4865
+	# optional, for OAuth clients that follow RFC 8414/9728 discovery:
+	reverse_proxy /.well-known/oauth-authorization-server/gunkly gunkly:4865
+	reverse_proxy /.well-known/oauth-protected-resource/gunkly/mcp gunkly:4865
+}
+```
+
+```nginx
+# nginx: no trailing slash or URI on proxy_pass, so the path is passed unchanged
+location /gunkly/ {
+	proxy_pass http://gunkly:4865;
+	proxy_set_header Host $host;
+	proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+	proxy_set_header X-Forwarded-Proto $scheme;
+}
+location = /.well-known/oauth-authorization-server/gunkly { proxy_pass http://gunkly:4865; }
+location = /.well-known/oauth-protected-resource/gunkly/mcp { proxy_pass http://gunkly:4865; }
+```
+
+```
+# Traefik labels: a PathPrefix rule does not strip anything by default
+traefik.http.routers.gunkly.rule=Host(`example.com`) && PathPrefix(`/gunkly`)
+traefik.http.services.gunkly.loadbalancer.server.port=4865
+```
+
+For OAuth (ChatGPT and Claude connectors), RFC 8414 and RFC 9728 put the discovery documents between host and path (`/.well-known/oauth-authorization-server/gunkly`). Gunkly answers those two paths too when your proxy forwards them (the examples above do), and also under the prefix (`/gunkly/.well-known/...`), which is where its `WWW-Authenticate` challenge points. The prefix may have several segments but only letters, digits and `. _ ~ -`. Note that `/.well-known/security.txt` stays under the prefix too.
+
 ## Configuration
 
 The server itself is configured through environment variables, all documented with their defaults in [`.env.example`](.env.example). Email, single sign-on, the AI endpoint, the metrics token and the sign-up difficulty can instead be set in the app (Administration), without touching Docker; a variable that is set always wins and shows as locked there (email counts as set by the environment only with `GUNKLY_EMAIL_ENABLED=true`). The ones you will touch first:
@@ -182,7 +216,7 @@ The server itself is configured through environment variables, all documented wi
 | Variable | Purpose |
 |-|-|
 | `GUNKLY_SECRET_KEYS` | Required. Encryption keys, `<version>:<base64 32-byte key>` |
-| `GUNKLY_BASE_URL` | Public origin used in links (no path) |
+| `GUNKLY_BASE_URL` | Public address used in links; add a path to serve under a prefix (`https://example.com/gunkly`, see [Under a path prefix](#under-a-path-prefix)) |
 | `GUNKLY_DATABASE_URL` | `sqlite:///data/gunkly.db` or `postgres://...` (the compose files set it) |
 | `GUNKLY_TRUSTED_PROXIES` | Reverse-proxy CIDRs/IPs whose `X-Forwarded-For` / `Forwarded` is trusted; see [Behind a reverse proxy](#behind-a-reverse-proxy) |
 | `GUNKLY_EMAIL_ENABLED` and `GUNKLY_SMTP_*` | Email verification, password reset, email codes (optional; or Administration, Email) |

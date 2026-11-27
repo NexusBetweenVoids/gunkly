@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { href } from '../lib/base';
   import { t } from '../lib/i18n';
   import { route } from '../lib/router.svelte';
   import { app } from '../lib/session.svelte';
@@ -60,9 +61,9 @@
   </button>
   <ul bind:this={panel} id="menu-{uid}" class="panel" hidden={!open}>
     <!-- With a household, Settings is in the tab bar. -->
-        {#if !app.hhId}<li><a href="/settings" aria-current={here('/settings')}>{t('nav.settings')}</a></li>{/if}
+        {#if !app.hhId}<li><a href={href('/settings')} aria-current={here('/settings')}>{t('nav.settings')}</a></li>{/if}
     {#if app.user?.isAdmin}
-      <li><a href="/admin" aria-current={here('/admin')}>{t('nav.admin')}</a></li>
+      <li><a href={href('/admin')} aria-current={here('/admin')}>{t('nav.admin')}</a></li>
     {/if}
     <li><button type="button" onclick={onsignout}>{t('nav.signOut')}</button></li>
   </ul>

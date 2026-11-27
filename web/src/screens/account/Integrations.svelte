@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { appOrigin } from '../../lib/base';
   import HomeAssistant, { HA_ADD } from './HomeAssistant.svelte';
   import Alert from '../../components/Alert.svelte';
   import Button from '../../components/Button.svelte';
@@ -38,7 +39,7 @@
   ];
   const when = (s: string) => formatDate(new Date(s), { dateStyle: 'medium' });
 
-  const base = $derived((app.instance.baseUrl || location.origin).replace(/\/+$/, ''));
+  const base = $derived((app.instance.baseUrl || appOrigin()).replace(/\/+$/, ''));
   let tokens = $state<Token[]>([]);
   let households = $state<Household[]>([]);
   let err = $state('');

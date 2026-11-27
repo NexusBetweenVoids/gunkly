@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { href } from '../lib/base';
   import LegalLinks from '../components/LegalLinks.svelte';
   import Logo from '../components/Logo.svelte';
   import Alert from '../components/Alert.svelte';
@@ -69,7 +70,7 @@
   async function done(s: SessionView): Promise<void> {
     await adopt(s);
     password = '';
-    if (next.startsWith('/oauth/')) location.assign(next); // server-rendered consent page, not a SPA route
+    if (next.startsWith('/oauth/')) location.assign(href(next)); // server-rendered consent page, not a SPA route
     else navigate(next, true);
   }
 
@@ -166,18 +167,18 @@
         <Button variant="quiet" {busy} onclick={() => withPasskey(false)}>{t('signIn.passkey')}</Button>
       {/if}
       {#if app.instance.sso}
-        <a class="btn btn-quiet" href="/api/v1/auth/oidc/start?next={encodeURIComponent(next)}"
+        <a class="btn btn-quiet" href={href(`/api/v1/auth/oidc/start?next=${encodeURIComponent(next)}`)}
           >{app.instance.sso.name ? t('signIn.ssoNamed', { name: app.instance.sso.name }) : t('signIn.sso')}</a
         >
       {/if}
     </div>
   {/if}
   {#if !needSecond}
-    {#if app.instance.emailEnabled}<p class="forgot"><a href="/forgot-password">{t('signIn.forgot')}</a></p>{/if}
+    {#if app.instance.emailEnabled}<p class="forgot"><a href={href('/forgot-password')}>{t('signIn.forgot')}</a></p>{/if}
     {#if app.instance.openSignup}
       <div class="new-here">
         <p>{t('signIn.newHere')}</p>
-        <a class="btn btn-outline" href="/signup">{t('signIn.createAccount')}</a>
+        <a class="btn btn-outline" href={href('/signup')}>{t('signIn.createAccount')}</a>
       </div>
     {/if}
   {/if}

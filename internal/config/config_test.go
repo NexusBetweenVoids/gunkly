@@ -95,7 +95,10 @@ func TestErrors(t *testing.T) {
 		"bad db":           {"GUNKLY_DATABASE_URL": "mysql://x"},
 		"bad bool":         {"GUNKLY_AUTO_MIGRATE": "maybe"},
 		"bad base":         {"GUNKLY_BASE_URL": "ftp://x"},
-		"subpath base":     {"GUNKLY_BASE_URL": "https://x.example/gunkly"},
+		"query base":       {"GUNKLY_BASE_URL": "https://x.example/gunkly?a=1"},
+		"dotdot base":      {"GUNKLY_BASE_URL": "https://x.example/a/../b"},
+		"double slash":     {"GUNKLY_BASE_URL": "https://x.example/a//b"},
+		"escaped base":     {"GUNKLY_BASE_URL": "https://x.example/a%2Fb"},
 		"bad proxy":        {"GUNKLY_TRUSTED_PROXIES": "10.0.0.0/33"},
 		"bad timeout":      {"GUNKLY_SHUTDOWN_TIMEOUT": "-1s"},
 		"bad level":        {"GUNKLY_LOG_LEVEL": "loud"},
@@ -191,5 +194,25 @@ func TestLegalAndSecurityTxt(t *testing.T) {
 	m["GUNKLY_SECURITY_CONTACT"] = "https://x.example/report"
 	if c, err = Load(env(m)); err != nil || c.SecurityContact != "https://x.example/report" {
 		t.Fatalf("%v %+v", err, c)
+	}
+}
+
+func TestBasePath(t *testing.T) {
+	for in, want := range map[string][2]string{
+		"https://x.example":           {"https://x.example", ""},
+		"https://x.example/":          {"https://x.example", ""},
+		"https://x.example/gunkly":    {"https://x.example/gunkly", "/gunkly"},
+		"https://x.example/gunkly/":   {"https://x.example/gunkly", "/gunkly"},
+		"http://localhost:4865/a/b-c": {"http://localhost:4865/a/b-c", "/a/b-c"},
+	} {
+		m := base()
+		m["GUNKLY_BASE_URL"] = in
+		c, err := Load(env(m))
+		if err != nil {
+			t.Fatalf("%s: %v", in, err)
+		}
+		if c.BaseURL != want[0] || c.BasePath() != want[1] {
+			t.Errorf("%s: BaseURL %q BasePath %q, want %q %q", in, c.BaseURL, c.BasePath(), want[0], want[1])
+		}
 	}
 }

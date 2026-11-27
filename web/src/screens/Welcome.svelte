@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { appOrigin } from '../lib/base';
   // First run for someone without a household: confirm the email (hosted service), name the household,
   // pick a few starter chores, invite someone. Every step after the household can be skipped, and
   // everything can be changed later in the normal screens. Run again (Settings, Profile) by someone
@@ -177,7 +178,7 @@
     err = '';
     try {
       const inv = await api<{ token: string }>('POST', `/households/${hh.id}/invites`, { role: 'member', expiresInHours: 72, maxUses: 1 });
-      link = `${location.origin}/invite/${inv.token}`;
+      link = `${appOrigin()}/invite/${inv.token}`;
     } catch (x) {
       err = failure(x).message;
     } finally {

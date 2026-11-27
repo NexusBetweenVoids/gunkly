@@ -1,5 +1,7 @@
 // The only network client. Talks exclusively to same-origin /api/v1.
-const BASE = '/api/v1';
+import { href } from './base';
+
+const BASE = href('/api/v1');
 const CSRF_COOKIE = 'gunkly_csrf';
 
 export class ApiError extends Error {

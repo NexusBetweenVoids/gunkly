@@ -1,4 +1,5 @@
 <script lang="ts" module>
+  import { href } from '../../lib/base';
   import type { Group } from '../../components/SettingsLayout.svelte';
   import { t as tr, type Key as K } from '../../lib/i18n';
   import type { Household as H } from '../../lib/types';
@@ -258,7 +259,7 @@
     <section class="card" aria-labelledby="h-more">
       <h2 id="h-more">{t('household.more')}</h2>
       <p class="muted">{t('household.moreHint')}</p>
-      <p><a class="btn btn-quiet" href="/households/new">{t('household.createAnother')}</a></p>
+      <p><a class="btn btn-quiet" href={href('/households/new')}>{t('household.createAnother')}</a></p>
     </section>
 
     <section class="card" aria-labelledby="h-leave">

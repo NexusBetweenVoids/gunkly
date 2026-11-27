@@ -8,12 +8,14 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"os"
 	"os/signal"
 	"strings"
 	"syscall"
 	"time"
 
 	"github.com/NexusBetweenVoids/gunkly/internal/api"
+	"github.com/NexusBetweenVoids/gunkly/internal/config"
 	"github.com/NexusBetweenVoids/gunkly/internal/egress"
 	"github.com/NexusBetweenVoids/gunkly/internal/metrics"
 	"github.com/NexusBetweenVoids/gunkly/internal/scheduler"
@@ -115,6 +117,8 @@ func healthcheck(ctx context.Context, listen string) error {
 	if err != nil {
 		return err
 	}
+	// Served under a path prefix (GUNKLY_BASE_URL=https://host/gunkly): so is /healthz.
+	url = strings.Replace(url, "/healthz", config.BasePathOf(os.Getenv("GUNKLY_BASE_URL"))+"/healthz", 1)
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil) //nolint:gosec // G704: local probe built from operator config

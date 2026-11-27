@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { href } from '../lib/base';
   import AiSuggest, { type Suggestion } from '../components/AiSuggest.svelte';
   import Alert from '../components/Alert.svelte';
   import Button from '../components/Button.svelte';
@@ -441,7 +442,7 @@
       <div aria-live="polite"><Alert message={err} /></div>
       <div class="row">
         <Button type="submit" {busy}>{t('common.save')}</Button>
-        <a class="btn btn-quiet" href={id ? `/chores/${id}` : '/'}>{t('common.cancel')}</a>
+        <a class="btn btn-quiet" href={href(id ? `/chores/${id}` : '/')}>{t('common.cancel')}</a>
       </div>
     </form>
   {/if}

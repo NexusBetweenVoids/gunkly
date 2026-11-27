@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { appOrigin } from '../../lib/base';
   import Alert from '../../components/Alert.svelte';
   import Button from '../../components/Button.svelte';
   import Dialog from '../../components/Dialog.svelte';
@@ -32,7 +33,7 @@
   let err = $state('');
   let copied = $state('');
 
-  const base = $derived((app.instance.baseUrl || location.origin).replace(/\/+$/, ''));
+  const base = $derived((app.instance.baseUrl || appOrigin()).replace(/\/+$/, ''));
   const url = $derived(`${base}/mcp`);
   // ChatGPT and Claude connectors sign in with OAuth: no access key, so no token is created.
   const connector = $derived(kind === 'chatgpt' || kind === 'claude');

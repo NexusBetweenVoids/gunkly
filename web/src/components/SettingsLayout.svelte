@@ -1,4 +1,5 @@
 <script lang="ts" module>
+  import { href } from '../lib/base';
   import type { IconName } from './Icon.svelte';
   export type Group = { id: string; label: string; hint: string; icon: IconName };
   /** A labelled run of groups in the list (Settings: "You", then the household). */
@@ -41,7 +42,7 @@
       <ul aria-labelledby={l.label ? `set-${l.id}` : undefined}>
         {#each l.groups as g (g.id)}
           <li>
-            <a href="{base}/{g.id}" aria-current={g.id === active?.id ? 'page' : undefined}>
+            <a href={href(`${base}/${g.id}`)} aria-current={g.id === active?.id ? 'page' : undefined}>
               <Icon name={g.icon} />
               <span><strong>{g.label}</strong><small>{g.hint}</small></span>
             </a>
@@ -52,7 +53,7 @@
   </nav>
   {#if active}
     <div class="content">
-      <a class="back" href={base}><span aria-hidden="true">&lsaquo;</span> {title}</a>
+      <a class="back" href={href(base)}><span aria-hidden="true">&lsaquo;</span> {title}</a>
       <h2 class="visually-hidden">{active.label}</h2>
       {#key active.id}<div class="sections">{@render children(active.id)}</div>{/key}
     </div>

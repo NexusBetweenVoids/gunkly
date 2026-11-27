@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { appOrigin, href } from '../../lib/base';
   // The guided setup after the first admin account: one optional step at a time, each the same card as
   // in Administration, so everything set here can be changed there later.
   import Button from '../../components/Button.svelte';
@@ -25,13 +26,13 @@
 
   function go(n: number): void {
     i = Math.max(0, Math.min(steps.length - 1, n));
-    history.replaceState(history.state, '', `/setup/guide?step=${i}`);
+    history.replaceState(history.state, '', href(`/setup/guide?step=${i}`));
     document.getElementById('guide-title')?.focus();
   }
 
   // The address check: GUNKLY_BASE_URL stays in the environment (links, cookies and passkeys depend on it).
   const base = app.instance.baseUrl ?? '';
-  const here = location.origin;
+  const here = appOrigin();
   const addr = $derived.by((): { kind: 'ok' | 'warn' | 'bad'; text: Key } => {
     if (!base) return { kind: 'bad', text: 'guide.addressMissing' };
     if (base.replace(/\/$/, '') !== here) return { kind: 'warn', text: 'guide.addressMismatch' };
@@ -65,7 +66,7 @@
     <ServiceCards which="email" />
   {:else if step.id === 'signin'}
     <ServiceCards which="sso" />
-    <p class="hint">{t('guide.signinMore')} <a href="/admin/signin">{t('guide.toAdmin')}</a></p>
+    <p class="hint">{t('guide.signinMore')} <a href={href('/admin/signin')}>{t('guide.toAdmin')}</a></p>
   {:else if step.id === 'notify'}
     <section class="card">
       <ul class="stack-sm">
@@ -73,7 +74,7 @@
         <li>{t('guide.notifyApps')}</li>
         <li>{t('guide.notifyHousehold')}</li>
       </ul>
-      <p class="hint">{t('guide.notifyAdmin')} <a href="/admin/connections">{t('guide.toConnections')}</a></p>
+      <p class="hint">{t('guide.notifyAdmin')} <a href={href('/admin/connections')}>{t('guide.toConnections')}</a></p>
     </section>
   {:else if step.id === 'ai'}
     <Ai />
@@ -83,9 +84,9 @@
   {:else}
     <section class="card">
       <ul class="stack-sm">
-        <li><a href="/households/new">{t('guide.doneHousehold')}</a></li>
-        <li><a href="/admin/users">{t('guide.doneUsers')}</a></li>
-        <li><a href="/admin">{t('guide.doneAdmin')}</a></li>
+        <li><a href={href('/households/new')}>{t('guide.doneHousehold')}</a></li>
+        <li><a href={href('/admin/users')}>{t('guide.doneUsers')}</a></li>
+        <li><a href={href('/admin')}>{t('guide.doneAdmin')}</a></li>
       </ul>
     </section>
   {/if}

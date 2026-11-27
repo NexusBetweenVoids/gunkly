@@ -1,22 +1,25 @@
 // Gunkly service worker: installability and Web Push only. No fetch handler, no caching.
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
+// Path prefix this app is served under (sub-path hosting): the scope is <prefix>/. Push URLs are prefix-free app paths.
+const ICON_PREFIX = new URL(self.registration.scope).pathname.replace(/\/$/, '');
 // Payload {"title","body","url"}, already localised by the server.
 self.addEventListener('push', (e) => {
   let d = {};
   try {
     d = e.data.json();
   } catch {}
-  if (d.title) e.waitUntil(self.registration.showNotification(d.title, { body: d.body || '', icon: '/icons/icon-192.png', data: { url: d.url } }));
+  if (d.title) e.waitUntil(self.registration.showNotification(d.title, { body: d.body || '', icon: ICON_PREFIX + '/icons/icon-192.png', data: { url: d.url } }));
 });
 // Same-origin paths only: reject //host and /\host, then confirm by parsing.
 function sameOriginUrl(raw) {
   const o = self.location.origin;
+  const PREFIX = self.registration ? new URL(self.registration.scope).pathname.replace(/\/$/, '') : '';
   try {
-    const u = typeof raw === 'string' && /^\/[^/\\]/.test(raw) ? new URL(raw, o) : null;
+    const u = typeof raw === 'string' && /^\/[^/\\]/.test(raw) ? new URL(PREFIX + raw, o) : null;
     if (u && u.origin === o) return u;
   } catch {}
-  return new URL('/', o);
+  return new URL(PREFIX + '/', o);
 }
 self.addEventListener('notificationclick', (e) => {
   e.notification.close();

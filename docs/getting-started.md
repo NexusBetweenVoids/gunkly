@@ -11,7 +11,7 @@ cp .env.example .env
 echo "GUNKLY_SECRET_KEYS=1:$(openssl rand -base64 32)"   # put this line in .env
 ```
 
-Edit `.env`: set `GUNKLY_SECRET_KEYS` and `GUNKLY_BASE_URL` (the address you will open, `scheme://host[:port]`, no path). Back up the secret key; Gunkly will not start without it.
+Edit `.env`: set `GUNKLY_SECRET_KEYS` and `GUNKLY_BASE_URL` (the address you will open, `scheme://host[:port]`, plus a path such as `/gunkly` only when you serve it under a prefix: see [Under a path prefix](../README.md#under-a-path-prefix)). Back up the secret key; Gunkly will not start without it.
 
 ```sh
 docker compose -f compose.sqlite.yml up -d      # or compose.postgres.yml (also set POSTGRES_PASSWORD)
