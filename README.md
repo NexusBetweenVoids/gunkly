@@ -80,7 +80,7 @@ All screenshots show synthetic demo data.
 **Admin and operations**
 - First-run setup code, users and instance settings (limits, sessions, retention, allowed services, sign-up), update notice, CLI recovery (`admin reset-password`, `admin reset-2fa`).
 - `/healthz`, `/readyz`, optional Prometheus `/metrics`, consistent backups, `migrate-db` to Postgres, graceful shutdown.
-- Languages: English, Dutch, French and Spanish, picked from the browser or set per user; see [Translations](#translations). Right-to-left layout is wired in. Installable PWA (no offline mode). WCAG 2.2 AA tested.
+- Languages: English, Dutch, French, German and Spanish, picked from the browser or set per user; see [Translations](#translations). Right-to-left layout is wired in. Installable PWA (no offline mode). WCAG 2.2 AA tested.
 
 ## Quick start
 
@@ -350,7 +350,7 @@ Every instance can delete accounts (Settings, Your data, "Delete account") and c
 
 ## Translations
 
-Gunkly is available in English and Dutch (Nederlands), picked from your browser language. Corrections and new languages are welcome via pull request: the front end lives in `web/src/lib/i18n/<locale>/*.json` and server-sent text (emails, mark-as-done pages) in `internal/i18n/<locale>.json`. Every locale needs the same keys as `en`; `npm run i18n-check` in `web/` verifies that.
+Gunkly is available in English, Dutch (Nederlands), French (Français), German (Deutsch) and Spanish (Español), picked from your browser language or set under Settings, Profile. The translations were made with AI assistance and have not all been reviewed by native speakers yet. Corrections and new languages are welcome via pull request: the front end lives in `web/src/lib/i18n/<locale>/*.json` and server-sent text (emails, mark-as-done pages) in `internal/i18n/<locale>.json`. Every locale needs the same keys as `en`; `npm run i18n-check` in `web/` verifies that.
 
 ## Contributing, security, license
 
