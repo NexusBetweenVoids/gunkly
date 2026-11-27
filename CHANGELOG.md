@@ -4,6 +4,8 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-27
+
 ### Added
 
 - A welcome flow for people without a household (`/welcome`, where sign-up now leads): confirm the email address (hosted service), name the household (a name is suggested; time zone detected; areas on), pick starter chores (common ones ticked; first dates spread over the coming week) and create an invite link to copy or share. Every step after the household can be skipped.
