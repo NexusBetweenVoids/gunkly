@@ -4,7 +4,7 @@
   import Field from '../../components/Field.svelte';
   import { api } from '../../lib/api';
   import { failure } from '../../lib/errors';
-  import { available, languageName, locale, t, type Key } from '../../lib/i18n';
+  import { available, languageName, locale, t, useLanguage, type Key } from '../../lib/i18n';
   import { localZone, zones } from '../../lib/zones';
   import { app } from '../../lib/session.svelte';
   import { applyTheme, storedTheme, type Theme } from '../../lib/theme';
@@ -45,6 +45,7 @@
         timeZone: timeZone === '' ? null : timeZone,
       });
       applyTheme(theme);
+      if (useLanguage(app.user.locale)) return; // reloads in the new language
       toast(t('common.saved'));
     } catch (x) {
       err = failure(x).message;

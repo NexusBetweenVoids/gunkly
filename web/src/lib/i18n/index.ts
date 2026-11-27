@@ -34,7 +34,38 @@ const loaded = new Map<string, Promise<void>>();
 const RTL = new Set(['ar', 'fa', 'he', 'ur', 'ps', 'yi']);
 
 export const available = [...new Set([DEFAULT, ...Object.keys(files).map((f) => f.split('/')[1]!)])].sort();
-export const locale = navigator.languages.map((l) => l.split('-')[0]!).find((l) => available.includes(l)) ?? DEFAULT;
+// The language shown: the account's choice (remembered in this browser, see useLanguage), else the
+// browser's languages, else English.
+const PREF = 'gunkly.language';
+const pick = (tag: string): string => {
+  const base = tag.split('-')[0]!.toLowerCase();
+  return available.includes(base) ? base : '';
+};
+const browser = navigator.languages.map(pick).find(Boolean) ?? DEFAULT;
+function stored(): string {
+  try {
+    return localStorage.getItem(PREF) ?? '';
+  } catch {
+    return '';
+  }
+}
+export const locale = pick(stored()) || browser;
+
+/** Shows the account's language in this browser ('' = follow the browser). Messages are loaded once
+ *  per page, so a change reloads the page; returns true when it does. Without storage nothing is
+ *  remembered and nothing reloads (no loop). */
+export function useLanguage(tag: string): boolean {
+  const want = pick(tag);
+  try {
+    if (want) localStorage.setItem(PREF, want);
+    else localStorage.removeItem(PREF);
+  } catch {
+    return false;
+  }
+  if ((want || browser) === locale) return false;
+  location.reload();
+  return true;
+}
 
 const plurals = new Intl.PluralRules(locale);
 const numbers = new Intl.NumberFormat(locale);

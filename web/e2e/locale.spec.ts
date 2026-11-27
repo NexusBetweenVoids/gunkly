@@ -9,3 +9,21 @@ for (const [lang, signIn] of [['nl', 'Inloggen'], ['de', 'Anmelden'], ['fr', 'Se
     await expect(page.locator('html')).toHaveAttribute('lang', lang);
   });
 }
+
+// The language chosen in Settings, Profile wins over the browser's, survives a reload, and
+// "follow the browser" goes back.
+test('profile language setting changes the app language', async ({ world }) => {
+  const u = await world.newUser();
+  const { page } = await u.open();
+  await page.goto('/settings/profile');
+  await page.getByLabel('Language').selectOption('nl');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('heading', { name: 'Profiel', exact: true }).first()).toBeVisible();
+  await expect(page.locator('html')).toHaveAttribute('lang', 'nl');
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Instellingen', exact: true })).toBeVisible();
+  await page.getByLabel('Taal').selectOption('');
+  await page.getByRole('button', { name: 'Opslaan' }).click();
+  await expect(page.getByRole('heading', { name: 'Profile', exact: true }).first()).toBeVisible();
+  await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+});

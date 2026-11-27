@@ -1,4 +1,5 @@
 import { api, ApiError } from './api';
+import { useLanguage } from './i18n';
 import type { Household, Instance, Me, SessionView } from './types';
 
 const HH_KEY = 'gunkly.household';
@@ -69,6 +70,7 @@ if (typeof document !== 'undefined') {
 export async function adopt(s: SessionView): Promise<void> {
   app.user = s.user ?? null;
   app.setupNeeded = false;
+  if (app.user && useLanguage(app.user.locale)) return; // reloading in the account's language
   if (app.user) await refreshHouseholds().catch(() => {});
 }
 
