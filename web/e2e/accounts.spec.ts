@@ -17,7 +17,10 @@ test('invite link: owner creates it, a second user registers in a new context, t
   const ctx = await world.newContext();
   const guest = await ctx.newPage();
   await guest.goto(link);
-  await expect(guest.getByRole('heading', { name: "You're invited" })).toBeVisible();
+  // The page names the household and who sent the link.
+  await expect(guest.getByRole('heading', { name: `Join ${h.name}` })).toBeVisible();
+  await expect(guest.getByText(`${owner.displayName} invited you. Create an account to join.`)).toBeVisible();
+  await expect(guest.getByText('At least 10 characters.')).toBeVisible();
   await guest.getByLabel('Display name').fill('Guest Person');
   await guest.getByLabel('Username', { exact: true }).fill(uniq('guest'));
   await guest.getByLabel('Password', { exact: true }).fill(PASSWORD);
@@ -31,13 +34,14 @@ test('invite link: owner creates it, a second user registers in a new context, t
   // Revoking the link stops it working for the next person.
   await invites.getByRole('button', { name: 'Revoke' }).click();
   await expect(page.getByText('Invite revoked.')).toBeVisible();
+  // The dead link reveals nothing about the household and offers no form, only a way on.
   const late = await (await world.newContext()).newPage();
   await late.goto(link);
-  await late.getByLabel('Display name').fill('Late');
-  await late.getByLabel('Username', { exact: true }).fill(uniq('late'));
-  await late.getByLabel('Password', { exact: true }).fill(PASSWORD);
-  await late.getByRole('button', { name: 'Create account and join' }).click();
   await expect(late.getByText('This invite link is invalid, expired or already used.')).toBeVisible();
+  await expect(late.getByRole('heading', { name: "You're invited" })).toBeVisible();
+  await expect(late.getByText(h.name)).toHaveCount(0);
+  await expect(late.getByLabel('Display name')).toHaveCount(0);
+  await expect(late.getByRole('link', { name: 'Go to sign in' })).toBeVisible();
 });
 
 test('TOTP: enrol in the account screen, then sign in with a code', async ({ world }) => {

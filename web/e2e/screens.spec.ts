@@ -107,5 +107,5 @@ test('axe WCAG 2.2 AA and no overflow on every main screen, light and dark', asy
   await check(anon, 'sign in', 'Email or username');
   const inv = await u.api.post<{ token: string }>(`/households/${h.id}/invites`, { role: 'guest', expiresInHours: 24 });
   await anon.goto(`/invite/${inv.token}`);
-  await check(anon, 'invite', 'Create an account to join this household.');
+  await check(anon, 'invite', 'invited you. Create an account to join.');
 });

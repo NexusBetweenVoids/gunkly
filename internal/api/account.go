@@ -144,6 +144,14 @@ func (s *Server) patchMe(w http.ResponseWriter, r *http.Request, c *call) error 
 	return ok(w, v)
 }
 
+// minPasswordLength is the effective minimum: 0 is stored as "unset".
+func minPasswordLength(st store.InstanceSettings) int {
+	if st.MinPasswordLength <= 0 {
+		return auth.DefaultMinPasswordLen
+	}
+	return st.MinPasswordLength
+}
+
 // checkNewPassword validates against the instance's minimum length.
 func (s *Server) checkNewPassword(ctx context.Context, pw string) error {
 	st, err := s.st.InstanceSettings(ctx)

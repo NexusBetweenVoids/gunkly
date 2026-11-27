@@ -441,7 +441,7 @@ paths:
       tags: [setup]
       summary: What this instance offers (public)
       responses:
-        "200": {description: OK, content: {application/json: {schema: {type: object, properties: {openSignup: {type: boolean}, emailEnabled: {type: boolean}, hostedMode: {type: boolean}, requirePow: {type: boolean, description: "Sign-up needs a proof of work"}, baseUrl: {type: string, description: "Configured public address (GUNKLY_BASE_URL), empty when not set"}, mcpEnabled: {type: boolean, description: "The MCP endpoint /mcp is served"}, sso: {type: object, properties: {name: {type: string, description: "Button label from GUNKLY_OIDC_NAME; may be empty"}}, description: "Present only while single sign-on is configured (self-hosted)"}, passkeysAvailable: {type: boolean, description: "GUNKLY_BASE_URL is https (or localhost), so passkeys can be registered and used"}, oauthEnabled: {type: boolean, description: "Present (true) only while OAuth sign-in for MCP clients is on; absent otherwise"}, webhooksEnabled: {type: boolean, description: "Present (true) only while outgoing webhooks are on; absent otherwise"}, signinAlerts: {type: boolean, description: "Present (true) only while the instance can tell where a sign-in came from (a trusted-proxy country header or GeoIP database), so unusual sign-in emails are possible; absent otherwise"}, aiEnabled: {type: boolean, description: "Present (true) only while AI chore suggestions are configured and on; absent otherwise"}, privacyUrl: {type: string, description: "Hosted service only (GUNKLY_PRIVACY_URL): link to its privacy policy; absent otherwise"}, termsUrl: {type: string, description: "Hosted service only (GUNKLY_TERMS_URL): link to its terms of use; absent otherwise"}}}}}}
+        "200": {description: OK, content: {application/json: {schema: {type: object, properties: {minPasswordLength: {type: integer, description: "Shortest password the admin allows (new accounts, resets and changes)"}, openSignup: {type: boolean}, emailEnabled: {type: boolean}, hostedMode: {type: boolean}, requirePow: {type: boolean, description: "Sign-up needs a proof of work"}, baseUrl: {type: string, description: "Configured public address (GUNKLY_BASE_URL), empty when not set"}, mcpEnabled: {type: boolean, description: "The MCP endpoint /mcp is served"}, sso: {type: object, properties: {name: {type: string, description: "Button label from GUNKLY_OIDC_NAME; may be empty"}}, description: "Present only while single sign-on is configured (self-hosted)"}, passkeysAvailable: {type: boolean, description: "GUNKLY_BASE_URL is https (or localhost), so passkeys can be registered and used"}, oauthEnabled: {type: boolean, description: "Present (true) only while OAuth sign-in for MCP clients is on; absent otherwise"}, webhooksEnabled: {type: boolean, description: "Present (true) only while outgoing webhooks are on; absent otherwise"}, signinAlerts: {type: boolean, description: "Present (true) only while the instance can tell where a sign-in came from (a trusted-proxy country header or GeoIP database), so unusual sign-in emails are possible; absent otherwise"}, aiEnabled: {type: boolean, description: "Present (true) only while AI chore suggestions are configured and on; absent otherwise"}, privacyUrl: {type: string, description: "Hosted service only (GUNKLY_PRIVACY_URL): link to its privacy policy; absent otherwise"}, termsUrl: {type: string, description: "Hosted service only (GUNKLY_TERMS_URL): link to its terms of use; absent otherwise"}}}}}}
   /signup/challenge:
     get:
       tags: [setup]
@@ -783,6 +783,15 @@ paths:
         "204": {description: Revoked}
         "403": {$ref: "#/components/responses/Forbidden"}
         "404": {$ref: "#/components/responses/NotFound"}
+  /invites/{token}:
+    parameters: [{name: token, in: path, required: true, schema: {type: string}}]
+    get:
+      tags: [households]
+      summary: What an invite link joins (public; only while the link is valid)
+      responses:
+        "200": {description: OK, content: {application/json: {schema: {type: object, required: [householdName], properties: {householdName: {type: string}, inviterName: {type: string, description: "Display name of whoever created the link; absent when that account no longer exists"}}}}}}
+        "404": {description: "Unknown, revoked, expired or used-up link (all answer the same)", content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}}
+        "429": {$ref: "#/components/responses/RateLimited"}
   /invites/{token}/accept:
     parameters: [{name: token, in: path, required: true, schema: {type: string}}]
     post:

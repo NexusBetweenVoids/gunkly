@@ -39,6 +39,7 @@
   "field.usernameHint": "2 tot 32 letters, cijfers, punten, streepjes of underscores.",
   "field.emailOptional": "E-mailadres (optioneel)",
   "field.password": "Wachtwoord",
+  "field.passwordHint": "Minimaal {n} tekens.",
   "field.timezone": "Tijdzone",
   "field.timezoneHint": "Begin te typen om te zoeken, bijvoorbeeld Europe/Amsterdam.",
   "signIn.twoFactor": "Voer de code uit je authenticator-app in om het inloggen af te ronden.",

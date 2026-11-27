@@ -39,6 +39,7 @@
   "field.usernameHint": "2 to 32 letters, numbers, dots, dashes or underscores.",
   "field.emailOptional": "Email (optional)",
   "field.password": "Password",
+  "field.passwordHint": "At least {n} characters.",
   "field.timezone": "Time zone",
   "field.timezoneHint": "Start typing to search, for example Europe/Berlin.",
   "signIn.twoFactor": "Enter the code from your authenticator app to finish signing in.",

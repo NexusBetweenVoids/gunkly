@@ -27,7 +27,7 @@
   }
 </script>
 
-<section class="card narrow">
+<section class="card narrow auth">
   <h1>{t('forgot.title')}</h1>
   {#if sent}
     <p role="status">{t('forgot.sent')}</p>

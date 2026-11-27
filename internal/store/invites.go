@@ -132,6 +132,25 @@ func (s *Store) InviteHousehold(ctx context.Context, tokenHash string) (string, 
 	return hh, notFound(err)
 }
 
+// InvitePreview is what an invite link shows before anyone joins with it.
+type InvitePreview struct {
+	HouseholdName string
+	InviterName   string // display name of whoever created it; "" when that account is gone
+}
+
+// PreviewInvite returns the household name and inviter of a valid (unexpired,
+// unrevoked, not used up) invite. ErrNotFound otherwise, so a dead link
+// reveals nothing.
+func (s *Store) PreviewInvite(ctx context.Context, tokenHash string) (InvitePreview, error) {
+	var p InvitePreview
+	err := s.db.QueryRowContext(ctx, s.d.Rebind(`SELECT h.name, COALESCE(u.display_name, '') FROM invites i
+		JOIN households h ON h.id = i.household_id
+		LEFT JOIN users u ON u.id = i.created_by
+		WHERE i.token_hash = ? AND i.revoked_at IS NULL AND i.expires_at > ? AND i.uses < i.max_uses`),
+		tokenHash, s.nowMS()).Scan(&p.HouseholdName, &p.InviterName)
+	return p, notFound(err)
+}
+
 // JoinLimits are the caps enforced when someone joins by invite.
 type JoinLimits struct {
 	MaxMembers    int // members in the household

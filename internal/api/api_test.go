@@ -1263,6 +1263,66 @@ func TestInviteMaxUses(t *testing.T) {
 	}
 }
 
+// The invite page learns the household and inviter while the link is valid,
+// and nothing once it is revoked, used up or expired.
+func TestPreviewInvite(t *testing.T) {
+	f := newHH(t)
+	base := "/api/v1/households/" + f.hA
+	st, v := f.a.do("POST", base+"/invites", map[string]any{"role": "member"})
+	expect(t, st, v, 201, "")
+	tok := field(v, "token").(string)
+	anon := f.e.client()
+	st, v = anon.do("GET", "/api/v1/invites/"+tok, nil)
+	expect(t, st, v, 200, "")
+	if field(v, "householdName") != "A" || field(v, "inviterName") != "a" {
+		t.Fatalf("preview: %v", v)
+	}
+	if m := v.(map[string]any); len(m) != 2 {
+		t.Fatalf("preview reveals more than name and inviter: %v", v)
+	}
+	for _, bad := range []string{"nope", strings.Repeat("x", 129)} {
+		st, v = anon.do("GET", "/api/v1/invites/"+bad, nil)
+		expect(t, st, v, 404, "not_found")
+	}
+	// Revoked.
+	st, v = f.a.do("POST", base+"/invites", map[string]any{"role": "member"})
+	expect(t, st, v, 201, "")
+	revTok, revID := field(v, "token").(string), field(v, "id").(string)
+	st, v = f.a.do("DELETE", base+"/invites/"+revID, nil)
+	if st != 204 && st != 200 {
+		t.Fatalf("revoke: %d %v", st, v)
+	}
+	st, v = anon.do("GET", "/api/v1/invites/"+revTok, nil)
+	expect(t, st, v, 404, "not_found")
+	// Used up.
+	st, v = f.x.do("POST", "/api/v1/invites/"+tok+"/accept", nil)
+	expect(t, st, v, 200, "")
+	st, v = anon.do("GET", "/api/v1/invites/"+tok, nil)
+	expect(t, st, v, 404, "not_found")
+	// Expired.
+	st, v = f.a.do("POST", base+"/invites", map[string]any{"role": "member"})
+	expect(t, st, v, 201, "")
+	expTok := field(v, "token").(string)
+	f.e.clock.Add(31 * 24 * time.Hour)
+	st, v = anon.do("GET", "/api/v1/invites/"+expTok, nil)
+	expect(t, st, v, 404, "not_found")
+}
+
+// The sign-up and reset forms show the admin's minimum password length.
+func TestInstanceShowsMinPasswordLength(t *testing.T) {
+	e := newEnv(t)
+	if _, v := e.client().do("GET", "/api/v1/instance", nil); field(v, "minPasswordLength") != float64(auth.DefaultMinPasswordLen) {
+		t.Fatalf("default: %v", v)
+	}
+	n := 14
+	if err := e.st.UpdateInstanceSettings(context.Background(), store.SettingsUpdate{MinPasswordLength: &n}); err != nil {
+		t.Fatal(err)
+	}
+	if _, v := e.client().do("GET", "/api/v1/instance", nil); field(v, "minPasswordLength") != 14.0 {
+		t.Fatalf("set: %v", v)
+	}
+}
+
 func TestBaseURLMismatchIsExplained(t *testing.T) {
 	e := newEnv(t, func(o *Options) { o.BaseURL = "http://localhost:4865" })
 	for _, tc := range []struct{ name, origin, want string }{

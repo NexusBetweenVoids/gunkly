@@ -256,7 +256,7 @@
         </fieldset>
       {/each}
       <Alert message={err} />
-      <div class="row">
+      <div class="actions">
         <Button {busy} disabled={!picked.length} onclick={addChores}>{t('welcome.addChores', { count: picked.length })}</Button>
         <Button variant="quiet" onclick={afterChores}>{t('welcome.skip')}</Button>
       </div>
@@ -268,7 +268,7 @@
       {#if link}
         <p class="mono link">{link}</p>
         <p class="hint">{t('invite.linkOnce')}</p>
-        <div class="row">
+        <div class="actions">
           {#if canShare}<Button onclick={share}>{t('welcome.share')}</Button>{/if}
           <Button variant={canShare ? 'quiet' : 'primary'} onclick={() => copyText(link)}>{t('common.copy')}</Button>
         </div>
@@ -276,7 +276,7 @@
         <div><Button variant="quiet" {busy} onclick={makeInvite}>{t('welcome.makeInvite')}</Button></div>
       {/if}
       <Alert message={err} />
-      <div class="row finish">
+      <div class="actions finish">
         <Button onclick={() => (step = 'secure')}>{t('welcome.next')}</Button>
       </div>
     </div>
@@ -287,7 +287,7 @@
       {#if app.instance.passkeysAvailable}<Passkeys />{/if}
       <Totp />
       <p class="hint">{t('welcome.secureLater')}</p>
-      <div class="row finish">
+      <div class="actions finish">
         <Button onclick={finish}>{t('welcome.finish')}</Button>
       </div>
     </div>
@@ -341,8 +341,31 @@
     border-color: var(--accent);
     color: var(--accent-text);
   }
+  /* Step names break between words only, never inside one ("Househol/d"). */
   .lbl {
-    overflow-wrap: anywhere;
+    overflow-wrap: normal;
+    hyphens: manual;
+  }
+  /* Phone: the columns are too narrow for every name, so only the current step shows its
+     name; the others keep theirs for screen readers. */
+  @media (max-width: 47.99rem) {
+    .welcome h1 {
+      font-size: 1.75rem;
+    }
+    .progress li {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .progress li[aria-current='step'] .lbl {
+      white-space: nowrap; /* centred under its dot, free to reach into the empty columns beside it */
+    }
+    .progress li:not([aria-current='step']) .lbl {
+      position: absolute;
+      inline-size: 1px;
+      block-size: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
   }
   .group {
     display: grid;

@@ -306,6 +306,26 @@ func (s *Server) inviteTarget(ctx context.Context, r *http.Request) (string, sto
 	return hash, lim, nil
 }
 
+// previewInvite tells the invite page which household the link joins and who
+// sent it. Public (whoever holds the link); a revoked, expired or used-up link
+// answers not_found like an unknown one.
+func (s *Server) previewInvite(w http.ResponseWriter, r *http.Request, _ *call) error {
+	token := r.PathValue("token")
+	if token == "" || len(token) > 128 {
+		return errNotFound
+	}
+	p, err := s.st.PreviewInvite(r.Context(), ids.Hash(token))
+	if err != nil {
+		return err
+	}
+	return ok(w, invitePreviewView{HouseholdName: p.HouseholdName, InviterName: p.InviterName})
+}
+
+type invitePreviewView struct {
+	HouseholdName string `json:"householdName"`
+	InviterName   string `json:"inviterName,omitempty"`
+}
+
 type joinedView struct {
 	HouseholdID string     `json:"householdId"`
 	Role        store.Role `json:"role"`

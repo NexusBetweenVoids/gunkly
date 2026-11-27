@@ -48,7 +48,7 @@
   }
 </script>
 
-<section class="card narrow">
+<section class="card narrow auth">
   <h1>{t('signIn.createAccount')}</h1>
   {#if !app.instance.openSignup}
     <p class="muted">{t('signup.closed')}</p>
@@ -83,11 +83,13 @@
         type="password"
         bind:value={password}
         autocomplete="new-password"
+        hint={app.instance.minPasswordLength ? t('field.passwordHint', { n: app.instance.minPasswordLength }) : ''}
         required
         error={pwCodes.includes(err.code) ? err.message : ''}
       />
       {#if !pwCodes.includes(err.code)}<Alert message={err.message} />{/if}
-      <p class="muted" role="status" aria-live="polite">
+      <!-- Proof-of-work progress: a live region kept out of the layout until it has something to say. -->
+      <p class="muted" class:visually-hidden={percent < 0} role="status" aria-live="polite">
         {#if percent >= 0}{t('signup.working')} {t('signup.progress', { percent })}{/if}
       </p>
       <LegalLinks agree />

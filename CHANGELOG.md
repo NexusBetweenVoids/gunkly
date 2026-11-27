@@ -10,6 +10,11 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 - Navigation uses line icons (house, calendar, plus, gear) instead of text characters, in both the sidebar and the phone tab bar; the desktop sidebar now runs the full height of long pages.
 - With more than one household, the household name in the header shows a chevron so it reads as a switcher (still a native select for keyboard and screen readers).
 - On phones, a Settings or Administration page shows a small back link and the page's own name as its title, instead of "Settings" twice.
+- Sign-in and sign-up screens: an invite link now says which household it joins and who sent it ("Join Maple Street 12 · Alex invited you"), and a revoked, expired or used link says so at once instead of showing a form; new-password fields show the admin's minimum length; the empty gap above "Create account" is gone; "Choose a new password" has a way back to sign-in, and an expired email-confirmation link a button onwards; main buttons span these narrow cards at every width and titles are a size smaller. Welcome steps never break a name mid-word on phones (only the current step is named there).
+
+### Added
+
+- API: `GET /api/v1/invites/{token}` (public) returns the household name and inviter of a valid invite link; `GET /api/v1/instance` includes `minPasswordLength`.
 
 ## [0.12.2] - 2026-11-27
 

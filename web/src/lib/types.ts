@@ -28,7 +28,7 @@ export type SessionView = {
   emailSent?: boolean; // the emailed code went out (with a passkey offered: only on request)
   user?: Me;
 };
-export type Instance = { openSignup: boolean; emailEnabled: boolean; hostedMode: boolean; requirePow: boolean; baseUrl?: string; passkeysAvailable?: boolean; sso?: { name: string }; mcpEnabled?: boolean; oauthEnabled?: boolean; webhooksEnabled?: boolean; signinAlerts?: boolean; aiEnabled?: boolean; privacyUrl?: string; termsUrl?: string };
+export type Instance = { minPasswordLength?: number; openSignup: boolean; emailEnabled: boolean; hostedMode: boolean; requirePow: boolean; baseUrl?: string; passkeysAvailable?: boolean; sso?: { name: string }; mcpEnabled?: boolean; oauthEnabled?: boolean; webhooksEnabled?: boolean; signinAlerts?: boolean; aiEnabled?: boolean; privacyUrl?: string; termsUrl?: string };
 export type Household = {
   id: string;
   name: string;
