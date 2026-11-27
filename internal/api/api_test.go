@@ -460,6 +460,33 @@ func TestLoginLogout(t *testing.T) {
 	}
 }
 
+// A page opened with a session cookie that is no longer valid (signed out or
+// revoked elsewhere, expired, or a sign-out the browser never saw the answer
+// to) must still be able to sign in: GET /session forgets the dead session but
+// leaves a CSRF cookie that matches the token it returns.
+func TestDeadSessionKeepsCSRF(t *testing.T) {
+	e := newEnv(t)
+	e.user("ann", false)
+	c := e.signedIn("ann")
+	other := e.signedIn("ann")
+	st, v := other.do("DELETE", "/api/v1/sessions", nil)
+	if st != 200 || field(v, "revoked") != 1.0 {
+		t.Fatalf("revoke others: %d %v", st, v)
+	}
+	st, v = c.do("GET", "/api/v1/session", nil)
+	if st != 200 || field(v, "authenticated") == true {
+		t.Fatalf("session: %d %v", st, v)
+	}
+	if c.cookie(sessionCookie) != "" {
+		t.Fatal("dead session cookie kept")
+	}
+	if csrf := c.cookie(csrfCookie); len(csrf) < 32 || field(v, "csrf") != csrf {
+		t.Fatalf("CSRF cookie %q does not match the returned token %v", csrf, field(v, "csrf"))
+	}
+	st, v = c.login("ann", nil)
+	expect(t, st, v, 200, "")
+}
+
 func TestSessionExpiry(t *testing.T) {
 	e := newEnv(t)
 	e.user("ann", false)

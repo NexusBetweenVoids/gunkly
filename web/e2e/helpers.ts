@@ -61,6 +61,9 @@ export class Api {
 /** Number of emails sent so far; pass it to nextMail as `after` to wait for a new one. */
 export const mailMark = (): number => readMails(mailFile).length;
 
+/** Number of emails sent so far to `to` only; unlike mailMark, unaffected by other tests running in parallel. */
+export const mailsTo = (to: string): number => readMails(mailFile).filter((m) => m.to.includes(to)).length;
+
 export type Sent = { to: string; subject: string; body: string; link: string; code: string };
 
 /** Waits for an email to `to` whose subject matches, sent after `after` (from mailMark). */
@@ -251,4 +254,14 @@ export async function headerItem(page: Page, role: 'link' | 'button', name: stri
     if ((await menu.getAttribute('aria-expanded')) !== 'true') await menu.click();
   }
   return nav.getByRole(role, { name });
+}
+
+/**
+ * Signs out from the header and waits until the app is on the sign-in page, which it opens only
+ * after the server answered. Navigating away sooner (page.goto) aborts the sign-out request, so the
+ * session may or may not end and the next step races it.
+ */
+export async function signOut(page: Page): Promise<void> {
+  await (await headerItem(page, 'button', 'Sign out')).click();
+  await expect(page).toHaveURL(/\/signin/);
 }
