@@ -53,6 +53,26 @@ test('welcome flow: household, starter chores spread over the week, invite link,
   );
   expect(chores.every((c) => c.areaId)).toBe(true);
   expect(new Set(chores.map((c) => c.dueDate)).size).toBeGreaterThan(1);
+
+  // Run the setup again from Settings: the household is offered, chores already there are left out.
+  await page.goto('/settings/profile');
+  await page.getByRole('link', { name: 'Go through the setup again' }).click();
+  await expect(page).toHaveURL(/\/welcome$/);
+  await expect(page.getByRole('heading', { name: 'Which household?' })).toBeVisible();
+  await expect(page.getByLabel('Test home')).toBeChecked();
+  await expect(page.getByLabel('Household name')).toHaveCount(0);
+  await axe(page, 'welcome again: household');
+  await page.getByRole('button', { name: 'Next' }).click();
+  await expect(page.getByLabel('Take out trash')).not.toBeChecked();
+  await expect(page.getByLabel('Vacuum')).toBeChecked();
+  await expect(page.getByText('Already there').first()).toBeVisible();
+  await page.getByRole('button', { name: 'Add 1 chore' }).click();
+  await expect(page.getByRole('heading', { name: 'Invite someone' })).toBeVisible();
+  await page.getByRole('button', { name: 'Next' }).click();
+  await page.getByRole('button', { name: 'Go to my chores' }).click();
+  const after = await u.api.get<{ name: string }[]>(`/households/${hh.id}/chores`);
+  expect(after.map((c) => c.name).sort()).toEqual([...chores.map((c) => c.name), 'Vacuum'].sort());
+  expect((await u.api.get<unknown[]>('/households')).length).toBe(1);
 });
 
 test('sign-in page: a clear way in for new people when sign-up is open', async ({ world }) => {

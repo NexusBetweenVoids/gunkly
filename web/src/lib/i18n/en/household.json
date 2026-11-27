@@ -200,5 +200,9 @@
   "welcome.secureTitle": "Secure your account",
   "welcome.secureHintEmail": "You already get a code by email when you sign in. A passkey (your fingerprint, face or device PIN) is quicker and safer, and an authenticator app works without email. Recommended, but you can skip this.",
   "welcome.secureHint": "Add a second step to signing in, so a password alone is not enough: a passkey (your fingerprint, face or device PIN) or an authenticator app. Recommended, but you can skip this.",
-  "welcome.secureLater": "You can do this any time later under Settings, Sign-in & security."
+  "welcome.secureLater": "You can do this any time later under Settings, Sign-in & security.",
+  "welcome.introAgain": "Go through the setup again: pick a household, add starter chores, invite someone and secure your account. Every step can be skipped.",
+  "welcome.chooseTitle": "Which household?",
+  "welcome.chooseNew": "Create a new household",
+  "welcome.alreadyThere": "Already there"
 }

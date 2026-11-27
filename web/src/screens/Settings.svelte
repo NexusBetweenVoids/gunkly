@@ -16,6 +16,7 @@
   import Password from './account/Password.svelte';
   import PushNotifications from './account/PushNotifications.svelte';
   import Profile from './account/Profile.svelte';
+  import SetupAgain from './account/SetupAgain.svelte';
   import Sessions from './account/Sessions.svelte';
   import Sso from './account/Sso.svelte';
   import Totp from './account/Totp.svelte';
@@ -51,6 +52,7 @@
     {:else if g === 'profile'}
       <Profile />
       <Email />
+      <SetupAgain />
     {:else if g === 'security'}
       <Password />
       <Passkeys />

@@ -1,7 +1,9 @@
 <script lang="ts">
   // First run for someone without a household: confirm the email (hosted service), name the household,
   // pick a few starter chores, invite someone. Every step after the household can be skipped, and
-  // everything can be changed later in the normal screens.
+  // everything can be changed later in the normal screens. Run again (Settings, Profile) by someone
+  // who already has a household: the household step offers theirs, starter chores already there
+  // are left out, and the invite step only shows for owners.
   import Alert from '../components/Alert.svelte';
   import Button from '../components/Button.svelte';
   import Field from '../components/Field.svelte';
@@ -15,16 +17,28 @@
   import { t, type Key } from '../lib/i18n';
   import { nameOf, UNIT } from '../lib/names';
   import { navigate } from '../lib/router.svelte';
-  import { app, refreshHouseholds, selectHousehold } from '../lib/session.svelte';
+  import { app, currentHousehold, refreshHouseholds, selectHousehold } from '../lib/session.svelte';
   import { toast } from '../lib/toast.svelte';
-  import type { Area, Household, Template } from '../lib/types';
+  import type { Area, Chore, Household, Template } from '../lib/types';
   import { localZone, zones } from '../lib/zones';
 
   type Step = 'verify' | 'household' | 'chores' | 'invite' | 'secure';
   // The hosted service needs a confirmed email address (which also turns on two-step verification)
   // before a household can be created; self-hosted instances skip that step.
   const needsVerify = $derived(app.instance.hostedMode && !!app.user?.email && !app.user.emailVerified);
-  const steps = $derived<Step[]>(app.instance.hostedMode ? ['verify', 'household', 'chores', 'invite', 'secure'] : ['household', 'chores', 'invite', 'secure']);
+  // Households this person can add chores to (a guest cannot), offered when running the setup again.
+  const usable = app.households.filter((h) => h.role !== 'guest');
+  const again = usable.length > 0;
+  let hh = $state<Household | null>(null);
+  // Only owners can invite: for a household of someone else's, that step is left out.
+  const canInvite = $derived(!hh || hh.role === 'owner');
+  const steps = $derived<Step[]>([
+    ...(app.instance.hostedMode ? (['verify'] as Step[]) : []),
+    'household',
+    'chores',
+    ...(canInvite ? (['invite'] as Step[]) : []),
+    'secure',
+  ]);
   let step = $state<Step>('household');
   $effect(() => {
     if (step === 'verify' && !needsVerify) step = 'household';
@@ -56,11 +70,21 @@
   let timezone = $state(localZone);
   let areas = $state(false); // opt-in: grouping by area is something to choose, not a default
   let tzErr = $state('');
-  let hh = $state<Household | null>(null);
+  const cur = currentHousehold();
+  let choice = $state(again ? (cur && usable.some((h) => h.id === cur.id) ? cur.id : usable[0].id) : 'new');
 
   async function createHousehold(e: SubmitEvent): Promise<void> {
     e.preventDefault();
     err = '';
+    const existing = usable.find((h) => h.id === choice);
+    if (existing) {
+      hh = existing;
+      areas = existing.areasEnabled;
+      selectHousehold(existing.id);
+      step = 'chores';
+      void loadTemplates();
+      return;
+    }
     tzErr = zones.includes(timezone) || timezone === localZone ? '' : t('field.timezoneInvalid');
     if (tzErr) return;
     busy = true;
@@ -81,6 +105,7 @@
   const PICKED = ['take_out_trash', 'vacuum', 'clean_bathroom', 'change_bedding', 'wipe_counters', 'water_plants'];
   let templates = $state<Template[]>([]);
   let picked = $state<string[]>([...PICKED]);
+  let have = $state<string[]>([]); // templates whose chore the household already has (by name)
   const groups = $derived.by(() => {
     const by = new Map<string, Template[]>();
     for (const tp of templates) by.set(tp.area, [...(by.get(tp.area) ?? []), tp]);
@@ -88,7 +113,14 @@
   });
   async function loadTemplates(): Promise<void> {
     try {
-      templates = await api<Template[]>('GET', '/templates');
+      const [list, chores] = await Promise.all([
+        api<Template[]>('GET', '/templates'),
+        hh && again ? api<Chore[]>('GET', `/households/${hh.id}/chores`) : Promise.resolve([] as Chore[]),
+      ]);
+      const names = new Set(chores.map((c) => c.name.trim().toLowerCase()));
+      have = list.filter((tp) => names.has(nameOf('template', tp.key).toLowerCase())).map((tp) => tp.key);
+      picked = picked.filter((k) => !have.includes(k));
+      templates = list;
     } catch (x) {
       err = failure(x).message;
     }
@@ -126,13 +158,15 @@
         });
       }
       if (chosen.length) toast(t('welcome.choresAdded', { count: chosen.length }));
-      step = 'invite';
+      afterChores();
     } catch (x) {
       err = failure(x).message;
     } finally {
       busy = false;
     }
   }
+
+  const afterChores = () => (step = canInvite ? 'invite' : 'secure');
 
   // Step: invite.
   let link = $state('');
@@ -163,7 +197,7 @@
 <section class="card narrow stack welcome">
   <div>
     <h1>{t('welcome.title')}</h1>
-    <p class="muted">{t('welcome.intro')}</p>
+    <p class="muted">{again ? t('welcome.introAgain') : t('welcome.intro')}</p>
   </div>
   <ol class="progress" aria-label={t('welcome.progress')}>
     {#each steps as s, i (s)}
@@ -183,13 +217,25 @@
     </div>
   {:else if step === 'household'}
     <form class="stack" onsubmit={createHousehold}>
-      <h2>{t('welcome.householdTitle')}</h2>
-      <p class="hint">{t('welcome.householdHint')}</p>
-      <Field label={t('household.name')} bind:value={name} required maxlength={100} />
-      <TimeZone bind:value={timezone} error={tzErr} />
-      <label class="check"><input type="checkbox" bind:checked={areas} />{t('welcome.areas')}</label>
+      {#if again}
+        <fieldset class="plain-fieldset stack-sm">
+          <legend><h2>{t('welcome.chooseTitle')}</h2></legend>
+          {#each usable as h (h.id)}
+            <label class="check"><input type="radio" name="hh" value={h.id} bind:group={choice} />{h.name}</label>
+          {/each}
+          <label class="check"><input type="radio" name="hh" value="new" bind:group={choice} />{t('welcome.chooseNew')}</label>
+        </fieldset>
+      {:else}
+        <h2>{t('welcome.householdTitle')}</h2>
+        <p class="hint">{t('welcome.householdHint')}</p>
+      {/if}
+      {#if choice === 'new'}
+        <Field label={t('household.name')} bind:value={name} required maxlength={100} />
+        <TimeZone bind:value={timezone} error={tzErr} />
+        <label class="check"><input type="checkbox" bind:checked={areas} />{t('welcome.areas')}</label>
+      {/if}
       <Alert message={err} />
-      <div><Button type="submit" {busy}>{t('welcome.householdNext')}</Button></div>
+      <div><Button type="submit" {busy}>{choice === 'new' ? t('welcome.householdNext') : t('welcome.next')}</Button></div>
     </form>
   {:else if step === 'chores'}
     <div class="stack">
@@ -203,7 +249,7 @@
             <label class="pick">
               <input type="checkbox" checked={picked.includes(tp.key)} onchange={() => toggle(tp.key)} />
               <span>{nameOf('template', tp.key)}</span>
-              <span class="muted every">{every(tp)}</span>
+              <span class="muted every">{have.includes(tp.key) ? t('welcome.alreadyThere') : every(tp)}</span>
             </label>
           {/each}
         </fieldset>
@@ -211,7 +257,7 @@
       <Alert message={err} />
       <div class="row">
         <Button {busy} disabled={!picked.length} onclick={addChores}>{t('welcome.addChores', { count: picked.length })}</Button>
-        <Button variant="quiet" onclick={() => (step = 'invite')}>{t('welcome.skip')}</Button>
+        <Button variant="quiet" onclick={afterChores}>{t('welcome.skip')}</Button>
       </div>
     </div>
   {:else if step === 'invite'}

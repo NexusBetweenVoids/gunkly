@@ -4,6 +4,10 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ## [Unreleased]
 
+### Added
+
+- Settings, Profile: "Go through the setup again" reruns the welcome flow. With a household already, it offers that household (or a new one), leaves out starter chores the household already has, and shows the invite step only to owners.
+
 ## [0.11.0] - 2026-11-27
 
 ### Changed
