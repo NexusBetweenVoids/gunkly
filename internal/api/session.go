@@ -26,10 +26,14 @@ func (s *Server) cookie(name, value string, httpOnly bool, expires time.Time) *h
 
 func (s *Server) clearCookies(w http.ResponseWriter) {
 	for _, n := range []string{sessionCookie, csrfCookie} {
-		c := s.cookie(n, "", n == sessionCookie, time.Time{}) //nolint:gosec // G124: see cookie
-		c.MaxAge = -1
-		http.SetCookie(w, c)
+		s.clearCookie(w, n)
 	}
+}
+
+func (s *Server) clearCookie(w http.ResponseWriter, name string) {
+	c := s.cookie(name, "", name == sessionCookie, time.Time{}) //nolint:gosec // G124: see cookie
+	c.MaxAge = -1
+	http.SetCookie(w, c)
 }
 
 // ensureCSRF returns the request's CSRF cookie value, setting a new one if
@@ -84,7 +88,10 @@ func (s *Server) sessionExpired(ss store.Session, now time.Time) bool {
 }
 
 // authenticate resolves the session cookie, enforcing idle and absolute
-// expiry and throttled last-seen updates.
+// expiry and throttled last-seen updates. A dead session cookie is cleared,
+// but not the CSRF cookie: it is not tied to the session (sign-in rotates it),
+// and GET /session has already handed its value out in this same response
+// (deleting it there left the sign-in page without a token).
 func (s *Server) authenticate(w http.ResponseWriter, r *http.Request) (store.Session, store.User, bool) {
 	c, err := r.Cookie(sessionCookie)
 	if err != nil || c.Value == "" || len(c.Value) > 128 {
@@ -96,13 +103,13 @@ func (s *Server) authenticate(w http.ResponseWriter, r *http.Request) (store.Ses
 		if !errors.Is(err, store.ErrNotFound) {
 			s.log.Error("session lookup", "err", err)
 		}
-		s.clearCookies(w)
+		s.clearCookie(w, sessionCookie)
 		return store.Session{}, store.User{}, false
 	}
 	now := s.now()
 	if s.sessionExpired(ss, now) {
 		_ = s.st.DeleteSession(ctx, ss.UserID, ss.ID)
-		s.clearCookies(w)
+		s.clearCookie(w, sessionCookie)
 		return store.Session{}, store.User{}, false
 	}
 	if now.Sub(ss.LastSeenAt) > sessionTouchEvery {

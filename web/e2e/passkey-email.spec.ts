@@ -1,4 +1,4 @@
-import { axe, expect, headerItem, mailMark, nextMail, PASSWORD, test, uniq } from './helpers';
+import { axe, expect, mailMark, mailsTo, nextMail, PASSWORD, signOut, test, uniq } from './helpers';
 
 
 // An account with email codes and a passkey: signing in offers the passkey first and sends no email
@@ -53,15 +53,15 @@ test('passkey first: no email until asked; recovery codes can be renewed', async
   await expect(passkeys.getByText('Virtual key')).toBeVisible();
 
   // Sign in again: the passkey is offered first and no email goes out.
-  await (await headerItem(page, 'button', 'Sign out')).click();
-  const mark2 = mailMark();
+  await signOut(page);
+  const mark2 = mailsTo(email);
   await signIn();
   await expect(page.getByRole('button', { name: 'Use a passkey' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Email me a code instead' })).toBeVisible();
   await expect(page.getByLabel('Code from your email')).toHaveCount(0);
   await axe(page, 'second step: passkey first');
   await page.waitForTimeout(1500);
-  expect(mailMark()).toBe(mark2);
+  expect(mailsTo(email)).toBe(mark2);
   await page.getByRole('button', { name: 'Use a passkey' }).click();
   await expect(page).toHaveURL(/\/$/);
 

@@ -1,4 +1,4 @@
-import { axe, expect, headerItem, test } from './helpers';
+import { axe, expect, signOut, test } from './helpers';
 
 // Passkeys with Chromium's virtual authenticator (CDP WebAuthn domain): a resident,
 // user-verifying platform authenticator that approves every prompt.
@@ -41,7 +41,7 @@ test('passkeys: add one, sign in without a password, use it as second factor, re
   await axe(page, 'passkey list');
 
   // Passwordless: no username, no password.
-  await (await headerItem(page, 'button', 'Sign out')).click();
+  await signOut(page);
   await page.goto('/signin');
   await axe(page, 'sign-in with passkey button');
   await page.getByRole('button', { name: 'Sign in with a passkey' }).click();
@@ -51,7 +51,7 @@ test('passkeys: add one, sign in without a password, use it as second factor, re
   await expect(page.getByRole('region', { name: 'Passkeys' }).getByText(/last used/)).toBeVisible();
 
   // As the second factor after a password.
-  await (await headerItem(page, 'button', 'Sign out')).click();
+  await signOut(page);
   await page.goto('/signin');
   await page.getByLabel('Email or username').fill(u.username);
   await page.getByLabel('Password').fill(u.password);

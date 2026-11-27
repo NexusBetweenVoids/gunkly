@@ -3,7 +3,7 @@ import { createServer } from 'node:http';
 import { readFileSync } from 'node:fs';
 import type { AddressInfo } from 'node:net';
 import { request } from '@playwright/test';
-import { axe, expect, headerItem, nextIP, test, uniq } from './helpers';
+import { axe, expect, nextIP, signOut, test, uniq } from './helpers';
 import { idpFile } from './global-setup';
 
 // The OAuth consent page confirms with a passkey or the identity provider (ADR 0016, 0018): the page is a
@@ -62,7 +62,7 @@ test('oauth consent: a passkey confirms the app, no password typed', async ({ wo
   await confirm.getByRole('button', { name: 'Confirm' }).click();
   await section.getByRole('button', { name: "I've saved them" }).click();
   await expect(section.getByText('Consent key')).toBeVisible();
-  await (await headerItem(page, 'button', 'Sign out')).click();
+  await signOut(page);
   await page.goto('/signin');
   await page.getByRole('button', { name: 'Sign in with a passkey' }).click();
   await expect(page).not.toHaveURL(/signin/);

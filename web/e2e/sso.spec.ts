@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { request } from '@playwright/test';
-import { axe, expect, headerItem, test, uniq } from './helpers';
+import { axe, expect, signOut, test, uniq } from './helpers';
 import { idpFile } from './global-setup';
 
 // Single sign-on against the fake OpenID Connect provider started by global-setup (idp.ts).
@@ -34,7 +34,7 @@ test('single sign-on: link an account, sign in with it, unlink', async ({ world 
   await expect(section.getByText(/Linked since/)).toBeVisible();
 
   // Signed out, the button on the sign-in page signs in as the linked account, no password asked.
-  await (await headerItem(page, 'button', 'Sign out')).click();
+  await signOut(page);
   await page.goto('/signin');
   await axe(page, 'sign-in with single sign-on button');
   await asProviderUser({ sub, preferred_username: 'whatever' });

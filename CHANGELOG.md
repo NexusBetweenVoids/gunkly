@@ -4,6 +4,10 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ## [Unreleased]
 
+### Fixed
+
+- Opening Gunkly with a session that had ended (signed out or revoked elsewhere, expired) no longer deletes the page's CSRF cookie along with it, so the first sign-in there no longer fails with "Your session expired" (it used to need the client's retry or a reload).
+
 ## [0.13.0] - 2026-11-28
 
 A design pass across every screen: calmer spacing, line icons, denser lists on phones, and settings pages that say plainly where you stand.
