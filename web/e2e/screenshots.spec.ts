@@ -1,46 +1,33 @@
-import { expect, setTheme, test, ymd } from './helpers';
+import { seedDemo } from "./demo";
+import { expect, setTheme, test } from "./helpers";
 
 // README and website screenshots with synthetic demo data (Alex, Sam, "Maple Street 12").
 // Skipped in normal runs; `npm run screenshots` writes docs/assets/screens/*.png.
 // Run it before every release; the website copies these files (`npm run sync` there).
-test.skip(!process.env.GUNKLY_SCREENSHOTS, 'set GUNKLY_SCREENSHOTS=1 (npm run screenshots)');
-const OUT = '../docs/assets/screens/';
-test('README and website screenshots', async ({ world, browser }) => {
+test.skip(
+  !process.env.GUNKLY_SCREENSHOTS,
+  "set GUNKLY_SCREENSHOTS=1 (npm run screenshots)",
+);
+const OUT = "../docs/assets/screens/";
+test("README and website screenshots", async ({ world, browser }) => {
   test.setTimeout(120_000);
-  const alex = await world.newUser();
-  await alex.api.call('PATCH', '/me', { displayName: 'Alex' });
-  const sam = await world.newUser();
-  await sam.api.call('PATCH', '/me', { displayName: 'Sam' });
-  const h = await world.household(alex, 'Maple Street 12', { areas: true });
-  const inv = await alex.api.post<{ token: string }>(`/households/${h.id}/invites`, { role: 'member', expiresInHours: 24 });
-  await sam.api.post(`/invites/${inv.token}/accept`);
-  await alex.api.post(`/households/${h.id}/invites`, { role: 'guest', expiresInHours: 72 });
-  const members = await alex.api.get<{ userId: string; displayName: string }[]>(`/households/${h.id}/members`);
-  const A = members.find((m) => m.displayName === 'Alex')!.userId;
-  const S = members.find((m) => m.displayName === 'Sam')!.userId;
-  const areas = await alex.api.get<{ id: string; name: string }[]>(`/households/${h.id}/areas`);
-  const area = (n: string) => areas.find((a) => a.name === n)?.id ?? null;
-  const iv = (every: number, unit: string, due: number) => ({ type: 'interval', interval: { every, unit }, anchor: 'from_completion', firstDue: ymd(due) });
-  const chores: [string, string, string[], ReturnType<typeof iv>, boolean?][] = [
-    ['Descale the kettle', 'Kitchen', [A], iv(1, 'month', -3)],
-    ['Washing-machine filter', 'Appliances', [S], iv(3, 'month', -1)],
-    ['Wash the bedding', 'Bathroom', [S], iv(2, 'week', -1)],
-    ['Clean the gutters', 'Exterior', [A, S], iv(6, 'month', 0), true],
-    ['Water the plants', 'Garden', [S], iv(4, 'day', 0)],
-    ['Defrost the freezer', 'Kitchen', [A], iv(6, 'month', 0)],
-    ['Take out the recycling', 'General', [A, S], iv(1, 'week', 3), true],
-    ['Vacuum the stairs', 'General', [A], iv(1, 'week', 5)],
-    ['Clean the oven', 'Kitchen', [S], iv(2, 'month', 8)],
-    ['Test smoke alarms', 'General', [A], iv(6, 'month', 12)],
-  ];
-  let gutters = '';
-  for (const [name, a, who, schedule, rotation] of chores) {
-    const c = await world.chore(alex, h, { name, areaId: area(a), assignees: who, schedule, ...(rotation ? { rotation: true } : {}) });
-    if (name === 'Clean the gutters') gutters = c.id;
-  }
+  const { alex, gutters } = await seedDemo(world);
 
-  const shot = async (path: string, file: string, theme: 'light' | 'dark', viewport: { width: number; height: number }, scale: number, ready: string | RegExp) => {
-    const context = await browser.newContext({ storageState: await alex.api.storageState(), viewport, deviceScaleFactor: scale, colorScheme: theme, baseURL: world.baseURL });
+  const shot = async (
+    path: string,
+    file: string,
+    theme: "light" | "dark",
+    viewport: { width: number; height: number },
+    scale: number,
+    ready: string | RegExp,
+  ) => {
+    const context = await browser.newContext({
+      storageState: await alex.api.storageState(),
+      viewport,
+      deviceScaleFactor: scale,
+      colorScheme: theme,
+      baseURL: world.baseURL,
+    });
     const page = await context.newPage();
     await page.goto(path);
     await expect(page.getByText(ready).first()).toBeVisible();
@@ -50,29 +37,72 @@ test('README and website screenshots', async ({ world, browser }) => {
     await context.close();
   };
   const phone = { width: 360, height: 1015 };
-  await shot('/', 'home-phone-light.png', 'light', phone, 1.5, 'Descale the kettle');
-  await shot('/', 'home-phone-dark.png', 'dark', phone, 1.5, 'Descale the kettle');
-  await shot('/calendar', 'calendar-desktop-dark.png', 'dark', { width: 1100, height: 760 }, 1, 'Subscribe from your own calendar app');
-  await shot(`/chores/${gutters}/edit`, 'chore-editor-desktop-light.png', 'light', { width: 1100, height: 900 }, 1, 'Take turns');
-  await shot('/settings/household-people', 'household-desktop-light.png', 'light', { width: 1000, height: 830 }, 1, /^Invites$/);
+  await shot(
+    "/",
+    "home-phone-light.png",
+    "light",
+    phone,
+    1.5,
+    "Descale the kettle",
+  );
+  await shot(
+    "/",
+    "home-phone-dark.png",
+    "dark",
+    phone,
+    1.5,
+    "Descale the kettle",
+  );
+  await shot(
+    "/calendar",
+    "calendar-desktop-dark.png",
+    "dark",
+    { width: 1100, height: 760 },
+    1,
+    "Subscribe from your own calendar app",
+  );
+  await shot(
+    `/chores/${gutters}/edit`,
+    "chore-editor-desktop-light.png",
+    "light",
+    { width: 1100, height: 900 },
+    1,
+    "Take turns",
+  );
+  await shot(
+    "/settings/household-people",
+    "household-desktop-light.png",
+    "light",
+    { width: 1000, height: 830 },
+    1,
+    /^Invites$/,
+  );
 
   // The sign-in page with the passkey and single sign-on buttons (signed out, narrow screen).
   {
-    const context = await world.newContext({ viewport: { width: 420, height: 820 }, deviceScaleFactor: 1.5, colorScheme: 'light' });
+    const context = await world.newContext({
+      viewport: { width: 420, height: 820 },
+      deviceScaleFactor: 1.5,
+      colorScheme: "light",
+    });
     const page = await context.newPage();
     // The docs show the generic label (no provider name set) instead of the e2e fake provider's "Test IdP".
-    await page.route('**/api/v1/instance', async (route) => {
+    await page.route("**/api/v1/instance", async (route) => {
       const res = await route.fetch();
       const body = await res.json();
-      if (body.sso) body.sso.name = '';
+      if (body.sso) body.sso.name = "";
       await route.fulfill({ response: res, json: body });
     });
-    await page.goto('/signin');
-    await expect(page.getByRole('button', { name: 'Sign in with a passkey' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Sign in with SSO' })).toBeVisible();
-    await setTheme(page, 'light');
+    await page.goto("/signin");
+    await expect(
+      page.getByRole("button", { name: "Sign in with a passkey" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Sign in with SSO" }),
+    ).toBeVisible();
+    await setTheme(page, "light");
     await page.waitForTimeout(400);
-    await page.screenshot({ path: OUT + 'signin-passkey-sso-phone-light.png' });
+    await page.screenshot({ path: OUT + "signin-passkey-sso-phone-light.png" });
     await context.close();
   }
 
@@ -81,27 +111,34 @@ test('README and website screenshots', async ({ world, browser }) => {
     const context = await browser.newContext({
       storageState: await alex.api.storageState(),
       viewport: { width: 1000, height: 900 },
-      colorScheme: 'dark',
+      colorScheme: "dark",
       baseURL: world.baseURL,
     });
     const page = await context.newPage();
     const cdp = await context.newCDPSession(page);
-    await cdp.send('WebAuthn.enable');
-    await cdp.send('WebAuthn.addVirtualAuthenticator', {
-      options: { protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
+    await cdp.send("WebAuthn.enable");
+    await cdp.send("WebAuthn.addVirtualAuthenticator", {
+      options: {
+        protocol: "ctap2",
+        transport: "internal",
+        hasResidentKey: true,
+        hasUserVerification: true,
+        isUserVerified: true,
+        automaticPresenceSimulation: true,
+      },
     });
-    await page.goto('/settings/security');
-    const section = page.getByRole('region', { name: 'Passkeys' });
-    await section.getByRole('button', { name: 'Add a passkey' }).click();
-    await section.getByLabel('Name').fill('Alex’s laptop');
-    await section.getByRole('button', { name: 'Create passkey' }).click();
-    const confirm = page.getByRole('dialog', { name: "Confirm it's you" });
-    await confirm.getByLabel('Password').fill(alex.password);
-    await confirm.getByRole('button', { name: 'Confirm' }).click();
-    await section.getByRole('button', { name: "I've saved them" }).click();
-    await expect(section.getByText('Alex’s laptop')).toBeVisible();
-    await setTheme(page, 'dark');
-    await expect(page.getByText('Passkey added.')).toHaveCount(0); // the toast is gone
+    await page.goto("/settings/security");
+    const section = page.getByRole("region", { name: "Passkeys" });
+    await section.getByRole("button", { name: "Add a passkey" }).click();
+    await section.getByLabel("Name").fill("Alex’s laptop");
+    await section.getByRole("button", { name: "Create passkey" }).click();
+    const confirm = page.getByRole("dialog", { name: "Confirm it's you" });
+    await confirm.getByLabel("Password").fill(alex.password);
+    await confirm.getByRole("button", { name: "Confirm" }).click();
+    await section.getByRole("button", { name: "I've saved them" }).click();
+    await expect(section.getByText("Alex’s laptop")).toBeVisible();
+    await setTheme(page, "dark");
+    await expect(page.getByText("Passkey added.")).toHaveCount(0); // the toast is gone
     await page.waitForTimeout(400);
     // Just the Passkeys card, cropped from a window tall enough that the page never scrolls, so the
     // sticky header can't overlap it.
@@ -109,8 +146,16 @@ test('README and website screenshots', async ({ world, browser }) => {
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.waitForTimeout(300);
     const box = await section.boundingBox();
-    if (!box) throw new Error('Passkeys card not visible');
-    await page.screenshot({ path: OUT + 'account-security-passkey-desktop-dark.png', clip: { x: box.x - 16, y: box.y - 16, width: box.width + 32, height: box.height + 32 } });
+    if (!box) throw new Error("Passkeys card not visible");
+    await page.screenshot({
+      path: OUT + "account-security-passkey-desktop-dark.png",
+      clip: {
+        x: box.x - 16,
+        y: box.y - 16,
+        width: box.width + 32,
+        height: box.height + 32,
+      },
+    });
     await context.close();
   }
 });

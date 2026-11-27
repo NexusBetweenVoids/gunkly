@@ -72,6 +72,7 @@ Only after the user approves. Before tagging:
 
 1. Move `[Unreleased]` in `CHANGELOG.md` to the new version and date.
 2. If the UI changed, run `cd web && npm run screenshots` (rewrites `docs/assets/screens/*.png` with demo data), look at every image and commit them.
+   For a design review (every screen, desktop and phone, light and dark, with a contact sheet): `cd web && npm run design-review` writes `~/gunkly-design-review/<date>/` plus a `.zip` (`GUNKLY_DESIGN_OUT=<dir>`, `GUNKLY_DESIGN_LANG=nl` for another language). Not part of the release.
 3. Check the docs (`README.md`, `docs/*.md`) still name screens and settings the way the app does.
 4. The "SSO identity providers" workflow (`.github/workflows/sso-idp.yml`: real Keycloak and authentik sign-ins) must be green on the commit you tag. `release.yml` runs it and publishes nothing if it fails; fix SSO, not the test, unless a provider changed on purpose (pinned versions live in `test/idp/`).
 
