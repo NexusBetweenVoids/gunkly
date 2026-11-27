@@ -2,7 +2,9 @@ package scheduler
 
 import (
 	"context"
+	"errors"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/NexusBetweenVoids/gunkly/internal/mail"
@@ -94,6 +96,9 @@ func (o *Outbox) send(ctx context.Context, m store.OutboxMail, timeout time.Dura
 	err = o.Mailer.Send(sctx, msg)
 	cancel()
 	if err == nil {
+		if err := o.Store.MailAttemptOK(ctx, now()); err != nil {
+			log.Error("mail outbox: record success", "err", err)
+		}
 		if err := o.Store.MailSent(ctx, m.ID); err != nil {
 			log.Error("mail outbox: remove sent mail", "kind", m.Kind, "err", err)
 		}
@@ -102,6 +107,13 @@ func (o *Outbox) send(ctx context.Context, m store.OutboxMail, timeout time.Dura
 	m.Attempts++
 	// The SMTP error can carry the address: log that it failed, not why.
 	log.Warn("mail outbox: send failed", "kind", m.Kind, "attempt", m.Attempts)
+	if kind := mailErrKind(err); kind != "" {
+		if started, rerr := o.Store.MailAttemptFailed(ctx, now(), kind); rerr != nil {
+			log.Error("mail outbox: record failure", "err", rerr)
+		} else if started {
+			log.Error("mail outbox: email delivery is failing", "reason", kind)
+		}
+	}
 	if m.Attempts >= MaxMailAttempts {
 		giveUp(store.MailGaveUpAttempts)
 		return false
@@ -115,4 +127,29 @@ func (o *Outbox) send(ctx context.Context, m store.OutboxMail, timeout time.Dura
 		log.Error("mail outbox: schedule retry", "kind", m.Kind, "err", err)
 	}
 	return false
+}
+
+// mailErrKind sorts a send error into a store.MailErr category from the stage
+// prefix mail.Sender puts on its errors; the text itself (it can hold an address
+// or server output) is dropped. "" means the failure is the recipient's or the
+// message's, not the provider's, so it does not count towards an outage.
+func mailErrKind(err error) string {
+	if errors.Is(err, context.DeadlineExceeded) {
+		return store.MailErrTimeout
+	}
+	msg := err.Error()
+	has := func(stage string) bool { return strings.HasPrefix(msg, "mail: "+stage) }
+	switch {
+	case has("invalid"), has("address"), has("recipient"), has("unexpected"), strings.Contains(msg, "line break"):
+		return ""
+	case has("connect"), has("greeting"), has("hello"):
+		return store.MailErrConnect
+	case has("tls"), has("starttls"), has("server does not offer"):
+		return store.MailErrTLS
+	case has("auth"):
+		return store.MailErrAuth
+	case has("sender"), has("data"):
+		return store.MailErrRefused
+	}
+	return store.MailErrOther
 }

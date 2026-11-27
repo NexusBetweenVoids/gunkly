@@ -244,6 +244,8 @@ scrape_configs:
 
 The series are build info, HTTP requests by route and status class, a request duration histogram, deliveries by channel kind, scheduler tick age, delivery queue depth and open database connections. Nothing is labelled by user or household. Keep `/metrics` off the public internet if you can: block it at your reverse proxy.
 
+When email is on, `/healthz/email` answers 200 normally and 503 while sending has been failing (at least three failed sends within an hour and none succeeded since); point Uptime Kuma or a similar monitor at it to learn that sign-in codes and confirmation links are not arriving. `/readyz` is unaffected. The Administration page shows the same warning.
+
 ## Updates
 
 Administration, Updates shows the running version and the latest release with its changelog. Once every 12 hours at most, Gunkly asks the public GitHub release API for the latest release (user agent `gunkly-update-check`, no information about your server) and caches the answer. Switch it off on the same page and Gunkly makes no request at all. Gunkly never updates itself (that would need access to Docker): pull the new image and restart, or set up an optional **Update now** button that asks an updater you run, such as Watchtower; see [Updating Gunkly](docs/updating.md).

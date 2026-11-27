@@ -265,5 +265,15 @@ func (s *Server) adminHealth(w http.ResponseWriter, r *http.Request, _ *call) er
 		delete(meta, "scope")
 		events = append(events, map[string]any{"event": e.Event, "householdId": e.HouseholdID, "username": e.Username, "meta": meta, "at": e.At})
 	}
-	return ok(w, map[string]any{"untrustedProxies": view, "securityEvents": events})
+	out := map[string]any{"untrustedProxies": view, "securityEvents": events}
+	if s.emailEnabled() {
+		f, err := s.st.MailFailing(r.Context(), s.now())
+		if err != nil {
+			return err
+		}
+		if f != nil {
+			out["emailFailing"] = map[string]any{"since": f.Since, "lastError": f.LastError}
+		}
+	}
+	return ok(w, out)
 }

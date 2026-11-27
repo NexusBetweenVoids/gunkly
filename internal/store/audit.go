@@ -129,7 +129,7 @@ func (s *Store) ListAuditForUser(ctx context.Context, userID string, limit int) 
 // AlertEvents are the audit events that are security alerts: listed on the
 // Administration page and, with security alerts on, emailed to the admins.
 // Add a new alert's event here.
-var AlertEvents = []string{AuditInviteLimit}
+var AlertEvents = []string{AuditInviteLimit, AuditEmailFailing}
 
 // AlertCountSince counts alert events of one kind and scope since a moment.
 // The scope (stored as meta "scope") is what an alert is deduplicated by: a

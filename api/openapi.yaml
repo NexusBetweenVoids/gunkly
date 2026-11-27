@@ -2118,13 +2118,20 @@ components:
             properties:
               ip: {type: string, description: "Direct peer address (IPv4 or IPv6)"}
               lastSeen: {type: string, format: date-time}
+        emailFailing:
+          type: object
+          nullable: true
+          description: "Present while email delivery is failing (at least 3 failed sends within an hour and none succeeded since); omitted otherwise"
+          properties:
+            since: {type: string, format: date-time}
+            lastError: {type: string, enum: [connect, tls, auth, timeout, refused, other], description: "Generic category of the latest failure, never server output"}
         securityEvents:
           type: array
-          description: "Security events of the last 7 days, newest first (at most 50): a household hitting the daily invite limit"
+          description: "Security events of the last 7 days, newest first (at most 50): a household hitting the daily invite limit, email delivery failing"
           items:
             type: object
             properties:
-              event: {type: string, enum: [invite_limit_reached]}
+              event: {type: string, enum: [invite_limit_reached, email_failing]}
               householdId: {type: string}
               username: {type: string, description: "The account that caused it; empty if deleted"}
               at: {type: string, format: date-time}
@@ -2278,6 +2285,7 @@ x-outside-api-v1:
     not under paths:). Tokens are secrets; every failure answers one generic
     page or 404.
   routes:
+    "GET /healthz/email": 'Email delivery probe for uptime monitors, unauthenticated, no details. 200 {"status":"ok"} normally, 200 {"status":"disabled"} while email is off, 503 {"error":{"code":"email_failing"}} while sends are failing (the same condition as emailFailing in /admin/health). /readyz is not affected.'
     "GET /done/{token}": Confirmation page for a mark-done link (HTML, no side effects). Rate limit 30/min per IP.
     "POST /done/{token}": Completes the occurrence the link addresses and shows an undo form (HTML form post, CSRF-checked by Origin/Sec-Fetch-Site). Rate limit 30/min per IP.
     "POST /done/undo/{token}": Reverts that completion within 5 minutes (HTML). Rate limit 30/min per IP.

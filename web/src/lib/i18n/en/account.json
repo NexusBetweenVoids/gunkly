@@ -72,6 +72,7 @@
   "audit.invite_accept": "Invite accepted",
   "audit.invite_revoke": "Invite revoked",
   "audit.invite_limit_reached": "Daily invite limit reached",
+  "audit.email_failing": "Email delivery started failing",
   "audit.household_create": "Household created",
   "audit.household_settings": "Household settings changed",
   "audit.admin_user_create": "Account created by an administrator",

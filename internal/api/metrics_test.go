@@ -139,7 +139,7 @@ func TestMetricsRoutePolicyAndDocs(t *testing.T) {
 		t.Fatal("no x-outside-api-v1 section")
 	}
 	for _, r := range e.srv.routes {
-		if strings.Contains(r.pattern, "/api/v1/") || strings.HasSuffix(r.pattern, " /healthz") || strings.HasSuffix(r.pattern, " /readyz") || r.pattern == "GET /" {
+		if strings.Contains(r.pattern, "/api/v1/") || strings.HasSuffix(r.pattern, " /healthz") || strings.HasSuffix(r.pattern, " /readyz") || strings.HasSuffix(r.pattern, " /healthz/email") || r.pattern == "GET /" {
 			continue
 		}
 		if !strings.Contains(outside, `"`+r.pattern+`"`) {
