@@ -80,7 +80,7 @@ All screenshots show synthetic demo data.
 **Admin and operations**
 - First-run setup code, users and instance settings (limits, sessions, retention, allowed services, sign-up), update notice, CLI recovery (`admin reset-password`, `admin reset-2fa`).
 - `/healthz`, `/readyz`, optional Prometheus `/metrics`, consistent backups, `migrate-db` to Postgres, graceful shutdown.
-- Available in English and Spanish (corrections and new translations are welcome via pull request); right-to-left layout is wired in. Installable PWA (no offline mode). WCAG 2.2 AA tested.
+- Languages: English, French and Spanish (more can be added; right-to-left layout is wired in). Corrections and new translations are welcome via pull request (`web/src/lib/i18n/<language>/`, `internal/i18n/<language>.json`). Installable PWA (no offline mode). WCAG 2.2 AA tested.
 
 ## Quick start
 
