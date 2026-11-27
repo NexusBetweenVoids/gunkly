@@ -131,7 +131,7 @@ test("README and website screenshots", async ({ world, browser }) => {
     "/calendar",
     "calendar-phone-light.png",
     "light",
-    { width: 360, height: 860 },
+    { width: 360, height: 920 },
     1.5,
     "Subscribe",
   );
