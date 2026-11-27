@@ -162,7 +162,7 @@ test('home: the reminder offer asks once; "Not now" hides it for good on this de
   await card.getByRole('button', { name: 'Not now' }).click();
   await expect(card).toBeHidden();
   await page.reload();
-  await expect(page.getByRole('heading', { name: 'Chores' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Chores', exact: true })).toBeVisible();
   await page.waitForLoadState('networkidle');
   await expect(page.getByTestId('push-prompt')).toHaveCount(0);
 
@@ -181,7 +181,7 @@ test('home: the reminder offer asks once; "Not now" hides it for good on this de
   const blocked = await u.open();
   await blocked.page.addInitScript(() => Object.defineProperty(Notification, 'permission', { get: () => 'denied' }));
   await blocked.page.goto('/');
-  await expect(blocked.page.getByRole('heading', { name: 'Chores' })).toBeVisible();
+  await expect(blocked.page.getByRole('heading', { name: 'Chores', exact: true })).toBeVisible();
   await blocked.page.waitForLoadState('networkidle');
   await expect(blocked.page.getByTestId('push-prompt')).toHaveCount(0);
 });
@@ -195,7 +195,7 @@ test('home: no offer for guests, or for anyone who already has another way to ge
   const g = await guest.open();
   await askable(g.page);
   await g.page.goto('/');
-  await expect(g.page.getByRole('heading', { name: 'Chores' })).toBeVisible();
+  await expect(g.page.getByRole('heading', { name: 'Chores', exact: true })).toBeVisible();
   await g.page.waitForLoadState('networkidle');
   await expect(g.page.getByTestId('push-prompt')).toHaveCount(0);
 
@@ -208,7 +208,7 @@ test('home: no offer for guests, or for anyone who already has another way to ge
   const c = await owner.open();
   await askable(c.page);
   await c.page.goto('/');
-  await expect(c.page.getByRole('heading', { name: 'Chores' })).toBeVisible();
+  await expect(c.page.getByRole('heading', { name: 'Chores', exact: true })).toBeVisible();
   await c.page.waitForLoadState('networkidle');
   await expect(c.page.getByTestId('push-prompt')).toHaveCount(0);
 });

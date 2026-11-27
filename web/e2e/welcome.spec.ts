@@ -43,7 +43,7 @@ test('welcome flow: household, starter chores spread over the week, invite link,
   await expect(page.getByRole('region', { name: 'Two-factor authentication' })).toBeVisible();
   await axe(page, 'welcome: security');
   await page.getByRole('button', { name: 'Go to my chores' }).click();
-  await expect(page.getByRole('heading', { name: 'Chores' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Chores', exact: true })).toBeVisible();
 
   // The chores exist, with their areas, and not all are due today.
   const hh = (await u.api.get<{ id: string; name: string }[]>('/households')).find((h) => h.name === 'Test home')!;
