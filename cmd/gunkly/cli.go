@@ -13,6 +13,7 @@ import (
 	"github.com/NexusBetweenVoids/gunkly/internal/api"
 	"github.com/NexusBetweenVoids/gunkly/internal/auth"
 	"github.com/NexusBetweenVoids/gunkly/internal/db"
+	"github.com/NexusBetweenVoids/gunkly/internal/mail"
 	"github.com/NexusBetweenVoids/gunkly/internal/notify"
 	"github.com/NexusBetweenVoids/gunkly/internal/store"
 	"github.com/NexusBetweenVoids/gunkly/internal/webhook"
@@ -111,6 +112,36 @@ var rotators = []rotator{
 			return reencrypt(k, ct, api.ConfigAD(key))
 		})
 	}},
+	{name: "queued emails", run: rotateOutbox},
+}
+
+// rotateOutbox re-encrypts the sealed payload of every queued email. One sent
+// or given up meanwhile is skipped.
+func rotateOutbox(ctx context.Context, s *store.Store, k *auth.Keyring) (int, error) {
+	n, after := 0, ""
+	for {
+		page, err := s.OutboxSecrets(ctx, after, 500)
+		if err != nil || len(page) == 0 {
+			return n, err
+		}
+		for _, m := range page {
+			after = m.ID
+			if !k.NeedsRotation(m.Ciphertext) {
+				continue
+			}
+			ct, err := reencrypt(k, m.Ciphertext, mail.SealAD(m.ID))
+			if err != nil {
+				return n, fmt.Errorf("queued email %s: %w", m.ID, err)
+			}
+			switch err := s.ReplaceOutboxPayload(ctx, m.ID, m.Ciphertext, ct); {
+			case err == nil:
+				n++
+			case errors.Is(err, store.ErrConflict), errors.Is(err, store.ErrNotFound):
+			default:
+				return n, err
+			}
+		}
+	}
 }
 
 // reencrypt returns ct unchanged if it already uses the current key.

@@ -289,3 +289,45 @@ func TestOAuthAttributionMigrationKeepsData(t *testing.T) {
 		t.Fatalf("cascade lost: %d rows left", n)
 	}
 }
+
+// Migration 0023 replaces stored hints that held a credential with the kind
+// and leaves server hosts alone.
+func TestChannelHintMigration(t *testing.T) {
+	ctx := context.Background()
+	d, err := db.Open(ctx, dbtest.URL(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer d.Close()
+	if err := d.MigrateBefore(ctx, "0023"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := d.ExecContext(ctx, `INSERT INTO users (id, username, username_lower, display_name, password_hash, password_changed_at, created_at, last_active_at)
+		VALUES ('u1', 'u', 'u', 'u', 'x', 1, 1, 1)`); err != nil {
+		t.Fatal(err)
+	}
+	rows := map[string][2]string{ // id: service, old hint
+		"c1": {"ifttt", "WEBHOOKSECRETID"},
+		"c2": {"twilio", "+15551234"},
+		"c3": {"gotify", "gotify.example.com"},
+	}
+	for id, r := range rows {
+		if _, err := d.ExecContext(ctx, d.Dialect.Rebind(`INSERT INTO notification_channels (id, scope, user_id, service, url_ciphertext, url_hint, created_at, updated_at)
+			VALUES (?, 'user', 'u1', ?, 'ct', ?, 1, 1)`), id, r[0], r[1]); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := d.Migrate(ctx); err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{"c1": "ifttt", "c2": "twilio", "c3": "gotify.example.com"}
+	for id, w := range want {
+		var got string
+		if err := d.QueryRowContext(ctx, d.Dialect.Rebind("SELECT url_hint FROM notification_channels WHERE id = ?"), id).Scan(&got); err != nil {
+			t.Fatal(err)
+		}
+		if got != w {
+			t.Errorf("%s: hint %q, want %q", id, got, w)
+		}
+	}
+}

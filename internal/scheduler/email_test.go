@@ -1,6 +1,9 @@
 package scheduler
 
 import (
+	"bytes"
+	"errors"
+	"log/slog"
 	"strings"
 	"testing"
 
@@ -162,5 +165,39 @@ func TestEmailReminderDroppedWhenUnverifiedAfterQueueing(t *testing.T) {
 	f.tickAt(w, "2026-11-21 10:01:00")
 	if n := len(m.take()); n != 0 {
 		t.Fatalf("sent to an unverified address: %d", n)
+	}
+}
+
+// An SMTP error that names the recipient is logged by its kind only.
+func TestEmailReminderFailureLogsNoAddress(t *testing.T) {
+	f := newFixture(t)
+	const addr = "victim.person@example.com"
+	m := &fakeMailer{fail: errors.New(`mail: recipient: 550 "5.1.1 <` + addr + `>: Recipient address rejected"`)}
+	f.emailOn(f.owner, addr)
+	f.chore("Dishes", "2026-11-21", "gentle")
+	w := f.emailWorker(m)
+	var logs bytes.Buffer
+	w.log = slog.New(slog.NewTextHandler(&logs, nil))
+	f.tickAt(w, "2026-11-21 08:59:00")
+	f.tickAt(w, "2026-11-21 09:01:00")
+	if !strings.Contains(logs.String(), "email failed") || !strings.Contains(logs.String(), "reason=recipient") {
+		t.Fatalf("failure not logged: %s", logs.String())
+	}
+	if strings.Contains(logs.String(), "victim") {
+		t.Fatalf("log holds the address: %s", logs.String())
+	}
+}
+
+func TestMailErrReason(t *testing.T) {
+	for in, want := range map[string]string{
+		"mail: recipient: 550 <a@example.com> rejected": "recipient",
+		"mail: invalid recipient: a@example.com":        "recipient",
+		"mail: connect: dial tcp 192.0.2.1:25: refused": store.MailErrConnect,
+		"mail: auth: 535 bad credentials":               store.MailErrAuth,
+		"mail: data: 554 <a@example.com> spam":          store.MailErrRefused,
+	} {
+		if got := MailErrReason(errors.New(in)); got != want {
+			t.Errorf("%q: %q, want %q", in, got, want)
+		}
 	}
 }

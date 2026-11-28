@@ -643,7 +643,7 @@ func (w *Worker) deliverEmail(ctx context.Context, d store.ClaimedDelivery, fail
 		if token != "" {
 			_ = st.RevokeMarkDone(ctx, token)
 		}
-		log.Warn("scheduler: email failed", "attempt", d.Attempts+1, "err", err)
+		log.Warn("scheduler: email failed", "attempt", d.Attempts+1, "reason", MailErrReason(err))
 		w.observe(emailKind, false)
 		fail("email send failed", true) // the SMTP error may carry the address
 		return

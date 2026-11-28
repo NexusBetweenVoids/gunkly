@@ -2,13 +2,17 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"net/netip"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/NexusBetweenVoids/gunkly/internal/store"
 )
 
 func TestParseForwarded(t *testing.T) {
@@ -65,9 +69,10 @@ func TestClientIPForwarded(t *testing.T) {
 		{"ipv6 client", "[::1]:1", `for="[2001:db8::1]:99"`, "", "2001:db8::1"},
 		{"obfuscated stops walk", "10.0.0.2:1", "for=6.6.6.6, for=_hidden, for=10.0.0.7", "", "10.0.0.7"},
 		{"unknown stops walk", "10.0.0.2:1", "for=6.6.6.6, for=unknown", "", "10.0.0.2"},
-		{"Forwarded preferred over XFF", "10.0.0.2:1", "for=1.2.3.4", "5.5.5.5", "1.2.3.4"},
+		{"XFF preferred over client-sent Forwarded", "10.0.0.2:1", "for=1.2.3.4", "5.5.5.5", "5.5.5.5"},
 		{"XFF used without Forwarded", "10.0.0.2:1", "", "5.5.5.5", "5.5.5.5"},
-		{"malformed Forwarded not rescued by XFF", "10.0.0.2:1", "garbage", "5.5.5.5", "10.0.0.2"},
+		{"malformed Forwarded ignored when XFF present", "10.0.0.2:1", "garbage", "5.5.5.5", "5.5.5.5"},
+		{"spoofed Forwarded with trusted XFF chain", "10.0.0.2:1", "for=6.6.6.6", "6.6.6.7, 1.2.3.4, 10.0.0.7", "1.2.3.4"},
 	}
 	for _, c := range cases {
 		r := httptest.NewRequest("GET", "/", nil)
@@ -248,5 +253,51 @@ func TestUntrustedProxyIgnoresPublicPeers(t *testing.T) {
 	got := u.list(now)
 	if len(got) != 2 {
 		t.Fatalf("want only the two private peers, got %+v", got)
+	}
+}
+
+// A client behind a trusted proxy that maintains X-Forwarded-For (and passes
+// the client's own Forwarded header through) cannot pick its address: not to
+// escape the per-IP limits, and not in the audit log.
+func TestClientIPForwardedSpoofIgnored(t *testing.T) {
+	e := newEnv(t, func(o *Options) { o.TrustedProxies = []netip.Prefix{netip.MustParsePrefix("127.0.0.1/32")} })
+	e.srv.rl = newRateLimiter(5, 10000, e.clock.Now)
+	c := e.client()
+	c.h["X-Forwarded-For"] = "203.0.113.9"
+	limited := 0
+	for i := 0; i < 20; i++ {
+		c.h["Forwarded"] = "for=198.51.100." + strconv.Itoa(i+1)
+		resp := c.raw("POST", "/api/v1/session", map[string]string{"login": "x" + strconv.Itoa(i), "password": "p"}, c.cookie(csrfCookie))
+		resp.Body.Close()
+		if resp.StatusCode == http.StatusTooManyRequests {
+			limited++
+		}
+	}
+	if limited == 0 {
+		t.Fatal("a spoofed Forwarded header escaped the per-IP login limit")
+	}
+
+	u := e.user("ann", false)
+	a := e.client()
+	a.h["X-Forwarded-For"] = "203.0.113.10"
+	a.h["Forwarded"] = "for=192.0.2.66"
+	if st, v := a.login("ann", nil); st != 200 {
+		t.Fatalf("login %d %v", st, v)
+	}
+	evs, err := e.st.ListAuditForUser(context.Background(), u.ID, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, ev := range evs {
+		if ev.Event == store.AuditLoginSuccess {
+			found = true
+			if ev.IP != "203.0.113.10" {
+				t.Fatalf("audit ip %s, want the proxy's X-Forwarded-For", ev.IP)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("no login audit entry")
 	}
 }

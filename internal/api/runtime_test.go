@@ -1,9 +1,12 @@
 package api
 
 import (
+	"bytes"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/NexusBetweenVoids/gunkly/internal/metrics"
@@ -24,7 +27,8 @@ func patchConfig(t *testing.T, c *client, values map[string]any, want int, code 
 }
 
 func TestEmailConfiguredInAdmin(t *testing.T) {
-	e, root := adminEnv(t)
+	var logs bytes.Buffer
+	e, root := adminEnv(t, func(o *Options) { o.Logger = slog.New(slog.NewTextHandler(&logs, nil)) })
 	if _, inst := root.do("GET", "/api/v1/instance", nil); field(inst, "emailEnabled") != false {
 		t.Fatalf("before: %v", inst)
 	}
@@ -45,6 +49,9 @@ func TestEmailConfiguredInAdmin(t *testing.T) {
 	st, v := root.do("POST", "/api/v1/admin/email/test", map[string]string{"to": "root@example.com"})
 	if st != 200 || field(v, "ok") != false || str(v, "error") != "send_failed" {
 		t.Fatalf("test email: %d %v", st, v)
+	}
+	if !strings.Contains(logs.String(), "reason=connect") || strings.Contains(logs.String(), "mail: connect") {
+		t.Fatalf("the log should name the failure kind, not the SMTP error: %s", logs.String())
 	}
 	st, v = root.do("POST", "/api/v1/admin/email/test", map[string]string{"to": "nope"})
 	expect(t, st, v, 400, "invalid")
@@ -171,4 +178,28 @@ func TestUpdateWebhook(t *testing.T) {
 	// A recent step-up is required.
 	st, v = e.signedIn("root").do("POST", "/api/v1/admin/updates/apply", nil)
 	expect(t, st, v, 403, "step_up_required")
+}
+
+// The webhook URL carries the updater's secret in its path: a failed call is
+// logged without it.
+func TestUpdateWebhookFailureLogsNoURL(t *testing.T) {
+	dead := httptest.NewServer(http.NotFoundHandler())
+	deadURL := dead.URL
+	dead.Close()
+	var logs bytes.Buffer
+	_, root := adminEnv(t, func(o *Options) {
+		o.AIClient = &http.Client{}
+		o.Logger = slog.New(slog.NewTextHandler(&logs, nil))
+	})
+	patchConfig(t, root, map[string]any{"updates.webhook_url": deadURL + "/api/stacks/webhooks/SECRET-HOOK-ID"}, 200, "")
+	st, v := root.do("POST", "/api/v1/admin/updates/apply", nil)
+	if st != 200 || str(v, "error") != "unreachable" {
+		t.Fatalf("apply: %d %v", st, v)
+	}
+	if !strings.Contains(logs.String(), "update webhook failed") {
+		t.Fatalf("failure not logged: %s", logs.String())
+	}
+	if strings.Contains(logs.String(), "SECRET-HOOK-ID") {
+		t.Fatalf("log holds the webhook URL: %s", logs.String())
+	}
 }

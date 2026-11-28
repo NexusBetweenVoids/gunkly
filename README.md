@@ -147,7 +147,7 @@ docker compose -f compose.postgres.yml up -d
 
 ## Behind a reverse proxy
 
-A reverse proxy (Caddy, nginx, Traefik, Nginx Proxy Manager, ...) gives Gunkly HTTPS. Gunkly only believes the client address the proxy forwards (`X-Forwarded-For` or the standard `Forwarded` header) when the proxy is listed in `GUNKLY_TRUSTED_PROXIES`. Without it, every request seems to come from the proxy: the activity log and session list show the proxy's address, and the per-address rate limits (sign-in, sign-up, invites) treat all visitors as one, so everyone shares one login limit. Gunkly never trusts a proxy by itself; the Administration page shows a warning with the exact setting to copy when it sees forwarded requests from an address that is not trusted.
+A reverse proxy (Caddy, nginx, Traefik, Nginx Proxy Manager, ...) gives Gunkly HTTPS. Gunkly only believes the client address the proxy forwards (`X-Forwarded-For`, or the standard `Forwarded` header when the request has no `X-Forwarded-For`) when the proxy is listed in `GUNKLY_TRUSTED_PROXIES`. Without it, every request seems to come from the proxy: the activity log and session list show the proxy's address, and the per-address rate limits (sign-in, sign-up, invites) treat all visitors as one, so everyone shares one login limit. Gunkly never trusts a proxy by itself; the Administration page shows a warning with the exact setting to copy when it sees forwarded requests from an address that is not trusted.
 
 <a id="unusual-sign-in-emails"></a>
 
@@ -169,7 +169,7 @@ GUNKLY_TRUSTED_PROXIES=172.18.0.0/16                   # a Docker network
 GUNKLY_TRUSTED_PROXIES=192.168.1.1/32,172.16.0.0/12    # several, comma-separated
 ```
 
-Only list proxies you control, and make sure Gunkly's port is not reachable except through them. Also set `GUNKLY_BASE_URL` to the public https address (for example `https://chores.example.com`).
+Only list proxies you control, and make sure Gunkly's port is not reachable except through them. A proxy that sets only `Forwarded` must also remove any `X-Forwarded-For` the client sends. Also set `GUNKLY_BASE_URL` to the public https address (for example `https://chores.example.com`).
 
 **Caddy** sets `X-Forwarded-For` by default:
 

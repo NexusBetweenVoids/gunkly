@@ -26,12 +26,23 @@ var lanBlocked = prefixes(
 	"ff00::/8",
 )
 
+// ipv4Compatible is the deprecated IPv4-compatible IPv6 range (::a.b.c.d).
+var ipv4Compatible = netip.MustParsePrefix("::/96")
+
 // lanAllowed reports whether an admin-configured endpoint may connect to a.
+// IPv6 forms that embed an IPv4 address (mapped, NAT64, 6to4,
+// IPv4-compatible) are judged by the embedded address, as in blocked.
 func lanAllowed(a netip.Addr) bool {
 	if !a.IsValid() {
 		return false
 	}
 	a = a.WithZone("").Unmap()
+	if v4, ok := embedded4(a); ok {
+		a = v4
+	} else if ipv4Compatible.Contains(a) && a != netip.IPv6Unspecified() && a != netip.IPv6Loopback() {
+		b := a.As16()
+		a = netip.AddrFrom4([4]byte(b[12:16]))
+	}
 	return !inAny(a, lanBlocked)
 }
 

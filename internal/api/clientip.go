@@ -11,7 +11,10 @@ import (
 
 // clientIP returns the peer address, or the first untrusted address in the
 // forwarding headers (walking right to left) when the peer is a trusted
-// proxy. RFC 7239 Forwarded wins over X-Forwarded-For when both are present.
+// proxy. X-Forwarded-For wins when present: it is what the documented proxies
+// (Caddy, nginx, Traefik, cloudflared) maintain, and they pass a client's own
+// Forwarded header through untouched, so Forwarded is only believed when no
+// X-Forwarded-For arrived (a proxy that sets only RFC 7239 Forwarded).
 // A hop that is not an IP address (obfuscated, unknown, malformed) ends the
 // walk at the last trusted hop: nothing to its left can be believed.
 func clientIP(r *http.Request, trusted []netip.Prefix) netip.Addr {
@@ -20,10 +23,10 @@ func clientIP(r *http.Request, trusted []netip.Prefix) netip.Addr {
 		return addr
 	}
 	var hops []netip.Addr
-	if fwd := r.Header.Values("Forwarded"); len(fwd) > 0 {
-		hops = parseForwarded(fwd)
+	if xff := r.Header.Values("X-Forwarded-For"); len(xff) > 0 {
+		hops = parseXFF(xff)
 	} else {
-		hops = parseXFF(r.Header.Values("X-Forwarded-For"))
+		hops = parseForwarded(r.Header.Values("Forwarded"))
 	}
 	for i := len(hops) - 1; i >= 0; i-- {
 		if !hops[i].IsValid() {

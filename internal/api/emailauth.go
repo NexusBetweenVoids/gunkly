@@ -90,9 +90,11 @@ const verifySignInWindow = 24 * time.Hour
 // canSignInByVerify: the token confirms a new account's first address (no
 // email change, never confirmed before, created within the window) and this
 // browser has no session. Then confirming may also sign in, once: opening the
-// link proves the mailbox, which a password reset relies on too.
+// link proves the mailbox, which a password reset relies on too. Never for an
+// account that already has a second factor: the mailbox alone must not get
+// past it, so that account confirms and then signs in normally.
 func (s *Server) canSignInByVerify(w http.ResponseWriter, r *http.Request, u store.User, newEmail string) bool {
-	if newEmail != "" || u.EmailVerified || s.now().Sub(u.CreatedAt) > verifySignInWindow {
+	if newEmail != "" || u.EmailVerified || u.HasSecondFactor() || s.now().Sub(u.CreatedAt) > verifySignInWindow {
 		return false
 	}
 	_, _, signedIn := s.authenticate(w, r)

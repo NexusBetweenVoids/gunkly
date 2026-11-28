@@ -61,15 +61,22 @@ func blocked(a netip.Addr) bool {
 	if a.Is4() {
 		return inAny(a, blocked4)
 	}
-	switch {
-	case nat64.Contains(a):
-		b := a.As16()
-		return blocked(netip.AddrFrom4([4]byte(b[12:16])))
-	case sixToFour.Contains(a):
-		b := a.As16()
-		return blocked(netip.AddrFrom4([4]byte(b[2:6])))
+	if v4, ok := embedded4(a); ok {
+		return blocked(v4)
 	}
 	return inAny(a, blocked6)
+}
+
+// embedded4 returns the IPv4 address a NAT64 or 6to4 address carries.
+func embedded4(a netip.Addr) (netip.Addr, bool) {
+	b := a.As16()
+	switch {
+	case nat64.Contains(a):
+		return netip.AddrFrom4([4]byte(b[12:16])), true
+	case sixToFour.Contains(a):
+		return netip.AddrFrom4([4]byte(b[2:6])), true
+	}
+	return netip.Addr{}, false
 }
 
 func inAny(a netip.Addr, ps []netip.Prefix) bool {

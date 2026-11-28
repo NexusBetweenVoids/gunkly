@@ -129,6 +129,16 @@ func (o *Outbox) send(ctx context.Context, m store.OutboxMail, timeout time.Dura
 	return false
 }
 
+// MailErrReason is what may be logged about a send error: its mailErrKind, or
+// "recipient" for a failure of the recipient or the message. The error text
+// itself can hold the recipient's address and is never logged.
+func MailErrReason(err error) string {
+	if kind := mailErrKind(err); kind != "" {
+		return kind
+	}
+	return "recipient"
+}
+
 // mailErrKind sorts a send error into a store.MailErr category from the stage
 // prefix mail.Sender puts on its errors; the text itself (it can hold an address
 // or server output) is dropped. "" means the failure is the recipient's or the

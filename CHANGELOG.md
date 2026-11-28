@@ -4,8 +4,17 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ## [Unreleased]
 
+## [0.13.1] - 2026-11-28
+
 ### Security
 
+- Behind a reverse proxy, the client address now comes from `X-Forwarded-For` whenever the proxy sends one; a `Forwarded` header is only used when there is no `X-Forwarded-For`. Before, a client could send its own `Forwarded` header through proxies that only maintain `X-Forwarded-For` (Caddy, nginx, Traefik, Cloudflare) and pick its address for rate limits, the activity log and sign-in alerts. A proxy that sets only `Forwarded` must remove any `X-Forwarded-For` from the client.
+- The per-account backoff after failed sign-ins keeps counting real accounts even when many made-up usernames are tried at once.
+- Opening the email-confirmation link no longer signs in to an account that already has a second factor (authenticator app, passkey or email codes); the address is still confirmed and the person signs in as usual.
+- Notification channels for services whose address part is a key or phone number (IFTTT, Notifiarr, WeCom, Signalgrid, Twilio, Join, Teams) show only the service name; hints saved by earlier versions are reset on upgrade.
+- Failed reminder, inactivity and test emails are logged by failure kind only, without the SMTP server's text (which can include the recipient's address); a failed update webhook call is logged without the webhook URL.
+- The admin-endpoint guard (AI and update webhook) also blocks cloud metadata and link-local addresses written in IPv4-embedding IPv6 forms (NAT64, 6to4, IPv4-compatible).
+- `gunkly rotate-key` also re-encrypts queued emails, so removing the old key afterwards no longer drops mail waiting for delivery.
 - A household's write rate limit is now only used up by people who may write in that household; requests for households you are not in no longer count against it, and malformed household IDs are refused before they reach the rate limiter.
 - No single kind of rate limit can fill the rate limiter's whole table, so a flood of one kind of request cannot crowd out the others.
 - Per-household and per-account limits (chores, notification channels, webhooks, calendar feeds, API tokens, connected apps, push subscriptions, passkeys) now also hold when many requests arrive at once on Postgres.

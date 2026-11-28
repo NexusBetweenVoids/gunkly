@@ -934,6 +934,36 @@ func TestVerifyEmailCanSignInOnce(t *testing.T) {
 	}
 }
 
+// An account that already has a second factor is confirmed by the link but
+// not signed in: the mailbox alone must not get past the second factor.
+func TestVerifyEmailNoSignInWithSecondFactor(t *testing.T) {
+	e := newMailEnv(t)
+	u := e.user("tom", false)
+	ctx := context.Background()
+	e.signedIn("tom").do("POST", "/api/v1/account/email/resend", nil)
+	token := tokenIn(t, e.oneMail("tom@example.com"))
+	if err := e.st.SetPendingTOTP(ctx, u.ID, e.srv.keyring.Encrypt([]byte("JBSWY3DPEHPK3PXP"), []byte("totp:"+u.ID))); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.st.EnableTOTP(ctx, u.ID, "", 1, []string{"h"}); err != nil {
+		t.Fatal(err)
+	}
+	anon := e.client()
+	if _, v := anon.do("POST", "/api/v1/account/email/verify/preview", map[string]string{"token": token}); field(v, "continueAs") != nil {
+		t.Fatalf("sign-in offered past the second factor: %v", v)
+	}
+	st, v := anon.do("POST", "/api/v1/account/email/verify", map[string]any{"token": token, "signIn": true})
+	if st != 200 || field(v, "verified") != true || v.(map[string]any)["session"] != nil {
+		t.Fatalf("verify: %d %v", st, v)
+	}
+	if st, _ := anon.do("GET", "/api/v1/me", nil); st != 401 {
+		t.Fatalf("signed in without the second factor: %d", st)
+	}
+	if got, err := e.st.UserByLogin(ctx, "tom"); err != nil || !got.EmailVerified {
+		t.Fatalf("not confirmed: %v %v", got.EmailVerified, err)
+	}
+}
+
 // A household hitting the daily invite limit emails the admins (once per household per day, unless
 // security alerts are off) and shows up as a security event for them.
 func TestInviteLimitAlertsAdmins(t *testing.T) {

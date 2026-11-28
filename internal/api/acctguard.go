@@ -3,6 +3,7 @@ package api
 import (
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -44,8 +45,11 @@ func (g *acctGuard) wait(key string) time.Duration {
 	return 0
 }
 
-// fail records a failed attempt. When the table is full of recent keys the
-// attempt is not tracked (the per-IP limits still apply).
+// fail records a failed attempt. When the table is full of recent keys it
+// makes room by forgetting the least recently failed unknown login ("l:"
+// keys: anyone can make those up), and only for a real account's key, when no
+// unknown login is left, the least recently failed entry of any kind. So made-up
+// logins can never push real accounts out or keep them from being counted.
 func (g *acctGuard) fail(key string) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
@@ -58,9 +62,9 @@ func (g *acctGuard) fail(key string) {
 					delete(g.m, k)
 				}
 			}
-			if len(g.m) >= g.max {
-				return
-			}
+		}
+		if len(g.m) >= g.max && !g.evictLocked(!strings.HasPrefix(key, "l:")) {
+			return
 		}
 		f = &acctFails{}
 		g.m[key] = f
@@ -77,6 +81,29 @@ func (g *acctGuard) fail(key string) {
 		}
 		f.until = now.Add(min(d, maxBackoff))
 	}
+}
+
+// evictLocked drops the least recently failed unknown-login entry, or,
+// with orAny, the least recently failed entry of any kind when there is none. It
+// reports whether it made room.
+func (g *acctGuard) evictLocked(orAny bool) bool {
+	var oldest, oldestAny string
+	for k, v := range g.m {
+		if strings.HasPrefix(k, "l:") && (oldest == "" || v.last.Before(g.m[oldest].last)) {
+			oldest = k
+		}
+		if oldestAny == "" || v.last.Before(g.m[oldestAny].last) {
+			oldestAny = k
+		}
+	}
+	if oldest == "" && orAny {
+		oldest = oldestAny
+	}
+	if oldest == "" {
+		return false
+	}
+	delete(g.m, oldest)
+	return true
 }
 
 // reset forgets key after a success.

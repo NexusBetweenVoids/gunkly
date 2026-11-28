@@ -1234,6 +1234,50 @@ func TestAccountFailureBackoffAcrossIPs(t *testing.T) {
 	}
 }
 
+// A table full of made-up logins must not stop real accounts from being
+// counted, nor push them out.
+func TestAccountFailureBackoffFullTable(t *testing.T) {
+	e := newEnv(t)
+	e.user("ann", false)
+	e.srv.acct = newAcctGuard(e.clock.Now, 50)
+	for i := 0; i < 50; i++ {
+		st, v := e.client().login("ghost"+strconv.Itoa(i), map[string]string{"password": "nope"})
+		expect(t, st, v, 401, "invalid_credentials")
+	}
+	for i := 0; i < freeFailures+1; i++ {
+		st, v := e.client().login("ann", map[string]string{"password": "wrong-password"})
+		expect(t, st, v, 401, "invalid_credentials")
+	}
+	for i := 50; i < 200; i++ { // more filler after ann is tracked
+		e.client().login("ghost"+strconv.Itoa(i), map[string]string{"password": "nope"})
+	}
+	st, v := e.client().login("ann", nil)
+	expect(t, st, v, 429, "rate_limited")
+	if n := len(e.srv.acct.m); n > 50 {
+		t.Fatalf("guard grew to %d keys", n)
+	}
+}
+
+func TestAcctGuardEviction(t *testing.T) {
+	clock := &fakeClock{t: time.Unix(1_700_000_000, 0)}
+	g := newAcctGuard(clock.Now, 2)
+	g.fail("u:a")
+	clock.Add(time.Second)
+	g.fail("u:b")
+	clock.Add(time.Second)
+	g.fail("l:x") // full of real accounts: an unknown login is not tracked
+	if _, ok := g.m["l:x"]; ok || len(g.m) != 2 {
+		t.Fatalf("unknown login pushed out a real account: %v", g.m)
+	}
+	g.fail("u:c") // a real account makes room by dropping the oldest entry
+	if _, ok := g.m["u:a"]; ok {
+		t.Fatal("oldest entry kept")
+	}
+	if _, ok := g.m["u:c"]; !ok {
+		t.Fatal("real account not tracked")
+	}
+}
+
 func TestSecondFactorFailureBackoff(t *testing.T) {
 	e := newEnv(t)
 	u := e.user("tom", false)
