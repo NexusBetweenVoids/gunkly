@@ -44,7 +44,7 @@
   "chore.linkHint": "Een webadres (http of https), bijvoorbeeld een handleiding.",
   "chore.linkInvalid": "Voer een webadres in dat begint met http:// of https://.",
   "chore.template": "Begin met een sjabloon",
-  "chore.namePlaceholder": "Bijvoorbeeld: planten water geven",
+  "chore.namePlaceholder": "Bijv. planten water geven",
   "chore.templateMore": "Meer…",
   "chore.who": "Wie het kan doen",
   "chore.anyoneHint": "Niemand gekozen: iedereen kan het doen.",

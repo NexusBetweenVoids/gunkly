@@ -303,14 +303,18 @@
     margin-inline-start: auto;
     color: var(--danger);
   }
+  /* The label column takes what its labels need, up to 40% of the card: a label of several words
+     ("Toegewezen aan") may wrap on a phone, a single word is never split; the values keep the rest. */
   .facts {
     display: grid;
-    grid-template-columns: max-content 1fr;
+    grid-template-columns: fit-content(40%) minmax(0, 1fr);
     gap: 6px 16px;
     margin: 0;
   }
-  dt {
+  .facts dt {
+    margin: 0;
     font-weight: 600;
+    overflow-wrap: normal;
   }
   dd {
     margin: 0;

@@ -277,7 +277,7 @@
   "admin.signinLocation.header": "Beschikbaar via een header van je vertrouwde proxy.",
   "admin.signinLocation.database": "Beschikbaar via een GeoIP-databasebestand.",
   "admin.signinLocation.both": "Beschikbaar via een proxyheader en een GeoIP-databasebestand.",
-  "secEvents.banner": {"one": "{count} beveiligingsmelding in de afgelopen 7 dagen", "other": "{count} beveiligingsmeldingen in de afgelopen 7 dagen"},
+  "secEvents.banner": {"one": "{count} beveiligingsgebeurtenis in de afgelopen 7 dagen", "other": "{count} beveiligingsgebeurtenissen in de afgelopen 7 dagen"},
   "secEvents.allByYou": {"one": "door jou", "other": "allemaal door jou"},
   "secEvents.someByYou": "{count} door jou",
   "secEvents.byYou": "door jou",

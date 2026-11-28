@@ -89,10 +89,11 @@
     border-radius: var(--radius);
     background: var(--bg);
   }
-  /* Phones: the text gets the full width; the pill and the action share the line below. */
+  /* Phones: the text gets the full width; the pill and the action share the line below. The pill
+     keeps its width ("Nicht verfügbar"); the action takes the rest and wraps if it must. */
   @media (max-width: 35rem) {
     .head {
-      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-columns: auto minmax(0, 1fr);
       grid-template-areas: 'info info' 'state act';
     }
     .state {

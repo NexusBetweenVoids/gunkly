@@ -117,6 +117,26 @@ h3 {
   letter-spacing: -0.01em;
 }
 
+/* Long words (Dutch and German compounds) in headings, buttons, pills and navigation break at a
+   hyphenation point of the page language (html lang follows the locale) rather than at any
+   letter. Buttons and pills also keep their longest word whole when space is shared
+   ("Verwijde/ren"); text that still cannot fit wraps instead of overflowing. */
+h1,
+h2,
+h3,
+h4,
+nav,
+button,
+.btn,
+.badge {
+  hyphens: auto;
+}
+button,
+.btn,
+.badge {
+  overflow-wrap: break-word;
+}
+
 a {
   color: var(--accent);
 }

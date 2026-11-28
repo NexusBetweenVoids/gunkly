@@ -346,13 +346,13 @@
     border-block-start: 1px solid var(--border);
     padding-block-end: env(safe-area-inset-bottom);
   }
+  /* Equal columns, unless a label needs more ("Einstellungen"): that column grows to fit it
+     whole and the others share the rest. */
   .tabs ul {
-    flex-wrap: nowrap;
-    justify-content: space-around;
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(max-content, 1fr);
     gap: 0;
-  }
-  .tabs li {
-    flex: 1;
   }
   .tabs a {
     flex-direction: column;
@@ -404,6 +404,7 @@
       border-inline-end: 1px solid var(--border);
     }
     .tabs ul {
+      display: flex;
       position: sticky;
       inset-block-start: calc(56px + 8px);
       flex-direction: column;

@@ -44,7 +44,7 @@
   "chore.linkHint": "Eine Webadresse (http oder https), zum Beispiel eine Anleitung.",
   "chore.linkInvalid": "Gib eine Webadresse ein, die mit http:// oder https:// beginnt.",
   "chore.template": "Mit einer Vorlage starten",
-  "chore.namePlaceholder": "Zum Beispiel: Pflanzen gießen",
+  "chore.namePlaceholder": "z. B. Pflanzen gießen",
   "chore.templateMore": "Mehr …",
   "chore.who": "Wer es machen kann",
   "chore.anyoneHint": "Niemand gewählt: Alle können es machen.",
