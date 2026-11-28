@@ -1,6 +1,7 @@
 package scheduler
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io"
@@ -360,6 +361,22 @@ func TestInactiveWarningRetried(t *testing.T) {
 	f.runAt(367)
 	if w, _ := f.warnedAt(u.ID); !w || len(f.mailer.take()) != 1 {
 		t.Fatal("not retried")
+	}
+}
+
+func TestInactiveWarningFailureLogsNoAddress(t *testing.T) {
+	f := newInactiveFixture(t)
+	f.user("victim", false)
+	f.enable()
+	var logs bytes.Buffer
+	f.w.log = slog.New(slog.NewTextHandler(&logs, nil))
+	f.mailer.fail = errors.New(`mail: recipient: 550 "5.1.1 <victim@example.com>: Recipient address rejected"`)
+	f.runAt(366)
+	if !strings.Contains(logs.String(), "inactivity warning failed") || !strings.Contains(logs.String(), "reason=recipient") {
+		t.Fatalf("failure not logged: %s", logs.String())
+	}
+	if strings.Contains(logs.String(), "victim@") {
+		t.Fatalf("log holds the address: %s", logs.String())
 	}
 }
 

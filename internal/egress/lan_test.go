@@ -23,6 +23,12 @@ func TestLANAllowed(t *testing.T) {
 		"224.0.0.1":              false,
 		"255.255.255.255":        false,
 		"::":                     false,
+		"64:ff9b::a9fe:a9fe":     false, // NAT64 form of 169.254.169.254
+		"2002:a9fe:a9fe::1":      false, // 6to4
+		"::a9fe:a9fe":            false, // IPv4-compatible
+		"::0.0.0.2":              false, // IPv4-compatible 0.0.0.0/8
+		"64:ff9b::c0a8:114":      true,  // NAT64 form of 192.168.1.20
+		"2002:c0a8:114::1":       true,
 	} {
 		if got := lanAllowed(netip.MustParseAddr(addr)); got != want {
 			t.Errorf("lanAllowed(%s) = %v, want %v", addr, got, want)

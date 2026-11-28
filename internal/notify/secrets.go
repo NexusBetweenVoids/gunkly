@@ -37,7 +37,9 @@ func Reseal(k *auth.Keyring, channelID, rawURL string, enabled map[string]bool) 
 
 // Hint is what may be shown about a channel after saving. It never contains
 // characters of the secret: a fixed provider shows its kind (plus its fixed
-// host where it has one); a user-chosen-host service shows the host only.
+// host where it has one); a service whose URL host is a server the user chose
+// shows that host; every other service (its host part is a key, an ID or a
+// phone number) shows its kind only.
 func Hint(kind, rawURL string) string {
 	if f, ok := fixedServices[kind]; ok {
 		if f.host != "" && f.host != kind {
@@ -45,11 +47,24 @@ func Hint(kind, rawURL string) string {
 		}
 		return kind
 	}
+	if !serverHostKinds[kind] {
+		return kind
+	}
 	u, err := url.Parse(rawURL)
 	if err != nil || u.Hostname() == "" {
 		return kind
 	}
 	return u.Hostname()
+}
+
+// serverHostKinds are the optional kinds whose URL host names a server, not a
+// credential. A kind missing here shows only its name, so a new service is
+// safe by default. Migration 0023 resets stored hints of the other kinds.
+var serverHostKinds = map[string]bool{
+	KindNtfySelfHosted: true, KindGeneric: true, KindSMTP: true, KindMQTT: true, KindXMPP: true,
+	KindGotify: true, KindMatrix: true, KindMattermost: true, KindRocketChat: true, KindZulip: true,
+	KindHomeAssistant: true, KindSignal: true, KindBark: true, KindPagerDuty: true, KindOpsgenie: true,
+	KindLark: true,
 }
 
 // Seal encrypts a channel URL bound to its channel ID.

@@ -39,6 +39,20 @@ func (s *Store) EnqueueMail(ctx context.Context, m OutboxMail, now time.Time) er
 	})
 }
 
+// OutboxSecrets pages through every queued email's sealed payload by ID
+// (system use: gunkly rotate-key). Pass the last ID of the previous page as
+// afterID.
+func (s *Store) OutboxSecrets(ctx context.Context, afterID string, limit int) ([]ChannelSecret, error) {
+	return s.secretsPage(ctx, "mail_outbox", "payload", afterID, limit)
+}
+
+// ReplaceOutboxPayload swaps a queued email's sealed payload if it still
+// equals old (system use: rotate-key). ErrNotFound if the email was sent or
+// given up meanwhile, ErrConflict if it changed.
+func (s *Store) ReplaceOutboxPayload(ctx context.Context, id, old, replacement string) error {
+	return s.replaceSecret(ctx, "mail_outbox", "payload", id, old, replacement)
+}
+
 // ClaimMail leases up to limit emails due at now: their next attempt moves to
 // now+lease, so a crashed sender's claims come back after the lease. Messages
 // past their expiry are given up first (and returned as expired for logging,

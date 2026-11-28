@@ -20,6 +20,7 @@ import (
 	"github.com/NexusBetweenVoids/gunkly/internal/auth"
 	"github.com/NexusBetweenVoids/gunkly/internal/db"
 	"github.com/NexusBetweenVoids/gunkly/internal/db/dbtest"
+	"github.com/NexusBetweenVoids/gunkly/internal/mail"
 	"github.com/NexusBetweenVoids/gunkly/internal/notify"
 	"github.com/NexusBetweenVoids/gunkly/internal/store"
 	"github.com/NexusBetweenVoids/gunkly/internal/webpush"
@@ -291,13 +292,20 @@ func TestRotateKey(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// A queued email (say, during an SMTP outage), sealed with the old key.
+	queued := mail.Message{To: "ann@example.com", Subject: "Code", Body: "123456"}
+	if err := a.store.EnqueueMail(ctx, store.OutboxMail{ID: "mail-1", Kind: "otp", UserID: u.ID, Payload: mail.Seal(oldRing, "mail-1", queued),
+		ExpiresAt: time.Now().Add(time.Hour)}, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+
 	a.keyring = bothRing
 	var out bytes.Buffer
 	if err := a.rotateKey(ctx, &out); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(out.String(), "totp secrets: 1 re-encrypted") || !strings.Contains(out.String(), "notification channel URLs: 1 re-encrypted") ||
-		!strings.Contains(out.String(), "web push keys: 2 re-encrypted") {
+		!strings.Contains(out.String(), "web push keys: 2 re-encrypted") || !strings.Contains(out.String(), "queued emails: 1 re-encrypted") {
 		t.Fatalf("output: %q", out.String())
 	}
 
@@ -329,6 +337,14 @@ func TestRotateKey(t *testing.T) {
 	}
 	if pub, err := notify.NewWebPush(a.store, newOnly, "https://gunkly.example", func(context.Context) bool { return true }, nil).PublicKey(ctx); err != nil || pub != vapidPub {
 		t.Fatalf("VAPID key after old key removal: %q (want %q) %v", pub, vapidPub, err)
+	}
+
+	outbox, err := a.store.OutboxSecrets(ctx, "", 10)
+	if err != nil || len(outbox) != 1 {
+		t.Fatalf("outbox: %+v %v", outbox, err)
+	}
+	if m, err := mail.Open(newOnly, "mail-1", outbox[0].Ciphertext); err != nil || m != queued {
+		t.Fatalf("queued email after old key removal: %+v %v", m, err)
 	}
 
 	// Idempotent: a second run has nothing to do.

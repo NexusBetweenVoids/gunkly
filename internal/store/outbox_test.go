@@ -2,6 +2,7 @@ package store_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -41,5 +42,28 @@ func TestMailOutboxClaimLeaseAndAccountDelete(t *testing.T) {
 	noErr(t, err)
 	if len(got) != 1 || got[0].ID != "m2" {
 		t.Fatalf("after deleting a's account: %v", got)
+	}
+}
+
+func TestMailOutboxReplacePayload(t *testing.T) {
+	s, ctx := newStore(t), context.Background()
+	now := time.Date(2026, 11, 21, 12, 0, 0, 0, time.UTC)
+	noErr(t, s.EnqueueMail(ctx, store.OutboxMail{ID: "m1", Kind: "otp", Payload: "old", ExpiresAt: now.Add(time.Hour)}, now))
+	page, err := s.OutboxSecrets(ctx, "", 10)
+	noErr(t, err)
+	if len(page) != 1 || page[0].ID != "m1" || page[0].Ciphertext != "old" {
+		t.Fatalf("page %+v", page)
+	}
+	if err := s.ReplaceOutboxPayload(ctx, "m1", "stale", "new"); !errors.Is(err, store.ErrConflict) {
+		t.Fatalf("changed meanwhile: %v", err)
+	}
+	noErr(t, s.ReplaceOutboxPayload(ctx, "m1", "old", "new"))
+	got, _, err := s.ClaimMail(ctx, now, time.Minute, 10)
+	noErr(t, err)
+	if len(got) != 1 || got[0].Payload != "new" {
+		t.Fatalf("claimed %+v", got)
+	}
+	if err := s.ReplaceOutboxPayload(ctx, "gone", "old", "new"); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("sent meanwhile: %v", err)
 	}
 }

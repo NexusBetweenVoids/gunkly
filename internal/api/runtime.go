@@ -14,6 +14,7 @@ import (
 	"github.com/NexusBetweenVoids/gunkly/internal/egress"
 	"github.com/NexusBetweenVoids/gunkly/internal/limits"
 	"github.com/NexusBetweenVoids/gunkly/internal/mail"
+	"github.com/NexusBetweenVoids/gunkly/internal/scheduler"
 	"github.com/NexusBetweenVoids/gunkly/internal/sso"
 )
 
@@ -244,7 +245,7 @@ func (s *Server) adminTestEmail(w http.ResponseWriter, r *http.Request, c *call)
 	out := map[string]any{"ok": err == nil}
 	if err != nil {
 		out["error"] = "send_failed"
-		s.log.Warn("test email failed", "err", err)
+		s.log.Warn("test email failed", "reason", scheduler.MailErrReason(err)) // the error can carry the address
 	}
 	writeJSON(w, http.StatusOK, out)
 	return nil

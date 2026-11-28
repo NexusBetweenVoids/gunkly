@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -123,6 +124,10 @@ func (s *Server) adminApplyUpdate(w http.ResponseWriter, r *http.Request, c *cal
 	case err != nil && (errors.Is(err, context.DeadlineExceeded) || errors.Is(ctx.Err(), context.DeadlineExceeded)):
 		out["result"] = "sent" // the updater is busy (or already restarting us)
 	case err != nil:
+		var ue *url.Error
+		if errors.As(err, &ue) {
+			err = ue.Err // the URL carries the updater's secret in its path
+		}
 		s.log.Warn("update webhook failed", "err", err)
 		out["result"], out["error"] = "failed", "unreachable"
 	default:

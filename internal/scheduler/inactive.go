@@ -154,7 +154,11 @@ func (j *inactiveJob) warn(ctx context.Context, u store.InactiveUser, final bool
 	try := func(err error, what string) {
 		attempted++
 		if err != nil {
-			log.Warn("scheduler: inactivity warning failed", "via", what, "err", err)
+			if what == "email" { // the SMTP error can carry the address
+				log.Warn("scheduler: inactivity warning failed", "via", what, "reason", MailErrReason(err))
+			} else {
+				log.Warn("scheduler: inactivity warning failed", "via", what, "err", err)
+			}
 			return
 		}
 		delivered++
