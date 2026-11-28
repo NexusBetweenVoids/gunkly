@@ -4,6 +4,10 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ## [Unreleased]
 
+### Fixed
+
+- Longer languages (Dutch, German): buttons and pills no longer split a word mid-way ("Verwijde/ren", "Entferne/n"); a state pill in "Ways to sign in" and "Ways to get reminders" no longer hides under its button on phones ("Nicht verfügb…"); the phone tab bar keeps "Einstellungen" on one line; the settings list on wider screens fits "Benachrichtigungen"; headings, buttons and navigation hyphenate long words in the page language; on a chore, the labels line up with their values and take only the room they need. A few Dutch and German texts read more naturally (Dutch security banner says "beveiligingsgebeurtenissen" like the list it links to; German "Anmeldemethoden" and the single sign-on hints; shorter chore-name examples).
+
 ## [0.13.0] - 2026-11-28
 
 A design pass across every screen: calmer spacing, line icons, denser lists on phones, and settings pages that say plainly where you stand.

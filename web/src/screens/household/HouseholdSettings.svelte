@@ -355,7 +355,7 @@
   }
   .remove {
     flex: none;
-    inline-size: 5.5rem;
+    min-inline-size: 5.5rem;
     min-block-size: var(--tap);
     padding: 0;
     border: 0;

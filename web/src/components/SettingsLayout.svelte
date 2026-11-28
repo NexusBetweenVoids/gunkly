@@ -155,11 +155,13 @@
   @media (min-width: 48rem) {
     .settings {
       display: grid;
-      grid-template-columns: 15rem minmax(0, 1fr);
+      /* 15rem, or up to 18rem when a label needs it ("Benachrichtigungen" whole). */
+      grid-template-columns: fit-content(18rem) minmax(0, 1fr);
       gap: calc(var(--space) * 1.5);
       align-items: start;
     }
     nav {
+      min-inline-size: 15rem;
       position: sticky;
       inset-block-start: var(--space);
     }
