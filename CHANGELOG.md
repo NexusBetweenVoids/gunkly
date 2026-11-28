@@ -4,6 +4,18 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ## [Unreleased]
 
+### Security
+
+- A household's write rate limit is now only used up by people who may write in that household; requests for households you are not in no longer count against it, and malformed household IDs are refused before they reach the rate limiter.
+- No single kind of rate limit can fill the rate limiter's whole table, so a flood of one kind of request cannot crowd out the others.
+- Per-household and per-account limits (chores, notification channels, webhooks, calendar feeds, API tokens, connected apps, push subscriptions, passkeys) now also hold when many requests arrive at once on Postgres.
+
+### Fixed
+
+- Postgres: completing the same chore several times at once now handles the completions one after the other, so the next due date and undo always start from the latest state.
+- Postgres: two instance admins deleting their accounts at the same moment can no longer leave the instance without an admin.
+- Hosted instances: switching off invite registration no longer refuses invited people while open sign-up (on by default when hosted) still lets anyone register.
+
 ## [0.13.0] - 2026-11-28
 
 A design pass across every screen: calmer spacing, line icons, denser lists on phones, and settings pages that say plainly where you stand.

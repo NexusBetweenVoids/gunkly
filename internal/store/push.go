@@ -54,6 +54,9 @@ func (s *Store) CreatePushSubscription(ctx context.Context, a Actor, in NewPushS
 	}
 	now := s.nowMS()
 	err := s.inTx(ctx, true, func(t *tx) error {
+		if err := t.lockUser(ctx, a.UserID); err != nil { // the limit holds under concurrency
+			return err
+		}
 		if _, err := t.exec(ctx, "DELETE FROM push_subscriptions WHERE endpoint = ?", in.Endpoint); err != nil {
 			return err
 		}

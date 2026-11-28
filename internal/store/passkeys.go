@@ -106,6 +106,9 @@ func (s *Store) AddPasskey(ctx context.Context, userID, keepSessionID string, in
 	p = Passkey{ID: ids.New(), UserID: userID, Name: in.Name, CredentialID: in.CredentialID, PublicKey: in.PublicKey,
 		SignCount: in.SignCount, Transports: in.Transports, AAGUID: in.AAGUID, Flags: in.Flags}
 	err = s.inTx(ctx, true, func(t *tx) error {
+		if err := t.lockUser(ctx, userID); err != nil { // the limit holds under concurrency
+			return err
+		}
 		var n int
 		if err := t.queryRow(ctx, "SELECT count(*) FROM passkeys WHERE user_id = ?", userID).Scan(&n); err != nil {
 			return err

@@ -157,6 +157,9 @@ func (s *Store) CreateOAuthCode(ctx context.Context, a Actor, in NewOAuthCode) (
 	}
 	grantID = ids.New()
 	err = s.inTx(ctx, true, func(t *tx) error {
+		if err := t.lockUser(ctx, a.UserID); err != nil { // the limit holds under concurrency
+			return err
+		}
 		now := s.nowMS()
 		var n int
 		if err := t.queryRow(ctx, `SELECT count(*) FROM oauth_grants WHERE user_id = ? AND revoked_at IS NULL AND expires_at > ?`,

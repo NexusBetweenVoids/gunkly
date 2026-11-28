@@ -377,7 +377,7 @@ func (s *Server) registerWithInvite(w http.ResponseWriter, r *http.Request, c *c
 	if err != nil {
 		return err
 	}
-	if !st.OpenSignup && !st.InviteRegistration {
+	if open, _ := s.signupSettings(st); !open && !st.InviteRegistration {
 		return errf(http.StatusForbidden, "registration_disabled")
 	}
 	hash, lim, err := s.inviteTarget(ctx, r)

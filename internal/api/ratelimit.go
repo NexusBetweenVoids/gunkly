@@ -10,8 +10,10 @@ import (
 // rateLimiter is an in-memory token bucket per key with exponential backoff
 // for keys that keep hitting the limit. It never locks anything for longer
 // than maxBackoff, so a third party cannot lock a user out. Memory is
-// bounded by maxKeys. Single-instance only: a shared Postgres limiter for
-// multiple instances is 1B (ADR 0013).
+// bounded by maxKeys, and one bucket may hold at most half of them, so a flood
+// of new keys in one bucket (say, login attempts from many addresses) cannot
+// leave no room for the others. Single-instance only: a shared Postgres
+// limiter for multiple instances is 1B (ADR 0013).
 type rateLimiter struct {
 	mu      sync.Mutex
 	rate    float64 // tokens per second
@@ -24,6 +26,7 @@ type rateLimiter struct {
 	burstOf map[string]int
 	now     func() time.Time
 	m       map[string]*bucket
+	perBkt  map[string]int // number of keys per bucket name
 	// defaultRate, when set, supplies the per-minute rate of buckets with no
 	// perMinute entry (the admin-set login rate). It is re-read at most every
 	// rateRefresh, so a settings change applies to existing keys too.
@@ -49,7 +52,7 @@ type bucket struct {
 const maxBackoff = 15 * time.Minute
 
 func newRateLimiter(perMinute, maxKeys int, now func() time.Time) *rateLimiter {
-	return &rateLimiter{rate: float64(perMinute) / 60, burst: float64(perMinute), maxKeys: maxKeys, now: now, m: map[string]*bucket{}}
+	return &rateLimiter{rate: float64(perMinute) / 60, burst: float64(perMinute), maxKeys: maxKeys, now: now, m: map[string]*bucket{}, perBkt: map[string]int{}}
 }
 
 // allow takes a token for key. It returns 0 if allowed, otherwise how long
@@ -69,14 +72,16 @@ func (l *rateLimiter) allow(key string) time.Duration {
 		}
 	}
 	if b == nil {
-		if len(l.m) >= l.maxKeys {
+		name, quota := bucketOf(key), max(l.maxKeys/2, 1)
+		if len(l.m) >= l.maxKeys || l.perBkt[name] >= quota {
 			l.evict(now)
-			if len(l.m) >= l.maxKeys {
+			if len(l.m) >= l.maxKeys || l.perBkt[name] >= quota {
 				return fullWait
 			}
 		}
 		b = &bucket{rate: rate, burst: burst, tokens: burst, last: now}
 		l.m[key] = b
+		l.perBkt[name]++
 	} else if !custom {
 		b.rate, b.burst = rate, burst
 		b.tokens = min(b.tokens, burst)
@@ -133,6 +138,9 @@ func (l *rateLimiter) evict(now time.Time) {
 		full := time.Duration(b.burst / b.rate * float64(time.Second))
 		if now.After(b.until) && now.Sub(b.last) > full {
 			delete(l.m, k)
+			if l.perBkt[bucketOf(k)]--; l.perBkt[bucketOf(k)] <= 0 {
+				delete(l.perBkt, bucketOf(k))
+			}
 		}
 	}
 }

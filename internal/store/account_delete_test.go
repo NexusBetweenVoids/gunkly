@@ -3,7 +3,9 @@ package store_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -330,6 +332,36 @@ func TestPushSubscriptionLongEndpoints(t *testing.T) {
 		}
 		if !found {
 			t.Fatalf("%d-char endpoint not stored intact", len(ep))
+		}
+	}
+}
+
+// Two admins deleting their accounts at the same moment cannot leave the
+// instance without one.
+func TestDeleteAccountConcurrentAdmins(t *testing.T) {
+	e := newDelEnv(t)
+	keep := must(e.s.CreateUser(e.ctx, store.NewUser{Username: "adm0", DisplayName: "adm", PasswordHash: "x", IsAdmin: true}))
+	for round := range 10 {
+		other := must(e.s.CreateUser(e.ctx, store.NewUser{Username: fmt.Sprintf("adm%d", round+1), DisplayName: "adm", PasswordHash: "x", IsAdmin: true}))
+		var wg sync.WaitGroup
+		errs := make([]error, 2)
+		for i, id := range []string{keep.ID, other.ID} {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				_, errs[i] = e.s.DeleteAccount(e.ctx, id, store.AccountDeletion{})
+			}()
+		}
+		wg.Wait()
+		if n := e.count("SELECT count(*) FROM users WHERE is_admin = ?", true); n != 1 {
+			t.Fatalf("round %d: %d admins left (errors %v)", round, n, errs)
+		}
+		switch {
+		case errs[0] == nil && errors.Is(errs[1], store.ErrLastAdmin):
+			keep = other
+		case errs[1] == nil && errors.Is(errs[0], store.ErrLastAdmin):
+		default:
+			t.Fatalf("round %d: errors %v", round, errs)
 		}
 	}
 }

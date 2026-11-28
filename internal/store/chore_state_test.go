@@ -2,12 +2,15 @@ package store_test
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/NexusBetweenVoids/gunkly/internal/db"
+	"github.com/NexusBetweenVoids/gunkly/internal/db/dbtest"
 	"github.com/NexusBetweenVoids/gunkly/internal/schedule"
 	"github.com/NexusBetweenVoids/gunkly/internal/store"
 )
@@ -196,5 +199,51 @@ func TestChoreInputReminders(t *testing.T) {
 	preset, got, err := f.s.ChoreReminders(f.ctx, f.m, f.hid, c.ID)
 	if err != nil || preset != "custom" || len(got) != 1 || got[0].Minute != 450 {
 		t.Fatalf("%q %v %v", preset, got, err)
+	}
+}
+
+// Concurrent completions of one chore all count, one after the other: each
+// starts from the due date the previous one left, so only the first records
+// the original due date as its "before" state (used by undo).
+func TestConcurrentCompletionsSerialise(t *testing.T) {
+	ctx := context.Background()
+	d := dbtest.Open(t)
+	s := store.New(d).WithClock(func() time.Time { return time.Date(2026, 11, 21, 12, 0, 0, 0, time.UTC) })
+	a := mkUser(t, s, "a")
+	hh := mkHousehold(t, s, a, "H")
+	in := choreIn("Dust")
+	in.DueDate = "2026-11-14" // overdue: the first completion moves it to a week from today
+	ch := must(s.CreateChore(ctx, a, hh, in))
+	if d.Dialect == db.Postgres { // open the connections first, so the completions really overlap
+		d.SetMaxIdleConns(8)
+		var conns []*sql.Conn
+		for range 8 {
+			conns = append(conns, must(d.Conn(ctx)))
+		}
+		for _, c := range conns {
+			noErr(t, c.Close())
+		}
+	}
+	var wg sync.WaitGroup
+	start := make(chan struct{})
+	for range 8 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			if _, _, err := s.CompleteChoreAuto(ctx, a, hh, ch.ID, "", store.SourceApp, ""); err != nil {
+				t.Error(err)
+			}
+		}()
+	}
+	close(start)
+	wg.Wait()
+	var total, fromOriginal int
+	if err := d.QueryRowContext(ctx, d.Dialect.Rebind(`SELECT count(*), COALESCE(SUM(CASE WHEN prev_due_date = ? THEN 1 ELSE 0 END), 0)
+		FROM completions WHERE chore_id = ?`), "2026-11-14", ch.ID).Scan(&total, &fromOriginal); err != nil {
+		t.Fatal(err)
+	}
+	if total != 8 || fromOriginal != 1 {
+		t.Fatalf("%d completions, %d of them from the original due date (want 8 and 1)", total, fromOriginal)
 	}
 }

@@ -86,6 +86,9 @@ func (s *Store) CreateAPIToken(ctx context.Context, a Actor, in NewAPIToken) (AP
 	}
 	tok := APIToken{ID: ids.New(), UserID: a.UserID, Name: in.Name, Scopes: in.Scopes, ExpiresAt: in.ExpiresAt}
 	err := s.inTx(ctx, true, func(t *tx) error {
+		if err := t.lockUser(ctx, a.UserID); err != nil { // the limit holds under concurrency
+			return err
+		}
 		now := s.nowMS()
 		var n int
 		if err := t.queryRow(ctx, `SELECT count(*) FROM api_tokens WHERE user_id = ? AND revoked_at IS NULL

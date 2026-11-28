@@ -25,7 +25,15 @@ func (s *Store) CreateFeed(ctx context.Context, a Actor, householdID string, max
 	}
 	token := ids.Token()
 	f := Feed{ID: ids.New(), HouseholdID: householdID}
-	err := s.write(ctx, a, householdID, RoleGuest, func(t *tx, _ Role) error {
+	err := s.inTx(ctx, true, func(t *tx) error {
+		// The per-user count is checked under the user lock, so concurrent
+		// creates cannot overshoot max.
+		if err := t.lockUser(ctx, a.UserID); err != nil {
+			return err
+		}
+		if _, err := t.authorize(ctx, a, householdID, RoleGuest, true); err != nil {
+			return err
+		}
 		var n int
 		if err := t.queryRow(ctx, "SELECT count(*) FROM calendar_feeds WHERE user_id = ? AND revoked_at IS NULL", a.UserID).Scan(&n); err != nil {
 			return err

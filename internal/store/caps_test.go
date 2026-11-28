@@ -2,11 +2,13 @@ package store_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/NexusBetweenVoids/gunkly/internal/ids"
 	"github.com/NexusBetweenVoids/gunkly/internal/limits"
 	"github.com/NexusBetweenVoids/gunkly/internal/store"
 )
@@ -155,5 +157,86 @@ func TestPreviewInvite(t *testing.T) {
 	p = must(s.PreviewInvite(ctx, "orphan"))
 	if p.HouseholdName != "Maple Street 12" || p.InviterName != "" {
 		t.Fatalf("orphan preview = %+v", p)
+	}
+}
+
+// Every count-then-insert limit holds under concurrent creates: the count is
+// taken under the household or user lock.
+func TestCountedCreatesAreAtomic(t *testing.T) {
+	ctx := context.Background()
+	s := newStore(t)
+	a := mkUser(t, s, "a")
+	hh := mkHousehold(t, s, a, "H")
+	client := must(s.CreateOAuthClient(ctx, "app", []string{"https://app.example/cb"}, 100, 100, ""))
+	const max = 3
+	creates := map[string]func(i int) error{
+		"chores": func(i int) error {
+			in := choreIn(fmt.Sprintf("C%d", i))
+			in.MaxChores = max
+			_, err := s.CreateChore(ctx, a, hh, in)
+			return err
+		},
+		"household channels": func(int) error {
+			_, err := s.CreateHouseholdChannel(ctx, a, hh, store.NewChannel{ID: ids.New(), Service: "discord", Ciphertext: "v1:x", Label: "L", Max: max})
+			return err
+		},
+		"user channels": func(int) error {
+			_, err := s.CreateUserChannel(ctx, a, store.NewChannel{ID: ids.New(), Service: "discord", Ciphertext: "v1:x", Label: "L", Max: max})
+			return err
+		},
+		"webhooks": func(int) error {
+			_, err := s.CreateWebhook(ctx, a, hh, store.NewWebhook{ID: ids.New(), URLCiphertext: "u", URLHint: "h", SecretCiphertext: "s",
+				Events: store.WebhookEvents, Max: max})
+			return err
+		},
+		"feeds": func(int) error {
+			_, _, err := s.CreateFeed(ctx, a, hh, max)
+			return err
+		},
+		"api tokens": func(int) error {
+			_, err := s.CreateAPIToken(ctx, a, store.NewAPIToken{Name: "n", TokenHash: ids.Hash(ids.Token()),
+				Scopes: []string{store.ScopeRead}, HouseholdIDs: []string{hh}, Max: max})
+			return err
+		},
+		"oauth grants": func(int) error {
+			_, err := s.CreateOAuthCode(ctx, a, store.NewOAuthCode{ClientID: client.ID, RedirectURI: "https://app.example/cb", Challenge: "c",
+				CodeHash: ids.Hash(ids.Token()), Scopes: []string{store.ScopeRead}, HouseholdIDs: []string{hh}, Max: max})
+			return err
+		},
+		"push subscriptions": func(i int) error {
+			_, err := s.CreatePushSubscription(ctx, a, store.NewPushSubscription{ID: ids.New(), Endpoint: fmt.Sprintf("https://push.example/%d", i),
+				Ciphertext: "v1:k", Max: max})
+			return err
+		},
+		"passkeys": func(i int) error {
+			_, _, err := s.AddPasskey(ctx, a.UserID, "", newKey("K", fmt.Sprintf("cred-%d", i)), max, nil)
+			return err
+		},
+	}
+	for name, create := range creates {
+		t.Run(name, func(t *testing.T) {
+			var wg sync.WaitGroup
+			var mu sync.Mutex
+			okN := 0
+			for i := range 12 {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					err := create(i)
+					if err != nil && !errors.Is(err, store.ErrLimit) {
+						t.Errorf("create %d: %v", i, err)
+					}
+					if err == nil {
+						mu.Lock()
+						okN++
+						mu.Unlock()
+					}
+				}()
+			}
+			wg.Wait()
+			if okN != max {
+				t.Fatalf("created %d, want exactly %d", okN, max)
+			}
+		})
 	}
 }

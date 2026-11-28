@@ -1412,3 +1412,85 @@ func TestLegalLinksOnlyInHostedMode(t *testing.T) {
 		t.Fatalf("hosted: %v", v)
 	}
 }
+
+// Only callers who may write in a household take from its write bucket, and
+// a path value that is not an ID never reaches the limiter.
+func TestHouseholdWriteBucketChargesOnlyMembers(t *testing.T) {
+	f := newHH(t)
+	f.e.srv.rl = newRateLimiter(10000, 1000, f.e.clock.Now)
+	f.e.srv.rl.perMinute, f.e.srv.rl.burstOf = bucketRates, bucketBursts
+	for _, c := range []*client{f.x, f.b} { // not members of A
+		for range 60 {
+			st, v := c.do("POST", "/api/v1/households/"+f.hA+"/areas", map[string]string{"name": "x"})
+			expect(t, st, v, 404, "not_found")
+		}
+	}
+	for range 60 { // a guest may not create areas
+		st, v := f.g.do("POST", "/api/v1/households/"+f.hA+"/areas", map[string]string{"name": "x"})
+		expect(t, st, v, 403, "forbidden")
+	}
+	st, v := f.a.do("POST", "/api/v1/households/"+f.hA+"/areas", map[string]string{"name": "Kitchen"})
+	expect(t, st, v, 201, "")
+
+	long := strings.Repeat("a", 4000)
+	for _, hh := range []string{long, strings.ToUpper(f.hA), "nope"} {
+		st, v := f.a.do("POST", "/api/v1/households/"+hh+"/areas", map[string]string{"name": "x"})
+		expect(t, st, v, 404, "not_found")
+	}
+	for k := range f.e.srv.rl.m {
+		if strings.HasPrefix(k, rateHouseholdWrite+":") && k != rateHouseholdWrite+":hh:"+f.hA {
+			t.Fatalf("limiter key for an unknown household: %.60q", k)
+		}
+	}
+}
+
+// One bucket cannot fill the whole limiter table: new keys of other buckets
+// still get room.
+func TestRateLimiterBucketQuota(t *testing.T) {
+	clock := &fakeClock{t: time.Unix(0, 0)}
+	l := newRateLimiter(1, 10, clock.Now)
+	for i := range 10 {
+		l.allow("login:ip:" + strconv.Itoa(i))
+		l.allow("login:ip:" + strconv.Itoa(i)) // in backoff: never evicted
+	}
+	if len(l.m) != 5 {
+		t.Fatalf("login keys: %d, want 5 (half the table)", len(l.m))
+	}
+	if l.allow("uwrite:user:u") != 0 {
+		t.Fatal("another bucket found no room")
+	}
+}
+
+// Invite registration follows the effective open sign-up setting: on a hosted
+// instance sign-up is open by default, so turning invite registration off
+// alone does not refuse invited people.
+func TestInviteRegistrationFollowsEffectiveOpenSignup(t *testing.T) {
+	e := newMailEnv(t, func(o *Options) { o.HostedMode = true })
+	e.user("ann", false)
+	e.verified("ann")
+	e.enableEmailOTP("ann")
+	owner := e.client()
+	owner.login("ann", nil)
+	owner.login("ann", map[string]string{"emailCode": codeIn(t, e.oneMail("ann@example.com"))})
+	st, v := owner.do("POST", "/api/v1/households", map[string]string{"name": "A", "timezone": "Europe/Amsterdam"})
+	expect(t, st, v, 201, "")
+	hh := field(v, "id").(string)
+	off := false
+	if err := e.st.UpdateInstanceSettings(context.Background(), store.SettingsUpdate{InviteRegistration: &off}); err != nil {
+		t.Fatal(err)
+	}
+	register := func(name string) (int, any) {
+		st, v := owner.do("POST", "/api/v1/households/"+hh+"/invites", map[string]any{"role": "member"})
+		expect(t, st, v, 201, "")
+		return e.client().do("POST", "/api/v1/invites/"+field(v, "token").(string)+"/register", map[string]string{
+			"username": name, "email": name + "@example.com", "password": "a much longer password", "displayName": name})
+	}
+	st, v = register("newbie")
+	expect(t, st, v, 201, "")
+	// With open sign-up explicitly off as well, invite registration is refused.
+	if err := e.st.UpdateInstanceSettings(context.Background(), store.SettingsUpdate{OpenSignup: &off}); err != nil {
+		t.Fatal(err)
+	}
+	st, v = register("other")
+	expect(t, st, v, 403, "registration_disabled")
+}

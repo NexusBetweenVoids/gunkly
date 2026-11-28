@@ -176,7 +176,7 @@ func (s *Store) CreateWebhook(ctx context.Context, a Actor, householdID string, 
 		return Webhook{}, ErrInvalid
 	}
 	var w Webhook
-	err := s.write(ctx, a, householdID, RoleOwner, func(t *tx, _ Role) error {
+	err := s.manage(ctx, a, householdID, RoleOwner, func(t *tx, _ Role) error { // household lock: the limit holds under concurrency
 		var count int
 		if err := t.queryRow(ctx, "SELECT count(*) FROM webhooks WHERE household_id = ?", householdID).Scan(&count); err != nil {
 			return err

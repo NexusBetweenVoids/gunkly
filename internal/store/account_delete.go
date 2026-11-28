@@ -19,6 +19,11 @@ var (
 	ErrLastAdmin = errors.New("store: last instance admin")
 )
 
+// lastAdminLockKey is the Postgres advisory lock under which an admin's
+// deletion checks that another admin remains ("gunkadm"; the scheduler and
+// migrations use other keys).
+const lastAdminLockKey = 0x67756e6b61646d
+
 // Candidate is a household member who may take over ownership. Guests are
 // never candidates.
 type Candidate struct {
@@ -351,6 +356,14 @@ func (s *Store) DeleteAccount(ctx context.Context, userID string, o AccountDelet
 			return ErrConflict
 		}
 		if isAdmin {
+			// Concurrent deletions of two admins must not both see the other
+			// one: on Postgres they take turns here (SQLite write
+			// transactions are already serialised).
+			if t.d == db.Postgres {
+				if _, err := t.exec(ctx, "SELECT pg_advisory_xact_lock(?)", lastAdminLockKey); err != nil {
+					return err
+				}
+			}
 			var others int
 			if err := t.queryRow(ctx, "SELECT count(*) FROM users WHERE is_admin = ? AND id <> ?", true, userID).Scan(&others); err != nil {
 				return err

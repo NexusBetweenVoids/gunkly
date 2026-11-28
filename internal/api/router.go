@@ -318,6 +318,10 @@ func (s *Server) enforce(p policy, h handlerFunc) http.Handler {
 		}
 		if p.auth == authHousehold {
 			c.hh = r.PathValue("hh")
+			if !isID(c.hh) {
+				s.fail(w, r, errNotFound) // like an unknown household
+				return
+			}
 			if c.tok != nil {
 				if _, ok := c.tok.Household(c.hh); !ok {
 					s.fail(w, r, errNotFound) // not bound, or the owner left: like an outsider
@@ -326,9 +330,6 @@ func (s *Server) enforce(p policy, h handlerFunc) http.Handler {
 			}
 			// Defence in depth: the store re-checks membership in the same
 			// transaction as the data access.
-			if !safeMethod(r.Method) && !s.allow(w, rateHouseholdWrite+":hh:"+c.hh) {
-				return
-			}
 			role, err := s.st.Role(r.Context(), c.actor(), c.hh)
 			if err != nil {
 				s.fail(w, r, err)
@@ -347,11 +348,36 @@ func (s *Server) enforce(p policy, h handlerFunc) http.Handler {
 					return
 				}
 			}
+			// Charged only once the caller may write here, so outsiders
+			// cannot drain a household's bucket.
+			if !safeMethod(r.Method) && !s.allow(w, rateHouseholdWrite+":hh:"+c.hh) {
+				return
+			}
 		}
 		if err := h(w, r, c); err != nil {
 			s.fail(w, r, err)
 		}
 	})
+}
+
+// isID reports whether v has the form of a public ID (ids.New: a lowercase
+// UUID), so arbitrary path values never reach the store or the limiter.
+func isID(v string) bool {
+	if len(v) != 36 {
+		return false
+	}
+	for i := 0; i < len(v); i++ {
+		switch c := v[i]; {
+		case i == 8 || i == 13 || i == 18 || i == 23:
+			if c != '-' {
+				return false
+			}
+		case '0' <= c && c <= '9', 'a' <= c && c <= 'f':
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 func safeMethod(m string) bool {

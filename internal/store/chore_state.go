@@ -60,11 +60,8 @@ func (s *Store) moveOccurrence(ctx context.Context, a Actor, householdID, choreI
 	pick func(c Chore, loc *time.Location, today schedule.Date) (schedule.Date, error)) (Chore, error) {
 	var out Chore
 	err := s.write(ctx, a, householdID, RoleMember, func(t *tx, _ Role) error {
-		if t.d == db.Postgres {
-			var id string
-			if err := t.queryRow(ctx, "SELECT id FROM chores WHERE id = ? AND household_id = ? FOR UPDATE", choreID, householdID).Scan(&id); err != nil {
-				return notFound(err)
-			}
+		if err := t.lockChore(ctx, householdID, choreID); err != nil {
+			return err
 		}
 		c, err := t.chore(ctx, householdID, choreID)
 		if err != nil {
@@ -151,9 +148,20 @@ func (t *tx) finishState(ctx context.Context, householdID, choreID string, out *
 	return err
 }
 
+// lockChore takes the chore's row lock on Postgres (SQLite write transactions
+// are already serialised), so concurrent changes to its schedule run one after
+// the other. ErrNotFound if the chore is not in the household.
+func (t *tx) lockChore(ctx context.Context, householdID, choreID string) error {
+	if t.d != db.Postgres {
+		return nil
+	}
+	var id string
+	return notFound(t.queryRow(ctx, "SELECT id FROM chores WHERE id = ? AND household_id = ? FOR UPDATE", choreID, householdID).Scan(&id))
+}
+
 // CompleteChoreAuto completes a chore now, recorded with the given source (SourceApp, SourceAPIToken or SourceOAuth; tokenID names the token or grant for the latter two), and computes the next
-// occurrence inside the transaction with internal/schedule (so concurrent
-// completions cannot work from a stale due date). Member or owner. Archived
+// occurrence inside the transaction with internal/schedule, under the chore's
+// row lock (so concurrent completions cannot work from a stale due date). Member or owner. Archived
 // chores are ErrConflict. It returns the completion and the updated chore.
 func (s *Store) CompleteChoreAuto(ctx context.Context, a Actor, householdID, choreID, note, source, tokenID string) (Completion, Chore, error) {
 	if len(note) > 2000 || source != SourceApp && source != SourceAPIToken && source != SourceOAuth {
@@ -162,6 +170,9 @@ func (s *Store) CompleteChoreAuto(ctx context.Context, a Actor, householdID, cho
 	var comp Completion
 	var ch Chore
 	err := s.write(ctx, a, householdID, RoleMember, func(t *tx, _ Role) error {
+		if err := t.lockChore(ctx, householdID, choreID); err != nil {
+			return err
+		}
 		c, err := t.chore(ctx, householdID, choreID)
 		if err != nil {
 			return err

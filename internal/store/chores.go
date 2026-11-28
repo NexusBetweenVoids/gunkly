@@ -208,7 +208,9 @@ func (s *Store) CreateChore(ctx context.Context, a Actor, householdID string, in
 	}
 	id := ids.New()
 	var c Chore
-	err := s.write(ctx, a, householdID, RoleMember, func(t *tx, _ Role) error {
+	// manage: the chore count is checked under the household lock, so
+	// concurrent creates cannot overshoot MaxChores.
+	err := s.manage(ctx, a, householdID, RoleMember, func(t *tx, _ Role) error {
 		if err := t.checkRefs(ctx, householdID, &in); err != nil {
 			return err
 		}

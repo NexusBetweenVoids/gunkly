@@ -121,6 +121,9 @@ func (s *Store) CreateUserChannel(ctx context.Context, a Actor, in NewChannel) (
 	}
 	var c Channel
 	err := s.inTx(ctx, true, func(t *tx) error {
+		if err := t.lockUser(ctx, a.UserID); err != nil { // the limit holds under concurrency
+			return err
+		}
 		var err error
 		c, err = t.insertChannel(ctx, ChannelScopeUser, a.UserID, in, s.nowMS())
 		return err
@@ -136,7 +139,7 @@ func (s *Store) CreateHouseholdChannel(ctx context.Context, a Actor, householdID
 		return Channel{}, ErrInvalid
 	}
 	var c Channel
-	err := s.write(ctx, a, householdID, RoleMember, func(t *tx, _ Role) error {
+	err := s.manage(ctx, a, householdID, RoleMember, func(t *tx, _ Role) error { // household lock: the limit holds under concurrency
 		var err error
 		c, err = t.insertChannel(ctx, ChannelScopeHousehold, householdID, in, s.nowMS())
 		return err
