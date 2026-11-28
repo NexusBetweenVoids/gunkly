@@ -228,5 +228,8 @@
   "nav.settings": "Settings",
   "legal.agree": "By creating an account you accept the",
   "legal.terms": "Terms of use",
-  "legal.privacy": "Privacy policy"
+  "legal.privacy": "Privacy policy",
+  "err.self_target": "Delete your own account under Settings, Your data.",
+  "err.admin_delete_target": "Administrator accounts can't be deleted here.",
+  "err.second_factor_required": "Add a passkey or two-factor authentication to your account first."
 }

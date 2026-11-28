@@ -385,5 +385,6 @@
   "notif.deviceHint": "Notifications du navigateur, chiffrées de bout en bout",
   "notif.email": "E-mail",
   "notif.appCount": {"one": "{count} application", "many": "{count} d’applications", "other": "{count} applications"},
-  "quietHours.off": "Retiens tes rappels la nuit ou à d’autres heures fixes."
+  "quietHours.off": "Retiens tes rappels la nuit ou à d’autres heures fixes.",
+  "audit.admin_user_delete": "Compte supprimé par toi en tant qu’administrateur"
 }

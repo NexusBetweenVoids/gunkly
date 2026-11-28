@@ -228,5 +228,8 @@
   "nav.settings": "Instellingen",
   "legal.agree": "Door een account aan te maken ga je akkoord met de",
   "legal.terms": "Gebruiksvoorwaarden",
-  "legal.privacy": "Privacybeleid"
+  "legal.privacy": "Privacybeleid",
+  "err.self_target": "Je eigen account verwijder je via Instellingen, Jouw gegevens.",
+  "err.admin_delete_target": "Beheerdersaccounts kun je hier niet verwijderen.",
+  "err.second_factor_required": "Voeg eerst een passkey of tweestapsverificatie toe aan je account."
 }

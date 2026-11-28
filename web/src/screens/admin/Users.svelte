@@ -8,7 +8,9 @@
   import { api } from '../../lib/api';
   import { copyText } from '../../lib/clip';
   import { failure } from '../../lib/errors';
+  import { href } from '../../lib/base';
   import { formatDate, t } from '../../lib/i18n';
+  import { app } from '../../lib/session.svelte';
   import { withStepUp } from '../../lib/stepup.svelte';
   import { toast } from '../../lib/toast.svelte';
 
@@ -26,6 +28,42 @@
   let resetFor = $state<U | null>(null);
   let newPassword = $state('');
   const pwCodes = ['password_too_short', 'password_too_long', 'password_invalid'];
+
+  type Preview = { deleteHouseholds: { id: string; name: string }[]; transfers: { id: string; name: string; newOwner: string }[]; canDelete: boolean };
+  let deleteFor = $state<U | null>(null);
+  let preview = $state<Preview | null>(null);
+  let confirmName = $state('');
+  let derr = $state('');
+
+  async function openDelete(u: U): Promise<void> {
+    deleteFor = u;
+    preview = null;
+    confirmName = '';
+    derr = '';
+    try {
+      preview = await api<Preview>('GET', `/admin/users/${u.id}/deletion-preview`);
+    } catch (x) {
+      derr = failure(x).message;
+    }
+  }
+
+  async function remove(e: SubmitEvent): Promise<void> {
+    e.preventDefault();
+    if (!deleteFor) return;
+    busy = true;
+    derr = '';
+    try {
+      await withStepUp(() => api('DELETE', `/admin/users/${deleteFor!.id}`, { confirmUsername: confirmName }));
+      deleteFor = null;
+      toast(t('admin.deleted'));
+      await load();
+    } catch (x) {
+      const f = failure(x);
+      derr = f.code === 'confirmation_mismatch' ? t('admin.deleteMismatch') : f.message;
+    } finally {
+      busy = false;
+    }
+  }
 
   async function openCreate(): Promise<void> {
     creating = true;
@@ -86,7 +124,12 @@
           {#if u.isAdmin}<span class="badge">{t('nav.admin')}</span>{/if}
           <br /><span class="muted meta">{u.username}{u.email ? ` · ${u.email}` : ''} · {t('admin.lastActive', { date: formatDate(new Date(u.lastActiveAt), { dateStyle: 'medium' }) })}</span>
         </span>
-        {#if !u.isAdmin}<Button variant="quiet" onclick={() => (resetFor = u)}>{t('admin.reset')}</Button>{/if}
+        {#if !u.isAdmin && u.id !== app.user?.id}
+          <span class="row user-actions">
+            <Button variant="quiet" onclick={() => (resetFor = u)}>{t('admin.reset')}</Button>
+            <Button variant="quiet" onclick={() => openDelete(u)}>{t('admin.delete')}</Button>
+          </span>
+        {/if}
       </li>
     {/each}
   </ul>
@@ -119,6 +162,31 @@
   onconfirm={reset}
   oncancel={() => (resetFor = null)}
 />
+<Dialog open={!!deleteFor} title={t('admin.deleteTitle', { name: deleteFor?.displayName ?? '' })} onclose={() => (deleteFor = null)}>
+  <form class="stack" onsubmit={remove}>
+    <p>{t('admin.deleteIntro')}</p>
+    {#if preview}
+      {#if preview.deleteHouseholds.length}
+        <p>{t('admin.deleteHouseholds')}</p>
+        <ul>{#each preview.deleteHouseholds as h (h.id)}<li>{h.name}</li>{/each}</ul>
+      {/if}
+      {#if preview.transfers.length}
+        <p>{t('admin.deleteTransfers')}</p>
+        <ul>{#each preview.transfers as h (h.id)}<li>{t('admin.deleteTransfer', { household: h.name, name: h.newOwner })}</li>{/each}</ul>
+      {/if}
+      {#if preview.canDelete}
+        <Field label={t('admin.deleteConfirmLabel', { username: deleteFor?.username ?? '' })} bind:value={confirmName} autocomplete="off" autocapitalize="none" spellcheck="false" required />
+      {:else}
+        <p>{t('admin.deleteNeeds2fa')} <a href={href('/settings/security')}>{t('admin.deleteAdd2fa')} <span aria-hidden="true">&rsaquo;</span></a></p>
+      {/if}
+    {/if}
+    <div aria-live="polite"><Alert message={derr} /></div>
+    <div class="actions">
+      {#if preview?.canDelete}<Button type="submit" variant="danger" {busy}>{t('admin.deleteConfirm')}</Button>{/if}
+      <Button variant="quiet" onclick={() => (deleteFor = null)}>{t('common.cancel')}</Button>
+    </div>
+  </form>
+</Dialog>
 <Dialog
   open={!!newPassword}
   title={t('password.new')}
@@ -146,5 +214,10 @@
   /* Same size as the other settings lists (name, then a smaller muted line). */
   .meta {
     font-size: 0.875rem;
+  }
+  .user-actions {
+    gap: 4px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
   }
 </style>

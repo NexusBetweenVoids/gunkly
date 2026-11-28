@@ -296,5 +296,17 @@
   "admin.limitResetFor": "Remettre {name} à la valeur par défaut",
   "aiAdmin.testNeedsOn": "Active les suggestions et enregistre pour tester la connexion.",
   "aiAdmin.testNeedsFields": "Enregistre une adresse d’API et un modèle pour tester la connexion.",
-  "guide.addressLocal": "Tout va bien pour tester : l’adresse correspond. Localhost fonctionne sans https ; utilise https dès que d’autres se connectent."
+  "guide.addressLocal": "Tout va bien pour tester : l’adresse correspond. Localhost fonctionne sans https ; utilise https dès que d’autres se connectent.",
+  "admin.delete": "Supprimer",
+  "admin.deleteTitle": "Supprimer le compte de {name} ?",
+  "admin.deleteIntro": "Le compte est supprimé définitivement, avec ses méthodes de connexion, sessions, jetons et canaux de notification personnels. Les tâches faites par cette personne restent dans ses foyers sous « Utilisateur supprimé ». C’est irréversible.",
+  "admin.deleteHouseholds": "Ces foyers n’ont aucun autre membre pouvant les utiliser et sont supprimés avec leurs tâches :",
+  "admin.deleteTransfers": "Cette personne en est la dernière propriétaire ; le membre le plus ancien prend le relais :",
+  "admin.deleteTransfer": "{household} : {name} devient propriétaire",
+  "admin.deleteNeeds2fa": "Pour supprimer des comptes, ton propre compte doit avoir une clé d’accès ou la validation en deux étapes.",
+  "admin.deleteAdd2fa": "Configurer",
+  "admin.deleteConfirmLabel": "Saisis son nom d’utilisateur ({username}) pour confirmer",
+  "admin.deleteConfirm": "Supprimer le compte définitivement",
+  "admin.deleted": "Compte supprimé.",
+  "admin.deleteMismatch": "Ce n’est pas le nom d’utilisateur de ce compte."
 }

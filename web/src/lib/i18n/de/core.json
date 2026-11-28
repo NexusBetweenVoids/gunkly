@@ -228,5 +228,8 @@
   "nav.settings": "Einstellungen",
   "legal.agree": "Mit dem Erstellen eines Kontos akzeptierst du die",
   "legal.terms": "Nutzungsbedingungen",
-  "legal.privacy": "Datenschutzerklärung"
+  "legal.privacy": "Datenschutzerklärung",
+  "err.self_target": "Dein eigenes Konto löschst du unter Einstellungen, Deine Daten.",
+  "err.admin_delete_target": "Administratorkonten lassen sich hier nicht löschen.",
+  "err.second_factor_required": "Füge deinem Konto zuerst einen Passkey oder Zwei-Faktor-Authentifizierung hinzu."
 }

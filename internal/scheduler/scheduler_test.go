@@ -216,7 +216,8 @@ func TestSendsOnceAcrossRestartsAndWorkers(t *testing.T) {
 		t.Fatalf("body = %q", body)
 	}
 	tok := body[strings.Index(body, "/done/")+len("/done/"):]
-	if name, err := f.st.PeekMarkDone(f.ctx, tok); err != nil || name != "Dishes" {
+	// The link is checked at the test's time: it expires a few days after the fixed dates used here.
+	if name, err := f.st.WithClock(f.clock).PeekMarkDone(f.ctx, tok); err != nil || name != "Dishes" {
 		t.Fatalf("mark-done link: %q, %v", name, err)
 	}
 

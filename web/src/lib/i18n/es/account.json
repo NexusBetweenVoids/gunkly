@@ -381,5 +381,6 @@
   "notif.deviceHint": "Notificaciones del navegador, cifradas de extremo a extremo",
   "notif.email": "Correo",
   "notif.appCount": {"one": "{count} aplicación", "many": "{count} aplicaciones", "other": "{count} aplicaciones"},
-  "quietHours.off": "Retén tus recordatorios por la noche o en otras horas fijas."
+  "quietHours.off": "Retén tus recordatorios por la noche o en otras horas fijas.",
+  "audit.admin_user_delete": "Cuenta eliminada por ti como administrador"
 }

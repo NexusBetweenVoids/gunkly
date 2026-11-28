@@ -236,5 +236,8 @@
   "nav.settings": "Ajustes",
   "legal.agree": "Al crear una cuenta aceptas:",
   "legal.terms": "Términos de uso",
-  "legal.privacy": "Política de privacidad"
+  "legal.privacy": "Política de privacidad",
+  "err.self_target": "Elimina tu propia cuenta en Ajustes, Tus datos.",
+  "err.admin_delete_target": "Las cuentas de administrador no se pueden eliminar aquí.",
+  "err.second_factor_required": "Primero añade una llave de acceso o el inicio de sesión en dos pasos a tu cuenta."
 }

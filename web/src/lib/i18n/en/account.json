@@ -381,5 +381,6 @@
   "notif.deviceHint": "Browser notifications, end-to-end encrypted",
   "notif.email": "Email",
   "notif.appCount": {"one": "{count} app", "other": "{count} apps"},
-  "quietHours.off": "Hold your reminders overnight or at other set times."
+  "quietHours.off": "Hold your reminders overnight or at other set times.",
+  "audit.admin_user_delete": "Account deleted by you as administrator"
 }

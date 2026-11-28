@@ -88,7 +88,7 @@ All screenshots show synthetic demo data.
 - Per-user data export and household export as JSON; import as a new household or merge into an existing one. See [Export and import](#export-and-import).
 
 **Admin and operations**
-- First-run setup code, users and instance settings (limits, sessions, retention, allowed services, sign-up), update notice, CLI recovery (`admin reset-password`, `admin reset-2fa`).
+- First-run setup code, users (create, reset password, delete with the admin's second factor) and instance settings (limits, sessions, retention, allowed services, sign-up), update notice, CLI recovery (`admin reset-password`, `admin reset-2fa`).
 - `/healthz`, `/readyz`, optional Prometheus `/metrics`, consistent backups, `migrate-db` to Postgres, graceful shutdown.
 - Languages: English, Dutch, French, German and Spanish, picked from the browser or set per user; see [Translations](#translations). Right-to-left layout is wired in. Installable PWA (no offline mode). WCAG 2.2 AA tested.
 

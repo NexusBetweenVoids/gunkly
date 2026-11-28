@@ -296,5 +296,17 @@
   "admin.limitResetFor": "{name} auf den Standard zurücksetzen",
   "aiAdmin.testNeedsOn": "Schalte Vorschläge ein und speichere, um die Verbindung zu testen.",
   "aiAdmin.testNeedsFields": "Speichere eine API-Adresse und ein Modell, um die Verbindung zu testen.",
-  "guide.addressLocal": "Zum Testen alles in Ordnung: die Adresse stimmt. Localhost funktioniert ohne https; nutze https, sobald sich andere verbinden."
+  "guide.addressLocal": "Zum Testen alles in Ordnung: die Adresse stimmt. Localhost funktioniert ohne https; nutze https, sobald sich andere verbinden.",
+  "admin.delete": "Löschen",
+  "admin.deleteTitle": "Konto von {name} löschen?",
+  "admin.deleteIntro": "Das Konto wird endgültig gelöscht, mit Anmeldemethoden, Sitzungen, Tokens und persönlichen Benachrichtigungskanälen. Erledigte Aufgaben bleiben in den Haushalten als „Gelöschter Benutzer“ stehen. Das lässt sich nicht rückgängig machen.",
+  "admin.deleteHouseholds": "Diese Haushalte haben kein anderes Mitglied, das sie nutzen kann, und werden mit ihren Aufgaben gelöscht:",
+  "admin.deleteTransfers": "Hier ist die Person die letzte Eigentümerin; das am längsten dabei befindliche Mitglied übernimmt:",
+  "admin.deleteTransfer": "{household}: {name} wird Eigentümer",
+  "admin.deleteNeeds2fa": "Zum Löschen von Konten brauchst du einen Passkey oder Zwei-Faktor-Authentifizierung für dein eigenes Konto.",
+  "admin.deleteAdd2fa": "Einrichten",
+  "admin.deleteConfirmLabel": "Gib zur Bestätigung den Benutzernamen ({username}) ein",
+  "admin.deleteConfirm": "Konto endgültig löschen",
+  "admin.deleted": "Konto gelöscht.",
+  "admin.deleteMismatch": "Das ist nicht der Benutzername dieses Kontos."
 }

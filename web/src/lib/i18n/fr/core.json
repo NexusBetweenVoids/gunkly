@@ -236,5 +236,8 @@
   "nav.settings": "Paramètres",
   "legal.agree": "En créant un compte, tu acceptes les",
   "legal.terms": "Conditions d’utilisation",
-  "legal.privacy": "Politique de confidentialité"
+  "legal.privacy": "Politique de confidentialité",
+  "err.self_target": "Supprime ton propre compte dans Paramètres, Tes données.",
+  "err.admin_delete_target": "Les comptes administrateur ne peuvent pas être supprimés ici.",
+  "err.second_factor_required": "Ajoute d’abord une clé d’accès ou la validation en deux étapes à ton compte."
 }

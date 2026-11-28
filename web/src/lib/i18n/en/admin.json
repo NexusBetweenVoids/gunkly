@@ -296,5 +296,17 @@
   "admin.limitResetFor": "Reset {name} to the default",
   "aiAdmin.testNeedsOn": "Turn suggestions on and save to test the connection.",
   "aiAdmin.testNeedsFields": "Save an API address and a model to test the connection.",
-  "guide.addressLocal": "All good for testing: the address matches. Localhost works without https; use https when others connect."
+  "guide.addressLocal": "All good for testing: the address matches. Localhost works without https; use https when others connect.",
+  "admin.delete": "Delete",
+  "admin.deleteTitle": "Delete {name}'s account?",
+  "admin.deleteIntro": "This permanently removes the account with its sign-in methods, sessions, tokens and personal notification channels. Chores they completed stay in their households as \"Deleted user\". This cannot be undone.",
+  "admin.deleteHouseholds": "These households have no other member who can use them and are deleted with their chores:",
+  "admin.deleteTransfers": "They are the last owner here; the longest-standing member takes over:",
+  "admin.deleteTransfer": "{household}: {name} becomes owner",
+  "admin.deleteNeeds2fa": "Deleting accounts needs a passkey or two-factor authentication on your own account.",
+  "admin.deleteAdd2fa": "Set it up",
+  "admin.deleteConfirmLabel": "Type their username ({username}) to confirm",
+  "admin.deleteConfirm": "Delete account permanently",
+  "admin.deleted": "Account deleted.",
+  "admin.deleteMismatch": "That doesn't match their username."
 }

@@ -162,6 +162,8 @@ func (s *Server) registerRoutes() {
 	s.handle("GET /api/v1/admin/users", admin.noToken(), s.adminListUsers)
 	s.handle("POST /api/v1/admin/users", admin.noToken().withStepUp(), s.adminCreateUser)
 	s.handle("POST /api/v1/admin/users/{id}/reset-password", admin.noToken().withStepUp(), s.adminResetPassword)
+	s.handle("GET /api/v1/admin/users/{id}/deletion-preview", admin.noToken(), s.adminUserDeletionPreview)
+	s.handle("DELETE /api/v1/admin/users/{id}", admin.noToken().withStepUp(), s.adminDeleteUser)
 	s.handle("GET /api/v1/admin/settings", admin.noToken(), s.adminGetSettings)
 	s.handle("PATCH /api/v1/admin/settings", admin.noToken().withStepUp(), s.adminPatchSettings)
 	s.handle("GET /api/v1/admin/health", admin.noToken(), s.adminHealth)

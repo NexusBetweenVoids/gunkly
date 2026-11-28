@@ -381,5 +381,6 @@
   "notif.deviceHint": "Browser-Benachrichtigungen, Ende-zu-Ende-verschlüsselt",
   "notif.email": "E-Mail",
   "notif.appCount": {"one": "{count} App", "other": "{count} Apps"},
-  "quietHours.off": "Halte deine Erinnerungen nachts oder zu anderen festen Zeiten zurück."
+  "quietHours.off": "Halte deine Erinnerungen nachts oder zu anderen festen Zeiten zurück.",
+  "audit.admin_user_delete": "Konto von dir als Administrator gelöscht"
 }

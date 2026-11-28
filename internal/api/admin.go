@@ -2,10 +2,13 @@ package api
 
 import (
 	"context"
+	"errors"
 	"maps"
 	"net/http"
 	"regexp"
 	"slices"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/NexusBetweenVoids/gunkly/internal/ids"
@@ -104,6 +107,91 @@ func (s *Server) adminResetPassword(w http.ResponseWriter, r *http.Request, c *c
 	s.audit(ctx, c, c.user.ID, store.AuditPasswordReset, "", map[string]string{"user": id})
 	s.audit(ctx, c, id, store.AuditPasswordReset, "", map[string]string{"by": "admin", "admin": c.user.ID})
 	return ok(w, map[string]string{"password": pw})
+}
+
+// adminDeletionTarget loads an account an admin may delete: not their own
+// (that goes through Settings, Delete account) and not another admin's.
+func (s *Server) adminDeletionTarget(ctx context.Context, c *call, id string) (store.User, error) {
+	target, err := s.st.UserByID(ctx, id)
+	if err != nil {
+		return store.User{}, err
+	}
+	if target.ID == c.user.ID {
+		return store.User{}, errf(http.StatusForbidden, "self_target")
+	}
+	if target.IsAdmin {
+		return store.User{}, errf(http.StatusForbidden, "admin_delete_target")
+	}
+	return target, nil
+}
+
+type adminTransferView struct {
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	NewOwner string `json:"newOwner"` // display name of the longest-standing member, who takes over
+}
+
+// adminUserDeletionPreview says what deleting the account would do: which
+// households are deleted with it and which pass to another member.
+func (s *Server) adminUserDeletionPreview(w http.ResponseWriter, r *http.Request, c *call) error {
+	ctx := r.Context()
+	target, err := s.adminDeletionTarget(ctx, c, r.PathValue("id"))
+	if err != nil {
+		return err
+	}
+	p, err := s.st.AccountDeletionPreview(ctx, target.ID)
+	if err != nil {
+		return err
+	}
+	del := make([]householdRefView, 0, len(p.DeleteHouseholds))
+	for _, h := range p.DeleteHouseholds {
+		del = append(del, householdRefView{ID: h.ID, Name: h.Name})
+	}
+	tr := make([]adminTransferView, 0, len(p.NeedOwner))
+	for _, o := range p.NeedOwner {
+		v := adminTransferView{ID: o.HouseholdID, Name: o.HouseholdName}
+		if len(o.Candidates) > 0 {
+			v.NewOwner = o.Candidates[0].DisplayName // the one DeleteAccount's AutoTransfer picks
+		}
+		tr = append(tr, v)
+	}
+	return ok(w, map[string]any{"deleteHouseholds": del, "transfers": tr, "canDelete": c.user.HasSecondFactor()})
+}
+
+// adminDeleteUser permanently deletes a non-admin account, like the user's own
+// Delete account. Where the user is the last owner, ownership passes to the
+// longest-standing member (as the inactive-account cleanup does); households
+// with no other non-guest member are deleted. Irreversible, so the admin must
+// have a second factor (passkey, authenticator app or email codes), confirm
+// with it (step-up), and repeat the account's username.
+func (s *Server) adminDeleteUser(w http.ResponseWriter, r *http.Request, c *call) error {
+	var in struct {
+		ConfirmUsername string `json:"confirmUsername"`
+	}
+	if err := decode(r, &in); err != nil {
+		return err
+	}
+	if !c.user.HasSecondFactor() {
+		return errf(http.StatusForbidden, "second_factor_required")
+	}
+	ctx := r.Context()
+	target, err := s.adminDeletionTarget(ctx, c, r.PathValue("id"))
+	if err != nil {
+		return err
+	}
+	if !strings.EqualFold(strings.TrimSpace(in.ConfirmUsername), target.Username) {
+		return errf(http.StatusBadRequest, "confirmation_mismatch")
+	}
+	res, err := s.st.DeleteAccount(ctx, target.ID, store.AccountDeletion{AutoTransfer: true, RefuseAdmin: true})
+	if errors.Is(err, store.ErrLastAdmin) { // made an admin since the check above
+		return errf(http.StatusForbidden, "admin_delete_target")
+	}
+	if err != nil {
+		return err
+	}
+	s.audit(ctx, c, c.user.ID, store.AuditAdminUserDelete, "", map[string]string{
+		"user": target.ID, "householdsDeleted": strconv.Itoa(len(res.DeletedHouseholds)), "ownershipTransferred": strconv.Itoa(len(res.Transfers))})
+	return noContent(w)
 }
 
 type settingsView struct {

@@ -4,6 +4,14 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ## [Unreleased]
 
+### Added
+
+- Administration, Users: **Delete** removes another person's account, as their own Delete account would. The dialog lists the households that go with it and who becomes owner where they were the last owner (the longest-standing member). The admin needs a passkey or two-factor authentication on their own account, confirms it, and types the account's username. Admin accounts and your own account can't be deleted there. The deletion is written to the admin's activity log.
+
+### Fixed
+
+- Home: ticking Archived no longer hides the Everyone/Mine switch and resets it to Everyone; the switch stays in place and Mine still applies when you go back to the active list.
+
 ## [0.13.1] - 2026-11-28
 
 ### Security

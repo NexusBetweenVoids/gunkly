@@ -30,6 +30,7 @@ const (
 	AuditInviteLimit         = "invite_limit_reached" // a household hit the daily invite limit (security alert)
 	AuditHouseholdCreate     = "household_create"
 	AuditAdminUserCreate     = "admin_user_create"
+	AuditAdminUserDelete     = "admin_user_delete" // meta user = the deleted account's ID, householdsDeleted, ownershipTransferred
 	AuditAdminSettings       = "admin_settings"
 	AuditAdminUpdate         = "admin_update_requested" // the update webhook was called
 	AuditAISuggest           = "ai_suggest"             // a member asked the AI for chore suggestions (count only, never the text)

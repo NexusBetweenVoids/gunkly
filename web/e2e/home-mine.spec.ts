@@ -26,6 +26,16 @@ test('the Mine toggle appears only once someone else has a chore of their own', 
   await toggle.getByRole('button', { name: 'Mine' }).click();
   await expect(page.getByRole('link', { name: mine.name })).toBeVisible();
   await expect(page.getByRole('link', { name: theirs.name })).toHaveCount(0);
+
+  // Archived keeps the toggle (and Mine) in place; back on the active list Mine still applies.
+  await page.getByRole('checkbox', { name: 'Archived' }).check();
+  await expect(page.getByText('No archived chores.')).toBeVisible();
+  await expect(toggle.getByRole('button', { name: 'Mine' })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('checkbox', { name: 'Archived' }).uncheck();
+  await expect(page.getByRole('link', { name: mine.name })).toBeVisible();
+  await expect(toggle.getByRole('button', { name: 'Mine' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('link', { name: theirs.name })).toHaveCount(0);
+
   await toggle.getByRole('button', { name: 'Everyone' }).click();
   await expect(page.getByRole('link', { name: theirs.name })).toBeVisible();
 });

@@ -381,5 +381,6 @@
   "notif.deviceHint": "Browsermeldingen, end-to-end versleuteld",
   "notif.email": "E-mail",
   "notif.appCount": {"one": "{count} app", "other": "{count} apps"},
-  "quietHours.off": "Houd je herinneringen ’s nachts of op andere vaste tijden tegen."
+  "quietHours.off": "Houd je herinneringen ’s nachts of op andere vaste tijden tegen.",
+  "audit.admin_user_delete": "Account door jou als beheerder verwijderd"
 }

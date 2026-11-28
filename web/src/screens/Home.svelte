@@ -32,6 +32,7 @@
     history.replaceState(null, '', u);
   }
   let loaded = $state(false);
+  let mineUseful = $state(false); // set by load()
   // The offer of reminders on this device is its own small chunk, loaded once a household shows.
   let Prompt = $state.raw<Component | null>(null);
   $effect(() => {
@@ -48,12 +49,17 @@
   async function load(): Promise<void> {
     err = '';
     try {
-      const q = archived ? '?archived=1' : '';
-      [chores, areas, members] = await Promise.all([
+      const arch = archived;
+      const q = arch ? '?archived=1' : '';
+      const [c, a, m] = await Promise.all([
         api<Chore[]>('GET', `${base}/chores${q}`),
         areasOn ? api<Area[]>('GET', `${base}/areas`) : Promise.resolve([] as Area[]),
         api<Member[]>('GET', `${base}/members`),
       ]);
+      // Whether Mine is offered is decided on the active list only, so the toggle (and the Archived box beside
+      // it) stays put while archived chores are shown, and the choice carries over between the two lists.
+      if (!arch) mineUseful = c.some((x) => !mineOk(x));
+      [chores, areas, members] = [c, a, m];
     } catch (x) {
       err = failure(x).message;
     }
@@ -66,11 +72,11 @@
   $effect(() => {
     void hh;
     mine = false; // a new household starts on Everyone
+    mineUseful = false;
   });
   // "Mine" (assigned to me or to anyone) only differs from Everyone when someone else has a chore of their own.
   // For a chore that takes turns, only the person whose turn it is.
   const mineOk = (c: Chore) => (c.rotation ? c.turnUserId === app.user?.id : !c.assignees.length || c.assignees.includes(app.user?.id ?? ''));
-  const mineUseful = $derived(chores.some((c) => !mineOk(c)));
   const showMine = $derived(mine && mineUseful);
   $effect(() => {
     if (loaded && !mineUseful) mine = false;

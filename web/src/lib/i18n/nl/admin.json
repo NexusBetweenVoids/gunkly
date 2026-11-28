@@ -296,5 +296,17 @@
   "admin.limitResetFor": "{name} terugzetten naar de standaard",
   "aiAdmin.testNeedsOn": "Zet suggesties aan en sla op om de verbinding te testen.",
   "aiAdmin.testNeedsFields": "Sla een API-adres en een model op om de verbinding te testen.",
-  "guide.addressLocal": "Prima om te testen: het adres klopt. Localhost werkt zonder https; gebruik https zodra anderen verbinding maken."
+  "guide.addressLocal": "Prima om te testen: het adres klopt. Localhost werkt zonder https; gebruik https zodra anderen verbinding maken.",
+  "admin.delete": "Verwijderen",
+  "admin.deleteTitle": "Account van {name} verwijderen?",
+  "admin.deleteIntro": "Hiermee verdwijnt het account voorgoed, met inlogmethoden, sessies, tokens en persoonlijke meldingskanalen. Klusjes die deze persoon heeft afgerond blijven in de huishoudens staan als \"Verwijderde gebruiker\". Dit kan niet ongedaan worden gemaakt.",
+  "admin.deleteHouseholds": "Deze huishoudens hebben geen ander lid dat ze kan gebruiken en worden met hun klusjes verwijderd:",
+  "admin.deleteTransfers": "Deze persoon is hier de laatste eigenaar; het langst aanwezige lid neemt het over:",
+  "admin.deleteTransfer": "{household}: {name} wordt eigenaar",
+  "admin.deleteNeeds2fa": "Voor het verwijderen van accounts heb je een passkey of tweestapsverificatie op je eigen account nodig.",
+  "admin.deleteAdd2fa": "Instellen",
+  "admin.deleteConfirmLabel": "Typ de gebruikersnaam ({username}) om te bevestigen",
+  "admin.deleteConfirm": "Account definitief verwijderen",
+  "admin.deleted": "Account verwijderd.",
+  "admin.deleteMismatch": "Dat is niet de gebruikersnaam van dit account."
 }

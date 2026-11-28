@@ -1495,6 +1495,41 @@ paths:
         "200": {description: OK, content: {application/json: {schema: {type: object, properties: {password: {type: string}}}}}}
         "403": {$ref: "#/components/responses/Forbidden"}
         "404": {$ref: "#/components/responses/NotFound"}
+  /admin/users/{id}/deletion-preview:
+    parameters: [{name: id, in: path, required: true, schema: {type: string}}]
+    get:
+      tags: [admin]
+      summary: What deleting a non-admin account would do (admin)
+      description: Households deleted with the account (no other non-guest member) and households whose ownership passes to the longest-standing member (newOwner is that member's display name). canDelete is false while the calling admin has no second factor. Refused for the caller's own account (403 self_target) and for admin accounts (403 admin_delete_target).
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deleteHouseholds: {type: array, items: {type: object, properties: {id: {type: string}, name: {type: string}}}}
+                  transfers: {type: array, items: {type: object, properties: {id: {type: string}, name: {type: string}, newOwner: {type: string}}}}
+                  canDelete: {type: boolean}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+  /admin/users/{id}:
+    parameters: [{name: id, in: path, required: true, schema: {type: string}}]
+    delete:
+      tags: [admin]
+      summary: Permanently delete a non-admin account (admin, second factor, step-up)
+      description: Like the user's own Delete account, with ownership passed to the longest-standing member where the user is the last owner. The calling admin needs a second factor (403 second_factor_required) and a recent step-up; confirmUsername must repeat the account's username (400 confirmation_mismatch). Refused for the caller's own account (403 self_target) and for admin accounts (403 admin_delete_target). Written to the admin's audit log as admin_user_delete.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, required: [confirmUsername], properties: {confirmUsername: {type: string}}}
+      responses:
+        "204": {description: Deleted}
+        "400": {$ref: "#/components/responses/Invalid"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
   /admin/health:
     get:
       tags: [admin]

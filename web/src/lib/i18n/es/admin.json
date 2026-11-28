@@ -296,5 +296,17 @@
   "admin.limitResetFor": "Restablecer {name} al valor predeterminado",
   "aiAdmin.testNeedsOn": "Activa las sugerencias y guarda para probar la conexión.",
   "aiAdmin.testNeedsFields": "Guarda una dirección de API y un modelo para probar la conexión.",
-  "guide.addressLocal": "Todo bien para pruebas: la dirección coincide. Localhost funciona sin https; usa https cuando se conecten otras personas."
+  "guide.addressLocal": "Todo bien para pruebas: la dirección coincide. Localhost funciona sin https; usa https cuando se conecten otras personas.",
+  "admin.delete": "Eliminar",
+  "admin.deleteTitle": "¿Eliminar la cuenta de {name}?",
+  "admin.deleteIntro": "La cuenta se elimina para siempre, con sus métodos de inicio de sesión, sesiones, tokens y canales de notificación personales. Las tareas que completó siguen en sus hogares como «Usuario eliminado». No se puede deshacer.",
+  "admin.deleteHouseholds": "Estos hogares no tienen otro miembro que pueda usarlos y se eliminan con sus tareas:",
+  "admin.deleteTransfers": "Es el último propietario; el miembro más antiguo pasa a serlo:",
+  "admin.deleteTransfer": "{household}: {name} pasa a ser propietario",
+  "admin.deleteNeeds2fa": "Para eliminar cuentas, tu propia cuenta necesita una llave de acceso o la verificación en dos pasos.",
+  "admin.deleteAdd2fa": "Configurarlo",
+  "admin.deleteConfirmLabel": "Escribe su nombre de usuario ({username}) para confirmar",
+  "admin.deleteConfirm": "Eliminar la cuenta para siempre",
+  "admin.deleted": "Cuenta eliminada.",
+  "admin.deleteMismatch": "Ese no es el nombre de usuario de esta cuenta."
 }
