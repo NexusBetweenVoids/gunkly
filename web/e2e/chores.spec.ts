@@ -224,6 +224,8 @@ test('calendar: overdue days are marked; the day list completes a chore with Und
   const { page } = await u.open();
   await page.goto('/calendar');
   const cell = page.locator(`#cal-${ymd(-1)}`);
+  // Let the month render (today's cell is always on it) before deciding whether yesterday is on it.
+  await expect(page.locator(`#cal-${ymd(0)}`)).toBeVisible();
   if (!(await cell.count())) await page.getByRole('button', { name: 'Previous' }).click();
   await expect(cell).toContainText('1 chore, Overdue');
   await expect(cell.locator('.pill.late')).toHaveText('1');
